@@ -44,10 +44,25 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
 
   bool _hasMoreAfter = true;
   bool _hasMoreBefore = true;
-  bool _isLoadingPrevious = false;
-  bool _isLoadingMore = false;
-  bool _isLoadMoreFailed = false;
-  bool _isLoadPreviousFailed = false;
+
+  /// 分页状态改由 ValueNotifier 驱动:加载指示器/重试按钮由列表内
+  /// ValueListenableBuilder 就地切换,分页起止不再发射
+  /// AsyncLoading.copyWithPrevious(那会触发整页 rebuild,滚动中掉帧)。
+  final ValueNotifier<bool> loadingPreviousListenable = ValueNotifier(false);
+  final ValueNotifier<bool> loadingMoreListenable = ValueNotifier(false);
+  final ValueNotifier<bool> loadMoreFailedListenable = ValueNotifier(false);
+  final ValueNotifier<bool> loadPreviousFailedListenable = ValueNotifier(false);
+
+  // 私有 getter/setter 对:既有赋值点(_isLoadingMore = true 等)零改动。
+  bool get _isLoadingPrevious => loadingPreviousListenable.value;
+  set _isLoadingPrevious(bool v) => loadingPreviousListenable.value = v;
+  bool get _isLoadingMore => loadingMoreListenable.value;
+  set _isLoadingMore(bool v) => loadingMoreListenable.value = v;
+  bool get _isLoadMoreFailed => loadMoreFailedListenable.value;
+  set _isLoadMoreFailed(bool v) => loadMoreFailedListenable.value = v;
+  bool get _isLoadPreviousFailed => loadPreviousFailedListenable.value;
+  set _isLoadPreviousFailed(bool v) => loadPreviousFailedListenable.value = v;
+
   String? _filter;  // 当前过滤模式（如 'summary' 表示热门回复）
   String? _usernameFilter;  // 当前用户名过滤（如只看题主）
   bool _filterTopLevelReplies = false;  // 只看顶层回复

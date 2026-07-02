@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
@@ -36,10 +37,13 @@ class TopicPostList extends StatefulWidget {
   final bool isLoggedIn;
   final bool hasMoreBefore;
   final bool hasMoreAfter;
-  final bool isLoadingPrevious;
-  final bool isLoadingMore;
-  final bool isLoadMoreFailed;
-  final bool isLoadPreviousFailed;
+
+  /// 分页加载/失败状态(provider 的 ValueNotifier)。指示器由列表内
+  /// ValueListenableBuilder 就地切换,分页起止不触发整页 rebuild。
+  final ValueListenable<bool> loadingPreviousListenable;
+  final ValueListenable<bool> loadingMoreListenable;
+  final ValueListenable<bool> loadMoreFailedListenable;
+  final ValueListenable<bool> loadPreviousFailedListenable;
   final VoidCallback? onRetryLoadMore;
   final VoidCallback? onRetryLoadPrevious;
   final int centerPostIndex;
@@ -96,10 +100,10 @@ class TopicPostList extends StatefulWidget {
     required this.isLoggedIn,
     required this.hasMoreBefore,
     required this.hasMoreAfter,
-    required this.isLoadingPrevious,
-    required this.isLoadingMore,
-    this.isLoadMoreFailed = false,
-    this.isLoadPreviousFailed = false,
+    required this.loadingPreviousListenable,
+    required this.loadingMoreListenable,
+    required this.loadMoreFailedListenable,
+    required this.loadPreviousFailedListenable,
     this.onRetryLoadMore,
     this.onRetryLoadPrevious,
     required this.centerPostIndex,
@@ -170,10 +174,6 @@ class _TopicPostListState extends State<TopicPostList> {
   bool get isLoggedIn => widget.isLoggedIn;
   bool get hasMoreBefore => widget.hasMoreBefore;
   bool get hasMoreAfter => widget.hasMoreAfter;
-  bool get isLoadingPrevious => widget.isLoadingPrevious;
-  bool get isLoadingMore => widget.isLoadingMore;
-  bool get isLoadMoreFailed => widget.isLoadMoreFailed;
-  bool get isLoadPreviousFailed => widget.isLoadPreviousFailed;
   VoidCallback? get onRetryLoadMore => widget.onRetryLoadMore;
   VoidCallback? get onRetryLoadPrevious => widget.onRetryLoadPrevious;
   int get centerPostIndex => widget.centerPostIndex;
@@ -576,14 +576,30 @@ class _TopicPostListState extends State<TopicPostList> {
               parent: BouncingScrollPhysics(),
             ),
             slivers: [
-              // 向上加载骨架屏 / 失败重试
-              if (hasMoreBefore && isLoadPreviousFailed)
-                SliverToBoxAdapter(
-                  child: _LoadFailedRetry(onRetry: onRetryLoadPrevious),
-                )
-              else if (hasMoreBefore && isLoadingPrevious)
-                SliverToBoxAdapter(
-                  child: _wrapContent(context, const _LoadMoreIndicator()),
+              // 向上加载骨架屏 / 失败重试(ListenableBuilder 就地切换,
+              // 分页起止只重建这一个 sliver,不整页 rebuild)
+              if (hasMoreBefore)
+                ListenableBuilder(
+                  listenable: Listenable.merge([
+                    widget.loadingPreviousListenable,
+                    widget.loadPreviousFailedListenable,
+                  ]),
+                  builder: (context, _) {
+                    if (widget.loadPreviousFailedListenable.value) {
+                      return SliverToBoxAdapter(
+                        child: _LoadFailedRetry(onRetry: onRetryLoadPrevious),
+                      );
+                    }
+                    if (widget.loadingPreviousListenable.value) {
+                      return SliverToBoxAdapter(
+                        child: _wrapContent(
+                          context,
+                          const _LoadMoreIndicator(),
+                        ),
+                      );
+                    }
+                    return const SliverToBoxAdapter(child: SizedBox.shrink());
+                  },
                 ),
 
               // 话题 Header（centerPostIndex > 0 时放在 before-center 区域）
@@ -689,14 +705,29 @@ class _TopicPostListState extends State<TopicPostList> {
                   ),
                 ),
 
-              // 底部加载骨架屏 / 失败重试
-              if (hasMoreAfter && isLoadMoreFailed)
-                SliverToBoxAdapter(
-                  child: _LoadFailedRetry(onRetry: onRetryLoadMore),
-                )
-              else if (hasMoreAfter && isLoadingMore)
-                SliverToBoxAdapter(
-                  child: _wrapContent(context, const _LoadMoreIndicator()),
+              // 底部加载骨架屏 / 失败重试(同顶部,分页起止只重建本 sliver)
+              if (hasMoreAfter)
+                ListenableBuilder(
+                  listenable: Listenable.merge([
+                    widget.loadingMoreListenable,
+                    widget.loadMoreFailedListenable,
+                  ]),
+                  builder: (context, _) {
+                    if (widget.loadMoreFailedListenable.value) {
+                      return SliverToBoxAdapter(
+                        child: _LoadFailedRetry(onRetry: onRetryLoadMore),
+                      );
+                    }
+                    if (widget.loadingMoreListenable.value) {
+                      return SliverToBoxAdapter(
+                        child: _wrapContent(
+                          context,
+                          const _LoadMoreIndicator(),
+                        ),
+                      );
+                    }
+                    return const SliverToBoxAdapter(child: SizedBox.shrink());
+                  },
                 ),
               SliverPadding(
                 padding: EdgeInsets.only(

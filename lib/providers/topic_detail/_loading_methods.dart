@@ -16,9 +16,8 @@ extension LoadingMethods on TopicDetailNotifier {
     _isLoadingPrevious = true;
 
     try {
-      // ignore: invalid_use_of_internal_member
-      state = const AsyncLoading<TopicDetail>().copyWithPrevious(state);
-
+      // 不再发射 AsyncLoading.copyWithPrevious:顶部 spinner 由
+      // loadingPreviousListenable 驱动,分页起止不触发整页 rebuild。
       final result = await AsyncValue.guard(() async {
         final currentDetail = state.requireValue;
         final currentPosts = currentDetail.postStream.posts;
@@ -64,9 +63,9 @@ extension LoadingMethods on TopicDetailNotifier {
       });
       if (!ref.mounted) return;
       if (result.hasError) {
+        // 未发射过 AsyncLoading,state 仍是原 AsyncData,无需恢复;
+        // 失败重试按钮由 loadPreviousFailedListenable 驱动
         _isLoadPreviousFailed = true;
-        // 恢复之前的数据状态，不让 UI 显示全局错误
-        state = AsyncValue.data(state.requireValue);
       } else {
         state = result;
       }
@@ -93,9 +92,8 @@ extension LoadingMethods on TopicDetailNotifier {
     _isLoadingMore = true;
 
     try {
-      // ignore: invalid_use_of_internal_member
-      state = const AsyncLoading<TopicDetail>().copyWithPrevious(state);
-
+      // 不再发射 AsyncLoading.copyWithPrevious:底部 spinner 由
+      // loadingMoreListenable 驱动,分页起止不触发整页 rebuild。
       final result = await AsyncValue.guard(() async {
         final currentDetail = state.requireValue;
         final currentPosts = currentDetail.postStream.posts;
@@ -141,8 +139,8 @@ extension LoadingMethods on TopicDetailNotifier {
       });
       if (!ref.mounted) return;
       if (result.hasError) {
+        // 未发射过 AsyncLoading,state 仍是原 AsyncData,无需恢复
         _isLoadMoreFailed = true;
-        state = AsyncValue.data(state.requireValue);
       } else {
         state = result;
       }

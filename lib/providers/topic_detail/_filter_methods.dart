@@ -140,9 +140,7 @@ extension FilterMethods on TopicDetailNotifier {
     _isLoadingMore = true;
 
     try {
-      // ignore: invalid_use_of_internal_member
-      state = const AsyncLoading<TopicDetail>().copyWithPrevious(state);
-
+      // 分页 spinner 由 loadingMoreListenable 驱动,不发射 AsyncLoading
       final result = await AsyncValue.guard(() async {
         final currentDetail = state.requireValue;
         final currentPosts = currentDetail.postStream.posts;
@@ -189,8 +187,8 @@ extension FilterMethods on TopicDetailNotifier {
       });
       if (!ref.mounted) return;
       if (result.hasError) {
+        // 未发射过 AsyncLoading,state 仍是原 AsyncData,无需恢复
         _isLoadMoreFailed = true;
-        state = AsyncValue.data(state.requireValue);
       } else {
         state = result;
       }
@@ -205,9 +203,7 @@ extension FilterMethods on TopicDetailNotifier {
     _isLoadingPrevious = true;
 
     try {
-      // ignore: invalid_use_of_internal_member
-      state = const AsyncLoading<TopicDetail>().copyWithPrevious(state);
-
+      // 分页 spinner 由 loadingPreviousListenable 驱动,不发射 AsyncLoading
       final result = await AsyncValue.guard(() async {
         final currentDetail = state.requireValue;
         final currentPosts = currentDetail.postStream.posts;
@@ -252,8 +248,8 @@ extension FilterMethods on TopicDetailNotifier {
       });
       if (!ref.mounted) return;
       if (result.hasError) {
+        // 未发射过 AsyncLoading,state 仍是原 AsyncData,无需恢复
         _isLoadPreviousFailed = true;
-        state = AsyncValue.data(state.requireValue);
       } else {
         state = result;
       }
