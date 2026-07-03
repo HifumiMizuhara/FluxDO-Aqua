@@ -8,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/s.dart';
 import '../../models/user.dart';
 import '../../providers/discourse_providers.dart';
-import '../../providers/preferences_provider.dart';
 import '../../pages/user_profile_page.dart';
 import '../../services/app_error_handler.dart';
 import '../../services/discourse_cache_manager.dart';
@@ -17,14 +16,13 @@ import '../../services/toast_service.dart';
 import '../../utils/dialog_utils.dart';
 import '../../utils/number_utils.dart';
 import '../../utils/platform_utils.dart';
-import '../../utils/share_utils.dart';
 import '../../utils/time_utils.dart';
 import '../common/flair_badge.dart';
 import 'package:common_ui/common_ui.dart';
 import '../common/skeleton.dart';
 import '../common/smart_avatar.dart';
 import '../../utils/fluxdo_render_callbacks.dart';
-import '../post/reply_sheet.dart';
+import 'avatar_action_menu.dart';
 import 'ignore_duration_picker.dart';
 
 /// 卡片与锚点之间的间隙
@@ -503,32 +501,13 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
   }
 
   void _composeMessage() {
-    final prefs = ref.read(preferencesProvider);
-    final currentUsername = ref.read(currentUserProvider).value?.username;
-
-    String? body;
-    if (widget.topicId != null && widget.postNumber != null) {
-      body = ShareUtils.buildShareUrl(
-        path: '/t/${widget.topicId}/${widget.postNumber}',
-        username: currentUsername,
-        anonymousShare: prefs.anonymousShare,
-      );
-    }
-    // 标题优先用传入的 topicTitle，否则从话题会话状态读取（基于话题的私信预填「回复:标题」）
-    final topicTitle = widget.topicTitle ??
-        (widget.topicId != null
-            ? ref.read(topicSessionProvider(widget.topicId!)).topicTitle
-            : null);
-    final title = (topicTitle != null && topicTitle.isNotEmpty)
-        ? S.current.userCard_referenceTopicTitle(topicTitle)
-        : null;
-
     widget.onClose();
-    showReplySheet(
+    composeMessageToUser(
       context: widget.anchorContext,
-      targetUsername: widget.username,
-      initialContent: body,
-      initialTitle: title,
+      username: widget.username,
+      topicId: widget.topicId,
+      postNumber: widget.postNumber,
+      topicTitle: widget.topicTitle,
     );
   }
 
@@ -747,16 +726,21 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
           Row(
             children: [
               Flexible(
-                child: Text(
-                  '@${widget.username}',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: hasBg
-                        ? theme.colorScheme.onSurface.withValues(alpha: 0.9)
-                        : theme.colorScheme.onSurfaceVariant,
-                    shadows: shadows,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  // 点击 @username 复制用户名
+                  onTap: () => copyUsernameToClipboard(widget.username),
+                  child: Text(
+                    '@${widget.username}',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: hasBg
+                          ? theme.colorScheme.onSurface.withValues(alpha: 0.9)
+                          : theme.colorScheme.onSurfaceVariant,
+                      shadows: shadows,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (user != null) ...[

@@ -14,7 +14,9 @@ import '../../utils/responsive.dart';
 import '../../utils/time_utils.dart';
 import '../content/collapsed_html_content.dart';
 import '../post/post_item/widgets/post_footer_section/post_footer_section.dart';
+import '../common/radial_long_press_menu.dart';
 import '../common/smart_avatar.dart';
+import '../user/avatar_action_menu.dart';
 import 'nested_collapsed_bar.dart';
 import 'nested_post_gutter.dart';
 import 'nested_thread_sheet.dart';
@@ -305,6 +307,9 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
               username: post.username,
               post: post,
               topicId: widget.topicId,
+              onMentionUser: widget.isLoggedIn
+                  ? (u) => widget.onReply(null, initialContent: '@$u ')
+                  : null,
             ),
           const SizedBox(width: _columnGap),
           Expanded(child: contentColumn),
@@ -627,13 +632,36 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
   }) {
     return Row(
       children: [
-        // 移动端内联头像
+        // 移动端内联头像（点击进主页，长按弹径向操作菜单）
         if (isMobile) ...[
-          GestureDetector(
+          RadialLongPressMenu(
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (_) => UserProfilePage(username: post.username),
+              ),
+            ),
+            itemsBuilder: () => buildAvatarMenuItems(
+              context,
+              username: post.username,
+              topicId: widget.topicId,
+              postNumber: post.postNumber,
+              onMentionUser: widget.isLoggedIn
+                  ? (u) => widget.onReply(null, initialContent: '@$u ')
+                  : null,
+            ),
+            pressAreaIndicatorBuilder: (ctx, rect, opacity) => Opacity(
+              opacity: opacity,
+              child: SmartAvatar(
+                imageUrl: post.avatarTemplate.isNotEmpty
+                    ? NestedPostAvatar.resolveUrl(post.avatarTemplate)
+                    : null,
+                radius: rect.shortestSide / 2,
+                fallbackText: post.username,
+                border: Border.all(
+                  color: Theme.of(ctx).colorScheme.primary,
+                  width: 2,
+                ),
               ),
             ),
             child: SmartAvatar(

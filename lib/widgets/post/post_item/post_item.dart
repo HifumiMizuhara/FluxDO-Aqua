@@ -22,6 +22,9 @@ class PostItem extends ConsumerStatefulWidget {
   final Post post;
   final int topicId;
   final void Function({String? initialContent})? onReply;
+
+  /// 头像长按菜单「@用户」回调（null = 不可回复，菜单不显示该项）
+  final void Function(String username)? onMentionUser;
   final VoidCallback? onLike;
   final VoidCallback? onEdit;
   final VoidCallback? onShareAsImage;
@@ -54,6 +57,7 @@ class PostItem extends ConsumerStatefulWidget {
     required this.post,
     required this.topicId,
     this.onReply,
+    this.onMentionUser,
     this.onLike,
     this.onEdit,
     this.onShareAsImage,
@@ -192,6 +196,7 @@ class _PostItemState extends ConsumerState<PostItem> {
                 padding: EdgeInsets.zero,
                 onJumpToPost: widget.onJumpToPost,
                 onEditWiki: widget.onEdit,
+                onMentionUser: widget.onMentionUser,
                 danmakuActive: showDanmakuToggle ? showDanmaku : null,
                 onToggleDanmaku: showDanmakuToggle
                     ? () => setState(() {

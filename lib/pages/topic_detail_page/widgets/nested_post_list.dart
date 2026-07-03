@@ -159,6 +159,9 @@ class _NestedPostListState extends ConsumerState<NestedPostList> {
                     ? ({initialContent}) =>
                           widget.onReply(null, initialContent: initialContent)
                     : null,
+                onMentionUser: widget.isLoggedIn
+                    ? (u) => widget.onReply(null, initialContent: '@$u ')
+                    : null,
                 onEdit: widget.isLoggedIn && ns.opPost!.canEdit
                     ? () => widget.onEdit(ns.opPost!)
                     : null,

@@ -10,6 +10,8 @@ import '../../../../utils/url_helper.dart';
 import '../../../common/flair_badge.dart';
 import '../../../common/smart_avatar.dart';
 import '../../../common/avatar_glow.dart';
+import '../../../common/radial_long_press_menu.dart';
+import '../../../user/avatar_action_menu.dart';
 import '../../../user/user_card.dart';
 import '../../whisper_indicator.dart';
 import '../../post_boost/boost_danmaku.dart';
@@ -27,12 +29,16 @@ class PostAvatar extends StatefulWidget {
   final double radius;
   final int? topicId;
 
+  /// 长按菜单「@用户」回调（null = 链路不可回复，菜单不显示该项）
+  final void Function(String username)? onMentionUser;
+
   const PostAvatar({
     super.key,
     required this.post,
     required this.theme,
     this.radius = 20,
     this.topicId,
+    this.onMentionUser,
   });
 
   @override
@@ -93,8 +99,25 @@ class _PostAvatarState extends State<PostAvatar> {
       avatar = AvatarGlow(glowColor: glowColor, child: avatar);
     }
 
-    return GestureDetector(
+    return RadialLongPressMenu(
       onTap: _openUserCard,
+      itemsBuilder: () => buildAvatarMenuItems(
+        context,
+        username: widget.post.username,
+        topicId: widget.topicId,
+        postNumber: widget.post.postNumber,
+        onMentionUser: widget.onMentionUser,
+      ),
+      // 按压替代显示：头像本身 + primary 圆环，语义是"按住的这个人浮在模糊层上"
+      pressAreaIndicatorBuilder: (ctx, rect, opacity) => Opacity(
+        opacity: opacity,
+        child: SmartAvatar(
+          imageUrl: avatarUrl.isNotEmpty ? avatarUrl : null,
+          radius: rect.shortestSide / 2,
+          fallbackText: widget.post.username,
+          border: Border.all(color: Theme.of(ctx).colorScheme.primary, width: 2),
+        ),
+      ),
       child: CompositedTransformTarget(link: _link, child: avatar),
     );
   }

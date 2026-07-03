@@ -26,6 +26,7 @@ import '../widgets/common/grain_gradient_background.dart';
 import '../widgets/common/error_view.dart';
 import '../widgets/common/paged_list_footer.dart';
 import '../widgets/common/smart_avatar.dart';
+import '../widgets/user/avatar_action_menu.dart';
 import '../widgets/content/collapsed_html_content.dart';
 import '../utils/fluxdo_render_callbacks.dart';
 import '../widgets/post/reply_sheet.dart';
@@ -1309,9 +1310,14 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                                 if (_user?.username != null)
                                   Padding(
                                     padding: const EdgeInsets.only(top: 2, bottom: 6),
-                                    child: Text(
-                                       '@${_user?.username}',
-                                       style: TextStyle(color: Colors.white.withValues(alpha:0.85), fontSize: 13),
+                                    child: GestureDetector(
+                                      behavior: HitTestBehavior.opaque,
+                                      // 点击 @username 复制用户名
+                                      onTap: () => copyUsernameToClipboard(_user!.username),
+                                      child: Text(
+                                         '@${_user?.username}',
+                                         style: TextStyle(color: Colors.white.withValues(alpha:0.85), fontSize: 13),
+                                      ),
                                     ),
                                   )
                                 else

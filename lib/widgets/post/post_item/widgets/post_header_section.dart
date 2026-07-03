@@ -34,6 +34,9 @@ class PostHeaderSection extends ConsumerStatefulWidget {
   final VoidCallback? onToggleDanmaku;
   /// wiki 帖 version==1 时点击编辑指示器进入编辑器的回调(由上层 PostItem 传入)。
   final VoidCallback? onEditWiki;
+
+  /// 头像长按菜单「@用户」回调（null = 不可回复，菜单不显示该项）
+  final void Function(String username)? onMentionUser;
   const PostHeaderSection({
     super.key,
     required this.post,
@@ -48,6 +51,7 @@ class PostHeaderSection extends ConsumerStatefulWidget {
     this.danmakuActive,
     this.onToggleDanmaku,
     this.onEditWiki,
+    this.onMentionUser,
   });
 
   @override
@@ -61,6 +65,7 @@ class _PostHeaderSectionState extends ConsumerState<PostHeaderSection> {
   final ValueNotifier<bool> _showReplyHistoryNotifier = ValueNotifier<bool>(false);
   Widget? _cachedAvatarWidget;
   int? _cachedPostId;
+  bool? _cachedHasMention;
 
   @override
   void dispose() {
@@ -72,15 +77,32 @@ class _PostHeaderSectionState extends ConsumerState<PostHeaderSection> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_cachedAvatarWidget == null || _cachedPostId != widget.post.id) {
+    _rebuildAvatarIfNeeded();
+  }
+
+  @override
+  void didUpdateWidget(PostHeaderSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // didChangeDependencies 不保证在普通父 build 时触发，
+    // 这里兜住回调 null/非 null 切换（如登录态变化）导致的缓存过期
+    _rebuildAvatarIfNeeded();
+  }
+
+  void _rebuildAvatarIfNeeded() {
+    final hasMention = widget.onMentionUser != null;
+    if (_cachedAvatarWidget == null ||
+        _cachedPostId != widget.post.id ||
+        _cachedHasMention != hasMention) {
       final theme = Theme.of(context);
       _cachedAvatarWidget = PostAvatar(
         key: ValueKey('avatar-${widget.post.id}'),
         post: widget.post,
         theme: theme,
         topicId: widget.topicId,
+        onMentionUser: widget.onMentionUser,
       );
       _cachedPostId = widget.post.id;
+      _cachedHasMention = hasMention;
     }
   }
 

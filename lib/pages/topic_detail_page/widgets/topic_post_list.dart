@@ -793,6 +793,10 @@ class _TopicPostListState extends State<TopicPostList> {
         (post.boosts ?? []).any((b) => b.user.username == boostUsername);
     final highlight = isTargetPost && !canLocateBoost;
     final replyTarget = post.postNumber == 1 ? null : post;
+    // 头像长按菜单「@用户」：新回复（不针对该楼）+ 预填 @username
+    final void Function(String username)? onMentionUser = isLoggedIn
+        ? (u) => onReply(null, initialContent: '@$u ')
+        : null;
     // OP 帖底部的 "俺也一样" 按钮; 非 OP 或服务端没启用时为 null
     final Widget? opSlot = (post.postNumber == 1 && detail.sharedIssueVisible)
         ? SharedIssueButton(topic: detail, onChanged: onSharedIssueChanged)
@@ -817,6 +821,7 @@ class _TopicPostListState extends State<TopicPostList> {
               ? ({initialContent}) =>
                     onReply(replyTarget, initialContent: initialContent)
               : null,
+          onMentionUser: onMentionUser,
           onEdit: isLoggedIn && post.canEdit ? () => onEdit(post) : null,
           onShareAsImage: onShareAsImage != null
               ? () => onShareAsImage!(post)
@@ -847,6 +852,7 @@ class _TopicPostListState extends State<TopicPostList> {
           dateSeparatorLabel: dateSeparatorLabel,
           showDivider: showDivider,
           onJumpToPost: onJumpToPost,
+          onMentionUser: onMentionUser,
         );
         break;
       case _PostRenderSegmentType.longChunk:

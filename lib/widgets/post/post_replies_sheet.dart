@@ -222,6 +222,19 @@ class _PostRepliesSheetContentState
     );
   }
 
+  /// 头像长按菜单「@用户」：新回复（不针对该楼）+ 预填 @username
+  void _handleMention(String username) {
+    showReplySheet(
+      context: context,
+      topicId: widget.topicId,
+      replyToPost: null,
+      initialContent: '@$username ',
+      topicTitle: widget.topicTitle,
+      isPrivateMessageTopic: widget.isPrivateMessageTopic,
+      isPmWithNonHumanUser: widget.isPmWithNonHumanUser,
+    );
+  }
+
   void _handleQuoteSelection(String selectedText, Post post) {
     final codePayload = CodeSelectionContextTracker.instance.decodePayload(
       selectedText,
@@ -467,6 +480,7 @@ class _PostRepliesSheetContentState
             disableReplyHistory: true,
             onReplyIndicatorTap: _scrollToAndHighlight,
             hideReplyToPostNumber: widget.post.postNumber,
+            onMentionUser: _isLoggedIn ? _handleMention : null,
           ),
         ),
         Padding(

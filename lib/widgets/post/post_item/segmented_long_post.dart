@@ -333,6 +333,9 @@ class LongPostHeaderSegment extends StatelessWidget {
   final bool showDivider;
   final void Function(int postNumber)? onJumpToPost;
 
+  /// 头像长按菜单「@用户」回调（null = 不可回复，菜单不显示该项）
+  final void Function(String username)? onMentionUser;
+
   const LongPostHeaderSegment({
     super.key,
     required this.post,
@@ -343,6 +346,7 @@ class LongPostHeaderSegment extends StatelessWidget {
     required this.dateSeparatorLabel,
     required this.showDivider,
     required this.onJumpToPost,
+    this.onMentionUser,
   });
 
   @override
@@ -363,6 +367,7 @@ class LongPostHeaderSegment extends StatelessWidget {
           showStamp: post.acceptedAnswer,
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
           onJumpToPost: onJumpToPost,
+          onMentionUser: onMentionUser,
         ),
       ),
     );

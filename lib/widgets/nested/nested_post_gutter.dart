@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 import '../../models/topic.dart';
 import '../../utils/url_helper.dart';
+import '../common/radial_long_press_menu.dart';
 import '../common/smart_avatar.dart';
+import '../user/avatar_action_menu.dart';
 import '../user/user_card.dart';
 
-/// 嵌套帖子左侧头像（点击弹出用户卡片）
+/// 嵌套帖子左侧头像（点击弹出用户卡片，长按弹出径向操作菜单）
 class NestedPostAvatar extends StatefulWidget {
   final String avatarTemplate;
   final String username;
   final Post? post;
   final int? topicId;
+
+  /// 长按菜单「@用户」回调（null = 不可回复，菜单不显示该项）
+  final void Function(String username)? onMentionUser;
   static const double size = 24.0;
 
   static String resolveUrl(String avatarTemplate) {
@@ -24,6 +29,7 @@ class NestedPostAvatar extends StatefulWidget {
     required this.username,
     this.post,
     this.topicId,
+    this.onMentionUser,
   });
 
   @override
@@ -57,16 +63,33 @@ class _NestedPostAvatarState extends State<NestedPostAvatar> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    final imageUrl = widget.avatarTemplate.isNotEmpty
+        ? UrlHelper.resolveUrlWithCdn(
+            widget.avatarTemplate.replaceAll('{size}', '48'),
+          )
+        : null;
+    return RadialLongPressMenu(
       onTap: _openUserCard,
+      itemsBuilder: () => buildAvatarMenuItems(
+        context,
+        username: widget.username,
+        topicId: widget.topicId,
+        postNumber: widget.post?.postNumber,
+        onMentionUser: widget.onMentionUser,
+      ),
+      pressAreaIndicatorBuilder: (ctx, rect, opacity) => Opacity(
+        opacity: opacity,
+        child: SmartAvatar(
+          imageUrl: imageUrl,
+          radius: rect.shortestSide / 2,
+          fallbackText: widget.username,
+          border: Border.all(color: Theme.of(ctx).colorScheme.primary, width: 2),
+        ),
+      ),
       child: CompositedTransformTarget(
         link: _link,
         child: SmartAvatar(
-          imageUrl: widget.avatarTemplate.isNotEmpty
-              ? UrlHelper.resolveUrlWithCdn(
-                  widget.avatarTemplate.replaceAll('{size}', '48'),
-                )
-              : null,
+          imageUrl: imageUrl,
           radius: NestedPostAvatar.size / 2,
           fallbackText: widget.username,
         ),
