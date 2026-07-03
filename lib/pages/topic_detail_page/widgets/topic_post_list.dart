@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart' show SchedulerBinding, Priority;
 import 'package:app_icons/app_icons.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +15,7 @@ import '../../../utils/time_utils.dart';
 import '../../../widgets/common/loading_spinner.dart';
 import 'package:fluxdo_render/fluxdo_render.dart' show HtmlChunk;
 import '../../../widgets/post/post_item/post_item.dart';
+import '../../../widgets/post/post_item/render_parse_cache.dart';
 import '../../../widgets/post/post_item/segmented_long_post.dart';
 import 'topic_detail_header.dart';
 import 'shared_issue_button.dart';
@@ -341,9 +343,38 @@ class _TopicPostListState extends State<TopicPostList> {
           _updateFirstVisiblePost();
         }
       });
+      _scheduleChunkWarmUp();
     }
 
     return result;
+  }
+
+  /// 滚动停下后空闲预热:把已进列表的长帖中尚未解析的 chunk 逐块解析,
+  /// 每个 idle task 只解析一块(1-3ms),再滚到它们时 parse 直接命中缓存。
+  /// 新滚动开始(_warmUpGeneration 递增)即停止,不与滚动帧抢主线程。
+  int _warmUpGeneration = 0;
+
+  void _scheduleChunkWarmUp() {
+    final generation = ++_warmUpGeneration;
+    void step() {
+      if (!mounted || generation != _warmUpGeneration) return;
+      LongPostParseData? pending;
+      for (final entry in _longPostRenderCache.values) {
+        final data = entry.newEngineData?.parseData;
+        if (data != null && !data.fullyParsed) {
+          pending = data;
+          break;
+        }
+      }
+      if (pending == null) return;
+      SchedulerBinding.instance.scheduleTask(() {
+        if (!mounted || generation != _warmUpGeneration) return;
+        pending!.warmUpOneChunk();
+        step();
+      }, Priority.idle);
+    }
+
+    step();
   }
 
   String _segmentKey(_PostRenderSegment segment) {

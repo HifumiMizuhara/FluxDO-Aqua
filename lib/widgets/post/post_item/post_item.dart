@@ -13,6 +13,7 @@ import '../../content/collapsed_html_content.dart';
 import '../post_boost/boost_danmaku.dart';
 import '../small_action_item.dart';
 import 'quote_selection_helper.dart';
+import 'render_parse_cache.dart';
 import 'widgets/post_footer_section/post_footer_section.dart';
 import 'widgets/post_header_section.dart';
 import 'widgets/post_notice_widget.dart';
@@ -118,22 +119,21 @@ class _PostItemState extends ConsumerState<PostItem> {
     final cached = _newEngineRenderData;
     if (cached != null && identical(cached.post, post)) return cached;
 
-    final preprocessed =
-        FluxdoRenderCallbacks.preprocessCookedForRender(post);
-    final parsedNodes = List<BlockNode>.unmodifiable(
-      ParagraphParser().parse(preprocessed),
-    );
+    // 解析产物走全局 LRU(RenderParseCache):item 滚出 cacheExtent 被回收后
+    // 再滚回来,preprocess + DOM parse 直接命中,不重付(State 级缓存随
+    // dispose 丢失,来回滚动即反复解析 —— 之前滚动卡顿的主要来源之一)
+    final parsed = RenderParseCache.shortPost(post);
     final callbacks = FluxdoRenderCallbacks.forPost(
       post: post,
       topicId: widget.topicId,
       onQuoteImage: widget.onQuoteImage,
-      preprocessedCooked: preprocessed,
-      parsedNodes: parsedNodes,
+      preprocessedCooked: parsed.preprocessed,
+      parsedNodes: parsed.nodes,
     );
     return _newEngineRenderData = _ShortPostNewEngineRenderData(
       post: post,
-      preprocessedCooked: preprocessed,
-      parsedNodes: parsedNodes,
+      preprocessedCooked: parsed.preprocessed,
+      parsedNodes: parsed.nodes,
       callbacks: callbacks,
     );
   }
