@@ -127,6 +127,9 @@ dependencies:
   # Flutter 3.41+ 严格按 wght 查找字体，系统字体缺少某些 weight 会 fallback 到宋体等。
   # 此包给 ThemeData 注入平台合适的中文字体到 fontFamilyFallback。
   chinese_font_library: ^1.2.0
+  # androidx.graphics.shapes 的 Dart 移植(RoundedPolygon/Morph/MaterialShapes),
+  # 用于 1:1 复刻 M3 Expressive LoadingIndicator 的形状变形加载动画。
+  material_new_shapes: ^1.0.0
 
   window_manager: ^0.5.1
   screen_retriever: ^0.2.1
