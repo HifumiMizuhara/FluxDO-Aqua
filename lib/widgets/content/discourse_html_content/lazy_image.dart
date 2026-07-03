@@ -1,13 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
-import 'package:visibility_detector/visibility_detector.dart';
-import '../lazy_load_scope.dart';
 import '../../common/hero_image.dart';
 
-/// 懒加载图片组件
+/// 帖子正文内容图组件:固定占位尺寸 + 解码分辨率约束 + 重绘隔离 + Hero。
 ///
-/// 只有当图片进入视口时才开始加载，减少内存和网络占用
-class LazyImage extends StatefulWidget {
+/// 懒加载边界由 sliver 虚拟化承担(item 进入 cacheExtent 才挂载,挂载即
+/// 开始加载 = 提前一个 cacheExtent 预取,进视口时大概率已就绪)。此前在
+/// 组件内再用 VisibilityDetector 拦一道反而把加载起点推迟到"已进视口",
+/// 用户必然先看到占位/spinner;且每张图一个 VisibilityDetector 有全局
+/// 可见性计算开销。
+///
+/// 性能关键点:
+/// - **解码约束**:按显示宽 × dpr 解码([ResizeImage.resizeIfNeeded]),
+///   而不是原图全分辨率 —— Discourse 原图动辄 2000-4000px,全尺寸解码
+///   单张位图几十 MB,纹理上传卡 raster,且很快挤爆 imageCache 触发
+///   驱逐-重解码循环(滚回来反复卡)。
+/// - **RepaintBoundary**:加载 spinner / 动图逐帧 / 解码完成首绘的
+///   markNeedsPaint 都隔离在图片自身区域,不再冒泡到帖子 segment 的
+///   RepaintBoundary 造成整帖每帧重绘。
+class LazyImage extends StatelessWidget {
   final ImageProvider imageProvider;
   final double? width;
   final double? height;
@@ -21,11 +32,8 @@ class LazyImage extends StatefulWidget {
   /// 右键回调（桌面端）
   final GestureTapUpCallback? onSecondaryTapUp;
 
-  /// 缓存 key（用于判断是否已加载，默认使用 heroTag）
+  /// 缓存 key（保留参数兼容旧调用方,当前未使用）
   final String? cacheKey;
-
-  /// 可见比例阈值，超过此值开始加载（0.0 - 1.0）
-  final double visibilityThreshold;
 
   const LazyImage({
     super.key,
@@ -38,100 +46,38 @@ class LazyImage extends StatefulWidget {
     this.onLongPress,
     this.onSecondaryTapUp,
     this.cacheKey,
-    this.visibilityThreshold = 0.01,
   });
-
-  @override
-  State<LazyImage> createState() => _LazyImageState();
-}
-
-class _LazyImageState extends State<LazyImage> {
-  bool _shouldLoad = false;
-  bool _initialized = false;
-
-  String get _cacheKey => widget.cacheKey ?? widget.heroTag;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!_initialized) {
-      _initialized = true;
-      // 检查作用域缓存
-      if (LazyLoadScope.isLoaded(context, _cacheKey)) {
-        _shouldLoad = true;
-      }
-    }
-  }
-
-  void _triggerLoad() {
-    if (!_shouldLoad) {
-      LazyLoadScope.markLoaded(context, _cacheKey);
-      setState(() => _shouldLoad = true);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    // 如果已加载过，直接显示图片
-    if (_shouldLoad) {
-      return _buildImageWidget(theme);
-    }
+    // 解码目标宽 = 显示逻辑宽(调用方已按列宽 clamp) × dpr;无声明尺寸的
+    // 图退化到屏宽。resizeIfNeeded 不放大小图(allowUpscaling=false),
+    // 只指定宽时按比例出高。
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final logicalWidth = width ?? MediaQuery.sizeOf(context).width;
+    final cacheWidth = (logicalWidth * dpr).round().clamp(1, 1 << 16);
 
-    // 静态占位符（无动画，避免多个 AnimationController 开销）
-    Widget placeholder = _buildStaticPlaceholder(theme);
-
-    // 使用 VisibilityDetector 检测可见性
-    return VisibilityDetector(
-      key: Key('lazy-image-${widget.heroTag}'),
-      onVisibilityChanged: (info) {
-        if (!_shouldLoad && info.visibleFraction >= widget.visibilityThreshold) {
-          _triggerLoad();
-        }
-      },
-      child: placeholder,
-    );
-  }
-
-  Widget _buildStaticPlaceholder(ThemeData theme) {
-    Widget placeholder = Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withAlpha(60),
-        borderRadius: BorderRadius.circular(8),
-      ),
-    );
-
-    if (widget.width != null && widget.height != null && widget.height! > 0) {
-      return AspectRatio(
-        aspectRatio: widget.width! / widget.height!,
-        child: placeholder,
-      );
-    }
-
-    return SizedBox(
-      width: widget.width,
-      height: widget.height ?? 200,
-      child: placeholder,
-    );
-  }
-
-  Widget _buildImageWidget(ThemeData theme) {
     final imageChild = Image(
-      image: widget.imageProvider,
-      fit: widget.fit,
-      width: widget.width,
-      height: widget.height,
+      image: ResizeImage.resizeIfNeeded(cacheWidth, null, imageProvider),
+      fit: fit,
+      width: width,
+      height: height,
+      // provider 变化(如窗口宽变化导致解码宽变)时保留旧帧,避免闪白
+      gaplessPlayback: true,
       loadingBuilder: (context, child, loadingProgress) {
         if (loadingProgress == null) return child;
 
         // 加载中显示进度指示器
         return Container(
-          width: widget.width,
-          height: widget.height ?? 200,
+          width: width,
+          height: height ?? 200,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha:0.2),
+            color: theme.colorScheme.surfaceContainerHighest.withValues(
+              alpha: 0.2,
+            ),
             borderRadius: BorderRadius.circular(8),
           ),
           child: SizedBox(
@@ -140,7 +86,8 @@ class _LazyImageState extends State<LazyImage> {
             child: CircularProgressIndicator(
               strokeWidth: 2,
               value: loadingProgress.expectedTotalBytes != null
-                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                  ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
                   : null,
             ),
           ),
@@ -148,11 +95,13 @@ class _LazyImageState extends State<LazyImage> {
       },
       errorBuilder: (context, error, stackTrace) {
         return Container(
-          width: widget.width,
-          height: widget.height ?? 200,
+          width: width,
+          height: height ?? 200,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha:0.2),
+            color: theme.colorScheme.surfaceContainerHighest.withValues(
+              alpha: 0.2,
+            ),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
@@ -166,16 +115,19 @@ class _LazyImageState extends State<LazyImage> {
 
     // 使用 HeroImage 封装 Hero 动画及可见性控制
     Widget imageWidget = HeroImage(
-      heroTag: widget.heroTag,
-      onTap: widget.onTap,
-      onLongPress: widget.onLongPress,
-      onSecondaryTapUp: widget.onSecondaryTapUp,
+      heroTag: heroTag,
+      onTap: onTap,
+      onLongPress: onLongPress,
+      onSecondaryTapUp: onSecondaryTapUp,
       child: imageChild,
     );
 
-    if (widget.width != null && widget.height != null && widget.height! > 0) {
+    // 重绘隔离:spinner/动图/首绘只重画图片区域,不连带整个帖子 segment
+    imageWidget = RepaintBoundary(child: imageWidget);
+
+    if (width != null && height != null && height! > 0) {
       return AspectRatio(
-        aspectRatio: widget.width! / widget.height!,
+        aspectRatio: width! / height!,
         child: imageWidget,
       );
     }

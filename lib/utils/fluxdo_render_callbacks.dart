@@ -273,17 +273,37 @@ class FluxdoRenderCallbacks {
       return Text(emoji.name.isEmpty ? ':?:' : ':${emoji.name}:');
     }
     final resolvedUrl = UrlHelper.resolveUrlWithCdn(emoji.url);
-    return Image(
-      image: emojiImageProvider(resolvedUrl),
+    // 按显示尺寸 × dpr 解码:动图 emoji 是全帧驻留内存(GIF 每帧一张位图),
+    // 原图尺寸解码内存翻倍且无视觉收益
+    final dpr = MediaQuery.devicePixelRatioOf(ctx);
+    Widget image = Image(
+      image: ResizeImage.resizeIfNeeded(
+        (size * dpr).round(),
+        null,
+        emojiImageProvider(resolvedUrl),
+      ),
       width: size,
       height: size,
+      gaplessPlayback: true,
       errorBuilder: (_, _, _) => Icon(
         Symbols.broken_image_rounded,
         size: size,
         color: Theme.of(ctx).colorScheme.outline,
       ),
     );
+    // 动图 emoji 逐帧 markNeedsPaint,不隔离会冒泡到帖子 segment 的
+    // RepaintBoundary 造成整帖每帧重绘(滚动中有动图 emoji 即持续掉帧)
+    if (_isGifUrl(resolvedUrl)) {
+      image = RepaintBoundary(child: image);
+    }
+    return image;
   };
+
+  static bool _isGifUrl(String url) {
+    final q = url.indexOf('?');
+    final path = q == -1 ? url : url.substring(0, q);
+    return path.toLowerCase().endsWith('.gif');
+  }
 
   /// Mention chip 点击 → 跳用户资料页。
   static MentionTapHandler get _mentionTapHandler => (ctx, username, href) {
@@ -401,7 +421,14 @@ class FluxdoRenderCallbacks {
               poster: posterUrl == null
                   ? null
                   : Image(
-                      image: discourseImageProvider(posterUrl),
+                      // 封面按列宽(屏宽兜底)× dpr 解码,不吃原图全分辨率
+                      image: ResizeImage.resizeIfNeeded(
+                        (MediaQuery.sizeOf(ctx).width *
+                                MediaQuery.devicePixelRatioOf(ctx))
+                            .round(),
+                        null,
+                        discourseImageProvider(posterUrl),
+                      ),
                       fit: BoxFit.contain,
                     ),
               errorBuilder: (c, _, _) => const SizedBox.shrink(),
