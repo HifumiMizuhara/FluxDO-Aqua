@@ -12,8 +12,9 @@ import 'package:material_new_shapes/material_new_shapes.dart';
 ///   visibilityThreshold 0.1),约 298ms 收敛后停在终点等待下个周期;
 /// - 每次 morph 完成后形状指针步进,叠加 90° 步进旋转(初始 90°);
 /// - 全局旋转 4666ms/圈,线性,与 morph 的 progress*90° 弹性旋转叠加;
-/// - 活动形状占容器 38/48(LoadingIndicatorTokens.ActiveSize / ContainerSize),
-///   另按各形状最大回转边界收缩,保证旋转中不裁剪。
+/// - 形状缩放按"动画全程最大回转半径"精确计算,保证任意帧不画出 size 之外;
+///   与规格的唯一偏差是不保留 38/48 的容器留白(调用方把 size 当可见尺寸,
+///   详见 _Md3LoadingGeometry.scaleFactor)。
 class LoadingSpinner extends StatefulWidget {
   final Color? color;
   final double size;
@@ -133,6 +134,13 @@ class _MorphSpringCurve extends Curve {
       math.log(math.sqrt(_c1 * _c1 + _c2 * _c2) / _visibilityThreshold) /
           (_dampingRatio * _omega0);
 
+  /// 弹簧输出的最大进度(首个过冲峰,发生在时长截断之前):
+  /// 1 + e^(-ζπ/√(1-ζ²)) ≈ 1.095。
+  static final double peakProgress = 1 +
+      math.exp(-_dampingRatio *
+          math.pi /
+          math.sqrt(1 - _dampingRatio * _dampingRatio));
+
   @override
   double transformInternal(double t) {
     final seconds = t * _kMorphIntervalMs / 1000;
@@ -166,24 +174,54 @@ abstract final class _Md3LoadingGeometry {
       ),
   ];
 
-  /// 形状防裁剪缩放 × ActiveIndicatorScale(38dp/48dp)。
-  static final double scaleFactor = _calculateScaleFactor() * (38 / 48);
+  /// 让形状尽量撑满 size、且保证动画全程不越界的缩放因子。
+  ///
+  /// M3E 规格是"静态 maxBounds 缩放 × 38/48 容器留白",留白顺带兜住了
+  /// morph 中间态与弹簧过冲的外扩;项目调用方把 [LoadingSpinner.size]
+  /// 当作可见尺寸,不保留 38/48 留白,因此这里改为直接对动画全程
+  /// (每段 morph × progress ∈ [0, 过冲峰值])采样,按 painter 的实际口径
+  /// (控制点包围盒中心对齐 + 绕中心旋转)求最大回转半径,反推出
+  /// 任意帧都不会画出 size 之外的最大缩放。
+  static final double scaleFactor = 0.5 / _maxAnimatedRadius();
 
-  // 对应 Compose 的 calculateScaleFactor:形状旋转时的占用尺寸由
-  // calculateMaxBounds 决定,取 bounds/maxBounds 比值的最小值防裁剪。
-  static double _calculateScaleFactor() {
-    var factor = 1.0;
-    final bounds = List<double>.filled(4, 0);
-    final maxBounds = List<double>.filled(4, 0);
-    for (final polygon in _polygons) {
-      polygon.calculateBounds(bounds: bounds);
-      polygon.calculateMaxBounds(maxBounds);
-      final scaleX = (bounds[2] - bounds[0]) / (maxBounds[2] - maxBounds[0]);
-      final scaleY = (bounds[3] - bounds[1]) / (maxBounds[3] - maxBounds[1]);
-      // 取 max(scaleX, scaleY) 处理 pill 这类细长形状,避免整体被过度缩小。
-      factor = math.min(factor, math.max(scaleX, scaleY));
+  static double _maxAnimatedRadius() {
+    var worst = 0.0;
+    const samples = 48;
+    for (final morph in morphs) {
+      for (var s = 0; s <= samples; s++) {
+        final cubics =
+            morph.asCubics(_MorphSpringCurve.peakProgress * s / samples);
+        // 与 Path.getBounds 口径一致:包围盒含控制点;painter 每帧按该
+        // 包围盒中心对齐画布中心后旋转,约束量即各点到该中心的最大距离。
+        var minX = double.infinity, minY = double.infinity;
+        var maxX = -double.infinity, maxY = -double.infinity;
+        for (final c in cubics) {
+          minX = math.min(minX, math.min(c.anchor0X, c.control0X));
+          minX = math.min(minX, math.min(c.control1X, c.anchor1X));
+          maxX = math.max(maxX, math.max(c.anchor0X, c.control0X));
+          maxX = math.max(maxX, math.max(c.control1X, c.anchor1X));
+          minY = math.min(minY, math.min(c.anchor0Y, c.control0Y));
+          minY = math.min(minY, math.min(c.control1Y, c.anchor1Y));
+          maxY = math.max(maxY, math.max(c.anchor0Y, c.control0Y));
+          maxY = math.max(maxY, math.max(c.control1Y, c.anchor1Y));
+        }
+        final cx = (minX + maxX) / 2;
+        final cy = (minY + maxY) / 2;
+        for (final c in cubics) {
+          for (final (x, y) in [
+            (c.anchor0X, c.anchor0Y),
+            (c.control0X, c.control0Y),
+            (c.control1X, c.control1Y),
+            (c.anchor1X, c.anchor1Y),
+          ]) {
+            final dx = x - cx;
+            final dy = y - cy;
+            worst = math.max(worst, math.sqrt(dx * dx + dy * dy));
+          }
+        }
+      }
     }
-    return factor;
+    return worst;
   }
 }
 
