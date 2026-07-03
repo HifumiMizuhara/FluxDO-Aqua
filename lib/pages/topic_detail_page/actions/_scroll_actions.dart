@@ -33,10 +33,10 @@ extension _ScrollActions on _TopicDetailPageState {
   }
 
   void _updateStreamIndexForPostNumber(int postNumber) {
-    // 初始定位完成前，eyeline 上报的是定位滚动途中经过的楼层，
+    // 初始定位完成前，eyeline 上报的可能是定位途中经过的楼层，
     // 会让进度条数字从低楼层爬升、污染视口位置记录。
     // 暂存最后一次上报（TopicPostList 有去重，定位后同楼层不会重发），
-    // 待定位完成由 _doInitialScroll 收尾处回放；定位期间的展示值
+    // 待定位完成由 _markInitialPositionDone 收尾处回放；定位期间的展示值
     // 由 _primeStreamIndexForInitialTarget 预置为目标楼层。
     if (!_controller.isPositioned) {
       _suppressedEyelinePostNumber = postNumber;
@@ -68,38 +68,55 @@ extension _ScrollActions on _TopicDetailPageState {
     }
   }
 
-  /// 初始定位前预置进度条楼层
+  /// 解析初始定位目标（优先级：跳转目标 > 未读分割线 > 视口恢复位置）
   ///
-  /// 目标楼层在数据到达时即可确定，不必等定位滚动结束后由 eyeline 上报，
-  /// 否则进度条会先显示低楼层再跳到目标楼层。
-  /// 目标选择逻辑与 [_doInitialScroll] 保持一致。
-  void _primeStreamIndexForInitialTarget(
-    TopicDetail detail,
+  /// 返回 null 表示无目标（停留在窗口首帖顶部）。
+  /// 与旧实现一致：跳转目标与视口位置均缺失时不定位，即使存在分割线。
+  /// 初始定位与 [_primeStreamIndexForInitialTarget] 共用本方法，保证
+  /// 进度条预置楼层与实际落点永远一致。
+  ({int index, bool shouldHighlight})? _resolveInitialTarget(
     List<Post> posts,
     int? dividerPostIndex,
   ) {
     final jumpTarget = _controller.jumpTargetPostNumber;
     final initialPostNumber = _resolvedViewportPostNumber;
 
-    Post? targetPost;
+    final gate = jumpTarget ?? initialPostNumber;
+    if (gate == null || gate == 0) return null;
+
     if (jumpTarget != null) {
-      for (final post in posts) {
-        if (post.postNumber >= jumpTarget) {
-          targetPost = post;
-          break;
+      for (int i = 0; i < posts.length; i++) {
+        if (posts[i].postNumber >= jumpTarget) {
+          return (
+            index: i,
+            shouldHighlight: !_controller.skipNextJumpHighlight,
+          );
         }
       }
     } else if (dividerPostIndex != null && dividerPostIndex < posts.length) {
-      targetPost = posts[dividerPostIndex];
+      return (index: dividerPostIndex, shouldHighlight: true);
     } else if (initialPostNumber != null && initialPostNumber > 0) {
-      for (final post in posts) {
-        if (post.postNumber >= initialPostNumber) {
-          targetPost = post;
-          break;
+      for (int i = 0; i < posts.length; i++) {
+        if (posts[i].postNumber >= initialPostNumber) {
+          return (index: i, shouldHighlight: true);
         }
       }
     }
-    if (targetPost == null) return;
+    return null;
+  }
+
+  /// 初始定位前预置进度条楼层
+  ///
+  /// 目标楼层在数据到达时即可确定，不必等定位完成后由 eyeline 上报，
+  /// 否则进度条会先显示低楼层再跳到目标楼层。
+  void _primeStreamIndexForInitialTarget(
+    TopicDetail detail,
+    List<Post> posts,
+    int? dividerPostIndex,
+  ) {
+    final target = _resolveInitialTarget(posts, dividerPostIndex);
+    if (target == null) return;
+    final targetPost = posts[target.index];
     final targetPostNumber = targetPost.postNumber;
 
     // 预置视口位置，避免定位期间读取到空值
@@ -412,15 +429,9 @@ extension _ScrollActions on _TopicDetailPageState {
     if (!forceLocalJump && _controller.isPostRendered(postIndex)) {
       await _controller.scrollToPost(postNumber, posts);
     } else {
-      int? anchorPostNumber;
-      if (posts.length - 1 - postIndex < 20) {
-        final safeIndex = (posts.length - 20).clamp(0, posts.length - 1);
-        anchorPostNumber = posts[safeIndex].postNumber;
-      }
-      _controller.jumpToPostLocally(
-        postNumber,
-        anchorPostNumber: anchorPostNumber,
-      );
+      // 换 center 锚点到目标帖，首帧即构造性定位（收尾贴底见
+      // _finalizeInitialPosition，由 build 里的初始定位块统一触发）
+      _controller.jumpToPostLocally(postNumber);
       if (mounted) setState(() {});
     }
     _controller.triggerHighlight(postNumber);
@@ -455,16 +466,8 @@ extension _ScrollActions on _TopicDetailPageState {
           duration: const Duration(milliseconds: 1),
         );
       } else {
-        int? anchorPostNumber;
-        if (posts.length - 1 - postIndex < 20) {
-          final safeIndex = (posts.length - 20).clamp(0, posts.length - 1);
-          anchorPostNumber = posts[safeIndex].postNumber;
-        }
-
-        _controller.jumpToPostLocally(
-          post.postNumber,
-          anchorPostNumber: anchorPostNumber,
-        );
+        // 同 _scrollToPost：center 换锚构造性定位
+        _controller.jumpToPostLocally(post.postNumber);
         if (mounted) setState(() {});
       }
       _controller.triggerHighlight(post.postNumber);
@@ -510,119 +513,137 @@ extension _ScrollActions on _TopicDetailPageState {
     }
   }
 
-  void _scrollToInitialPosition(List<Post> posts, int? dividerPostIndex) {
-    _doInitialScroll(posts, dividerPostIndex, retryCount: 0);
+  /// 初始定位收尾（center 已锚定目标帖，首帧即 offset 0 = 目标顶对齐）
+  ///
+  /// 定位本身由 CustomScrollView 的 center 锚点在布局期构造性完成，
+  /// 不存在"滚过去"的过程；本方法只在首帧后做三件事：
+  /// 1. 页内跳转换锚后 pixels 残值归零（旧坐标系下的 offset 无意义）；
+  /// 2. 目标下方内容不足一屏时按真实几何贴底（见
+  ///    [_applyBottomAlignCorrectionIfNeeded]）；
+  /// 3. markPositioned 揭开 Opacity 门 + 触发高亮 + 回放被抑制的 eyeline。
+  /// 全程只用 jumpTo（无 ballistic），机制上不会出现触底回弹。
+  void _finalizeInitialPosition({
+    int? highlightPostNumber,
+    int retryCount = 0,
+  }) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      final scrollController = _controller.scrollController;
+      if (!scrollController.hasClients) {
+        if (retryCount < 5) {
+          _finalizeInitialPosition(
+            highlightPostNumber: highlightPostNumber,
+            retryCount: retryCount + 1,
+          );
+        } else {
+          _markInitialPositionDone(highlightPostNumber: null);
+        }
+        return;
+      }
+
+      // 嵌套视图等无 center 锚点的列表：定位机制不适用，直接收尾，
+      // 不动滚动位置（与旧行为一致，且不再空转等待 scrollToIndex 超时）
+      if (_centerKey.currentContext == null) {
+        _markInitialPositionDone(highlightPostNumber: highlightPostNumber);
+        return;
+      }
+
+      // 页内跳转场景：center 换锚后旧 pixels 是上一个坐标系下的残值，
+      // 归零后等下一帧以新锚点布局，再做贴底测量
+      if (scrollController.position.pixels != 0 && retryCount < 5) {
+        scrollController.jumpTo(0);
+        _finalizeInitialPosition(
+          highlightPostNumber: highlightPostNumber,
+          retryCount: retryCount + 1,
+        );
+        return;
+      }
+
+      _applyBottomAlignCorrectionIfNeeded();
+      _markInitialPositionDone(highlightPostNumber: highlightPostNumber);
+    });
   }
 
-  void _doInitialScroll(
-    List<Post> posts,
-    int? dividerPostIndex, {
-    required int retryCount,
-  }) {
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
+  void _markInitialPositionDone({required int? highlightPostNumber}) {
+    _controller.clearJumpTarget();
+    _controller.skipNextJumpHighlight = false;
+    if (highlightPostNumber != null) {
+      _controller.pendingHighlightPostNumber = highlightPostNumber;
+    }
 
-      if (retryCount == 0) {
-        await Future.delayed(const Duration(milliseconds: 50));
-      }
+    if (_controller.isPositioned) return;
+    _controller.markPositioned();
 
-      if (!mounted) return;
-
-      if (!_controller.scrollController.hasClients) {
-        if (retryCount < 5) {
-          await Future.delayed(const Duration(milliseconds: 50));
-          if (mounted) {
-            _doInitialScroll(
-              posts,
-              dividerPostIndex,
-              retryCount: retryCount + 1,
-            );
-          }
-          return;
-        } else {
-          if (mounted && !_controller.isPositioned) {
-            _controller.markPositioned();
-          }
-          return;
+    if (_controller.pendingHighlightPostNumber != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _controller.consumePendingHighlight();
         }
-      }
-
-      try {
-        int? targetPostIndex;
-        bool shouldHighlight = false;
-        final hasFirstPost = posts.isNotEmpty && posts.first.postNumber == 1;
-        final jumpTarget = _controller.jumpTargetPostNumber;
-        final initialPostNumber = _resolvedViewportPostNumber;
-
-        if (jumpTarget != null) {
-          for (int i = 0; i < posts.length; i++) {
-            if (posts[i].postNumber >= jumpTarget) {
-              targetPostIndex = i;
-              shouldHighlight = !_controller.skipNextJumpHighlight;
-              break;
-            }
-          }
-        } else if (dividerPostIndex != null &&
-            dividerPostIndex < posts.length) {
-          targetPostIndex = dividerPostIndex;
-          shouldHighlight = true;
-        } else if (initialPostNumber != null && initialPostNumber > 0) {
-          for (int i = 0; i < posts.length; i++) {
-            if (posts[i].postNumber >= initialPostNumber) {
-              targetPostIndex = i;
-              shouldHighlight = true;
-              break;
-            }
-          }
+      });
+    }
+    // 回放定位期间被抑制的最后一次 eyeline 上报
+    // （定位期间的上报被 TopicPostList 去重，不会重发）
+    final suppressed = _suppressedEyelinePostNumber;
+    if (suppressed != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _suppressedEyelinePostNumber == suppressed) {
+          _updateStreamIndexForPostNumber(suppressed);
         }
+      });
+    }
+  }
 
-        if (targetPostIndex != null) {
-          if (hasFirstPost && targetPostIndex == 0) {
-            await _controller.scrollController.animateTo(
-              _controller.scrollController.position.minScrollExtent,
-              duration: const Duration(milliseconds: 1),
-              curve: Curves.linear,
-            );
-          } else {
-            await _controller.scrollController.scrollToIndex(
-              _controller.scrollIndexForPostIndex(targetPostIndex),
-              preferPosition: AutoScrollPosition.begin,
-              duration: const Duration(milliseconds: 1),
-            );
-          }
+  /// 目标下方内容不足一屏时，按真实几何一次性贴底
+  ///
+  /// 纯观测、零预测：maxScrollExtent == 0 意味着 center 及其后所有
+  /// sliver 都已完整真实布局（SliverList 铺不满视口 ⇒ 已铺完），此时
+  /// 求和 geometry.scrollExtent 是精确值，不含任何估算。修正量只依赖
+  /// after 侧真实高度与视口高，before 侧未构建帖子的估算高度不进公式。
+  void _applyBottomAlignCorrectionIfNeeded() {
+    final scrollController = _controller.scrollController;
+    if (!scrollController.hasClients) return;
+    final position = scrollController.position;
 
-          _controller.clearJumpTarget();
-          _controller.skipNextJumpHighlight = false;
+    // after 侧已铺满一屏，无空白可修
+    if (position.maxScrollExtent > 0) return;
 
-          if (shouldHighlight) {
-            _controller.pendingHighlightPostNumber =
-                posts[targetPostIndex].postNumber;
-          }
-        }
-      } catch (e, stack) {
-        debugPrint('[TopicDetail] Scroll error: $e\n$stack');
-      } finally {
-        if (mounted && !_controller.isPositioned) {
-          _controller.markPositioned();
-          if (_controller.pendingHighlightPostNumber != null) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                _controller.consumePendingHighlight();
-              }
-            });
-          }
-          // 回放定位期间被抑制的最后一次 eyeline 上报
-          // （定位滚动结束帧的上报被 TopicPostList 去重，不会重发）
-          final suppressed = _suppressedEyelinePostNumber;
-          if (suppressed != null) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted && _suppressedEyelinePostNumber == suppressed) {
-                _updateStreamIndexForPostNumber(suppressed);
-              }
-            });
-          }
-        }
-      }
-    });
+    // 还有后续分页会补内容，保持顶对齐等 loadMore
+    final notifier = ref.read(topicDetailProvider(_params).notifier);
+    if (notifier.hasMoreAfter) return;
+
+    // 嵌套视图等无 center 锚点的场景
+    final centerContext = _centerKey.currentContext;
+    if (centerContext == null) return;
+
+    // center key 可能挂在 SliverMainAxisGroup 上，向上找到 viewport 直属 sliver
+    RenderObject? sliver = centerContext.findRenderObject();
+    while (sliver is RenderSliver && sliver.parent is RenderSliver) {
+      sliver = sliver.parent;
+    }
+    if (sliver is! RenderSliver) return;
+    final viewport = sliver.parent;
+    if (viewport is! RenderViewport) return;
+
+    // center 及其后所有兄弟 sliver 的真实内容总高
+    // （typing 指示器、底部 80px padding 都在其中，自然计入）
+    double afterExtent = sliver.geometry?.scrollExtent ?? 0;
+    for (
+      RenderSliver? child = viewport.childAfter(sliver);
+      child != null;
+      child = viewport.childAfter(child)
+    ) {
+      afterExtent += child.geometry?.scrollExtent ?? 0;
+    }
+
+    // 负 offset = 滚进 before 区，让内容底边贴视口底边；
+    // 整个话题不足一屏时被 minScrollExtent 拦成顶对齐
+    final target = (afterExtent - position.viewportDimension).clamp(
+      position.minScrollExtent,
+      0.0,
+    );
+    if (target < position.pixels) {
+      scrollController.jumpTo(target);
+    }
   }
 }

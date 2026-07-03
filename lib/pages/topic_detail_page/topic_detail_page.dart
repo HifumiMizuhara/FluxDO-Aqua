@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../../services/app_error_handler.dart';
 import '../../services/notion/notion_bookmark_auto_sync.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderSliver, RenderViewport;
 import 'package:flutter/scheduler.dart' show SchedulerBinding, Priority;
 import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -2037,21 +2038,29 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
       }
     }
 
-    // 初始定位
+    // 初始定位：center 直接锚在目标帖，首帧布局即 offset 0 = 目标顶对齐，
+    // 无爬行、无估算。收尾（贴底修正 + markPositioned）在帧后完成。
     if (!_controller.hasInitialScrolled && posts.isNotEmpty) {
-      _controller.markInitialScrolled(posts.first.postNumber);
-      final initialTargetPostNumber =
-          _controller.jumpTargetPostNumber ?? _resolvedViewportPostNumber;
-      if (initialTargetPostNumber == null || initialTargetPostNumber == 0) {
+      final target = _resolveInitialTarget(posts, dividerPostIndex);
+      _controller.markInitialScrolled(
+        target != null
+            ? posts[target.index].postNumber
+            : posts.first.postNumber,
+      );
+      if (target == null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted && !_controller.isPositioned) {
             _controller.markPositioned();
           }
         });
       } else {
-        // 定位滚动前先按目标楼层预置进度条，避免数字从低楼层爬升
+        // 定位前先按目标楼层预置进度条，避免数字从低楼层爬升
         _primeStreamIndexForInitialTarget(detail, posts, dividerPostIndex);
-        _scrollToInitialPosition(posts, dividerPostIndex);
+        _finalizeInitialPosition(
+          highlightPostNumber: target.shouldHighlight
+              ? posts[target.index].postNumber
+              : null,
+        );
       }
     }
 

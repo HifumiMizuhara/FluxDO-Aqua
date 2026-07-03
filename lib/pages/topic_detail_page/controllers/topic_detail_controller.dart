@@ -381,7 +381,7 @@ class TopicDetailController extends ChangeNotifier {
   }
 
   /// 本地跳转到帖子（不重新请求，仅重置视图中心）
-  void jumpToPostLocally(int postNumber, {int? anchorPostNumber}) {
+  void jumpToPostLocally(int postNumber) {
     // 重置可见性数据
     resetVisibility();
 
@@ -390,7 +390,7 @@ class TopicDetailController extends ChangeNotifier {
         hasInitialScrolled: false,
         isPositioned: false,
         jumpTargetPostNumber: postNumber,
-        initialCenterPostNumber: anchorPostNumber ?? postNumber,
+        initialCenterPostNumber: postNumber,
         keyboardSelectedPostNumber: postNumber,
       ),
     );
