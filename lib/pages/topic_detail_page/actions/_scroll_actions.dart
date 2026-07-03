@@ -151,7 +151,26 @@ extension _ScrollActions on _TopicDetailPageState {
     if (detail != null &&
         detail.postStream.posts.isNotEmpty &&
         detail.postStream.posts.first.postNumber == 1) {
-      _controller.scrollToTop();
+      final posts = detail.postStream.posts;
+      // 顶部可平滑滚达的条件（观测而非预测）：
+      // - center 就是首段（before 侧为空，min 恒为真实值），或
+      // - segment 0 已挂载 ⇒ before 列表末端子项已 build ⇒ 列表总高
+      //   已钉死为真实值（SliverList 对已实现的尾项返回精确 extent）。
+      // 此时 minScrollExtent 精确且动画期间稳定，animateTo 可准确到顶。
+      final centerAtFirstSegment =
+          _controller.findCenterPostIndex(posts) == 0 &&
+          _controller.scrollIndexForPostIndex(0) == 0;
+      if (centerAtFirstSegment ||
+          _controller.scrollController.tagMap.containsKey(0)) {
+        _controller.scrollToTop();
+      } else {
+        // 远距：min 是对未构建区的估算，animateTo 会停在过期目标上。
+        // 与页内远跳同机制：center 重锚到 1 楼，offset 0 构造性即顶部
+        // （centerPostIndex==0 分支会把 header 一并编入 center 组）
+        _controller.jumpToPostLocally(1);
+        _controller.skipNextJumpHighlight = true; // 回顶不高亮 1 楼
+        if (mounted) setState(() {});
+      }
       return;
     }
 
@@ -356,7 +375,13 @@ extension _ScrollActions on _TopicDetailPageState {
 
       if (postNumber == 1 &&
           minRenderedScrollIndex == segmentRange.firstScrollIndex) {
-        offsetDelta = math.max(offsetDelta, -scrollController.offset);
+        // 1 楼顶部再往上只放行到列表最顶（露出 header）；
+        // center 坐标系下列表顶是 minScrollExtent 而非 0
+        offsetDelta = math.max(
+          offsetDelta,
+          scrollController.position.minScrollExtent -
+              scrollController.offset,
+        );
       }
     } else if (delta > 0 && hasMoreBelowInPost) {
       offsetDelta = maxRenderedScrollIndex < segmentRange.lastScrollIndex
@@ -366,8 +391,9 @@ extension _ScrollActions on _TopicDetailPageState {
 
     if (offsetDelta == null) return false;
 
+    // center 坐标系下 before 区是负 offset，下界必须用真实 minScrollExtent
     final targetOffset = (scrollController.offset + offsetDelta).clamp(
-      0.0,
+      scrollController.position.minScrollExtent,
       scrollController.position.maxScrollExtent,
     );
     if ((targetOffset - scrollController.offset).abs() < 1) {
@@ -518,10 +544,11 @@ extension _ScrollActions on _TopicDetailPageState {
   /// 定位本身由 CustomScrollView 的 center 锚点在布局期构造性完成，
   /// 不存在"滚过去"的过程；本方法只在首帧后做三件事：
   /// 1. 页内跳转换锚后 pixels 残值归零（旧坐标系下的 offset 无意义）；
-  /// 2. 目标下方内容不足一屏时按真实几何贴底（见
-  ///    [_applyBottomAlignCorrectionIfNeeded]）；
+  /// 2. 目标下方内容不足一屏时按真实几何调整视口 anchor（见
+  ///    [_updateBottomAnchorIfNeeded]），使 offset 0 即"底边贴齐"，
+  ///    底部空白被排除在滚动范围外；
   /// 3. markPositioned 揭开 Opacity 门 + 触发高亮 + 回放被抑制的 eyeline。
-  /// 全程只用 jumpTo（无 ballistic），机制上不会出现触底回弹。
+  /// 全程无 animateTo（无 ballistic），机制上不会出现触底回弹。
   void _finalizeInitialPosition({
     int? highlightPostNumber,
     int retryCount = 0,
@@ -550,8 +577,8 @@ extension _ScrollActions on _TopicDetailPageState {
       }
 
       // 页内跳转场景：center 换锚后旧 pixels 是上一个坐标系下的残值，
-      // 归零后等下一帧以新锚点布局，再做贴底测量
-      if (scrollController.position.pixels != 0 && retryCount < 5) {
+      // 归零后等下一帧以新锚点布局，再做贴底观测
+      if (scrollController.position.pixels.abs() > 0.5 && retryCount < 5) {
         scrollController.jumpTo(0);
         _finalizeInitialPosition(
           highlightPostNumber: highlightPostNumber,
@@ -560,7 +587,15 @@ extension _ScrollActions on _TopicDetailPageState {
         return;
       }
 
-      _applyBottomAlignCorrectionIfNeeded();
+      // anchor 变更触发了重建，下一帧以新 anchor 布局后复核直至稳定
+      if (_updateBottomAnchorIfNeeded() && retryCount < 5) {
+        _finalizeInitialPosition(
+          highlightPostNumber: highlightPostNumber,
+          retryCount: retryCount + 1,
+        );
+        return;
+      }
+
       _markInitialPositionDone(highlightPostNumber: highlightPostNumber);
     });
   }
@@ -571,6 +606,10 @@ extension _ScrollActions on _TopicDetailPageState {
     if (highlightPostNumber != null) {
       _controller.pendingHighlightPostNumber = highlightPostNumber;
     }
+
+    // 定位是构造性的，没有滚动事件；落点可能正处于增量加载触发区
+    // （如目标帖靠近窗口尾部），主动评估一次，否则要等用户滚动才补载
+    _onScroll();
 
     if (_controller.isPositioned) return;
     _controller.markPositioned();
@@ -594,56 +633,81 @@ extension _ScrollActions on _TopicDetailPageState {
     }
   }
 
-  /// 目标下方内容不足一屏时，按真实几何一次性贴底
+  /// 目标下方内容不足一屏时，按真实几何抬高视口 anchor；返回是否发生变更
   ///
   /// 纯观测、零预测：maxScrollExtent == 0 意味着 center 及其后所有
   /// sliver 都已完整真实布局（SliverList 铺不满视口 ⇒ 已铺完），此时
-  /// 求和 geometry.scrollExtent 是精确值，不含任何估算。修正量只依赖
-  /// after 侧真实高度与视口高，before 侧未构建帖子的估算高度不进公式。
-  void _applyBottomAlignCorrectionIfNeeded() {
+  /// 求和 geometry.scrollExtent 是精确值，不含任何估算。
+  ///
+  /// 设 anchor = (视口高 − after 侧真实高) / 视口高 后，center 的零点
+  /// 从视口顶下移，offset 0 即"内容底边贴视口底边"，且
+  /// maxScrollExtent = max(0, after − 视口×(1−anchor)) = 0 —— 底部空白
+  /// 直接被排除在滚动范围之外，而非仅仅修正一次落点。之后 after 侧
+  /// 有新帖长高时，最大可滚位置依旧数学上恒等于"底边贴齐"。
+  bool _updateBottomAnchorIfNeeded() {
     final scrollController = _controller.scrollController;
-    if (!scrollController.hasClients) return;
+    if (!scrollController.hasClients) return false;
     final position = scrollController.position;
 
-    // after 侧已铺满一屏，无空白可修
-    if (position.maxScrollExtent > 0) return;
+    double newAnchor = 0.0;
 
-    // 还有后续分页会补内容，保持顶对齐等 loadMore
     final notifier = ref.read(topicDetailProvider(_params).notifier);
-    if (notifier.hasMoreAfter) return;
+    // maxScrollExtent 按当前 anchor 下的 after 富余度计算；仅在窗口已
+    // 到话题末尾且 after 侧铺不满（max ≈ 0 ⇒ 全部真实布局）时抬 anchor。
+    // 半像素容差：anchor 生效后 max 因浮点会残留 1e-13 级正值，
+    // 用 <= 0 判断会把 anchor 弹回 0 造成振荡
+    if (!notifier.hasMoreAfter && position.maxScrollExtent <= 0.5) {
+      final centerContext = _centerKey.currentContext;
+      if (centerContext != null) {
+        // center key 可能挂在 SliverMainAxisGroup 上，向上找 viewport 直属 sliver
+        RenderObject? sliver = centerContext.findRenderObject();
+        while (sliver is RenderSliver && sliver.parent is RenderSliver) {
+          sliver = sliver.parent;
+        }
+        final viewport = sliver is RenderSliver ? sliver.parent : null;
+        if (sliver is RenderSliver && viewport is RenderViewport) {
+          // center 及其后所有兄弟 sliver 的真实内容总高
+          // （typing 指示器、底部 80px padding 都在其中，自然计入）
+          double afterExtent = sliver.geometry?.scrollExtent ?? 0;
+          for (
+            RenderSliver? child = viewport.childAfter(sliver);
+            child != null;
+            child = viewport.childAfter(child)
+          ) {
+            afterExtent += child.geometry?.scrollExtent ?? 0;
+          }
 
-    // 嵌套视图等无 center 锚点的场景
-    final centerContext = _centerKey.currentContext;
-    if (centerContext == null) return;
-
-    // center key 可能挂在 SliverMainAxisGroup 上，向上找到 viewport 直属 sliver
-    RenderObject? sliver = centerContext.findRenderObject();
-    while (sliver is RenderSliver && sliver.parent is RenderSliver) {
-      sliver = sliver.parent;
+          final viewportHeight = position.viewportDimension;
+          if (viewportHeight > 0 && afterExtent < viewportHeight) {
+            // before 侧可能含未构建子项的估算值；若因此选错分支，
+            // 新 anchor 会让 before 进入构建范围，下一轮复核即以
+            // 真实值收敛（调用方的重试循环保证）
+            double beforeExtent = 0;
+            for (
+              RenderSliver? child = viewport.childBefore(sliver);
+              child != null;
+              child = viewport.childBefore(child)
+            ) {
+              beforeExtent += child.geometry?.scrollExtent ?? 0;
+            }
+            if (beforeExtent + afterExtent <= viewportHeight) {
+              // 整个话题装得下一屏：anchor = before/视口 使
+              // min = max = 0，滚动被锁死且整体顶对齐（同旧行为，
+              // 但底部空白不再处于可滚范围内）
+              newAnchor = (beforeExtent / viewportHeight).clamp(0.0, 1.0);
+            } else {
+              // 内容超一屏但 after 侧不足：offset 0 = 底边贴齐，
+              // max = 0，向上仍可滚完 before 侧全部内容
+              newAnchor = ((viewportHeight - afterExtent) / viewportHeight)
+                  .clamp(0.0, 1.0);
+            }
+          }
+        }
+      }
     }
-    if (sliver is! RenderSliver) return;
-    final viewport = sliver.parent;
-    if (viewport is! RenderViewport) return;
 
-    // center 及其后所有兄弟 sliver 的真实内容总高
-    // （typing 指示器、底部 80px padding 都在其中，自然计入）
-    double afterExtent = sliver.geometry?.scrollExtent ?? 0;
-    for (
-      RenderSliver? child = viewport.childAfter(sliver);
-      child != null;
-      child = viewport.childAfter(child)
-    ) {
-      afterExtent += child.geometry?.scrollExtent ?? 0;
-    }
-
-    // 负 offset = 滚进 before 区，让内容底边贴视口底边；
-    // 整个话题不足一屏时被 minScrollExtent 拦成顶对齐
-    final target = (afterExtent - position.viewportDimension).clamp(
-      position.minScrollExtent,
-      0.0,
-    );
-    if (target < position.pixels) {
-      scrollController.jumpTo(target);
-    }
+    if ((newAnchor - _viewportAnchor).abs() < 0.001) return false;
+    setState(() => _viewportAnchor = newAnchor);
+    return true;
   }
 }

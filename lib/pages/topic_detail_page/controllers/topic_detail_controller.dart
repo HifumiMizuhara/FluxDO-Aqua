@@ -195,8 +195,12 @@ class TopicDetailController extends ChangeNotifier {
   void handleScroll() {
     onScrolled?.call();
 
+    // center 坐标系下 before 区是负 offset，"离顶距离"须相对 minScrollExtent
     final shouldShowBackToTop =
-        scrollController.hasClients && scrollController.position.pixels > 300;
+        scrollController.hasClients &&
+        scrollController.position.pixels -
+                scrollController.position.minScrollExtent >
+            300;
     if (shouldShowBackToTop != _scrollState.showBackToTop) {
       _updateScrollState(
         _scrollState.copyWith(showBackToTop: shouldShowBackToTop),

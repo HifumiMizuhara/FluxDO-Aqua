@@ -159,6 +159,11 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
   // UI State
   final GlobalKey _headerKey = GlobalKey();
   final GlobalKey _centerKey = GlobalKey();
+
+  /// 视口 anchor（center 零点在视口内的位置，0 = 顶部）。
+  /// 目标帖下方内容不足一屏时由 _updateBottomAnchorIfNeeded 按真实几何
+  /// 抬高，使 offset 0 = 底边贴齐，底部空白被排除在滚动范围之外
+  double _viewportAnchor = 0.0;
   bool _hasFirstPost = false;
   bool _isCheckTitleVisibilityScheduled = false;
   bool _isRefreshing = false;
@@ -2039,7 +2044,9 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
     }
 
     // 初始定位：center 直接锚在目标帖，首帧布局即 offset 0 = 目标顶对齐，
-    // 无爬行、无估算。收尾（贴底修正 + markPositioned）在帧后完成。
+    // 无爬行、无估算。收尾（贴底 anchor + markPositioned）在帧后完成。
+    // _viewportAnchor 不在此处重置：残留值由 _finalizeInitialPosition
+    // 按真实几何重新评估（避免刷新场景闪一帧顶对齐）。
     if (!_controller.hasInitialScrolled && posts.isNotEmpty) {
       final target = _resolveInitialTarget(posts, dividerPostIndex);
       _controller.markInitialScrolled(
@@ -2116,6 +2123,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
               detail: detail,
               scrollController: _controller.scrollController,
               centerKey: _centerKey,
+              viewportAnchor: _viewportAnchor,
               headerKey: _headerKey,
               hideHeaderTitle: widget.hideInlineHeaderTitle,
               selectedPostNumber: selectedPostNumber,

@@ -32,6 +32,10 @@ class TopicPostList extends StatefulWidget {
   final AutoScrollController scrollController;
   final GlobalKey centerKey;
   final GlobalKey headerKey;
+
+  /// 视口 anchor（0 = center 顶对齐；>0 时 center 零点下移，
+  /// 用于目标帖靠近话题末尾时的底部贴齐）
+  final double viewportAnchor;
   final int? selectedPostNumber;
   final int? highlightPostNumber;
   final bool isLoggedIn;
@@ -93,6 +97,7 @@ class TopicPostList extends StatefulWidget {
     required this.scrollController,
     required this.centerKey,
     required this.headerKey,
+    this.viewportAnchor = 0.0,
     required this.selectedPostNumber,
     required this.highlightPostNumber,
     this.highlightBoostUsername,
@@ -571,6 +576,7 @@ class _TopicPostListState extends State<TopicPostList> {
         child: CustomScrollView(
             controller: scrollController,
             center: centerKey,
+            anchor: widget.viewportAnchor,
             scrollCacheExtent: ScrollCacheExtent.pixels(500),
             physics: const AlwaysScrollableScrollPhysics(
               parent: BouncingScrollPhysics(),
