@@ -1,3 +1,4 @@
+import 'package:common_ui/common_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,7 +10,6 @@ class AiAdvancedSettingsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final useAppNetwork = ref.watch(aiUseAppNetworkProvider);
     final hasAdapterFactory = ref.watch(aiDioAdapterFactoryProvider) != null;
     final partialEnabled = ref.watch(aiPartialImagesProvider);
@@ -19,43 +19,35 @@ class AiAdvancedSettingsPage extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Container(
-            clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              children: [
-                SwitchListTile(
-                  title: Text(AiL10n.current.useAppNetwork),
-                  subtitle: Text(AiL10n.current.useAppNetworkSubtitle),
-                  value: useAppNetwork && hasAdapterFactory,
-                  onChanged: hasAdapterFactory
-                      ? (value) async {
-                          final prefs =
-                              ref.read(aiSharedPreferencesProvider);
-                          await prefs.setBool('ai_use_app_network', value);
-                          ref
-                              .read(aiUseAppNetworkProvider.notifier)
-                              .state = value;
-                        }
-                      : null,
-                ),
-                const Divider(height: 1, indent: 16, endIndent: 16),
-                SwitchListTile(
-                  title: Text(AiL10n.current.partialImagesTitle),
-                  subtitle: Text(AiL10n.current.partialImagesSubtitle),
-                  value: partialEnabled,
-                  onChanged: (value) async {
-                    final prefs = ref.read(aiSharedPreferencesProvider);
-                    await prefs.setBool('ai_partial_images', value);
-                    ref.read(aiPartialImagesProvider.notifier).state =
-                        value;
-                  },
-                ),
-              ],
-            ),
+          SegmentedCardGroup(
+            children: [
+              SwitchListTile(
+                title: Text(AiL10n.current.useAppNetwork),
+                subtitle: Text(AiL10n.current.useAppNetworkSubtitle),
+                value: useAppNetwork && hasAdapterFactory,
+                onChanged: hasAdapterFactory
+                    ? (value) async {
+                        final prefs =
+                            ref.read(aiSharedPreferencesProvider);
+                        await prefs.setBool('ai_use_app_network', value);
+                        ref
+                            .read(aiUseAppNetworkProvider.notifier)
+                            .state = value;
+                      }
+                    : null,
+              ),
+              SwitchListTile(
+                title: Text(AiL10n.current.partialImagesTitle),
+                subtitle: Text(AiL10n.current.partialImagesSubtitle),
+                value: partialEnabled,
+                onChanged: (value) async {
+                  final prefs = ref.read(aiSharedPreferencesProvider);
+                  await prefs.setBool('ai_partial_images', value);
+                  ref.read(aiPartialImagesProvider.notifier).state =
+                      value;
+                },
+              ),
+            ],
           ),
         ],
       ),

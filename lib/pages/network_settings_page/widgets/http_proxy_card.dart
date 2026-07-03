@@ -8,7 +8,7 @@ import '../../../services/network/proxy/proxy_settings_service.dart';
 import '../../../services/network/proxy/shadowsocks_uri_parser.dart';
 import '../../../services/network/vpn_auto_toggle_service.dart';
 import '../../../services/toast_service.dart';
-import '../../../widgets/common/segmented_card_group.dart';
+import 'package:common_ui/common_ui.dart';
 
 class HttpProxyCard extends StatelessWidget {
   const HttpProxyCard({super.key});

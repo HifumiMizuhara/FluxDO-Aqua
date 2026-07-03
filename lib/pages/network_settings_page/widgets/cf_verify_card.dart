@@ -6,7 +6,7 @@ import '../../../l10n/s.dart';
 import '../../../providers/preferences_provider.dart';
 import '../../../services/cf_challenge_service.dart';
 import '../../../services/toast_service.dart';
-import '../../../widgets/common/segmented_card_group.dart';
+import 'package:common_ui/common_ui.dart';
 
 /// Cloudflare 验证独立卡片：自动验证开关 + 立即验证入口
 class CfVerifyCard extends ConsumerWidget {

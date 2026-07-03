@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
+import 'package:common_ui/common_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/ai_chat_providers.dart';
@@ -24,65 +25,69 @@ class AiProvidersPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: Text(AiL10n.current.aiModelService)),
       body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [
-          // 供应商管理
-          _SettingsEntry(
-            icon: Symbols.dns_rounded,
-            title: AiL10n.current.addProvider.replaceAll('添加', '').trim().isEmpty
-                ? 'Providers'
-                : AiL10n.current.addProvider.replaceAll('添加', '').trim(),
-            subtitle: providerCount > 0
-                ? '$providerCount'
-                : AiL10n.current.noProviderConfigured,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AiProviderListPage()),
-            ),
-          ),
-          // 模型配置
-          if (hasModels)
-            _SettingsEntry(
-              icon: Symbols.tune_rounded,
-              title: AiL10n.current.modelConfig,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const AiModelConfigPage()),
+          SegmentedCardGroup(
+            children: [
+              // 供应商管理
+              _SettingsEntry(
+                icon: Symbols.dns_rounded,
+                title: AiL10n.current.addProvider.replaceAll('添加', '').trim().isEmpty
+                    ? 'Providers'
+                    : AiL10n.current.addProvider.replaceAll('添加', '').trim(),
+                subtitle: providerCount > 0
+                    ? '$providerCount'
+                    : AiL10n.current.noProviderConfigured,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AiProviderListPage()),
+                ),
               ),
-            ),
-          // 聊天记录
-          _SettingsEntry(
-            icon: Symbols.history_rounded,
-            title: AiL10n.current.chatHistory,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    AiChatHistoryPage(onOpenSession: onOpenSession),
+              // 模型配置
+              if (hasModels)
+                _SettingsEntry(
+                  icon: Symbols.tune_rounded,
+                  title: AiL10n.current.modelConfig,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const AiModelConfigPage()),
+                  ),
+                ),
+              // 聊天记录
+              _SettingsEntry(
+                icon: Symbols.history_rounded,
+                title: AiL10n.current.chatHistory,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        AiChatHistoryPage(onOpenSession: onOpenSession),
+                  ),
+                ),
               ),
-            ),
-          ),
-          // 快捷词管理
-          _SettingsEntry(
-            icon: Symbols.flash_on_rounded,
-            title: AiL10n.current.quickPromptsManageTitle,
-            subtitle: AiL10n.current.quickPromptsManageHint,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (_) => const PromptPresetsPage()),
-            ),
-          ),
-          // 高级设置
-          _SettingsEntry(
-            icon: Symbols.settings_rounded,
-            title: AiL10n.current.advancedSettings,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (_) => const AiAdvancedSettingsPage()),
-            ),
+              // 快捷词管理
+              _SettingsEntry(
+                icon: Symbols.flash_on_rounded,
+                title: AiL10n.current.quickPromptsManageTitle,
+                subtitle: AiL10n.current.quickPromptsManageHint,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const PromptPresetsPage()),
+                ),
+              ),
+              // 高级设置
+              _SettingsEntry(
+                icon: Symbols.settings_rounded,
+                title: AiL10n.current.advancedSettings,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const AiAdvancedSettingsPage()),
+                ),
+              ),
+            ],
           ),
         ],
       ),

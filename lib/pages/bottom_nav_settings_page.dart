@@ -14,7 +14,7 @@ import '../settings/definitions/bottom_nav_defs.dart';
 import '../settings/settings_model.dart';
 import '../settings/settings_renderer.dart';
 import '../utils/dialog_utils.dart';
-import '../widgets/common/segmented_card_group.dart';
+import 'package:common_ui/common_ui.dart';
 
 /// 底栏设置页
 ///

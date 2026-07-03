@@ -24,7 +24,7 @@ import '../widgets/common/loading_dialog.dart';
 import '../widgets/common/notification_icon_button.dart';
 import '../widgets/common/flair_badge.dart';
 import '../widgets/common/smart_avatar.dart';
-import '../widgets/common/segmented_card_group.dart';
+import 'package:common_ui/common_ui.dart';
 import '../providers/app_state_refresher.dart';
 import 'metaverse_page.dart';
 import 'package:ai_model_manager/ai_model_manager.dart';

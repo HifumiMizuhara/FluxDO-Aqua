@@ -16,7 +16,7 @@ import '../services/data_management/data_backup_service.dart';
 import '../services/discourse_cache_manager.dart';
 import '../services/toast_service.dart';
 import '../settings/definitions/data_management_defs.dart';
-import '../widgets/common/segmented_card_group.dart';
+import 'package:common_ui/common_ui.dart';
 import '../widgets/settings/settings_group_page.dart';
 
 /// 数据管理页面（数据驱动版）

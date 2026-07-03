@@ -10,7 +10,7 @@ import '../services/notion/notion_client.dart';
 import '../services/notion/notion_config.dart';
 import '../services/notion/notion_sync_service.dart';
 import '../services/toast_service.dart';
-import '../widgets/common/segmented_card_group.dart';
+import 'package:common_ui/common_ui.dart';
 
 /// Notion 同步设置页：分步引导 + 配置编辑。
 class NotionSettingsPage extends ConsumerStatefulWidget {
