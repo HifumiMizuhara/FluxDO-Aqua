@@ -274,8 +274,11 @@ class _PostItemState extends ConsumerState<PostItem> {
                         maxTrackCount: danmakuTrackCount,
                         trackHeight: danmakuTrackHeight,
                         highlightUsername: widget.highlightBoostUsername,
-                        onBoostTap: (boost) {
-                          _footerKey.currentState?.showBoostActions(boost);
+                        onBoostTap: (boost, anchorRect) {
+                          _footerKey.currentState?.showBoostActions(
+                            boost,
+                            anchorRect: anchorRect,
+                          );
                         },
                       ),
                     ),

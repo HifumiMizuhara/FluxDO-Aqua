@@ -1,5 +1,6 @@
 {
   "@@locale": "zh",
+  "boost_authorProfile": "主页",
   "boost_created": "Boost 已发送",
   "boost_danmaku": "弹幕",
   "boost_danmakuDismiss": "暂时关闭此帖弹幕",

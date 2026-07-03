@@ -10,6 +10,17 @@ import '../../common/emoji_text.dart';
 import '../../common/smart_avatar.dart';
 import 'boost_content.dart';
 
+typedef BoostDanmakuTapCallback = void Function(Boost boost, Rect? anchorRect);
+
+Rect? _globalRectOf(BuildContext context) {
+  final renderObject = context.findRenderObject();
+  if (renderObject is! RenderBox || !renderObject.hasSize) {
+    return null;
+  }
+  final topLeft = renderObject.localToGlobal(Offset.zero);
+  return topLeft & renderObject.size;
+}
+
 /// Boost 弹幕：多轨道，从右往左飘，视频弹幕样式（透明背景 + 白字描边）。
 ///
 /// 用法：作为 Stack 内的子级叠加到帖子内容上方。
@@ -17,7 +28,7 @@ import 'boost_content.dart';
 class BoostDanmaku extends StatefulWidget {
   final Object? visibilityKey;
   final List<Boost> boosts;
-  final void Function(Boost boost)? onBoostTap;
+  final BoostDanmakuTapCallback? onBoostTap;
 
   /// 滚动速度（px/秒）
   final double pixelsPerSecond;
@@ -228,8 +239,10 @@ class _BoostDanmakuState extends State<BoostDanmaku>
                             trackHeight: widget.trackHeight,
                             onTap: widget.onBoostTap == null
                                 ? null
-                                : () =>
-                                      widget.onBoostTap!(item.group.boosts.first),
+                                : (itemContext) => widget.onBoostTap!(
+                                    item.group.boosts.first,
+                                    _globalRectOf(itemContext),
+                                  ),
                             onSize: (size) {
                               if ((size.width - item.width).abs() > 0.5) {
                                 item.width = size.width;
@@ -268,7 +281,7 @@ class _FlyingDanmaku {
 class _DanmakuItem extends StatefulWidget {
   final _FlyingDanmaku item;
   final double trackHeight;
-  final VoidCallback? onTap;
+  final ValueChanged<BuildContext>? onTap;
   final ValueChanged<Size> onSize;
 
   const _DanmakuItem({
@@ -291,6 +304,11 @@ class _DanmakuItemState extends State<_DanmakuItem> {
     final box = ctx.findRenderObject() as RenderBox?;
     if (box == null || !box.hasSize) return;
     widget.onSize(box.size);
+  }
+
+  void _handleTap() {
+    final itemContext = _key.currentContext ?? context;
+    widget.onTap?.call(itemContext);
   }
 
   @override
@@ -345,8 +363,8 @@ class _DanmakuItemState extends State<_DanmakuItem> {
         child: KeyedSubtree(
           key: _key,
           child: GestureDetector(
-            onTap: widget.onTap,
-            onLongPress: widget.onTap,
+            onTap: widget.onTap == null ? null : _handleTap,
+            onLongPress: widget.onTap == null ? null : _handleTap,
             behavior: HitTestBehavior.opaque,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),

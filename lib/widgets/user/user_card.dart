@@ -45,6 +45,19 @@ const double _kAvatarRadius = 38.0;
 /// 头像戳出卡片顶边的高度
 const double _kAvatarOverflow = 24.0;
 
+/// 是否允许展示用户卡片（站点隐藏公开资料时要求已登录）。
+bool canShowUserCardPreview(BuildContext context) {
+  final preloaded = PreloadedDataService();
+  final hideProfilesFromPublic =
+      preloaded.siteSettingsSync?['hide_user_profiles_from_public'] == true;
+  if (!hideProfilesFromPublic) return true;
+
+  final currentUser = ProviderScope.containerOf(context, listen: false)
+      .read(currentUserProvider)
+      .value;
+  return currentUser != null || preloaded.currentUserSync != null;
+}
+
 /// 显示用户卡片。两种形态对齐 Discourse 网页版：
 /// - 桌面端：锚定在头像旁的浮层（优先右侧，其次左/下/上）。
 /// - 移动端：顶部全宽停靠卡（docked），背景模糊作遮罩。
@@ -67,15 +80,7 @@ void showUserCard({
   String? flairBgColor,
   String? flairColor,
 }) {
-  final preloaded = PreloadedDataService();
-  final hideProfilesFromPublic =
-      preloaded.siteSettingsSync?['hide_user_profiles_from_public'] == true;
-  if (hideProfilesFromPublic) {
-    final currentUser = ProviderScope.containerOf(context, listen: false)
-        .read(currentUserProvider)
-        .value;
-    if (currentUser == null && preloaded.currentUserSync == null) return;
-  }
+  if (!canShowUserCardPreview(context)) return;
 
   final anchorContext = context;
   final menuNavigatorKey =

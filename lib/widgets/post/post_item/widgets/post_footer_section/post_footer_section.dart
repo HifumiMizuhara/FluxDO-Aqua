@@ -17,10 +17,12 @@ import '../../../../../services/discourse/discourse_service.dart';
 import '../../../../../services/log/bookmark_edit_trace.dart';
 import '../../../../../services/notion/notion_bookmark_auto_sync.dart';
 import '../../../../../services/toast_service.dart';
+import '../../../../../pages/user_profile_page.dart';
 import '../../../post_links.dart';
 import '../post_action_bar.dart';
 import '../../../../bookmark/bookmark_edit_sheet_launcher.dart';
 import '../../../../post/post_boost/boost_list.dart';
+import '../../../../post/post_boost/boost_author_popover.dart';
 import '../../../../post/post_boost/boost_input.dart';
 import '../boost_flag_sheet.dart';
 import '../post_flag_sheet.dart';
@@ -28,6 +30,7 @@ import '../post_reaction_users_sheet.dart';
 import '../post_replies_list.dart';
 import '../post_solution_banner.dart';
 import '../../../../post/post_replies_sheet.dart';
+import '../../../../user/user_card.dart';
 import '../../../../../utils/dialog_utils.dart';
 import '../../../../common/app_bottom_sheet.dart';
 
@@ -325,85 +328,117 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
     );
   }
 
-  Future<void> _showBoostActions(Boost boost) => showBoostActions(boost);
+  Future<void> _showBoostActions(Boost boost, Rect? anchorRect) =>
+      showBoostActions(boost, anchorRect: anchorRect);
 
   /// 提供给外层(PostItem)的公开入口，方便弹幕浮层复用同一份 boost actions。
-  Future<void> showBoostActions(Boost boost) async {
+  Future<void> showBoostActions(Boost boost, {Rect? anchorRect}) async {
     final currentUsername = ref.read(currentUserProvider).value?.username;
-    if (currentUsername == null || currentUsername.isEmpty) {
-      return;
-    }
-    Boost resolvedBoost;
-    try {
-      resolvedBoost = await _resolveBoostActionState(
-        boost: boost,
-        currentUsername: currentUsername,
-      );
-    } catch (_) {
-      if (!mounted) return;
-      ToastService.showError(S.current.common_loadFailed);
-      return;
+    Boost resolvedBoost = boost;
+    var boostActionStateLoadFailed = false;
+    if (currentUsername != null && currentUsername.isNotEmpty) {
+      try {
+        resolvedBoost = await _resolveBoostActionState(
+          boost: boost,
+          currentUsername: currentUsername,
+        );
+      } catch (_) {
+        boostActionStateLoadFailed = true;
+      }
     }
     if (!mounted) return;
-    final canDelete = canDeleteBoostAction(
-      boost: resolvedBoost,
-      currentUsername: currentUsername,
-    );
-    if (boostAlreadyReportedByCurrentUser(
-          boost: resolvedBoost,
-          currentUsername: currentUsername,
-        ) &&
-        !canDelete) {
-      ToastService.showInfo(S.current.boost_flagAlreadyReported);
+
+    final canPreviewAuthor =
+        canViewBoostAuthor(boost: resolvedBoost) &&
+        canShowUserCardPreview(context);
+    final canDelete =
+        boostActionStateLoadFailed ||
+            currentUsername == null ||
+            currentUsername.isEmpty
+        ? false
+        : canDeleteBoostAction(
+            boost: resolvedBoost,
+            currentUsername: currentUsername,
+          );
+    final canFlag =
+        boostActionStateLoadFailed ||
+            currentUsername == null ||
+            currentUsername.isEmpty
+        ? false
+        : canFlagBoostAction(
+            boost: resolvedBoost,
+            currentUsername: currentUsername,
+          );
+    final alreadyReported = currentUsername == null || currentUsername.isEmpty
+        ? false
+        : boostAlreadyReportedByCurrentUser(
+            boost: resolvedBoost,
+            currentUsername: currentUsername,
+          );
+    final canShowSheet = canPreviewAuthor || canFlag || canDelete;
+    if (boostActionStateLoadFailed) {
+      ToastService.showError(S.current.common_loadFailed);
+    }
+    if (!canShowSheet) {
       return;
     }
-    final canFlag = canFlagBoostAction(
-      boost: resolvedBoost,
-      currentUsername: currentUsername,
-    );
-    if (!canOpenBoostActionMenu(
-      boost: resolvedBoost,
-      currentUsername: currentUsername,
-    )) {
-      return;
+    if (alreadyReported && !canDelete) {
+      ToastService.showInfo(S.current.boost_flagAlreadyReported);
     }
 
-    AppBottomSheet.show(
+    final action = await showBoostAuthorPopover(
       context: context,
-      contentPadding: EdgeInsets.zero,
-      builder: (ctx) {
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (canFlag)
-              ListTile(
-                leading: const Icon(Symbols.flag_rounded, color: Colors.red),
-                title: Text(
-                  S.current.common_report,
-                  style: const TextStyle(color: Colors.red),
-                ),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _showBoostFlagSheet(resolvedBoost);
-                },
-              ),
-            if (canDelete)
-              ListTile(
-                leading: const Icon(Symbols.delete_rounded, color: Colors.red),
-                title: Text(S.current.common_delete),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _deleteBoost(resolvedBoost);
-                },
-              ),
-            ListTile(
-              leading: const Icon(Symbols.close_rounded),
-              title: Text(S.current.common_cancel),
-              onTap: () => Navigator.pop(ctx),
-            ),
-          ],
+      anchorRect: anchorRect ?? _fallbackBoostAuthorAnchorRect(),
+      boost: resolvedBoost,
+      canViewAuthor: canPreviewAuthor,
+      canFlag: canFlag,
+      canDelete: canDelete,
+    );
+    if (!mounted || action == null) return;
+    switch (action) {
+      case BoostAuthorPopoverAction.authorCard:
+        _showBoostAuthorCard(resolvedBoost, anchorRect);
+      case BoostAuthorPopoverAction.profile:
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                UserProfilePage(username: resolvedBoost.user.username),
+          ),
         );
-      },
+      case BoostAuthorPopoverAction.flag:
+        _showBoostFlagSheet(resolvedBoost);
+      case BoostAuthorPopoverAction.delete:
+        _deleteBoost(resolvedBoost);
+    }
+  }
+
+  Rect _fallbackBoostAuthorAnchorRect() {
+    final media = MediaQuery.maybeOf(context);
+    final size = media?.size ?? const Size(1, 1);
+    return Rect.fromCenter(
+      center: Offset(size.width / 2, size.height * 0.35),
+      width: 1,
+      height: 1,
+    );
+  }
+
+  void _showBoostAuthorCard(Boost boost, Rect? anchorRect) {
+    showUserCard(
+      context: context,
+      anchorRect: anchorRect ?? _fallbackBoostAuthorAnchorRect(),
+      username: boost.user.username,
+      topicId: widget.topicId,
+      topicTitle: widget.topicTitle,
+      postNumber: widget.post.postNumber,
+      avatarFallbackUrl: boost.user.avatarTemplate.isEmpty
+          ? null
+          : boost.user.getAvatarUrl(size: 144),
+      nameFallback: boost.user.name,
+      flairUrl: null,
+      flairName: null,
+      flairBgColor: null,
+      flairColor: null,
     );
   }
 

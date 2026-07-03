@@ -9,12 +9,23 @@ import '../../../utils/emoji_shortcodes.dart';
 import 'boost_bubble.dart';
 import 'boost_content.dart';
 
+typedef BoostTapCallback = void Function(Boost boost, Rect? anchorRect);
+
+Rect? _globalRectOf(BuildContext context) {
+  final renderObject = context.findRenderObject();
+  if (renderObject is! RenderBox || !renderObject.hasSize) {
+    return null;
+  }
+  final topLeft = renderObject.localToGlobal(Offset.zero);
+  return topLeft & renderObject.size;
+}
+
 /// Boost 气泡列表
 class BoostList extends StatefulWidget {
   final List<Boost> boosts;
   final bool canBoost;
   final VoidCallback? onAddBoost;
-  final void Function(Boost boost)? onBoostTap;
+  final BoostTapCallback? onBoostTap;
   /// 高亮指定用户的 boost（自动展开并滚动到位）
   final String? highlightUsername;
 
@@ -151,7 +162,7 @@ class _BoostListState extends State<BoostList> with SingleTickerProviderStateMix
     BoostGroup group,
   ) async {
     if (group.count <= 1) {
-      widget.onBoostTap?.call(group.boosts.first);
+      widget.onBoostTap?.call(group.boosts.first, _globalRectOf(anchorContext));
       return;
     }
 
@@ -180,9 +191,9 @@ class _BoostListState extends State<BoostList> with SingleTickerProviderStateMix
           _activePopoverContext = popoverContext;
           return _BoostPopoverContent(
             boosts: group.boosts,
-            onBoostTap: (boost) {
+            onBoostTap: (boost, anchorRect) {
               Navigator.of(popoverContext).pop();
-              widget.onBoostTap?.call(boost);
+              widget.onBoostTap?.call(boost, anchorRect);
             },
           );
         },
@@ -253,8 +264,14 @@ class _BoostListState extends State<BoostList> with SingleTickerProviderStateMix
       final boost = group.boosts.first;
       Widget bubble = BoostBubble(
         boost: boost,
-        onTap: widget.onBoostTap == null ? null : () => widget.onBoostTap!(boost),
-        onLongPress: widget.onBoostTap == null ? null : () => widget.onBoostTap!(boost),
+        onTapWithContext: widget.onBoostTap == null
+            ? null
+            : (bubbleContext) =>
+                widget.onBoostTap!(boost, _globalRectOf(bubbleContext)),
+        onLongPressWithContext: widget.onBoostTap == null
+            ? null
+            : (bubbleContext) =>
+                widget.onBoostTap!(boost, _globalRectOf(bubbleContext)),
       );
       if (isHighlighted) {
         bubble = _wrapHighlight(bubble);
@@ -535,7 +552,7 @@ class _InlineControlChip extends StatelessWidget {
 
 class _BoostPopoverContent extends StatelessWidget {
   final List<Boost> boosts;
-  final void Function(Boost boost)? onBoostTap;
+  final BoostTapCallback? onBoostTap;
 
   const _BoostPopoverContent({
     required this.boosts,
@@ -563,8 +580,14 @@ class _BoostPopoverContent extends StatelessWidget {
               for (final boost in boosts)
                 BoostBubble(
                   boost: boost,
-                  onTap: onBoostTap == null ? null : () => onBoostTap!(boost),
-                  onLongPress: onBoostTap == null ? null : () => onBoostTap!(boost),
+                  onTapWithContext: onBoostTap == null
+                      ? null
+                      : (bubbleContext) =>
+                          onBoostTap!(boost, _globalRectOf(bubbleContext)),
+                  onLongPressWithContext: onBoostTap == null
+                      ? null
+                      : (bubbleContext) =>
+                          onBoostTap!(boost, _globalRectOf(bubbleContext)),
                 ),
             ],
           ),

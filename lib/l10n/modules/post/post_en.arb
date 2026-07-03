@@ -1,5 +1,6 @@
 {
   "@@locale": "en",
+  "boost_authorProfile": "Profile",
   "boost_created": "Boost sent",
   "boost_danmaku": "Danmaku",
   "boost_danmakuDismiss": "Hide danmaku for this post",

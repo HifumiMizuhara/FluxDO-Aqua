@@ -64,6 +64,14 @@ void main() {
       );
     });
 
+    test('游客仍可打开 Boost 发布者信息 sheet', () {
+      expect(canViewBoostAuthor(boost: otherBoost), isTrue);
+      expect(
+        canShowBoostActionSheet(boost: otherBoost, currentUsername: null),
+        isTrue,
+      );
+    });
+
     test('已举报的他人 Boost 不再视为可举报', () {
       const flaggedBoost = Boost(
         id: 3,
@@ -82,6 +90,24 @@ void main() {
       );
       expect(
         canFlagBoostAction(boost: flaggedBoost, currentUsername: 'alice'),
+        isFalse,
+      );
+      expect(
+        canShowBoostActionSheet(boost: flaggedBoost, currentUsername: 'alice'),
+        isTrue,
+      );
+    });
+
+    test('没有发布者信息且没有操作权限时不显示 sheet', () {
+      const anonymousBoost = Boost(
+        id: 4,
+        cooked: 'anonymous',
+        user: BoostUser(id: 0, username: '   ', avatarTemplate: ''),
+      );
+
+      expect(canViewBoostAuthor(boost: anonymousBoost), isFalse);
+      expect(
+        canShowBoostActionSheet(boost: anonymousBoost, currentUsername: null),
         isFalse,
       );
     });

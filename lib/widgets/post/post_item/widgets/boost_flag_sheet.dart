@@ -61,6 +61,18 @@ bool canOpenBoostActionMenu({
       canFlagBoostAction(boost: boost, currentUsername: currentUsername);
 }
 
+bool canViewBoostAuthor({required Boost boost}) {
+  return boost.user.username.trim().isNotEmpty;
+}
+
+bool canShowBoostActionSheet({
+  required Boost boost,
+  required String? currentUsername,
+}) {
+  return canViewBoostAuthor(boost: boost) ||
+      canOpenBoostActionMenu(boost: boost, currentUsername: currentUsername);
+}
+
 List<FlagType> filterBoostFlagTypes({
   required List<FlagType> allFlagTypes,
   List<String>? availableFlags,
