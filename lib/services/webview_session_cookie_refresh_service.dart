@@ -655,7 +655,9 @@ document.close();
   }
 
   function extractFingerprintRunner(source) {
-    const endpointMatch = source.match(/_\\("([^"]+)",\\{type:"POST",data:\\{visitor_id:/);
+    // 端点上报调用的压缩函数名会随论坛构建变化(曾是 `_`,现为 `L`),
+    // 不写死函数名,只匹配 `<任意标识符>("<端点>",{type:"POST",data:{visitor_id:` 这一稳定结构。
+    const endpointMatch = source.match(/[A-Za-z_\$][\\w\$]*\\("([^"]+)",\\{type:"POST",data:\\{visitor_id:/);
     if (!endpointMatch) {
       throw new Error('fingerprint endpoint not found');
     }
