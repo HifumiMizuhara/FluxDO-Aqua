@@ -96,6 +96,7 @@
   "userProfile_actionLiked": "被贊",
   "userProfile_actionReplied": "回覆了",
   "userProfile_bio": "個人簡介",
+  "userProfile_boosted": "Boost 了",
   "userProfile_catPostCount": "{count} 回覆",
   "@userProfile_catPostCount": {
     "placeholders": {
@@ -152,9 +153,12 @@
   "userProfile_nextMonday": "下週一",
   "userProfile_nextMonth": "下個月",
   "userProfile_noBio": "這個人很懶，什麼都沒寫",
+  "userProfile_noBoosts": "暫無 Boost",
   "userProfile_noContent": "暫無內容",
   "userProfile_noReactions": "暫無回應",
+  "userProfile_noSolved": "暫無已解決",
   "userProfile_noSummary": "暫無總結資料",
+  "userProfile_noVotes": "暫無投票",
   "userProfile_normal": "常規",
   "userProfile_oneYear": "一年",
   "userProfile_permanent": "永久",
@@ -185,6 +189,7 @@
     }
   },
   "userProfile_sixMonths": "六個月",
+  "userProfile_solvedLabel": "已解決",
   "userProfile_statsLikes": "獲贊",
   "userProfile_statsReplies": "回覆",
   "userProfile_statsTopics": "話題",
@@ -208,11 +213,14 @@
     }
   },
   "userProfile_tabActivity": "動態",
+  "userProfile_tabBoosts": "Boost",
   "userProfile_tabLikes": "贊",
   "userProfile_tabReactions": "回應",
   "userProfile_tabReplies": "回覆",
+  "userProfile_tabSolved": "已解決",
   "userProfile_tabSummary": "總結",
   "userProfile_tabTopics": "話題",
+  "userProfile_tabVotes": "投票",
   "userProfile_threeMonths": "三個月",
   "userProfile_tomorrow": "明天",
   "userProfile_topBadges": "熱門徽章",

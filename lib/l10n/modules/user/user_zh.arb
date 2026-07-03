@@ -103,6 +103,7 @@
   "userProfile_actionLiked": "被赞",
   "userProfile_actionReplied": "回复了",
   "userProfile_bio": "个人简介",
+  "userProfile_boosted": "Boost 了",
   "userProfile_catPostCount": "{count} 回复",
   "@userProfile_catPostCount": {
     "placeholders": {
@@ -159,9 +160,12 @@
   "userProfile_nextMonday": "下周一",
   "userProfile_nextMonth": "下个月",
   "userProfile_noBio": "这个人很懒，什么都没写",
+  "userProfile_noBoosts": "暂无 Boost",
   "userProfile_noContent": "暂无内容",
   "userProfile_noReactions": "暂无回应",
+  "userProfile_noSolved": "暂无已解决",
   "userProfile_noSummary": "暂无总结数据",
+  "userProfile_noVotes": "暂无投票",
   "userProfile_normal": "常规",
   "userProfile_oneYear": "一年",
   "userProfile_permanent": "永久",
@@ -192,6 +196,7 @@
     }
   },
   "userProfile_sixMonths": "六个月",
+  "userProfile_solvedLabel": "已解决",
   "userProfile_statsLikes": "获赞",
   "userProfile_statsReplies": "回复",
   "userProfile_statsTopics": "话题",
@@ -215,11 +220,14 @@
     }
   },
   "userProfile_tabActivity": "动态",
+  "userProfile_tabBoosts": "Boost",
   "userProfile_tabLikes": "赞",
   "userProfile_tabReactions": "回应",
   "userProfile_tabReplies": "回复",
+  "userProfile_tabSolved": "已解决",
   "userProfile_tabSummary": "总结",
   "userProfile_tabTopics": "话题",
+  "userProfile_tabVotes": "投票",
   "userProfile_threeMonths": "三个月",
   "userProfile_tomorrow": "明天",
   "userProfile_topBadges": "热门徽章",

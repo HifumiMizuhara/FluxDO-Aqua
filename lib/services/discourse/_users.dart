@@ -167,6 +167,44 @@ mixin _UsersMixin on _DiscourseServiceBase {
     return UserReactionsResponse.fromJson(response.data);
   }
 
+  /// 获取用户发出的 Boost 列表（discourse-boosts 插件，游标分页每页 20）
+  Future<UserBoostsResponse> getUserBoostsGiven(
+    String username, {
+    int? beforeBoostId,
+  }) async {
+    final response = await _dio.get(
+      '/discourse-boosts/users/$username/boosts-given.json',
+      queryParameters: beforeBoostId != null
+          ? {'before_boost_id': beforeBoostId}
+          : null,
+    );
+    return UserBoostsResponse.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// 获取用户投过票的话题列表（discourse-topic-voting 插件，标准话题列表分页）
+  Future<TopicListResponse> getVotedTopics(
+    String username, {
+    int page = 0,
+  }) async {
+    final response = await _dio.get(
+      '/topics/voted-by/$username.json',
+      queryParameters: page > 0 ? {'page': page} : null,
+    );
+    return TopicListResponse.fromJson(response.data);
+  }
+
+  /// 获取用户被采纳为答案的帖子列表（discourse-solved 插件，offset 分页每页 30）
+  Future<SolvedPostsResponse> getUserSolvedPosts(
+    String username, {
+    int offset = 0,
+  }) async {
+    final response = await _dio.get(
+      '/solution/by_user.json',
+      queryParameters: {'username': username, 'offset': offset},
+    );
+    return SolvedPostsResponse.fromJson(response.data as Map<String, dynamic>);
+  }
+
   /// 获取用户关注列表
   Future<List<FollowUser>> getFollowing(String username) async {
     final response = await _dio.get('/u/$username/follow/following');

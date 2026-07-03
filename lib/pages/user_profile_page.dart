@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/user.dart';
 import '../models/user_action.dart';
+import '../models/topic.dart';
 import '../providers/discourse_providers.dart';
 import '../services/discourse_cache_manager.dart';
 import '../utils/time_utils.dart';
@@ -30,6 +31,9 @@ import '../utils/fluxdo_render_callbacks.dart';
 import '../widgets/post/reply_sheet.dart';
 import '../widgets/user/user_profile_skeleton.dart';
 import '../widgets/user/ignore_duration_picker.dart';
+import '../widgets/topic/topic_item_builder.dart';
+import '../widgets/topic/topic_list_skeleton.dart';
+import '../widgets/post/post_boost/boost_content.dart';
 import '../widgets/badge/badge_ui_utils.dart';
 import '../services/toast_service.dart';
 import '../models/badge.dart' as badge_model;
@@ -83,13 +87,38 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
   bool _reactionsLoadMoreFailed = false;
   final LoadMoreCoordinator _reactionsLoadMoreCoordinator = LoadMoreCoordinator();
 
-  // tab 对应的 filter: summary=总结, 4,5=全部(话题+回复), 4=话题, 5=回复, 1=点赞, reactions=回应
-  static const List<String> _tabFilters = ['summary', '4,5', '4', '5', '1', 'reactions'];
+  // Boost 列表单独缓存（游标分页）
+  List<UserBoost>? _boostsCache;
+  bool _boostsHasMore = true;
+  bool _boostsLoading = false;
+  bool _boostsLoadMoreFailed = false;
+  final LoadMoreCoordinator _boostsLoadMoreCoordinator = LoadMoreCoordinator();
+
+  // 投票话题列表单独缓存（标准话题列表 page 分页）
+  List<Topic>? _votesCache;
+  bool _votesHasMore = true;
+  bool _votesLoading = false;
+  bool _votesLoadMoreFailed = false;
+  int _votesPage = 0;
+  final LoadMoreCoordinator _votesLoadMoreCoordinator = LoadMoreCoordinator();
+
+  // 已解决列表单独缓存（offset 分页）
+  List<SolvedPost>? _solvedCache;
+  bool _solvedHasMore = true;
+  bool _solvedLoading = false;
+  bool _solvedLoadMoreFailed = false;
+  final LoadMoreCoordinator _solvedLoadMoreCoordinator = LoadMoreCoordinator();
+
+  // tab 对应的 filter: summary=总结, 4,5=全部(话题+回复), 4=话题, 5=回复, 1=点赞,
+  // reactions=回应, boosts=Boost, votes=投票, solved=已解决
+  static const List<String> _tabFilters = [
+    'summary', '4,5', '4', '5', '1', 'reactions', 'boosts', 'votes', 'solved',
+  ];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: _tabFilters.length, vsync: this);
     _tabController.addListener(_onTabChanged);
     // 预先为所有 tab 设置 loading 状态，避免切换时闪现空状态
     for (final filter in _tabFilters) {
@@ -97,6 +126,12 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
         // 总结 tab 数据随 _summary 加载，无需单独标记
       } else if (filter == 'reactions') {
         _reactionsLoading = true;
+      } else if (filter == 'boosts') {
+        _boostsLoading = true;
+      } else if (filter == 'votes') {
+        _votesLoading = true;
+      } else if (filter == 'solved') {
+        _solvedLoading = true;
       } else {
         _loadingCache[filter] = true;
       }
@@ -120,6 +155,18 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
         // 回应列表
         if (_reactionsCache == null) {
           _loadReactions();
+        }
+      } else if (filter == 'boosts') {
+        if (_boostsCache == null) {
+          _loadBoosts();
+        }
+      } else if (filter == 'votes') {
+        if (_votesCache == null) {
+          _loadVotes();
+        }
+      } else if (filter == 'solved') {
+        if (_solvedCache == null) {
+          _loadSolved();
         }
       } else if (!_actionsCache.containsKey(filter)) {
         _loadActions(filter);
@@ -574,6 +621,18 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
     expectedPageSize: 20,
   );
 
+  /// 用户 Boost 分页助手（游标分页）
+  static final _boostsPaginationHelper = PaginationHelpers.forList<UserBoost>(
+    keyExtractor: (b) => b.id,
+    expectedPageSize: 20,
+  );
+
+  /// 已解决帖子分页助手（offset 分页）
+  static final _solvedPaginationHelper = PaginationHelpers.forList<SolvedPost>(
+    keyExtractor: (p) => p.postId,
+    expectedPageSize: 30,
+  );
+
   LoadMoreCoordinator _actionLoadMoreCoordinator(String filter) {
     return _actionLoadMoreCoordinators.putIfAbsent(
       filter,
@@ -597,6 +656,33 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
       hasMore: () => _reactionsHasMore,
       isActive: () => mounted,
       progressCount: () => _reactionsCache?.length ?? 0,
+    );
+  }
+
+  Future<void> _loadMoreBoosts() async {
+    await _boostsLoadMoreCoordinator.loadMore(
+      loadMore: () => _loadBoosts(loadMore: true),
+      hasMore: () => _boostsHasMore,
+      isActive: () => mounted,
+      progressCount: () => _boostsCache?.length ?? 0,
+    );
+  }
+
+  Future<void> _loadMoreVotes() async {
+    await _votesLoadMoreCoordinator.loadMore(
+      loadMore: () => _loadVotes(loadMore: true),
+      hasMore: () => _votesHasMore,
+      isActive: () => mounted,
+      progressCount: () => _votesCache?.length ?? 0,
+    );
+  }
+
+  Future<void> _loadMoreSolved() async {
+    await _solvedLoadMoreCoordinator.loadMore(
+      loadMore: () => _loadSolved(loadMore: true),
+      hasMore: () => _solvedHasMore,
+      isActive: () => mounted,
+      progressCount: () => _solvedCache?.length ?? 0,
     );
   }
 
@@ -707,6 +793,153 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
     }
   }
 
+  Future<void> _loadBoosts({bool loadMore = false}) async {
+    if (_boostsLoading && _boostsCache != null) return;
+
+    if (!loadMore) {
+      _boostsLoadMoreCoordinator.resetCooldown();
+    }
+
+    setState(() {
+      _boostsLoading = true;
+      _boostsLoadMoreFailed = false;
+    });
+
+    try {
+      final service = ref.read(discourseServiceProvider);
+      final beforeId = loadMore && _boostsCache != null && _boostsCache!.isNotEmpty
+          ? _boostsCache!.last.id
+          : null;
+      final response = await service.getUserBoostsGiven(widget.username, beforeBoostId: beforeId);
+
+      if (mounted) {
+        setState(() {
+          if (loadMore) {
+            final currentState = PaginationState<UserBoost>(items: _boostsCache ?? []);
+            final result = _boostsPaginationHelper.processLoadMore(
+              currentState,
+              PaginationResult(items: response.boosts, expectedPageSize: 20),
+            );
+            _boostsCache = result.items;
+            _boostsHasMore = result.hasMore;
+          } else {
+            final result = _boostsPaginationHelper.processRefresh(
+              PaginationResult(items: response.boosts, expectedPageSize: 20),
+            );
+            _boostsCache = result.items;
+            _boostsHasMore = result.hasMore;
+          }
+          _boostsLoading = false;
+          _boostsLoadMoreFailed = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _boostsLoading = false;
+          if (loadMore) {
+            _boostsLoadMoreFailed = true;
+          }
+        });
+      }
+    }
+  }
+
+  Future<void> _loadVotes({bool loadMore = false}) async {
+    if (_votesLoading && _votesCache != null) return;
+
+    if (!loadMore) {
+      _votesLoadMoreCoordinator.resetCooldown();
+    }
+
+    setState(() {
+      _votesLoading = true;
+      _votesLoadMoreFailed = false;
+    });
+
+    try {
+      final service = ref.read(discourseServiceProvider);
+      final page = loadMore ? _votesPage + 1 : 0;
+      final response = await service.getVotedTopics(widget.username, page: page);
+
+      if (mounted) {
+        setState(() {
+          if (loadMore) {
+            // 按 id 去重后追加
+            final existing = (_votesCache ?? []).map((t) => t.id).toSet();
+            final fresh = response.topics.where((t) => !existing.contains(t.id));
+            _votesCache = [...?_votesCache, ...fresh];
+          } else {
+            _votesCache = response.topics;
+          }
+          _votesPage = page;
+          _votesHasMore = response.moreTopicsUrl != null;
+          _votesLoading = false;
+          _votesLoadMoreFailed = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _votesLoading = false;
+          if (loadMore) {
+            _votesLoadMoreFailed = true;
+          }
+        });
+      }
+    }
+  }
+
+  Future<void> _loadSolved({bool loadMore = false}) async {
+    if (_solvedLoading && _solvedCache != null) return;
+
+    if (!loadMore) {
+      _solvedLoadMoreCoordinator.resetCooldown();
+    }
+
+    setState(() {
+      _solvedLoading = true;
+      _solvedLoadMoreFailed = false;
+    });
+
+    try {
+      final service = ref.read(discourseServiceProvider);
+      final offset = loadMore ? (_solvedCache?.length ?? 0) : 0;
+      final response = await service.getUserSolvedPosts(widget.username, offset: offset);
+
+      if (mounted) {
+        setState(() {
+          if (loadMore) {
+            final currentState = PaginationState<SolvedPost>(items: _solvedCache ?? []);
+            final result = _solvedPaginationHelper.processLoadMore(
+              currentState,
+              PaginationResult(items: response.posts, expectedPageSize: 30),
+            );
+            _solvedCache = result.items;
+            _solvedHasMore = result.hasMore;
+          } else {
+            final result = _solvedPaginationHelper.processRefresh(
+              PaginationResult(items: response.posts, expectedPageSize: 30),
+            );
+            _solvedCache = result.items;
+            _solvedHasMore = result.hasMore;
+          }
+          _solvedLoading = false;
+          _solvedLoadMoreFailed = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _solvedLoading = false;
+          if (loadMore) {
+            _solvedLoadMoreFailed = true;
+          }
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -739,7 +972,13 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
 
     return Scaffold(
       body: ScrollConfiguration(
-        behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+        // 禁用 overscroll indicator：Material 3 在 Android 上默认
+        // StretchingOverscrollIndicator，与 NestedScrollView/SliverAppBar
+        // 组合存在 framework bug（flutter/flutter #100967、#116522、#100538），
+        // 表现为上滑松手时 tab 区域回弹抖动（与 topics_page 同因同修）。
+        behavior: ScrollConfiguration.of(
+          context,
+        ).copyWith(scrollbars: false, overscroll: false),
         child: ExtendedNestedScrollView(
           controller: _scrollController,
           pinnedHeaderSliverHeightBuilder: () => pinnedHeaderHeight,
@@ -899,6 +1138,8 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
             color: Theme.of(context).scaffoldBackgroundColor,
             child: TabBar(
             controller: _tabController,
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
             labelColor: theme.colorScheme.primary,
             unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
             indicatorColor: theme.colorScheme.primary,
@@ -912,6 +1153,9 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
               Tab(height: 36, text: context.l10n.userProfile_tabReplies),
               Tab(height: 36, text: context.l10n.userProfile_tabLikes),
               Tab(height: 36, text: context.l10n.userProfile_tabReactions),
+              Tab(height: 36, text: context.l10n.userProfile_tabBoosts),
+              Tab(height: 36, text: context.l10n.userProfile_tabVotes),
+              Tab(height: 36, text: context.l10n.userProfile_tabSolved),
             ],
           ),
           ),
@@ -1481,6 +1725,18 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
     if (filter == 'reactions') {
       return _buildReactionList();
     }
+    // Boost 列表
+    if (filter == 'boosts') {
+      return _buildBoostList();
+    }
+    // 投票话题列表
+    if (filter == 'votes') {
+      return _buildVotesList();
+    }
+    // 已解决列表
+    if (filter == 'solved') {
+      return _buildSolvedList();
+    }
 
     final actions = _actionsCache[filter];
     final isLoading = _loadingCache[filter] == true;
@@ -2022,6 +2278,366 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
             }
             return _buildReactionItem(reactions[index]);
           },
+        ),
+      ),
+    );
+  }
+
+  /// Boost 列表
+  Widget _buildBoostList() {
+    final boosts = _boostsCache;
+    final isLoading = _boostsLoading;
+    final hasMore = _boostsHasMore;
+
+    // 优先检查 loading 状态
+    if (isLoading && boosts == null) {
+      return const UserActionListSkeleton();
+    }
+
+    // 空状态
+    if (boosts == null || boosts.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Symbols.rocket_launch_rounded, size: 48, color: Colors.grey[400]),
+            const SizedBox(height: 8),
+            Text(context.l10n.userProfile_noBoosts, style: TextStyle(color: Colors.grey[600])),
+          ],
+        ),
+      );
+    }
+
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (notification.metrics.axis == Axis.vertical) {
+          final distance =
+              notification.metrics.maxScrollExtent - notification.metrics.pixels;
+          if (_boostsLoadMoreCoordinator.shouldTriggerForDistance(distance)) {
+            _loadMoreBoosts();
+          }
+        }
+        return false;
+      },
+      child: RefreshIndicator(
+        onRefresh: () => _loadBoosts(),
+        child: ListView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          itemCount: boosts.length + 1,
+          itemBuilder: (context, index) {
+            if (index == boosts.length) {
+              return PagedListFooter(
+                hasMore: hasMore,
+                isLoadingMore: _boostsLoadMoreCoordinator.isRunning && isLoading,
+                isLoadMoreFailed: _boostsLoadMoreFailed,
+                onRetry: _loadMoreBoosts,
+              );
+            }
+            return _buildBoostItem(boosts[index]);
+          },
+        ),
+      ),
+    );
+  }
+
+  /// 投票话题列表
+  Widget _buildVotesList() {
+    final topics = _votesCache;
+    final isLoading = _votesLoading;
+    final hasMore = _votesHasMore;
+
+    // 优先检查 loading 状态
+    if (isLoading && topics == null) {
+      return const TopicListSkeleton();
+    }
+
+    // 空状态
+    if (topics == null || topics.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Symbols.how_to_vote_rounded, size: 48, color: Colors.grey[400]),
+            const SizedBox(height: 8),
+            Text(context.l10n.userProfile_noVotes, style: TextStyle(color: Colors.grey[600])),
+          ],
+        ),
+      );
+    }
+
+    final enableLongPress = ref.watch(preferencesProvider).longPressPreview;
+
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (notification.metrics.axis == Axis.vertical) {
+          final distance =
+              notification.metrics.maxScrollExtent - notification.metrics.pixels;
+          if (_votesLoadMoreCoordinator.shouldTriggerForDistance(distance)) {
+            _loadMoreVotes();
+          }
+        }
+        return false;
+      },
+      child: RefreshIndicator(
+        onRefresh: () => _loadVotes(),
+        child: ListView.builder(
+          padding: const EdgeInsets.all(12),
+          itemCount: topics.length + 1,
+          itemBuilder: (context, index) {
+            if (index == topics.length) {
+              return PagedListFooter(
+                hasMore: hasMore,
+                isLoadingMore: _votesLoadMoreCoordinator.isRunning && isLoading,
+                isLoadMoreFailed: _votesLoadMoreFailed,
+                onRetry: _loadMoreVotes,
+              );
+            }
+            final topic = topics[index];
+            return buildTopicItem(
+              context: context,
+              topic: topic,
+              isSelected: false,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => TopicDetailPage(
+                    topicId: topic.id,
+                    scrollToPostNumber: topic.lastReadPostNumber,
+                  ),
+                ),
+              ),
+              enableLongPress: enableLongPress,
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  /// 已解决列表
+  Widget _buildSolvedList() {
+    final posts = _solvedCache;
+    final isLoading = _solvedLoading;
+    final hasMore = _solvedHasMore;
+
+    // 优先检查 loading 状态
+    if (isLoading && posts == null) {
+      return const UserActionListSkeleton();
+    }
+
+    // 空状态
+    if (posts == null || posts.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Symbols.check_circle_rounded, size: 48, color: Colors.grey[400]),
+            const SizedBox(height: 8),
+            Text(context.l10n.userProfile_noSolved, style: TextStyle(color: Colors.grey[600])),
+          ],
+        ),
+      );
+    }
+
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (notification.metrics.axis == Axis.vertical) {
+          final distance =
+              notification.metrics.maxScrollExtent - notification.metrics.pixels;
+          if (_solvedLoadMoreCoordinator.shouldTriggerForDistance(distance)) {
+            _loadMoreSolved();
+          }
+        }
+        return false;
+      },
+      child: RefreshIndicator(
+        onRefresh: () => _loadSolved(),
+        child: ListView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          itemCount: posts.length + 1,
+          itemBuilder: (context, index) {
+            if (index == posts.length) {
+              return PagedListFooter(
+                hasMore: hasMore,
+                isLoadingMore: _solvedLoadMoreCoordinator.isRunning && isLoading,
+                isLoadMoreFailed: _solvedLoadMoreFailed,
+                onRetry: _loadMoreSolved,
+              );
+            }
+            return _buildSolvedItem(posts[index]);
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBoostItem(UserBoost boost) {
+    final theme = Theme.of(context);
+    final boostText = BoostContentParser.parse(boost.cooked).displayText;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TopicDetailPage(
+              topicId: boost.topicId,
+              scrollToPostNumber: boost.postNumber,
+            ),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 头部：Boost 内容和时间
+              Row(
+                children: [
+                  Icon(
+                    Symbols.rocket_launch_rounded,
+                    size: 16,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      boostText.isNotEmpty ? boostText : context.l10n.userProfile_boosted,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  if (boost.createdAt != null) ...[
+                    const SizedBox(width: 8),
+                    RelativeTimeText(
+                      dateTime: boost.createdAt,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.outline,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // 话题标题
+              if (boost.topicTitle != null && boost.topicTitle!.isNotEmpty)
+                Text(
+                  boost.topicTitle!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+
+              // 帖子内容摘要
+              if (boost.excerpt != null && boost.excerpt!.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  boost.excerpt!.replaceAll(RegExp(r'<[^>]*>'), ''),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSolvedItem(SolvedPost post) {
+    final theme = Theme.of(context);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TopicDetailPage(
+              topicId: post.topicId,
+              scrollToPostNumber: post.postNumber,
+            ),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 头部：已解决标记和时间
+              Row(
+                children: [
+                  Icon(
+                    Symbols.check_circle_rounded,
+                    size: 16,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    context.l10n.userProfile_solvedLabel,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (post.createdAt != null)
+                    RelativeTimeText(
+                      dateTime: post.createdAt,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.outline,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // 话题标题
+              if (post.topicTitle != null && post.topicTitle!.isNotEmpty)
+                Text(
+                  post.topicTitle!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+
+              // 被采纳回答摘要
+              if (post.excerpt != null && post.excerpt!.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  post.excerpt!.replaceAll(RegExp(r'<[^>]*>'), ''),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );

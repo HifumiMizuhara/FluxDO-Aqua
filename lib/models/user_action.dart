@@ -129,3 +129,107 @@ class UserReactionsResponse {
     return const UserReactionsResponse(reactions: []);
   }
 }
+
+/// 用户发出的 Boost 记录（discourse-boosts 插件）
+class UserBoost {
+  final int id;
+  final int postId;
+  final int topicId;
+  final int? postNumber;
+  final String? topicTitle;
+  final String? excerpt;
+  final String cooked;
+  final DateTime? createdAt;
+
+  const UserBoost({
+    required this.id,
+    required this.postId,
+    required this.topicId,
+    this.postNumber,
+    this.topicTitle,
+    this.excerpt,
+    required this.cooked,
+    this.createdAt,
+  });
+
+  factory UserBoost.fromJson(Map<String, dynamic> json) {
+    final post = json['post'] as Map<String, dynamic>?;
+
+    // 序列化器不含 post_number，从 post.url（/t/slug/{topic_id}/{post_number}）尾段解析
+    int? postNumber;
+    final url = post?['url'] as String?;
+    if (url != null) {
+      final segments = Uri.parse(url).pathSegments.where((s) => s.isNotEmpty).toList();
+      if (segments.length >= 4) {
+        postNumber = int.tryParse(segments.last);
+      }
+    }
+
+    return UserBoost(
+      id: json['id'] as int,
+      postId: json['post_id'] as int? ?? post?['id'] as int? ?? 0,
+      topicId: post?['topic_id'] as int? ?? 0,
+      postNumber: postNumber,
+      topicTitle: post?['topic_title'] as String?,
+      excerpt: post?['excerpt'] as String?,
+      cooked: json['cooked'] as String? ?? '',
+      createdAt: TimeUtils.parseUtcTime(json['created_at'] as String?),
+    );
+  }
+}
+
+class UserBoostsResponse {
+  final List<UserBoost> boosts;
+
+  const UserBoostsResponse({required this.boosts});
+
+  factory UserBoostsResponse.fromJson(Map<String, dynamic> json) {
+    final list = json['boosts'] as List<dynamic>? ?? [];
+    return UserBoostsResponse(
+      boosts: list.map((e) => UserBoost.fromJson(e as Map<String, dynamic>)).toList(),
+    );
+  }
+}
+
+/// 用户已解决（被采纳为答案）的帖子记录（discourse-solved 插件）
+class SolvedPost {
+  final int postId;
+  final int topicId;
+  final int? postNumber;
+  final String? topicTitle;
+  final String? excerpt;
+  final DateTime? createdAt;
+
+  const SolvedPost({
+    required this.postId,
+    required this.topicId,
+    this.postNumber,
+    this.topicTitle,
+    this.excerpt,
+    this.createdAt,
+  });
+
+  factory SolvedPost.fromJson(Map<String, dynamic> json) {
+    return SolvedPost(
+      postId: json['post_id'] as int? ?? 0,
+      topicId: json['topic_id'] as int? ?? 0,
+      postNumber: json['post_number'] as int?,
+      topicTitle: json['topic_title'] as String?,
+      excerpt: json['excerpt'] as String?,
+      createdAt: TimeUtils.parseUtcTime(json['created_at'] as String?),
+    );
+  }
+}
+
+class SolvedPostsResponse {
+  final List<SolvedPost> posts;
+
+  const SolvedPostsResponse({required this.posts});
+
+  factory SolvedPostsResponse.fromJson(Map<String, dynamic> json) {
+    final list = json['user_solved_posts'] as List<dynamic>? ?? [];
+    return SolvedPostsResponse(
+      posts: list.map((e) => SolvedPost.fromJson(e as Map<String, dynamic>)).toList(),
+    );
+  }
+}
