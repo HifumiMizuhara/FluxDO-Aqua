@@ -22,6 +22,7 @@ import '../l10n/s.dart';
 import 'user_profile_page.dart';
 import '../utils/dialog_utils.dart';
 import '../utils/load_more_coordinator.dart';
+import '../utils/blocked_user_filter.dart';
 
 /// 搜索页面
 class SearchPage extends ConsumerStatefulWidget {
@@ -753,7 +754,23 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   }
 
   Widget _buildSearchResults(ThemeData theme) {
-    if (_hasError && _allPosts.isEmpty) {
+    final blockedUsernames = ref.watch(
+      preferencesProvider.select((p) => p.normalizedBlockedUsernames),
+    );
+    final posts = _allPosts
+        .where(
+          (post) =>
+              !BlockedUserFilter.isBlockedUsername(post.username, blockedUsernames),
+        )
+        .toList(growable: false);
+    final users = _allUsers
+        .where(
+          (user) =>
+              !BlockedUserFilter.isBlockedUsername(user.username, blockedUsernames),
+        )
+        .toList(growable: false);
+
+    if (_hasError && posts.isEmpty) {
       return ErrorView(
         error: _searchError ?? Exception(context.l10n.search_error),
         stackTrace: _searchErrorStack,
@@ -761,8 +778,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       );
     }
 
-    if (_allPosts.isEmpty && _allUsers.isEmpty && !_isLoadingMore) {
-      if (_currentPage == 1) {
+    if (posts.isEmpty && users.isEmpty && !_isLoadingMore) {
+      // 只有原始结果也为空才可能是首页请求仍在途；
+      // 原始结果非空但过滤后为空 = 全部被本地屏蔽，必须显示空态而非转圈
+      if (_currentPage == 1 && _allPosts.isEmpty && _allUsers.isEmpty) {
         return const Center(child: LoadingSpinner());
       }
       return _buildNoResults();
@@ -771,7 +790,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     return Column(
       children: [
         // 排序选项
-        if (_allPosts.isNotEmpty || _allUsers.isNotEmpty)
+        if (posts.isNotEmpty || users.isNotEmpty)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
@@ -856,7 +875,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 ],
                 Text(
                   context.l10n.search_resultCount(
-                    _allPosts.length,
+                    posts.length,
                     _hasMorePosts ? '+' : '',
                   ),
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -871,13 +890,13 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             controller: _scrollController,
             padding: const EdgeInsets.all(16),
             itemCount:
-                _allPosts.length +
-                (_allUsers.isNotEmpty ? _allUsers.length + 1 : 0) +
+                posts.length +
+                (users.isNotEmpty ? users.length + 1 : 0) +
                 1,
             itemBuilder: (context, index) {
               // 帖子结果（标准 + AI 混合）
-              if (index < _allPosts.length) {
-                final searchPost = _allPosts[index];
+              if (index < posts.length) {
+                final searchPost = posts[index];
                 final enableLongPress = ref
                     .watch(preferencesProvider)
                     .longPressPreview;
@@ -921,30 +940,30 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               }
 
               // 用户标题
-              final userStartIndex = _allPosts.length;
-              if (_allUsers.isNotEmpty && index == userStartIndex) {
+              final userStartIndex = posts.length;
+              if (users.isNotEmpty && index == userStartIndex) {
                 return Padding(
                   padding: const EdgeInsets.only(top: 16, bottom: 8),
                   child: _buildSectionHeader(
                     context.l10n.search_users,
-                    _allUsers.length,
+                    users.length,
                     _hasMoreUsers,
                   ),
                 );
               }
 
               // 用户结果
-              if (_allUsers.isNotEmpty && index > userStartIndex) {
+              if (users.isNotEmpty && index > userStartIndex) {
                 final userIndex = index - userStartIndex - 1;
-                if (userIndex < _allUsers.length) {
+                if (userIndex < users.length) {
                   return _SearchUserCard(
-                    user: _allUsers[userIndex],
+                    user: users[userIndex],
                     onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => UserProfilePage(
-                            username: _allUsers[userIndex].username,
+                            username: users[userIndex].username,
                           ),
                         ),
                       );

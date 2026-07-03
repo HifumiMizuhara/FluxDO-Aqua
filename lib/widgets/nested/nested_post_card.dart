@@ -8,6 +8,7 @@ import '../../providers/nested_topic_provider.dart';
 import '../../providers/preferences_provider.dart';
 import '../../providers/topic_session_provider.dart';
 import '../../pages/user_profile_page.dart';
+import '../../utils/blocked_user_filter.dart';
 import '../../utils/fluxdo_render_callbacks.dart';
 import '../../utils/responsive.dart';
 import '../../utils/time_utils.dart';
@@ -53,6 +54,7 @@ class NestedPostCard extends ConsumerStatefulWidget {
   final int maxDepth;
   final bool isLastChild;
   final bool isLoggedIn;
+  final Set<String> blockedUsernames;
   final void Function(Post? replyToPost, {String? initialContent}) onReply;
   final void Function(Post post) onEdit;
   final void Function(int postId) onRefreshPost;
@@ -75,6 +77,7 @@ class NestedPostCard extends ConsumerStatefulWidget {
     this.maxDepth = 10,
     this.isLastChild = false,
     required this.isLoggedIn,
+    required this.blockedUsernames,
     required this.onReply,
     required this.onEdit,
     required this.onRefreshPost,
@@ -97,6 +100,26 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
   int _page = 0;
   bool _depthLineHovered = false;
 
+  /// 过滤结果缓存：visibleNestedNodes 递归复制整棵子树，开销不小；
+  /// _children 只在明确的变更点（insert/addAll）改动，名单变化走
+  /// didUpdateWidget，两处都手动失效即可安全复用
+  List<NestedNode>? _visibleChildrenCache;
+
+  List<NestedNode> get _visibleChildren =>
+      _visibleChildrenCache ??= BlockedUserFilter.visibleNestedNodes(
+        _children,
+        widget.blockedUsernames,
+      );
+
+  @override
+  void didUpdateWidget(covariant NestedPostCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.blockedUsernames, widget.blockedUsernames) ||
+        !identical(oldWidget.node, widget.node)) {
+      _visibleChildrenCache = null;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -109,7 +132,7 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
       _expanded = cached;
       _collapsed = !cached && _hasReplies;
     } else {
-      _expanded = _children.isNotEmpty;
+      _expanded = _visibleChildren.isNotEmpty;
       _collapsed = false;
     }
 
@@ -130,6 +153,7 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
 
         setState(() {
           _children.insert(0, NestedNode(post: next.post));
+          _visibleChildrenCache = null;
           _expanded = true;
           _collapsed = false;
           widget.expansionState?[widget.node.post.postNumber] = true;
@@ -139,7 +163,7 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
   }
 
   bool get _hasReplies =>
-      widget.node.directReplyCount > 0 || _children.isNotEmpty;
+      widget.node.directReplyCount > 0 || _visibleChildren.isNotEmpty;
   bool get _atMaxDepth => widget.depth >= widget.maxDepth;
   bool get _showDepthLine => _hasReplies && !_collapsed && !_atMaxDepth;
 
@@ -159,7 +183,7 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
       } else {
         _expanded = true;
         _collapsed = false;
-        if (_children.isEmpty && widget.node.directReplyCount > 0) {
+        if (_visibleChildren.isEmpty && widget.node.directReplyCount > 0) {
           _loadChildren();
         }
       }
@@ -181,6 +205,7 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
       if (!mounted) return;
       setState(() {
         _children.addAll(response.children);
+        _visibleChildrenCache = null;
         _hasMore = response.hasMore;
         _page = response.page + 1;
         _isLoadingMore = false;
@@ -340,7 +365,7 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
         !_atMaxDepth &&
         _expanded &&
         !_collapsed &&
-        (_children.isNotEmpty || _isLoadingMore || _hasMore);
+        (_visibleChildren.isNotEmpty || _isLoadingMore || _hasMore);
     final bool showExpandBtn =
         !_atMaxDepth && !_expanded && !_collapsed && _hasReplies;
 
@@ -747,20 +772,22 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
   }
 
   Widget _buildChildren(ThemeData theme, {bool isMobile = false}) {
+    final children = _visibleChildren;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        for (int i = 0; i < _children.length; i++)
+        for (int i = 0; i < children.length; i++)
           NestedPostCard(
-            node: _children[i],
+            node: children[i],
             topicId: widget.topicId,
             detail: widget.detail,
             params: widget.params,
             depth: widget.depth + 1,
             maxDepth: widget.maxDepth,
-            isLastChild: i == _children.length - 1 && !_hasMore,
+            isLastChild: i == children.length - 1 && !_hasMore,
             isLoggedIn: widget.isLoggedIn,
+            blockedUsernames: widget.blockedUsernames,
             onReply: widget.onReply,
             onEdit: widget.onEdit,
             onRefreshPost: widget.onRefreshPost,

@@ -1206,6 +1206,7 @@ class _TopicListState extends ConsumerState<_TopicList>
   final TopicLoadMoreCoordinator _loadMoreCoordinator =
       TopicLoadMoreCoordinator();
   List<String> _lastAutoLoadKeywords = const [];
+  Set<String> _lastAutoLoadBlockedUsernames = const <String>{};
   bool? _lastAutoLoadWholeWord;
 
   @override
@@ -1328,6 +1329,7 @@ class _TopicListState extends ConsumerState<_TopicList>
     final prefs = ref.read(preferencesProvider);
     final keywords = prefs.normalizedFilterKeywords;
     final wholeWord = prefs.topicFilterWholeWord;
+    final blockedUsernames = prefs.normalizedBlockedUsernames;
 
     int itemCount() {
       return ref.read(topicListProvider(providerKey)).value?.length ?? 0;
@@ -1336,10 +1338,11 @@ class _TopicListState extends ConsumerState<_TopicList>
     int visibleItemCount() {
       final raw =
           ref.read(topicListProvider(providerKey)).value ?? const <Topic>[];
-      final (visible, _) = TopicKeywordFilter.apply(
+      final (visible, _, _) = TopicKeywordFilter.apply(
         raw,
         normalizedKeywords: keywords,
         wholeWord: wholeWord,
+        blockedUsernames: blockedUsernames,
       );
       return visible.length;
     }
@@ -1350,17 +1353,23 @@ class _TopicListState extends ConsumerState<_TopicList>
       isActive: () => mounted,
       itemCount: itemCount,
       visibleItemCount: visibleItemCount,
-      hasKeywordFilter: keywords.isNotEmpty,
+      hasKeywordFilter: keywords.isNotEmpty || blockedUsernames.isNotEmpty,
     );
   }
 
-  void _syncAutoLoadFilter(List<String> keywords, bool wholeWord) {
+  void _syncAutoLoadFilter(
+    List<String> keywords,
+    bool wholeWord,
+    Set<String> blockedUsernames,
+  ) {
     if (listEquals(_lastAutoLoadKeywords, keywords) &&
-        _lastAutoLoadWholeWord == wholeWord) {
+        _lastAutoLoadWholeWord == wholeWord &&
+        setEquals(_lastAutoLoadBlockedUsernames, blockedUsernames)) {
       return;
     }
     _lastAutoLoadKeywords = List.unmodifiable(keywords);
     _lastAutoLoadWholeWord = wholeWord;
+    _lastAutoLoadBlockedUsernames = Set.unmodifiable(blockedUsernames);
     _loadMoreCoordinator.resetCooldown();
   }
 
@@ -1442,15 +1451,21 @@ class _TopicListState extends ConsumerState<_TopicList>
     final wholeWord = ref.watch(
       preferencesProvider.select((p) => p.topicFilterWholeWord),
     );
-    _syncAutoLoadFilter(keywords, wholeWord);
+    final blockedUsernames = ref.watch(
+      preferencesProvider.select((p) => p.normalizedBlockedUsernames),
+    );
+    _syncAutoLoadFilter(keywords, wholeWord, blockedUsernames);
     var hiddenCount = 0;
+    var hiddenByBlocked = 0;
     final visibleTopicsAsync = topicsAsync.whenData((topics) {
-      final (visible, hidden) = TopicKeywordFilter.apply(
+      final (visible, hidden, byBlocked) = TopicKeywordFilter.apply(
         topics,
         normalizedKeywords: keywords,
         wholeWord: wholeWord,
+        blockedUsernames: blockedUsernames,
       );
       hiddenCount = hidden;
+      hiddenByBlocked = byBlocked;
       return visible;
     });
     final selectedTopicId = ref.watch(selectedTopicProvider).topicId;
@@ -1507,9 +1522,9 @@ class _TopicListState extends ConsumerState<_TopicList>
         final newTopicCount = incomingState.incomingCountForCategory(
           widget.categoryId,
         );
-        final hintOffset = hiddenCount > 0 ? 1 : 0;
         final newTopicOffset = hasNewTopics ? 1 : 0;
-        final headerOffset = hintOffset + newTopicOffset;
+        final hintOffset = hiddenCount > 0 ? 1 : 0;
+        final headerOffset = newTopicOffset + hintOffset;
 
         return DesktopRefreshIndicator(
           refreshIndicatorKey: _refreshIndicatorKey,
@@ -1555,9 +1570,11 @@ class _TopicListState extends ConsumerState<_TopicList>
                     );
                   }
                   if (hintOffset > 0 && index == newTopicOffset) {
-                    return KeywordFilterHintBar(hiddenCount: hiddenCount);
+                    return KeywordFilterHintBar(
+                      hiddenCount: hiddenCount,
+                      hiddenByBlocked: hiddenByBlocked,
+                    );
                   }
-
                   final topicIndex = index - headerOffset;
                   if (topicIndex >= topics.length) {
                     final notifier = ref.watch(
