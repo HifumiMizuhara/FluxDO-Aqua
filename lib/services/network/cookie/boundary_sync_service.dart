@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' as io;
 
 import 'package:enhanced_cookie_jar/enhanced_cookie_jar.dart';
@@ -9,6 +10,7 @@ import '../../auth_session.dart';
 import '../../log/log_writer.dart';
 import 'cookie_jar_service.dart';
 import 'cookie_logger.dart';
+import 'raw_cookie_writer.dart';
 import 'strategy/platform_cookie_strategy.dart';
 
 /// 边界同步服务：在登录成功、CF 验证成功等关键时机，
@@ -155,17 +157,20 @@ class BoundarySyncService {
         );
         final selected = isSessionCookie
             ? _selectBestSessionCookie(entry.value, host)
-            : await _selectBestWebViewCookie(entry.key, entry.value, host);
+            : _selectBestWebViewCookie(entry.value, host);
         if (selected == null) continue;
 
         if (entry.value.length > 1) {
-          _logDuplicateWebViewCookies(
-            url: url,
-            host: host,
-            name: entry.key,
-            cookies: entry.value,
-            selected: selected,
-            isSessionCookie: isSessionCookie,
+          // 日志为 best-effort,不阻塞同步主流程
+          unawaited(
+            _logDuplicateWebViewCookies(
+              url: url,
+              host: host,
+              name: entry.key,
+              cookies: entry.value,
+              selected: selected,
+              isSessionCookie: isSessionCookie,
+            ),
           );
         }
         cookiesToPersist.add(selected);
@@ -356,20 +361,18 @@ class BoundarySyncService {
     return candidates.first;
   }
 
-  Future<Cookie?> _selectBestWebViewCookie(
-    String name,
-    List<Cookie> cookies,
-    String requestHost,
-  ) async {
+  Cookie? _selectBestWebViewCookie(List<Cookie> cookies, String requestHost) {
     if (cookies.isEmpty) return null;
-    final existing = await _jar.getCanonicalCookie(name);
     final candidates = [...cookies]
       ..sort((a, b) {
         final scoreDiff =
-            _scoreWebViewCookie(b, requestHost, existing?.value) -
-            _scoreWebViewCookie(a, requestHost, existing?.value);
+            _scoreWebViewCookie(b, requestHost) -
+            _scoreWebViewCookie(a, requestHost);
         if (scoreDiff != 0) return scoreDiff;
 
+        // 同分时按过期时间最新者胜出:CHIPS 双变体场景下(分区副本删不掉,
+        // 与新签发的普通副本长期共存),后签发的 clearance 过期时间更晚,
+        // 也是 CF 当前认可的那枚。
         final aExpires = CookieJarService.parseWebViewCookieExpires(
           a.expiresDate,
         );
@@ -420,17 +423,10 @@ class BoundarySyncService {
     return score;
   }
 
-  int _scoreWebViewCookie(
-    Cookie cookie,
-    String requestHost,
-    String? existingValue,
-  ) {
+  int _scoreWebViewCookie(Cookie cookie, String requestHost) {
     var score = 0;
     final value = cookie.value?.toString() ?? '';
     if (value.isNotEmpty) score += 100000;
-    if (existingValue != null && value.isNotEmpty && value != existingValue) {
-      score += 1000;
-    }
 
     final expires = CookieJarService.parseWebViewCookieExpires(
       cookie.expiresDate,
@@ -454,7 +450,9 @@ class BoundarySyncService {
     if (cookie.isHttpOnly == true) score += 500;
     if (cookie.isSecure == true) score += 250;
     score += cookie.path?.length ?? 1;
-    score += value.length;
+    // 注意:这里不计 value.length。CHIPS 双变体(同域同路径同属性)必须
+    // 在评分上打平,落到 sort 的 expiresDate 决胜取最新签发的那枚;
+    // 若按值长度加分,会恒定选中某一枚而无视新旧。
     return score;
   }
 
@@ -478,14 +476,14 @@ class BoundarySyncService {
     return existing.normalizedDomain == nextDomain;
   }
 
-  void _logDuplicateWebViewCookies({
+  Future<void> _logDuplicateWebViewCookies({
     required String url,
     required String host,
     required String name,
     required List<Cookie> cookies,
     required Cookie selected,
     required bool isSessionCookie,
-  }) {
+  }) async {
     final distinctValues = cookies
         .map((cookie) => cookie.value?.toString() ?? '')
         .where((value) => value.isNotEmpty)
@@ -493,6 +491,21 @@ class BoundarySyncService {
     final level = isSessionCookie || distinctValues.length > 1
         ? 'warning'
         : 'debug';
+
+    // 诊断增强:flutter_inappwebview 的 Cookie 对象拿不到 Partitioned 属性,
+    // 经 RawCookieWriter(GET_COOKIE_INFO / WKHTTPCookieStore) 按值匹配回查,
+    // 用于实锤 CHIPS 分区副本与普通副本共存的根因。best-effort,失败不阻塞。
+    Map<String, bool?> partitionedByValue = const {};
+    try {
+      final infos = await RawCookieWriter.instance.getAllCookieInfos(url);
+      partitionedByValue = {
+        for (final info in infos.where((i) => i.name == name))
+          info.value: info.isPartitioned,
+      };
+    } catch (_) {}
+    bool? partitionedOf(Cookie cookie) =>
+        partitionedByValue[cookie.value?.toString() ?? ''];
+
     LogWriter.instance.write({
       'timestamp': DateTime.now().toIso8601String(),
       'level': level,
@@ -515,6 +528,7 @@ class BoundarySyncService {
         'httpOnly': selected.isHttpOnly,
         'secure': selected.isSecure,
         'expiresDate': selected.expiresDate,
+        'partitioned': partitionedOf(selected),
       },
       'cookies': cookies
           .map(
@@ -527,6 +541,7 @@ class BoundarySyncService {
               'httpOnly': cookie.isHttpOnly,
               'secure': cookie.isSecure,
               'expiresDate': cookie.expiresDate,
+              'partitioned': partitionedOf(cookie),
             },
           )
           .toList(growable: false),

@@ -208,9 +208,14 @@ class MainActivity : FlutterActivity() {
                                     result.success(0)
                                     return@post
                                 }
-                                // 删除写入的属性变体:覆盖 普通 / Secure / Secure;SameSite=None。
+                                // 删除写入的属性变体:覆盖 普通 / Secure / Secure;SameSite=None
+                                // / Secure;SameSite=None;Partitioned。
                                 // 仅带 Path/Domain 无法覆盖 cf_clearance 这种
                                 // SameSite=None;Secure 的 cookie(覆盖判定不匹配 → 删不掉)。
+                                // Partitioned(CHIPS) 副本存在独立分区 jar,删除头必须同带
+                                // Secure+Partitioned 才能命中(Chromium 按 host key +
+                                // partition key 匹配);App 内 WebView 顶级站点即 cookie
+                                // 本域,分区键就是自身,故此删除头恰好落在正确分区。
                                 fun deleteRawVariants(domain: String?, path: String): List<String> {
                                     val base = mutableListOf(
                                         "$name=",
@@ -223,7 +228,8 @@ class MainActivity : FlutterActivity() {
                                     return listOf(
                                         plain,
                                         "$plain; Secure",
-                                        "$plain; Secure; SameSite=None"
+                                        "$plain; Secure; SameSite=None",
+                                        "$plain; Secure; SameSite=None; Partitioned"
                                     )
                                 }
                                 fun countName(): Int {
@@ -294,11 +300,13 @@ class MainActivity : FlutterActivity() {
                             )
                             if (domain != null) base.add("Domain=$domain")
                             val plain = base.joinToString("; ")
-                            // 带全属性变体,覆盖 Secure / SameSite=None;Secure 的 cookie。
+                            // 带全属性变体,覆盖 Secure / SameSite=None;Secure /
+                            // Partitioned(CHIPS 分区副本需 Secure+Partitioned 才能命中)。
                             val raws = listOf(
                                 plain,
                                 "$plain; Secure",
-                                "$plain; Secure; SameSite=None"
+                                "$plain; Secure; SameSite=None",
+                                "$plain; Secure; SameSite=None; Partitioned"
                             )
                             val remaining = AtomicInteger(raws.size)
                             val anySuccess = java.util.concurrent.atomic.AtomicBoolean(false)
