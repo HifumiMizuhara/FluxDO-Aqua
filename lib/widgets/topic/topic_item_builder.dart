@@ -16,7 +16,8 @@ Widget buildTopicItem({
   required bool enableLongPress,
   Color? highlightColor,
   Widget? topWidget,
-  Widget? bottomWidget,
+  Widget? middleWidget,
+  bool messageStyle = false,
   List<PreviewAction>? previewActions,
   WidgetBuilder? previewCustomActionPanelBuilder,
 }) {
@@ -56,7 +57,8 @@ Widget buildTopicItem({
       isSelected: isSelected,
       highlightColor: highlightColor,
       topWidget: topWidget,
-      bottomWidget: bottomWidget,
+      middleWidget: middleWidget,
+      messageStyle: messageStyle,
     );
   }
 

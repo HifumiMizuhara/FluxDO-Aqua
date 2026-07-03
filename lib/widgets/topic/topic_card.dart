@@ -16,10 +16,13 @@ import '../../utils/tag_icon_list.dart';
 import '../../utils/color_utils.dart';
 import '../common/emoji_text.dart';
 
-/// 话题卡片组件 — Gmail 式三行布局:
-/// 1. 楼主 · 分类 ······ 时间 + 未读槽位
-/// 2. 标题(满宽,最多两行,未读加粗)
-/// 3. 标签轻文本(单行 ellipsis) ······ 统计
+/// 话题卡片组件 — 标题置顶布局:
+/// 1. 标题(满宽,最多两行,未读加粗)+ 右侧未读槽位
+///    (可选)详情摘要(middleWidget,Gmail snippet 位)
+/// 2. 头像(32px,跨两行)+ 昵称 ······ 时间
+/// 3.                    ▪分类 + 标签 ······ 统计
+/// 分类固定在第3行行首,纵向扫描时位置恒定不漂移;
+/// 无分类无标签时(如私信)退化为单行署名:昵称 ······ 统计 + 时间
 class TopicCard extends ConsumerWidget {
   final Topic topic;
   final VoidCallback? onTap;
@@ -28,7 +31,12 @@ class TopicCard extends ConsumerWidget {
   final bool isSelected;
   final Color? highlightColor;
   final Widget? topWidget;
-  final Widget? bottomWidget;
+
+  /// 详情摘要区域,置于标题与署名块之间(如书签的帖子摘要)
+  final Widget? middleWidget;
+
+  /// Gmail 式私信布局:发件人置顶加粗、会话主题次行(私信列表用)
+  final bool messageStyle;
 
   const TopicCard({
     super.key,
@@ -39,7 +47,8 @@ class TopicCard extends ConsumerWidget {
     this.isSelected = false,
     this.highlightColor,
     this.topWidget,
-    this.bottomWidget,
+    this.middleWidget,
+    this.messageStyle = false,
   });
 
   @override
@@ -53,10 +62,14 @@ class TopicCard extends ConsumerWidget {
 
     // 视觉二态:没读完(常规,加粗) / 读完了(整卡退灰)。
     // "没点开过的旧话题"语义上也是没读,归入强调态,避免出现第三档深浅
+    // onSurfaceVariant 与 onSurface 在部分主题下区分度不够,
+    // 叠一层透明度让已读态明确退后
     final titleColor = isFullyRead
-        ? theme.colorScheme.onSurfaceVariant
+        ? theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.75)
         : theme.colorScheme.onSurface;
-    final titleStyle = theme.textTheme.titleMedium?.copyWith(
+    // 标题 15sp:Gmail 主题行(14)与原版(16)的折中,置顶后担得起主视觉
+    final titleStyle = theme.textTheme.bodyMedium?.copyWith(
+      fontSize: 15,
       fontWeight: isFullyRead ? FontWeight.w500 : FontWeight.w600,
       height: 1.3,
       color: titleColor,
@@ -102,152 +115,169 @@ class TopicCard extends ConsumerWidget {
               if (topWidget != null) ...[topWidget!],
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 左侧：楼主头像,顶对齐锁定第一行(全读完时轻降)
-                    Opacity(
-                      opacity: isFullyRead ? 0.6 : 1.0,
-                      child: _buildOriginalPosterAvatar(context),
-                    ),
-                    const SizedBox(width: 10),
-                    // 右侧：Gmail 式三行
-                    Expanded(
-                      child: Column(
+                child: messageStyle
+                    ? _buildMessageBody(
+                        context,
+                        isUnread: isUnread,
+                        isFullyRead: isFullyRead,
+                        metaColor: metaColor,
+                        unreadIndicator: unreadIndicator,
+                      )
+                    : Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // 第1行：楼主 · 分类 ······ 时间 + 未读槽位
+                          // 第1行：标题满宽置顶(最多两行) + 右侧未读槽位。
+                          // 论坛列表以标题为主信息,置顶让视线沿左边缘直扫
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(
-                                child: _buildMetaLine(
-                                  context,
-                                  category,
-                                  metaColor,
-                                  isFullyRead: isFullyRead,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              RelativeTimeText(
-                                dateTime: topic.lastPostedAt,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  // 未读时时间用主题色,呼应 Gmail 的未读高亮
-                                  // (蓝点已是强信号,这里不再加粗)
-                                  color: isUnread
-                                      ? theme.colorScheme.primary
-                                      : metaColor,
+                                child: Text.rich(
+                                  TextSpan(
+                                    style: titleStyle,
+                                    children: _buildTitleSpans(
+                                      context,
+                                      titleStyle,
+                                      titleColor,
+                                      isFullyRead: isFullyRead,
+                                    ),
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               if (unreadIndicator != null) ...[
                                 const SizedBox(width: 6),
-                                unreadIndicator,
+                                Padding(
+                                  // 蓝点与标题首行视觉居中;数字徽章本身够高不用补
+                                  padding: EdgeInsets.only(
+                                    top: topic.unread > 0 ? 0 : 5,
+                                  ),
+                                  child: unreadIndicator,
+                                ),
                               ],
                             ],
                           ),
-                          const SizedBox(height: 2),
-
-                          // 第2行：标题满宽,最多两行
-                          Text.rich(
-                            TextSpan(
-                              style: titleStyle,
-                              children: [
-                                if (topic.closed)
-                                  WidgetSpan(
-                                    alignment: PlaceholderAlignment.middle,
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(right: 4),
-                                      child: Icon(
-                                        Symbols.lock_rounded,
-                                        size: 16,
-                                        color: titleColor,
-                                      ),
-                                    ),
-                                  ),
-                                if (topic.hasAcceptedAnswer)
-                                  WidgetSpan(
-                                    alignment: PlaceholderAlignment.middle,
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(right: 4),
-                                      child: Icon(
-                                        Symbols.check_box_rounded,
-                                        size: 16,
-                                        // 全读完时随文字一起降饱和
-                                        color: isFullyRead
-                                            ? Colors.green.withValues(
-                                                alpha: 0.5,
-                                              )
-                                            : Colors.green,
-                                      ),
-                                    ),
-                                  )
-                                else if (topic.canHaveAnswer)
-                                  WidgetSpan(
-                                    alignment: PlaceholderAlignment.middle,
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(right: 4),
-                                      child: Icon(
-                                        Symbols.check_box_outline_blank_rounded,
-                                        size: 16,
-                                        color: theme.colorScheme.outline,
-                                      ),
-                                    ),
-                                  ),
-                                ...EmojiText.buildEmojiSpans(
-                                  context,
-                                  topic.title,
-                                  titleStyle,
-                                ),
-                              ],
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-
-                          // 第3行：标签轻文本（单行 ellipsis） ······ 统计
-                          // 两者都为空时整行省掉
-                          if (topic.tags.isNotEmpty ||
-                              topic.postsCount > 1 ||
-                              topic.likeCount > 0) ...[
+                          // 详情摘要(如书签的帖子摘要):标题下、署名块上,
+                          // Gmail snippet 的位置
+                          if (middleWidget != null) ...[
                             const SizedBox(height: 4),
-                            LayoutBuilder(
-                              builder: (context, constraints) {
-                                return Opacity(
-                                  // 全读完时标签色/热度色整体降饱和,
-                                  // 与标题降色一致地"退后"
-                                  opacity: isFullyRead ? 0.55 : 1.0,
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child:
-                                            _buildTagsLine(
+                            middleWidget!,
+                          ],
+                          const SizedBox(height: 8),
+
+                          // 第2+3行：头像跨两行,右侧上下两行小字;
+                          // 32px 头像正好撑满两行 labelSmall,无留白也不撑高。
+                          // 无分类无标签时(如私信)退化为单行署名,头像居中
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Opacity(
+                                opacity: isFullyRead ? 0.6 : 1.0,
+                                child: _buildOriginalPosterAvatar(context),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    final stats = _buildStatsCluster(
+                                      context,
+                                      constraints.maxWidth,
+                                    );
+                                    final catTags = _buildCategoryTagsLine(
+                                      context,
+                                      category,
+                                      metaColor,
+                                    );
+                                    final timeText = RelativeTimeText(
+                                      dateTime: topic.lastPostedAt,
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                            // 未读时时间用主题色,
+                                            // 呼应 Gmail 的未读高亮
+                                            color: isUnread
+                                                ? theme.colorScheme.primary
+                                                : metaColor,
+                                          ),
+                                    );
+
+                                    // 单行署名:昵称 ······ 统计 + 时间
+                                    if (catTags == null) {
+                                      return Row(
+                                        children: [
+                                          Expanded(
+                                            child: _buildAuthorName(
                                               context,
                                               metaColor,
-                                            ) ??
-                                            const SizedBox.shrink(),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      _buildStatsCluster(
-                                        context,
-                                        constraints.maxWidth,
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
+                                              isFullyRead: isFullyRead,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          if (stats != null) ...[
+                                            Opacity(
+                                              opacity: isFullyRead ? 0.55 : 1.0,
+                                              child: stats,
+                                            ),
+                                            const SizedBox(width: 10),
+                                          ],
+                                          timeText,
+                                        ],
+                                      );
+                                    }
+
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        // 第2行：昵称 ······ 时间(右对齐可扫新)
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: _buildAuthorName(
+                                                context,
+                                                metaColor,
+                                                isFullyRead: isFullyRead,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            timeText,
+                                          ],
+                                        ),
+                                        const SizedBox(height: 2),
+                                        // 第3行：▪分类 + 标签 ······ 统计。
+                                        // 分类恒在行首,纵向扫描时位置固定不漂移
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Opacity(
+                                                // 全读完时分类色/标签色随文字退灰
+                                                opacity: isFullyRead
+                                                    ? 0.55
+                                                    : 1.0,
+                                                child: catTags,
+                                              ),
+                                            ),
+                                            if (stats != null) ...[
+                                              const SizedBox(width: 8),
+                                              Opacity(
+                                                opacity: isFullyRead
+                                                    ? 0.55
+                                                    : 1.0,
+                                                child: stats,
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
               ),
-              // 底部附属区域
-              if (bottomWidget != null)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(56, 2, 14, 8),
-                  child: bottomWidget!,
-                ),
             ],
           ),
         ),
@@ -255,17 +285,21 @@ class TopicCard extends ConsumerWidget {
     );
   }
 
-  /// 构建楼主头像
-  Widget _buildOriginalPosterAvatar(BuildContext context) {
+  /// 构建楼主头像(默认 32px 跨署名两行;私信布局用 40px)
+  Widget _buildOriginalPosterAvatar(
+    BuildContext context, {
+    double radius = 16,
+  }) {
     final theme = Theme.of(context);
     // 取第一个 poster（Original Poster）
     if (topic.posters.isNotEmpty) {
       final op = topic.posters.first;
       if (op.user != null) {
-        final avatarUrl = op.user!.getAvatarUrl(size: 68);
+        // @2x 显示尺寸请求,radius*2 为显示直径
+        final avatarUrl = op.user!.getAvatarUrl(size: (radius * 4).round());
         return SmartAvatar(
           imageUrl: avatarUrl,
-          radius: 17,
+          radius: radius,
           fallbackText: op.user!.username,
         );
       }
@@ -273,111 +307,232 @@ class TopicCard extends ConsumerWidget {
     // fallback：用 lastPosterUsername 首字母
     if (topic.lastPosterUsername != null) {
       return CircleAvatar(
-        radius: 17,
+        radius: radius,
         backgroundColor: theme.colorScheme.secondaryContainer,
         child: Text(
           topic.lastPosterUsername![0].toUpperCase(),
           style: TextStyle(
-            fontSize: 13,
+            fontSize: radius * 0.8,
             fontWeight: FontWeight.w500,
             color: theme.colorScheme.onSecondaryContainer,
           ),
         ),
       );
     }
-    return const SizedBox(width: 34, height: 34);
+    return SizedBox(width: radius * 2, height: radius * 2);
   }
 
-  /// 第1行:楼主用户名 · 分类(色标+名称)
-  /// 全部为轻文本,Gmail 发件人行的定位;没读完时用户名加粗提亮,
-  /// 全读完时分类色降饱和退灰
-  Widget _buildMetaLine(
+  /// 标题行内 spans:锁定/已解决/可解决图标 + emoji 标题文本
+  List<InlineSpan> _buildTitleSpans(
     BuildContext context,
-    Category? category,
+    TextStyle? style,
+    Color titleColor, {
+    required bool isFullyRead,
+  }) {
+    final theme = Theme.of(context);
+    return [
+      if (topic.closed)
+        WidgetSpan(
+          alignment: PlaceholderAlignment.middle,
+          child: Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: Icon(Symbols.lock_rounded, size: 15, color: titleColor),
+          ),
+        ),
+      if (topic.hasAcceptedAnswer)
+        WidgetSpan(
+          alignment: PlaceholderAlignment.middle,
+          child: Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: Icon(
+              Symbols.check_box_rounded,
+              size: 15,
+              // 全读完时随文字一起降饱和
+              color: isFullyRead
+                  ? Colors.green.withValues(alpha: 0.5)
+                  : Colors.green,
+            ),
+          ),
+        )
+      else if (topic.canHaveAnswer)
+        WidgetSpan(
+          alignment: PlaceholderAlignment.middle,
+          child: Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: Icon(
+              Symbols.check_box_outline_blank_rounded,
+              size: 15,
+              color: theme.colorScheme.outline,
+            ),
+          ),
+        ),
+      ...EmojiText.buildEmojiSpans(context, topic.title, style),
+    ];
+  }
+
+  /// Gmail 式私信布局:头像跨两行,发件人置顶加粗,会话主题次行。
+  /// 私信语义与邮件一致:"谁发来的"是首要信息,主题次之
+  Widget _buildMessageBody(
+    BuildContext context, {
+    required bool isUnread,
+    required bool isFullyRead,
+    required Color metaColor,
+    required Widget? unreadIndicator,
+  }) {
+    final theme = Theme.of(context);
+    // 发件人:卡片里最大最粗的元素(Gmail 发件人行定位)
+    final senderStyle = theme.textTheme.bodyMedium?.copyWith(
+      fontSize: 15,
+      fontWeight: isFullyRead ? FontWeight.w400 : FontWeight.w600,
+      color: isFullyRead
+          ? theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.75)
+          : theme.colorScheme.onSurface,
+    );
+    // 主题行:比发件人小一档,未读微加粗
+    final subjectColor = isFullyRead
+        ? theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.75)
+        : theme.colorScheme.onSurface.withValues(alpha: 0.9);
+    final subjectStyle = theme.textTheme.bodyMedium?.copyWith(
+      fontWeight: isFullyRead ? FontWeight.w400 : FontWeight.w500,
+      height: 1.3,
+      color: subjectColor,
+    );
+    final name = topic.posters.isNotEmpty
+        ? topic.posters.first.user?.displayName
+        : topic.lastPosterUsername;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Opacity(
+          opacity: isFullyRead ? 0.6 : 1.0,
+          child: _buildOriginalPosterAvatar(context, radius: 20),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 第1行：发件人 ······ 时间 + 未读槽位
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      name ?? '',
+                      style: senderStyle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  RelativeTimeText(
+                    dateTime: topic.lastPostedAt,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: isUnread ? theme.colorScheme.primary : metaColor,
+                    ),
+                  ),
+                  if (unreadIndicator != null) ...[
+                    const SizedBox(width: 6),
+                    unreadIndicator,
+                  ],
+                ],
+              ),
+              const SizedBox(height: 2),
+              // 第2行：会话主题(最多两行)
+              Text.rich(
+                TextSpan(
+                  style: subjectStyle,
+                  children: _buildTitleSpans(
+                    context,
+                    subjectStyle,
+                    subjectColor,
+                    isFullyRead: isFullyRead,
+                  ),
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (middleWidget != null) ...[
+                const SizedBox(height: 2),
+                middleWidget!,
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 第2行:楼主昵称(优先 name,空回退 username);
+  /// 没读完时加粗提亮,全读完随 metaColor 退灰
+  Widget _buildAuthorName(
+    BuildContext context,
     Color metaColor, {
     required bool isFullyRead,
   }) {
     final theme = Theme.of(context);
-    final username = topic.posters.isNotEmpty
-        ? topic.posters.first.user?.username
+    // 优先昵称(linux.do 用户多设中文昵称,辨识度更高),空则回退 username
+    final name = topic.posters.isNotEmpty
+        ? topic.posters.first.user?.displayName
         : topic.lastPosterUsername;
-    // 分类色按主题亮度适配:暗色主题提亮、亮色主题压暗,保证可读;
-    // 全读完时再降透明度,与文字一起"退后"
-    Color? categoryColor;
-    if (category != null) {
-      categoryColor = ColorUtils.readableOn(
-        _parseCategoryColor(category.color),
-        theme.brightness,
-      );
-      if (isFullyRead) {
-        categoryColor = categoryColor.withValues(alpha: 0.55);
-      }
-    }
-    final style = theme.textTheme.labelSmall?.copyWith(color: metaColor);
-
-    return Text.rich(
-      TextSpan(
-        style: style,
-        children: [
-          if (username != null && username.isNotEmpty)
-            TextSpan(
-              text: username,
-              // 二态:没读完加粗提亮,读完随 metaColor 退灰
-              style: isFullyRead
-                  ? null
-                  : TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.onSurface.withValues(
-                        alpha: 0.85,
-                      ),
-                    ),
-            ),
-          if (username != null && username.isNotEmpty && category != null)
-            TextSpan(
-              text: ' · ',
-              style: TextStyle(color: metaColor.withValues(alpha: 0.5)),
-            ),
-          if (category != null) ...[
-            // 统一用 Discourse 式分类色标(小圆角方块):
-            // FA 图标/logo/圆点三种形态混排是列表显乱的来源,
-            // 色标形态恒定,颜色即分类身份
-            WidgetSpan(
-              alignment: PlaceholderAlignment.middle,
-              child: Container(
-                margin: const EdgeInsets.only(right: 4),
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: categoryColor,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            TextSpan(
-              // 分类名用中性色:颜色锚点只留给前面的色标,
-              // 避免整行文字被彩色劈成两截
-              text: category.name,
-              style: const TextStyle(fontWeight: FontWeight.w500),
-            ),
-          ],
-        ],
+    return Text(
+      name ?? '',
+      style: theme.textTheme.labelSmall?.copyWith(
+        color: isFullyRead
+            ? metaColor
+            : theme.colorScheme.onSurface.withValues(alpha: 0.85),
+        fontWeight: isFullyRead ? null : FontWeight.w600,
       ),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );
   }
 
-  /// 第3行:标签轻文本(图标+名称,空格分隔),单行 ellipsis;无标签返回 null
-  Widget? _buildTagsLine(BuildContext context, Color metaColor) {
-    if (topic.tags.isEmpty) return null;
+  /// 第3行:▪分类色标+名 + 标签轻文本,单行 ellipsis。
+  /// 全读退灰由外层 Opacity 统一处理;分类和标签都无时返回 null
+  Widget? _buildCategoryTagsLine(
+    BuildContext context,
+    Category? category,
+    Color metaColor,
+  ) {
+    if (category == null && topic.tags.isEmpty) return null;
     final theme = Theme.of(context);
     final style = theme.textTheme.labelSmall?.copyWith(color: metaColor);
 
     final spans = <InlineSpan>[];
-    for (var i = 0; i < topic.tags.length; i++) {
-      final tag = topic.tags[i];
+    if (category != null) {
+      // 统一用 Discourse 式分类色标(小圆角方块):
+      // FA 图标/logo/圆点三种形态混排是列表显乱的来源,
+      // 色标形态恒定,颜色即分类身份;色按主题亮度适配可读性
+      final categoryColor = ColorUtils.readableOn(
+        _parseCategoryColor(category.color),
+        theme.brightness,
+      );
+      spans.add(
+        WidgetSpan(
+          alignment: PlaceholderAlignment.middle,
+          child: Container(
+            margin: const EdgeInsets.only(right: 4),
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: categoryColor,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ),
+      );
+      spans.add(
+        TextSpan(
+          // 分类名用中性色:颜色锚点只留给前面的色标
+          text: category.name,
+          style: const TextStyle(fontWeight: FontWeight.w500),
+        ),
+      );
+    }
+    for (final tag in topic.tags) {
+      if (spans.isNotEmpty) spans.add(const TextSpan(text: '   '));
       final tagInfo = TagIconList.get(tag.name);
-      if (i > 0) spans.add(const TextSpan(text: '   '));
       if (tagInfo != null) {
         spans.add(
           WidgetSpan(
@@ -454,11 +609,11 @@ class TopicCard extends ConsumerWidget {
   }
 
   /// 第3行右侧统计簇:💬回复(热度色)为主,宽度富余时加 ❤/👁。
-  /// 时间已上移到第1行,这里只放计数,窄屏也放得下。
-  Widget _buildStatsCluster(BuildContext context, double availableWidth) {
+  /// 与分类/标签同行(时间在第2行),无内容返回 null 不占位
+  Widget? _buildStatsCluster(BuildContext context, double availableWidth) {
     final theme = Theme.of(context);
-    final showLikes = availableWidth >= 270 && topic.likeCount > 0;
-    final showViews = availableWidth >= 420 && topic.views > 0;
+    final showLikes = availableWidth >= 300 && topic.likeCount > 0;
+    final showViews = availableWidth >= 460 && topic.views > 0;
     final replies = (topic.postsCount - 1).clamp(0, 999999);
     final heatColor = _replyHeatColor(topic, theme);
 
@@ -476,7 +631,7 @@ class TopicCard extends ConsumerWidget {
           bold: heatColor != null,
         ),
     ];
-    if (children.isEmpty) return const SizedBox.shrink();
+    if (children.isEmpty) return null;
 
     return Row(
       mainAxisSize: MainAxisSize.min,

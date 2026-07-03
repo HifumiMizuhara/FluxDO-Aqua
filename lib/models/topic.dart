@@ -147,18 +147,27 @@ class Poll {
 class TopicUser {
   final int id;
   final String username;
+  final String? name;
   final String avatarTemplate;
 
   TopicUser({
     required this.id,
     required this.username,
+    this.name,
     required this.avatarTemplate,
   });
+
+  /// 显示名:优先昵称,空则回退 username
+  String get displayName {
+    final n = name?.trim();
+    return (n != null && n.isNotEmpty) ? n : username;
+  }
 
   factory TopicUser.fromJson(Map<String, dynamic> json) {
     return TopicUser(
       id: json['id'] as int,
       username: json['username'] as String? ?? '',
+      name: json['name'] as String?,
       avatarTemplate: json['avatar_template'] as String? ?? '',
     );
   }
@@ -200,6 +209,7 @@ class TopicPoster {
               ? TopicUser(
                   id: userId,
                   username: json['_username'] as String? ?? '',
+                  name: json['_name'] as String?,
                   avatarTemplate: json['_avatar_template'] as String? ?? '',
                 )
               : null),
@@ -1924,6 +1934,7 @@ Map<String, dynamic> normalizeBookmarkListEntry(
         if (user.containsKey('avatar_template'))
           '_avatar_template': user['avatar_template'],
         if (user.containsKey('username')) '_username': user['username'],
+        if (user.containsKey('name')) '_name': user['name'],
       },
     ];
 

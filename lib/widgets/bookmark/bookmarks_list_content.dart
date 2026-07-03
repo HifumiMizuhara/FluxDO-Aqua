@@ -134,7 +134,7 @@ class BookmarksListContent extends ConsumerWidget {
           onMiddleClick: () => onMiddleClick(topic),
           enableLongPress: enableLongPress,
           topWidget: _buildBookmarkTopBar(context, topic),
-          bottomWidget: _buildBookmarkExcerpt(context, topic),
+          middleWidget: _buildBookmarkExcerpt(context, topic),
           previewCustomActionPanelBuilder: topic.bookmarkId != null
               ? (_) => BookmarkPreviewQuickEditor(
                   initialName: topic.bookmarkName,
