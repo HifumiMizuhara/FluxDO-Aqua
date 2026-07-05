@@ -14,6 +14,7 @@ import '../utils/dialog_utils.dart';
 import 'package:common_ui/common_ui.dart';
 import '../widgets/update_dialog.dart';
 import 'app_logs_page.dart';
+import 'perf_diagnostics_page.dart';
 
 class AboutPage extends StatefulWidget {
   const AboutPage({super.key});
@@ -296,6 +297,18 @@ class _AboutPageState extends State<AboutPage> {
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const AppLogsPage()),
+                  ),
+                ),
+                // 性能诊断(开发者向工具,文案暂不接入 l10n)
+                _buildListTile(
+                  context,
+                  icon: Symbols.speed_rounded,
+                  title: '性能诊断',
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const PerfDiagnosticsPage(),
+                    ),
                   ),
                 ),
                 _buildListTile(

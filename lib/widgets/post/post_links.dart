@@ -157,52 +157,55 @@ class _PostLinksState extends State<PostLinks> with SingleTickerProviderStateMix
               ),
             ),
           ),
-          // 展开的链接列表
-          AnimatedCrossFade(
-            firstChild: const SizedBox(width: double.infinity, height: 0),
-            secondChild: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Divider(
-                  height: 1,
-                  thickness: 0.5,
-                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
-                ),
-                ..._displayedLinks.map((link) => _buildLinkItem(link, theme)),
-                if (_canShowMore)
-                  InkWell(
-                    onTap: () => setState(() => _showAll = true),
-                    borderRadius: const BorderRadius.only(
-                      bottomLeft: Radius.circular(12),
-                      bottomRight: Radius.circular(12),
-                    ),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Symbols.more_horiz_rounded,
-                            size: 16,
-                            color: theme.colorScheme.primary,
+          // 展开的链接列表。用 AnimatedSize + 条件渲染而不是
+          // AnimatedCrossFade:后者收起状态也会构建并布局整个列表
+          // (楼层挂载时白付几 ms),而视觉上可感知的只有尺寸过渡。
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            alignment: Alignment.topCenter,
+            child: !_expanded
+                ? const SizedBox(width: double.infinity, height: 0)
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Divider(
+                        height: 1,
+                        thickness: 0.5,
+                        color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+                      ),
+                      ..._displayedLinks.map((link) => _buildLinkItem(link, theme)),
+                      if (_canShowMore)
+                        InkWell(
+                          onTap: () => setState(() => _showAll = true),
+                          borderRadius: const BorderRadius.only(
+                            bottomLeft: Radius.circular(12),
+                            bottomRight: Radius.circular(12),
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            context.l10n.post_moreLinks(_remainingCount),
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: theme.colorScheme.primary,
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Symbols.more_horiz_rounded,
+                                  size: 16,
+                                  color: theme.colorScheme.primary,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  context.l10n.post_moreLinks(_remainingCount),
+                                  style: theme.textTheme.labelMedium?.copyWith(
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
-                    ),
+                        ),
+                    ],
                   ),
-              ],
-            ),
-            crossFadeState: _expanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-            duration: const Duration(milliseconds: 200),
-            sizeCurve: Curves.easeInOut,
           ),
         ],
       ),

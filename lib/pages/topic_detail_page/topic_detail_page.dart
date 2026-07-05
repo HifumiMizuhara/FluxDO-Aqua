@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../l10n/s.dart';
+import '../../utils/frame_jank_monitor.dart';
 import '../../utils/html_text_mapper.dart';
 import '../../utils/html_to_markdown.dart';
 import '../../utils/code_selection_context.dart';
@@ -1394,6 +1395,74 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
     );
   }
 
+  /// 供缓存的 [TopicDetailOverlay] 实例回调:现取最新 detail,
+  /// 避免闭包捕获构建时的旧 detail(实例缓存后闭包生命周期变长)。
+  void _showTimelineSheetForCurrent() {
+    final detail = ref.read(topicDetailProvider(_params)).value;
+    if (detail != null) _showTimelineSheet(detail);
+  }
+
+  void _handleProgressGestureForCurrent(ProgressGestureAction action) {
+    final detail = ref.read(topicDetailProvider(_params)).value;
+    if (detail == null) return;
+    final notifier = ref.read(topicDetailProvider(_params).notifier);
+    _handleProgressGesture(action, detail, notifier);
+  }
+
+  /// [TopicDetailOverlay] 的实例缓存(输入签名比对):见调用处注释。
+  ({Object signature, Widget widget})? _overlayCache;
+
+  Widget _buildOverlayCached(
+    TopicDetail detail,
+    TopicDetailNotifier notifier,
+    bool isLoggedIn,
+  ) {
+    // Overlay 及其子树实际消费的全部低频输入;detail 对象本身不入签名
+    // (它每次更新都是新实例),只取 Overlay 用到的字段。
+    final signature = (
+      isLoggedIn: isLoggedIn,
+      totalCount: detail.postStream.stream.length,
+      hasSummary: detail.hasSummary,
+      isPrivateMessage: detail.isPrivateMessage,
+      isSummaryMode: notifier.isSummaryMode,
+      isAuthorOnlyMode: notifier.isAuthorOnlyMode,
+      isTopLevelMode: notifier.isTopLevelMode,
+      isNestedMode: _isNestedView,
+      isLoading: _isSwitchingMode,
+    );
+    final cached = _overlayCache;
+    if (cached != null && cached.signature == signature) {
+      return cached.widget;
+    }
+    final overlay = TopicDetailOverlay(
+      showBottomBarListenable: _controller.showBottomBarNotifier,
+      isLoggedIn: isLoggedIn,
+      streamIndexListenable: _controller.streamIndexNotifier,
+      totalCount: detail.postStream.stream.length,
+      detail: detail,
+      onScrollToTop: _scrollToTop,
+      onShare: _shareTopic,
+      onShareAsImage: _shareAsImage,
+      onExport: _showExportSheet,
+      onOpenInBrowser: _openInBrowser,
+      onReply: () => _handleReply(null),
+      onProgressTap: _showTimelineSheetForCurrent,
+      onProgressGesture: _handleProgressGestureForCurrent,
+      isSummaryMode: notifier.isSummaryMode,
+      isAuthorOnlyMode: notifier.isAuthorOnlyMode,
+      isTopLevelMode: notifier.isTopLevelMode,
+      isNestedMode: _isNestedView,
+      isLoading: _isSwitchingMode,
+      onShowTopReplies: _handleShowTopReplies,
+      onShowAuthorOnly: _handleShowAuthorOnly,
+      onShowTopLevelReplies: _handleShowTopLevelReplies,
+      onCancelFilter: _handleCancelFilter,
+      onShowNestedView: _toggleNestedView,
+    );
+    _overlayCache = (signature: signature, widget: overlay);
+    return overlay;
+  }
+
   /// 路由进度悬浮条手势触发的 [ProgressGestureAction] 到对应业务方法
   void _handleProgressGesture(
     ProgressGestureAction action,
@@ -1910,44 +1979,13 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
           ),
 
         // TopicDetailOverlay (Bottom Bar)
-        // 使用 ValueListenableBuilder 隔离状态变化，避免整页重建
+        // 滚动中高频变化的状态(底栏显隐、楼层号)以 ValueListenable 传入
+        // 并在 Overlay 内部细粒度下沉;此外整个 Overlay 实例按输入签名
+        // 缓存 —— 帖子信息更新(message bus / 分页)触发的整页 rebuild
+        // 中,Overlay 消费的字段一般没变,直接复用实例整棵短路
+        // (实测全量重建一次 4.5~8ms)。
         if (detail != null && !isSearchMode)
-          ValueListenableBuilder<bool>(
-            valueListenable: _controller.showBottomBarNotifier,
-            builder: (context, showBottomBar, _) {
-              return ValueListenableBuilder<int>(
-                valueListenable: _controller.streamIndexNotifier,
-                builder: (context, currentStreamIndex, _) {
-                  return TopicDetailOverlay(
-                    showBottomBar: showBottomBar,
-                    isLoggedIn: isLoggedIn,
-                    currentStreamIndex: currentStreamIndex,
-                    totalCount: detail.postStream.stream.length,
-                    detail: detail,
-                    onScrollToTop: _scrollToTop,
-                    onShare: _shareTopic,
-                    onShareAsImage: _shareAsImage,
-                    onExport: _showExportSheet,
-                    onOpenInBrowser: _openInBrowser,
-                    onReply: () => _handleReply(null),
-                    onProgressTap: () => _showTimelineSheet(detail),
-                    onProgressGesture: (action) =>
-                        _handleProgressGesture(action, detail, notifier),
-                    isSummaryMode: notifier.isSummaryMode,
-                    isAuthorOnlyMode: notifier.isAuthorOnlyMode,
-                    isTopLevelMode: notifier.isTopLevelMode,
-                    isNestedMode: _isNestedView,
-                    isLoading: _isSwitchingMode,
-                    onShowTopReplies: _handleShowTopReplies,
-                    onShowAuthorOnly: _handleShowAuthorOnly,
-                    onShowTopLevelReplies: _handleShowTopLevelReplies,
-                    onCancelFilter: _handleCancelFilter,
-                    onShowNestedView: _toggleNestedView,
-                  );
-                },
-              );
-            },
-          ),
+          _buildOverlayCached(detail, notifier, isLoggedIn),
 
         // Expanded Header 相关组件（使用 ValueListenableBuilder 隔离状态变化）
         if (!isSearchMode)

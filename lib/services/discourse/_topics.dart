@@ -12,7 +12,10 @@ mixin _TopicsMixin on _DiscourseServiceBase {
       '/latest.json',
       queryParameters: {'topic_ids': topicIds.join(',')},
     );
-    return TopicListResponse.fromJson(response.data);
+    // isolate 内构造(jsonDecode 已由 BackgroundTransformer 移出主线程,
+    // 几十个 Topic 对象的 fromJson 构造同样不便宜):返回值经
+    // Isolate.exit 转移,回传零拷贝
+    return compute(_parseTopicListResponse, response.data as Map<String, dynamic>);
   }
 
   Future<TopicListResponse> getLatestTopics({int page = 0, String? order, bool? ascending}) async {
@@ -33,7 +36,10 @@ mixin _TopicsMixin on _DiscourseServiceBase {
       '/latest.json',
       queryParameters: queryParams.isNotEmpty ? queryParams : null,
     );
-    return TopicListResponse.fromJson(response.data);
+    // isolate 内构造(jsonDecode 已由 BackgroundTransformer 移出主线程,
+    // 几十个 Topic 对象的 fromJson 构造同样不便宜):返回值经
+    // Isolate.exit 转移,回传零拷贝
+    return compute(_parseTopicListResponse, response.data as Map<String, dynamic>);
   }
 
   /// 获取话题列表（支持分类和标签筛选）
@@ -94,7 +100,10 @@ mixin _TopicsMixin on _DiscourseServiceBase {
     }
 
     final response = await _dio.get(path, queryParameters: queryParams.isNotEmpty ? queryParams : null);
-    return TopicListResponse.fromJson(response.data);
+    // isolate 内构造(jsonDecode 已由 BackgroundTransformer 移出主线程,
+    // 几十个 Topic 对象的 fromJson 构造同样不便宜):返回值经
+    // Isolate.exit 转移,回传零拷贝
+    return compute(_parseTopicListResponse, response.data as Map<String, dynamic>);
   }
 
   Future<TopicListResponse> getNewTopics({int page = 0, String? order, bool? ascending, String? subset}) async {
@@ -108,7 +117,10 @@ mixin _TopicsMixin on _DiscourseServiceBase {
       '/new.json',
       queryParameters: queryParams.isNotEmpty ? queryParams : null,
     );
-    return TopicListResponse.fromJson(response.data);
+    // isolate 内构造(jsonDecode 已由 BackgroundTransformer 移出主线程,
+    // 几十个 Topic 对象的 fromJson 构造同样不便宜):返回值经
+    // Isolate.exit 转移,回传零拷贝
+    return compute(_parseTopicListResponse, response.data as Map<String, dynamic>);
   }
 
   Future<TopicListResponse> getUnreadTopics({int page = 0, String? order, bool? ascending}) async {
@@ -121,7 +133,10 @@ mixin _TopicsMixin on _DiscourseServiceBase {
       '/unread.json',
       queryParameters: queryParams.isNotEmpty ? queryParams : null,
     );
-    return TopicListResponse.fromJson(response.data);
+    // isolate 内构造(jsonDecode 已由 BackgroundTransformer 移出主线程,
+    // 几十个 Topic 对象的 fromJson 构造同样不便宜):返回值经
+    // Isolate.exit 转移,回传零拷贝
+    return compute(_parseTopicListResponse, response.data as Map<String, dynamic>);
   }
 
   Future<TopicListResponse> getUnseenTopics({int page = 0, String? order, bool? ascending}) async {
@@ -134,7 +149,10 @@ mixin _TopicsMixin on _DiscourseServiceBase {
       '/unseen.json',
       queryParameters: queryParams.isNotEmpty ? queryParams : null,
     );
-    return TopicListResponse.fromJson(response.data);
+    // isolate 内构造(jsonDecode 已由 BackgroundTransformer 移出主线程,
+    // 几十个 Topic 对象的 fromJson 构造同样不便宜):返回值经
+    // Isolate.exit 转移,回传零拷贝
+    return compute(_parseTopicListResponse, response.data as Map<String, dynamic>);
   }
 
   Future<TopicListResponse> getHotTopics({int page = 0, String? order, bool? ascending}) async {
@@ -147,7 +165,10 @@ mixin _TopicsMixin on _DiscourseServiceBase {
       '/hot.json',
       queryParameters: queryParams.isNotEmpty ? queryParams : null,
     );
-    return TopicListResponse.fromJson(response.data);
+    // isolate 内构造(jsonDecode 已由 BackgroundTransformer 移出主线程,
+    // 几十个 Topic 对象的 fromJson 构造同样不便宜):返回值经
+    // Isolate.exit 转移,回传零拷贝
+    return compute(_parseTopicListResponse, response.data as Map<String, dynamic>);
   }
 
   /// 获取话题详情
@@ -172,12 +193,16 @@ mixin _TopicsMixin on _DiscourseServiceBase {
             'Discourse-Track-View-Topic-Id': '$id',
           })
         : null;
-    final response = await _dio.get(
+    final response = await _dio.get<String>(
       path,
       queryParameters: queryParams.isNotEmpty ? queryParams : null,
-      options: options,
+      options: (options ?? Options())
+          .copyWith(responseType: ResponseType.plain),
     );
-    return TopicDetail.fromJson(response.data);
+    // isolate 内 jsonDecode + fromJson:大话题响应几百 KB~几 MB,主线程
+    // 解析实测把 DartIsolate::HandleMessage 顶到 46~56ms(滚动/进话题时
+    // 直接掉帧)。结果对象经 Isolate.exit 转移,回传零拷贝。
+    return compute(_parseTopicDetailJson, response.data!);
   }
 
   /// 通过 slug 获取话题详情（返回真实的 topic ID）
@@ -193,59 +218,54 @@ mixin _TopicsMixin on _DiscourseServiceBase {
             'Discourse-Track-View': '1',
           })
         : null;
-    final response = await _dio.get(
+    final response = await _dio.get<String>(
       path,
       queryParameters: queryParams.isNotEmpty ? queryParams : null,
-      options: options,
+      options: (options ?? Options())
+          .copyWith(responseType: ResponseType.plain),
     );
-    return TopicDetail.fromJson(response.data);
+    return compute(_parseTopicDetailJson, response.data!);
   }
 
   /// 批量获取帖子内容
   Future<PostStream> getPosts(int topicId, List<int> postIds) async {
-    final response = await _dio.get(
+    final response = await _dio.get<String>(
       '/t/$topicId/posts.json',
       queryParameters: {
         'post_ids[]': postIds,
       },
+      options: Options(responseType: ResponseType.plain),
     );
-    final data = response.data as Map<String, dynamic>;
-    final streamJson = data.containsKey('post_stream')
-        ? data['post_stream'] as Map<String, dynamic>
-        : data;
-    final postStream = PostStream.fromJson(streamJson);
-    // 注入 topic 级别的 badges 数据
-    PostStream.injectBadges(postStream.posts, data, streamJson['posts'] as List<dynamic>?);
-    return postStream;
+    return compute(_parsePostStreamJson, response.data!);
   }
 
   /// 按帖子编号获取帖子
   Future<PostStream> getPostsByNumber(int topicId, {required int postNumber, required bool asc}) async {
-    final response = await _dio.get(
+    final response = await _dio.get<String>(
       '/t/$topicId/posts.json',
       queryParameters: {
         'post_number': postNumber,
         'asc': asc,
       },
+      options: Options(responseType: ResponseType.plain),
     );
-    final data = response.data as Map<String, dynamic>;
-    final streamJson = data.containsKey('post_stream')
-        ? data['post_stream'] as Map<String, dynamic>
-        : data;
-    final postStream = PostStream.fromJson(streamJson);
-    // 注入 topic 级别的 badges 数据
-    PostStream.injectBadges(postStream.posts, data, streamJson['posts'] as List<dynamic>?);
-    return postStream;
+    return compute(_parsePostStreamJson, response.data!);
   }
 
   Future<TopicListResponse> getTopTopics() async {
     final response = await _dio.get('/top.json');
-    return TopicListResponse.fromJson(response.data);
+    // isolate 内构造(jsonDecode 已由 BackgroundTransformer 移出主线程,
+    // 几十个 Topic 对象的 fromJson 构造同样不便宜):返回值经
+    // Isolate.exit 转移,回传零拷贝
+    return compute(_parseTopicListResponse, response.data as Map<String, dynamic>);
   }
 
   Future<TopicListResponse> getCategoryTopics(String categorySlug) async {
     final response = await _dio.get('/c/$categorySlug.json');
-    return TopicListResponse.fromJson(response.data);
+    // isolate 内构造(jsonDecode 已由 BackgroundTransformer 移出主线程,
+    // 几十个 Topic 对象的 fromJson 构造同样不便宜):返回值经
+    // Isolate.exit 转移,回传零拷贝
+    return compute(_parseTopicListResponse, response.data as Map<String, dynamic>);
   }
 
   /// 创建话题
@@ -468,4 +488,29 @@ mixin _TopicsMixin on _DiscourseServiceBase {
     final firstPost = posts.first as Map<String, dynamic>;
     return firstPost['cooked'] as String?;
   }
+}
+
+/// isolate 入口:话题详情响应解析(jsonDecode + fromJson 全部移出 UI 线程)
+TopicDetail _parseTopicDetailJson(String body) {
+  return TopicDetail.fromJson(jsonDecode(body) as Map<String, dynamic>);
+}
+
+/// isolate 入口:posts 响应解析(含 topic 级 badges 注入)
+PostStream _parsePostStreamJson(String body) {
+  final data = jsonDecode(body) as Map<String, dynamic>;
+  final streamJson = data.containsKey('post_stream')
+      ? data['post_stream'] as Map<String, dynamic>
+      : data;
+  final postStream = PostStream.fromJson(streamJson);
+  PostStream.injectBadges(
+    postStream.posts,
+    data,
+    streamJson['posts'] as List<dynamic>?,
+  );
+  return postStream;
+}
+
+/// isolate 入口:话题列表响应构造
+TopicListResponse _parseTopicListResponse(Map<String, dynamic> data) {
+  return TopicListResponse.fromJson(data);
 }

@@ -1033,6 +1033,11 @@ extension _UserActions on _TopicDetailPageState {
 
   /// 处理帖子级别的 MessageBus 更新
   void _handlePostUpdate(TopicDetailNotifier notifier, PostUpdate update) {
+    // 汇入性能诊断时间轴,定位"message bus 更新是否引发掉帧"
+    FrameJankMonitor.logEvent(
+      'MSGBUS',
+      '${update.type.name} post=${update.postId}',
+    );
     switch (update.type) {
       case TopicMessageType.created:
         notifier.onNewPostCreated(update.postId);

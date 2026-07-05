@@ -49,6 +49,11 @@ class DiscourseDio {
       ),
     );
 
+    // 大响应(>50KB)的 JSON 解码移入 isolate:话题列表/详情等大 JSON
+    // 在主线程解码实测把 DartIsolate::HandleMessage 顶到 50~100ms,
+    // 滚动/返回列表时直接掉帧。小响应仍同步解码(isolate 往返不划算)。
+    dio.transformer = BackgroundTransformer();
+
     // 1. 配置平台适配器
     if (useStableAdapter) {
       configureStableNativeAdapter(dio);

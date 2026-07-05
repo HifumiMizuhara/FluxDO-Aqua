@@ -1194,6 +1194,20 @@ class _TopicListState extends ConsumerState<_TopicList>
   /// 需要高亮的话题 IDs（loadBefore 插入后设置，渐变消失后清除）
   final Set<int> _highlightedTopicIds = {};
 
+  /// 话题卡片实例缓存(key: topic.id):返回本页(pop)或任意 provider
+  /// 更新引发的整列表 rebuild 中,输入未变的卡片直接复用实例,框架在
+  /// Element.updateChild 处整棵短路(诊断数据:pop 返回列表后整页
+  /// rebuild 单次 35~45ms,大头是可见卡片全量重建)。Topic 为不可变
+  /// 数据,引用同即内容同;卡片外观偏好由 TopicCard 内部 Consumer
+  /// 自行订阅,复用实例不影响其响应。theme/断点变化时整体失效。
+  final Map<int, ({Object signature, Widget widget})> _topicItemCache = {};
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _topicItemCache.clear();
+  }
+
   /// 本地缓存的话题数据，非当前 tab 时使用此缓存渲染，不订阅 provider
   AsyncValue<List<Topic>>? _cachedTopicsAsync;
 
@@ -1632,7 +1646,17 @@ class _TopicListState extends ConsumerState<_TopicList>
                     );
                   }
 
-                  return buildTopicItem(
+                  final signature = (
+                    topic: topic,
+                    isSelected: topic.id == selectedTopicId,
+                    enableLongPress: enableLongPress,
+                    index: topicIndex,
+                  );
+                  final cached = _topicItemCache[topic.id];
+                  if (cached != null && cached.signature == signature) {
+                    return cached.widget;
+                  }
+                  final item = buildTopicItem(
                     context: context,
                     topic: topic,
                     isSelected: topic.id == selectedTopicId,
@@ -1642,6 +1666,9 @@ class _TopicListState extends ConsumerState<_TopicList>
                     },
                     enableLongPress: enableLongPress,
                   );
+                  _topicItemCache[topic.id] =
+                      (signature: signature, widget: item);
+                  return item;
                 },
               ),
             ),

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -405,7 +406,11 @@ class _PostActionBarState extends State<PostActionBar>
         ),
       ),
     );
-    if (tooltip != null) {
+    // Tooltip(OverlayPortal + 手势 + MouseRegion)单个构建 ~0.8ms,
+    // 且触摸端长按气泡几乎不可达(这些按钮是即时 tap 动作),只在
+    // 桌面端保留(hover 提示有真实价值)。楼层挂载路径上每省一点
+    // 都直接改善滚动帧预算。
+    if (tooltip != null && PlatformUtils.isDesktop) {
       child = Tooltip(message: tooltip, child: child);
     }
     return child;
@@ -633,7 +638,12 @@ class _PostActionBarState extends State<PostActionBar>
 
 /// 带轮廓描边的表情：底层用染成 outlineColor 的表情副本向 8 个方向偏移，
 /// 形成沿图形轮廓的描边（贴纸效果）；outlineColor 为 null 时只画原图。
-class _OutlinedEmoji extends StatelessWidget {
+///
+/// 用 CustomPaint 在同一图层画 9 遍(8 次描边 + 1 次原图,颜色滤镜设在
+/// Paint 上),而不是叠 9 个 Image + ColorFiltered —— 后者是 9 个 widget
+/// 的构建/布局成本外加 8 次 saveLayer 离屏合成,曾是楼层挂载耗时与
+/// raster saveLayer 数量的大头。
+class _OutlinedEmoji extends StatefulWidget {
   final ImageProvider image;
   final Color? outlineColor;
   final double size;
@@ -643,6 +653,89 @@ class _OutlinedEmoji extends StatelessWidget {
     required this.outlineColor,
     required this.size,
   });
+
+  @override
+  State<_OutlinedEmoji> createState() => _OutlinedEmojiState();
+}
+
+class _OutlinedEmojiState extends State<_OutlinedEmoji> {
+  ImageStream? _stream;
+  ImageInfo? _imageInfo;
+  bool _failed = false;
+
+  late final ImageStreamListener _listener = ImageStreamListener(
+    (ImageInfo info, bool _) {
+      if (!mounted) {
+        info.dispose();
+        return;
+      }
+      setState(() {
+        _imageInfo?.dispose();
+        _imageInfo = info;
+        _failed = false;
+      });
+    },
+    onError: (Object error, StackTrace? stackTrace) {
+      if (mounted) {
+        setState(() => _failed = true);
+      }
+    },
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _resolveImage();
+  }
+
+  @override
+  void didUpdateWidget(covariant _OutlinedEmoji oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.image != oldWidget.image || widget.size != oldWidget.size) {
+      _resolveImage();
+    }
+  }
+
+  void _resolveImage() {
+    final newStream = widget.image.resolve(
+      createLocalImageConfiguration(
+        context,
+        size: Size(widget.size, widget.size),
+      ),
+    );
+    if (newStream.key == _stream?.key) return;
+    _stream?.removeListener(_listener);
+    _stream = newStream..addListener(_listener);
+  }
+
+  @override
+  void dispose() {
+    _stream?.removeListener(_listener);
+    _imageInfo?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final info = _imageInfo;
+    if (info == null || _failed) {
+      return SizedBox(width: widget.size, height: widget.size);
+    }
+    return CustomPaint(
+      size: Size(widget.size, widget.size),
+      painter: _OutlinedEmojiPainter(
+        image: info.image,
+        outlineColor: widget.outlineColor,
+      ),
+    );
+  }
+}
+
+class _OutlinedEmojiPainter extends CustomPainter {
+  _OutlinedEmojiPainter({required this.image, required this.outlineColor});
+
+  final ui.Image image;
+  final Color? outlineColor;
 
   static const List<Offset> _outlineOffsets = [
     Offset(-1.5, 0),
@@ -656,27 +749,34 @@ class _OutlinedEmoji extends StatelessWidget {
   ];
 
   @override
-  Widget build(BuildContext context) {
-    final emoji = Image(
-      image: image,
-      width: size,
-      height: size,
-      errorBuilder: (_, _, _) => SizedBox(width: size, height: size),
+  void paint(Canvas canvas, Size size) {
+    final src = Rect.fromLTWH(
+      0,
+      0,
+      image.width.toDouble(),
+      image.height.toDouble(),
     );
-    if (outlineColor == null) return emoji;
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        for (final offset in _outlineOffsets)
-          Transform.translate(
-            offset: offset,
-            child: ColorFiltered(
-              colorFilter: ColorFilter.mode(outlineColor!, BlendMode.srcIn),
-              child: emoji,
-            ),
-          ),
-        emoji,
-      ],
+    final dst = Offset.zero & size;
+    final color = outlineColor;
+    if (color != null) {
+      final outlinePaint = Paint()
+        ..filterQuality = FilterQuality.medium
+        ..colorFilter = ColorFilter.mode(color, BlendMode.srcIn);
+      for (final offset in _outlineOffsets) {
+        canvas.drawImageRect(image, src, dst.shift(offset), outlinePaint);
+      }
+    }
+    canvas.drawImageRect(
+      image,
+      src,
+      dst,
+      Paint()..filterQuality = FilterQuality.medium,
     );
+  }
+
+  @override
+  bool shouldRepaint(_OutlinedEmojiPainter oldDelegate) {
+    return image != oldDelegate.image ||
+        outlineColor != oldDelegate.outlineColor;
   }
 }

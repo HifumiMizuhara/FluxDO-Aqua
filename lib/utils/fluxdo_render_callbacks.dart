@@ -1085,12 +1085,24 @@ class FluxdoRenderCallbacks {
         // (只拿 width/height 算比例,不当实际尺寸),宽列里就被拉成整列宽。
         // 外层 SizedBox(dispW, dispH) 给它 tight 约束,强制按 Discourse
         // max-width:100% 的实际尺寸渲染(列宽富余时左对齐留白,不上采样)。
+        //
+        // 解码上限:显示宽的物理像素 ×1.5(轻缩放裕量,512~2560)。
+        // 不 clamp 的话超大原图全尺寸解码 + 上传(诊断实测
+        // DecompressTexture 95ms、raster 214ms,独占期间全 app 掉帧);
+        // 点开大图走查看器的独立原图路径,不受此限。
+        final logicalW =
+            dispW ?? (lbc.maxWidth.isFinite ? lbc.maxWidth : 1080.0);
+        final decodeCap =
+            (logicalW * MediaQuery.of(lbCtx).devicePixelRatio * 1.5)
+                .round()
+                .clamp(512, 2560);
         return SizedBox(
           width: dispW,
           height: dispH,
           child: Builder(
             builder: (ctx) => LazyImage(
-              imageProvider: discourseImageProvider(resolvedUrl),
+              imageProvider:
+                  discourseImageProvider(resolvedUrl, maxWidth: decodeCap),
               width: dispW,
               height: dispH,
               heroTag: heroTag,

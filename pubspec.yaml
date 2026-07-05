@@ -51,7 +51,7 @@ dependencies:
   # 自研:native Rust 解码动图(GIF/APNG/动画 WebP),绕开 Flutter Skia
   # multi_frame_codec 在 disposal=2 等场景下的 #85831 bug。
   # 源码:https://github.com/Lingyan000/native_animated_image
-  native_animated_image: ^0.3.2
+  native_animated_image: ^0.3.3
   flutter_riverpod: ^3.3.2
   extended_image_lite:
     path: packages/extended_image_lite
@@ -148,6 +148,9 @@ dependencies:
       path: rhttp
   dio_compatibility_layer: ^0.1.1
   ffi: any
+  # 性能诊断:掉帧时 app 内连接自身 VM Service 抓取当帧 timeline,
+  # 自动归并出耗时 widget(debug/profile 有效,release 无 VM Service)
+  vm_service: ^15.2.0
 dependency_overrides:
   # super_clipboard 0.9.1 要求 device_info_plus <12.0.0，
   # 但实际 12.x 接口兼容，强制使用项目版本
@@ -157,7 +160,6 @@ dependency_overrides:
   # 锁定 flutter_rust_bridge 版本，与 rhttp 插件的 codegen 版本保持一致。
   # rhttp_plus 已同步 upstream 0.18.0，生成代码基于 2.12.0。
   flutter_rust_bridge: 2.12.0
-
 dev_dependencies:
   flutter_test:
     sdk: flutter

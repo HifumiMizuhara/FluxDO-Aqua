@@ -137,6 +137,23 @@ class _ImageViewerPageState extends State<ImageViewerPage>
     return null;
   }
 
+  /// 查看器主图解码上限:等比 clamp 到屏幕长边×3(且 ≤8192,常见 GPU
+  /// 纹理上限)。只有病态大图(8K 级手机直出原图)会被降采样 —— 全尺寸
+  /// 解码这类图会产生 100ms+ 的同步纹理上传,独占 raster 线程期间全 app
+  /// 掉帧(诊断实测单帧 raster 148ms、后续帧排队 300ms)。maxScale 4.0
+  /// 的放大浏览下该上限内清晰度无感知差异。
+  ImageProvider _clampedViewerProvider(String url) {
+    final view = View.of(context);
+    final longestPx =
+        (view.physicalSize.longestSide * 3).clamp(2048.0, 8192.0).round();
+    return ResizeImage(
+      discourseImageProvider(url),
+      width: longestPx,
+      height: longestPx,
+      policy: ResizeImagePolicy.fit,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -681,7 +698,7 @@ class _ImageViewerPageState extends State<ImageViewerPage>
                       position: details.globalPosition,
                     ),
                     child: ExtendedImage(
-                      image: discourseImageProvider(widget.imageUrl!),
+                      image: _clampedViewerProvider(widget.imageUrl!),
                       width: double.infinity,
                       height: double.infinity,
                       fit: BoxFit.contain,
@@ -795,7 +812,7 @@ class _ImageViewerPageState extends State<ImageViewerPage>
                             }
 
                             return ExtendedImage(
-                              image: discourseImageProvider(url),
+                              image: _clampedViewerProvider(url),
                               mode: ExtendedImageMode.gesture,
                               enableSlideOutPage: true,
                               heroBuilderForSlidingPage: heroTag != null

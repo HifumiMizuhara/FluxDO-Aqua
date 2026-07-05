@@ -54,6 +54,17 @@ class _BoostListState extends State<BoostList> with SingleTickerProviderStateMix
   late final Animation<double> _highlightOpacity;
   final GlobalKey _highlightKey = GlobalKey();
 
+  /// 文本宽度测量缓存:每个 chip 一次 TextPainter.layout 是 build 的
+  /// 大头(热帖上百个 boost 单次 build 实测 22ms)。theme / 文本缩放
+  /// 变化时在 [didChangeDependencies] 清空。
+  final Map<String, double> _textWidthCache = {};
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _textWidthCache.clear();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -257,7 +268,15 @@ class _BoostListState extends State<BoostList> with SingleTickerProviderStateMix
     );
   }
 
-  _WrapEntry _buildGroupEntry(BuildContext context, BoostGroup group) {
+  /// 计算 group chip 的估算宽度(纯测量,不构建 widget)
+  double _groupWidth(BuildContext context, BoostGroup group) {
+    return group.count == 1
+        ? _estimateSingleBubbleWidth(context, group.displayText)
+        : _estimateGroupedBubbleWidth(context, group);
+  }
+
+  /// 构建 group chip 的 bubble(纯构建,不测量)
+  Widget _buildGroupBubble(BuildContext context, BoostGroup group) {
     final isHighlighted = _groupContainsHighlight(group);
 
     if (group.count == 1) {
@@ -276,10 +295,7 @@ class _BoostListState extends State<BoostList> with SingleTickerProviderStateMix
       if (isHighlighted) {
         bubble = _wrapHighlight(bubble);
       }
-      return _WrapEntry(
-        width: _estimateSingleBubbleWidth(context, group.displayText),
-        child: bubble,
-      );
+      return bubble;
     }
 
     Widget bubble = BoostBubble.group(
@@ -295,95 +311,39 @@ class _BoostListState extends State<BoostList> with SingleTickerProviderStateMix
     if (isHighlighted) {
       bubble = _wrapHighlight(bubble);
     }
-    return _WrapEntry(
-      width: _estimateGroupedBubbleWidth(context, group),
-      child: bubble,
+    return bubble;
+  }
+
+  Widget _buildToggleChip(bool expanded) {
+    return _InlineControlChip(
+      icon: expanded
+          ? Symbols.chevron_left_rounded
+          : Symbols.chevron_right_rounded,
+      onTap: _toggleRows,
     );
   }
 
-  _WrapEntry _buildToggleEntry(BuildContext context, bool expanded) {
-    return _WrapEntry(
-      width: _estimateControlChipWidth(),
-      child: _InlineControlChip(
-        icon: expanded ? Symbols.chevron_left_rounded : Symbols.chevron_right_rounded,
-        onTap: _toggleRows,
-      ),
-    );
-  }
-
-  _WrapEntry _buildAddEntry(BuildContext context) {
+  Widget _buildAddButton(BuildContext context) {
     final theme = Theme.of(context);
-    return _WrapEntry(
-      width: 30,
-      child: Tooltip(
-        message: 'Boost',
-        child: GestureDetector(
-          onTap: widget.onAddBoost,
-          child: Container(
-            height: 28,
-            width: 28,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Symbols.rocket_launch_rounded,
-              size: 14,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+    return Tooltip(
+      message: 'Boost',
+      child: GestureDetector(
+        onTap: widget.onAddBoost,
+        child: Container(
+          height: 28,
+          width: 28,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            Symbols.rocket_launch_rounded,
+            size: 14,
+            color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
       ),
     );
-  }
-
-  int _computeWrapLineCount(List<double> widths, double maxWidth) {
-    if (widths.isEmpty) {
-      return 0;
-    }
-
-    var lines = 1;
-    var currentLineWidth = 0.0;
-
-    for (final rawWidth in widths) {
-      final width = rawWidth.clamp(0.0, maxWidth);
-      final nextLineWidth =
-          currentLineWidth == 0 ? width : currentLineWidth + _chipSpacing + width;
-
-      if (nextLineWidth <= maxWidth + 0.1) {
-        currentLineWidth = nextLineWidth;
-      } else {
-        lines += 1;
-        currentLineWidth = width;
-      }
-    }
-
-    return lines;
-  }
-
-  int _maxPrefixThatFits(
-    List<_WrapEntry> entries,
-    List<_WrapEntry> trailingEntries,
-    double maxWidth,
-  ) {
-    var low = 0;
-    var high = entries.length;
-
-    while (low < high) {
-      final mid = (low + high + 1) >> 1;
-      final widths = [
-        ...entries.take(mid).map((entry) => entry.width),
-        ...trailingEntries.map((entry) => entry.width),
-      ];
-      final lines = _computeWrapLineCount(widths, maxWidth);
-      if (lines <= _collapsedMaxLines) {
-        low = mid;
-      } else {
-        high = mid - 1;
-      }
-    }
-
-    return low;
   }
 
   double _estimateSingleBubbleWidth(BuildContext context, String displayText) {
@@ -417,10 +377,6 @@ class _BoostListState extends State<BoostList> with SingleTickerProviderStateMix
     return 3 + 6 + avatarWidth + 4 + textWidth + 6 + countWidth + 12 + 4 + 14;
   }
 
-  double _estimateControlChipWidth() {
-    return _controlChipWidth;
-  }
-
   double _estimateAvatarStackWidth(BoostGroup group) {
     final userCount = group.boosts.map((boost) => boost.user.id).toSet().length.clamp(1, 3);
     return userCount == 1 ? 20.0 : 20.0 + (userCount - 1) * 12.0;
@@ -440,54 +396,97 @@ class _BoostListState extends State<BoostList> with SingleTickerProviderStateMix
     String text,
     TextStyle? style,
   ) {
+    final key = '${style?.fontSize}|${style?.fontWeight}|$text';
+    final cached = _textWidthCache[key];
+    if (cached != null) return cached;
+
     final painter = TextPainter(
       text: TextSpan(text: text.isEmpty ? 'Boost' : text, style: style),
       textDirection: Directionality.of(context),
       maxLines: 1,
     )..layout();
-
-    return painter.width;
+    final width = painter.width;
+    painter.dispose();
+    return _textWidthCache[key] = width;
   }
 
   @override
   Widget build(BuildContext context) {
     final groups = groupBoostsByContent(widget.boosts);
-    final groupEntries = groups.map((group) => _buildGroupEntry(context, group)).toList();
-    final addEntry = widget.canBoost ? _buildAddEntry(context) : null;
 
-    if (groupEntries.isEmpty && addEntry == null) {
+    if (groups.isEmpty && !widget.canBoost) {
       return const SizedBox.shrink();
     }
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final maxWidth = constraints.maxWidth;
-        final baseEntries = [
-          ...groupEntries,
-          ...?(addEntry == null ? null : [addEntry]),
-        ];
-        final hasOverflow =
-            _computeWrapLineCount(baseEntries.map((entry) => entry.width).toList(), maxWidth) >
-                _collapsedMaxLines;
 
-        final visibleEntries = <_WrapEntry>[];
+        // 宽度惰性计算:折叠态只测量到装满 2 行为止,不为看不见的
+        // chip 付出 TextPainter.layout 成本(热帖上百个 boost 时,
+        // 全量测量 + 全量构建曾把单次 build 顶到 22ms)。
+        final widths = List<double?>.filled(groups.length, null);
+        double widthAt(int i) => widths[i] ??= _groupWidth(context, groups[i]);
+        final double? addWidth = widget.canBoost ? 30.0 : null;
 
+        // Wrap 行数增量累计:state = (行数, 当前行已占宽)
+        (int, double) push((int, double) state, double rawWidth) {
+          final width = rawWidth.clamp(0.0, maxWidth);
+          final (lines, cur) = state;
+          final next = cur == 0 ? width : cur + _chipSpacing + width;
+          if (next <= maxWidth + 0.1) return (lines, next);
+          return (lines + 1, width);
+        }
+
+        // 是否超过折叠行数:线性扫,一旦超出立即停止(后续不再测量)
+        var probe = (1, 0.0);
+        var hasOverflow = false;
+        for (var i = 0; i < groups.length && !hasOverflow; i++) {
+          probe = push(probe, widthAt(i));
+          if (probe.$1 > _collapsedMaxLines) hasOverflow = true;
+        }
+        if (!hasOverflow && addWidth != null) {
+          probe = push(probe, addWidth);
+          if (probe.$1 > _collapsedMaxLines) hasOverflow = true;
+        }
+
+        final children = <Widget>[];
         if (_showAllRows || !hasOverflow) {
-          visibleEntries.addAll(groupEntries);
-          if (hasOverflow) {
-            visibleEntries.add(_buildToggleEntry(context, true));
+          for (final group in groups) {
+            children.add(_buildGroupBubble(context, group));
           }
-          if (addEntry != null) {
-            visibleEntries.add(addEntry);
+          if (hasOverflow) {
+            children.add(_buildToggleChip(true));
+          }
+          if (addWidth != null) {
+            children.add(_buildAddButton(context));
           }
         } else {
-          final trailingEntries = <_WrapEntry>[
-            _buildToggleEntry(context, false),
-            ...?(addEntry == null ? null : [addEntry]),
+          // 折叠:线性找最大 prefix,使 prefix + 尾部控件仍 ≤ 折叠行数;
+          // 只为进入 prefix 的 chip 构建 widget。
+          final trailing = <double>[
+            _controlChipWidth,
+            ?addWidth,
           ];
-          final prefix = _maxPrefixThatFits(groupEntries, trailingEntries, maxWidth);
-          visibleEntries.addAll(groupEntries.take(prefix));
-          visibleEntries.addAll(trailingEntries);
+          var prefix = 0;
+          var state = (1, 0.0);
+          while (prefix < groups.length) {
+            final withNext = push(state, widthAt(prefix));
+            var trial = withNext;
+            for (final w in trailing) {
+              trial = push(trial, w);
+            }
+            if (trial.$1 > _collapsedMaxLines) break;
+            state = withNext;
+            prefix++;
+          }
+          for (var i = 0; i < prefix; i++) {
+            children.add(_buildGroupBubble(context, groups[i]));
+          }
+          children.add(_buildToggleChip(false));
+          if (addWidth != null) {
+            children.add(_buildAddButton(context));
+          }
         }
 
         return Padding(
@@ -496,22 +495,12 @@ class _BoostListState extends State<BoostList> with SingleTickerProviderStateMix
             spacing: _chipSpacing,
             runSpacing: _chipSpacing,
             crossAxisAlignment: WrapCrossAlignment.center,
-            children: visibleEntries.map((entry) => entry.child).toList(growable: false),
+            children: children,
           ),
         );
       },
     );
   }
-}
-
-class _WrapEntry {
-  final Widget child;
-  final double width;
-
-  const _WrapEntry({
-    required this.child,
-    required this.width,
-  });
 }
 
 class _InlineControlChip extends StatelessWidget {

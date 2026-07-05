@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:catcher_2/catcher_2.dart';
 import 'package:chinese_font_library/chinese_font_library.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart' show GestureBinding;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -67,6 +68,7 @@ import 'models/user.dart';
 import 'constants.dart';
 import 'providers/connectivity_provider.dart';
 import 'utils/dialog_utils.dart';
+import 'utils/frame_jank_monitor.dart';
 import 'utils/time_utils.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -128,6 +130,28 @@ Future<void> _applyAndroidDisplayMode(SharedPreferences prefs) async {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 触摸重采样:把 pointer 事件重采样到与 vsync 对齐。触摸采样率与
+  // 显示刷新率不同步(如 120Hz 触摸 × 60Hz 显示)时,滚动速度会微观
+  // 不均匀,表现为"不跟手/画面不连贯"。代价是约一帧的输入延迟,
+  // 高刷设备上是标准取舍。
+  GestureBinding.instance.resamplingEnabled = true;
+
+  // 掉帧监控:debug/profile 无条件启用;release 由"性能诊断"设置开关
+  // 控制(见下方 prefs 读取处)。Logcat 过滤 "JANK",或在设置 → 性能诊断
+  // 页内直接查看与导出。不要用开着 DevTools Performance 页的体感判断
+  // 卡顿(观察者效应)。
+  if (!kReleaseMode) {
+    FrameJankMonitor.start();
+  }
+
+  // 定位构建热点用(仅 debug/profile 生效,release 编译器自动剔除):
+  // 打开后 DevTools timeline 的 BUILD 段内会显示每个 widget 的耗时,
+  // 用于追查"重楼层挂载 build 35ms"的具体构成。事件量大,录制请控制
+  // 在 10 秒以内,定位完成后删除。
+  if (!kReleaseMode) {
+    debugProfileBuildsEnabled = true;
+  }
 
   // 桌面端(Windows/Linux)图片缓存索引走 sqlite,需 FFI 提供 sqlite3;移动端 /
   // macOS 用各自原生 sqflite(flutter_cache_manager 已带),无需处理。必须在任何
@@ -196,6 +220,11 @@ Future<void> main() async {
   final results = await Future.wait(futures);
   final prefs = results[0] as SharedPreferences;
   await AuthIssueNoticeService.instance.initialize(prefs);
+
+  // release 下按设置开关启用性能监控(debug/profile 已在上方无条件启用)
+  if (kReleaseMode && (prefs.getBool(FrameJankMonitor.prefKey) ?? false)) {
+    FrameJankMonitor.start();
+  }
 
   // v0.4.0: 注册 Cookie 引擎 DevTools service extensions (仅 debug/profile 模式)
   // 设计依据: docs/cookie-sync-design-v0.4.0.md §11.4
@@ -516,7 +545,8 @@ class MainApp extends ConsumerWidget {
           child: Builder(
             builder: (context) => MaterialApp(
               navigatorKey: navigatorKey,
-              navigatorObservers: [appRouteObserver],
+              // JankNavObserver 给 [JANK] 日志加导航归因(debug/profile 观测用)
+              navigatorObservers: [appRouteObserver, JankNavObserver()],
               title: 'FluxDO',
               locale: TranslationProvider.of(context).flutterLocale,
               localizationsDelegates: const [

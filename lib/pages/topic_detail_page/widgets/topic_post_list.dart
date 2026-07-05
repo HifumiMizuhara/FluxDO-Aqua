@@ -10,6 +10,7 @@ import '../../../l10n/s.dart';
 import '../../../models/topic.dart';
 import '../../../providers/message_bus_providers.dart';
 import '../../../services/toast_service.dart';
+import '../../../utils/frame_jank_monitor.dart';
 import '../../../utils/responsive.dart';
 import '../../../utils/time_utils.dart';
 import '../../../widgets/common/loading_spinner.dart';
@@ -160,6 +161,19 @@ class _TopicPostListState extends State<TopicPostList> {
   Map<int, int> _postNumberToIndex = const {};
   final Map<int, _LongPostRenderCacheEntry> _longPostRenderCache = {};
 
+  /// shortPost 段的 widget 实例缓存(key: post.id):构建输入未变化时
+  /// 返回同一实例,框架在 Element.updateChild 处短路,整楼子树跳过
+  /// rebuild。detail 的任何状态更新(message bus 单帖点赞、分页落地等)
+  /// 都会从页面顶层整页 rebuild —— 实测一次 60ms,其中主要成本就是
+  /// 未变化楼层的重复构建;有此缓存后只有真正变化的楼层重建。
+  /// Post 与 detail 均为不可变数据(riverpod 更新总是换新实例),
+  /// 引用相同即内容相同,签名比对安全。
+  final Map<int, _ShortPostCacheEntry> _shortPostCache = {};
+
+  /// 长帖正文 chunk 的 widget 实例缓存(key: (post.id, chunkIndex)),
+  /// 语义同上;data 实例由 [_longPostDataFor] 的内容签名保证稳定。
+  final Map<(int, int), _ChunkWidgetCacheEntry> _chunkWidgetCache = {};
+
   @override
   void initState() {
     super.initState();
@@ -169,6 +183,46 @@ class _TopicPostListState extends State<TopicPostList> {
         _updateFirstVisiblePost();
       }
     });
+    // 滚动回跳探针:捕捉"滚动中内容被反向拉回"。单帧内 offset 反向
+    // 跳变通常来自布局高度记账不一致触发的 scroll offset correction
+    // (双向列表 before-center 楼层重挂载时高度与上次不同等)。
+    // 事件经 FrameJankMonitor 汇入诊断时间轴(监控关闭时零输出),
+    // listener 本体每帧只做几次数值比较,release 常驻注册无碍。
+    widget.scrollController.addListener(_scrollJumpProbe);
+  }
+
+  double? _probeLastPixels;
+  int _probeDirection = 0;
+
+  void _scrollJumpProbe() {
+    if (!FrameJankMonitor.isRunning) return;
+    if (!widget.scrollController.hasClients) return;
+    final position = widget.scrollController.position;
+    final pixels = position.pixels;
+    final last = _probeLastPixels;
+    _probeLastPixels = pixels;
+    if (last == null) return;
+    final delta = pixels - last;
+    if (delta == 0) return;
+    final direction = delta > 0 ? 1 : -1;
+    // 与最近滚动方向相反且单次跳变 >8px:用户反向拖动一般达不到,
+    // 惯性/动画中出现即为程序性修正
+    if (_probeDirection != 0 && direction != _probeDirection && delta.abs() > 8) {
+      FrameJankMonitor.logEvent(
+        'SCROLL-PROBE',
+        'backward jump ${delta.toStringAsFixed(1)}px '
+            'at ${pixels.toStringAsFixed(1)} '
+            '(min ${position.minScrollExtent.toStringAsFixed(1)}, '
+            'max ${position.maxScrollExtent.toStringAsFixed(1)})',
+      );
+    }
+    _probeDirection = direction;
+  }
+
+  @override
+  void dispose() {
+    widget.scrollController.removeListener(_scrollJumpProbe);
+    super.dispose();
   }
 
   // 便捷 getter，简化 widget.xxx 访问
@@ -539,10 +593,22 @@ class _TopicPostListState extends State<TopicPostList> {
   _LongPostRenderCacheEntry _longPostDataFor(Post post) {
     final signature = _longPostRenderSignature(post);
     final cached = _longPostRenderCache[post.id];
-    if (cached != null &&
-        identical(cached.post, post) &&
-        cached.signature == signature) {
+    if (cached != null && identical(cached.post, post)) {
       return cached;
+    }
+    // post 实例变了但渲染相关内容(cooked/mentions/links,即 signature
+    // 覆盖的字段)没变 —— 典型场景:message bus 单帖更新(点赞数等)
+    // copyWith 出新实例。复用解析产物,只刷新 post 引用;否则每次
+    // 点赞推送都会重新预处理 + 切 chunk + 丢掉全部已解析 chunk,
+    // 已挂载的 chunk 被迫同步重新解析,一次几十 ms。
+    if (cached != null && cached.signature == signature) {
+      final refreshed = _LongPostRenderCacheEntry(
+        post: post,
+        signature: signature,
+        newEngineData: cached.newEngineData,
+      );
+      _longPostRenderCache[post.id] = refreshed;
+      return refreshed;
     }
 
     final entry = _LongPostRenderCacheEntry(
@@ -734,6 +800,12 @@ class _TopicPostListState extends State<TopicPostList> {
                                 detail.id,
                               ).select((s) => s.typingUsers),
                             );
+                            // 汇入性能诊断时间轴:"有人正在输入"场景的
+                            // 卡顿是否与 presence/typing 更新同时刻
+                            FrameJankMonitor.logEvent(
+                              'TYPING',
+                              '${typingUsers.length} users',
+                            );
                             return TypingAvatars(users: typingUsers);
                           },
                         ),
@@ -836,7 +908,7 @@ class _TopicPostListState extends State<TopicPostList> {
 
     switch (segment.type) {
       case _PostRenderSegmentType.shortPost:
-        child = PostItem(
+        Widget buildShortPost() => PostItem(
           post: post,
           topicId: detail.id,
           selected: isSelectedPost,
@@ -872,6 +944,44 @@ class _TopicPostListState extends State<TopicPostList> {
               : null,
           opTopSlot: opSlot,
         );
+
+        // OP 楼的 opSlot 依赖整个 detail 对象,签名无法稳定,不缓存
+        if (post.postNumber == 1) {
+          child = buildShortPost();
+          break;
+        }
+
+        // 实例缓存:输入未变时复用同一 widget 实例,让整页 rebuild 时
+        // 未变化的楼层在框架层短路(闭包回调经 State 转发,行为始终
+        // 跟随最新 widget,复用实例不会捕获旧数据)
+        final signature = (
+          post: post,
+          selected: isSelectedPost,
+          highlight: highlight,
+          boostUsername: boostUsername,
+          dateLabel: dateSeparatorLabel,
+          bottomDateLabel: bottomDateSeparatorLabel,
+          isTopicOwner: detail.createdBy?.username == post.username,
+          hasAcceptedAnswer: detail.hasAcceptedAnswer,
+          acceptedAnswers: detail.acceptedAnswers,
+          isLoggedIn: isLoggedIn,
+          useReplyDialog: useReplyDialog,
+          topicTitle: detail.title,
+          isPm: detail.isPrivateMessage,
+          pmNonHuman: detail.pmWithNonHumanUser,
+          canShareAsImage: onShareAsImage != null,
+          canShowDetail: widget.onShowPostDetail != null,
+        );
+        final cached = _shortPostCache[post.id];
+        if (cached != null && cached.signature == signature) {
+          child = cached.widget;
+        } else {
+          child = buildShortPost();
+          _shortPostCache[post.id] = _ShortPostCacheEntry(
+            signature: signature,
+            widget: child,
+          );
+        }
         break;
       case _PostRenderSegmentType.longHeader:
         child = LongPostHeaderSegment(
@@ -889,6 +999,20 @@ class _TopicPostListState extends State<TopicPostList> {
       case _PostRenderSegmentType.longChunk:
         final data = segment.newEngineData!;
         final ci = segment.chunkIndex!;
+        // 正文 chunk 的实例缓存:data(解析产物 + callbacks)实例稳定
+        // (见 _longPostDataFor 的签名复用)且选中/高亮态不变时,复用
+        // widget 实例让框架整棵短路。单帖更新(点赞等)触发的整页
+        // rebuild 里,正文富文本的重建是最大头,这里短路后更新只剩
+        // header/footer 的轻量重建。
+        final chunkKey = (post.id, ci);
+        final cachedChunk = _chunkWidgetCache[chunkKey];
+        if (cachedChunk != null &&
+            identical(cachedChunk.data, data) &&
+            cachedChunk.selected == isSelectedPost &&
+            cachedChunk.highlight == highlight) {
+          child = cachedChunk.widget;
+          break;
+        }
         child = NewEngineChunkSegment(
           post: post,
           topicId: detail.id,
@@ -903,6 +1027,12 @@ class _TopicPostListState extends State<TopicPostList> {
           footnotesHtml: data.footnotesHtml,
           callbacks: data.callbacks,
           onQuoteSelection: onQuoteSelection,
+        );
+        _chunkWidgetCache[chunkKey] = _ChunkWidgetCacheEntry(
+          data: data,
+          selected: isSelectedPost,
+          highlight: highlight,
+          widget: child,
         );
         break;
       case _PostRenderSegmentType.longFooter:
@@ -981,11 +1111,37 @@ enum _PostRenderSegmentType {
   gapAfter,
 }
 
+/// shortPost 段的实例缓存条目:signature 是构建输入的具名 record,
+/// == 比较逐字段进行(Post / List 等按引用,不可变数据引用同即内容同)
+class _ShortPostCacheEntry {
+  final Object signature;
+  final Widget widget;
+
+  const _ShortPostCacheEntry({
+    required this.signature,
+    required this.widget,
+  });
+}
+
+/// 长帖正文 chunk 段的实例缓存条目
+class _ChunkWidgetCacheEntry {
+  final NewEngineLongPostData data;
+  final bool selected;
+  final bool highlight;
+  final Widget widget;
+
+  const _ChunkWidgetCacheEntry({
+    required this.data,
+    required this.selected,
+    required this.highlight,
+    required this.widget,
+  });
+}
+
 class _LongPostRenderCacheEntry {
   final Post post;
   final int signature;
   final NewEngineLongPostData? newEngineData;
-
   const _LongPostRenderCacheEntry({
     required this.post,
     required this.signature,
