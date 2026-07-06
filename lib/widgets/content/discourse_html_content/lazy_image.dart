@@ -19,6 +19,10 @@ import '../../common/hero_image.dart';
 ///   markNeedsPaint 都隔离在图片自身区域,不再冒泡到帖子 segment 的
 ///   RepaintBoundary 造成整帖每帧重绘。
 class LazyImage extends StatelessWidget {
+  /// 解码高度上限(物理像素):防长截图类窄高图按宽度解出超高位图。
+  /// 见 build 内注释。
+  static const int _kMaxDecodeHeight = 4096;
+
   final ImageProvider imageProvider;
   final double? width;
   final double? height;
@@ -53,14 +57,23 @@ class LazyImage extends StatelessWidget {
     final theme = Theme.of(context);
 
     // 解码目标宽 = 显示逻辑宽(调用方已按列宽 clamp) × dpr;无声明尺寸的
-    // 图退化到屏宽。resizeIfNeeded 不放大小图(allowUpscaling=false),
-    // 只指定宽时按比例出高。
+    // 图退化到屏宽。fit 策略 = contain(保持宽高比,只缩不放)。
+    //
+    // 高度必须同时 cap:只约束宽度时,长截图(宽高比 1:10 常见)按宽
+    // 2000+ 解码 → 高 20000+ → 单张 100MB+ 纹理且超 GPU 纹理上限,
+    // 上传瞬间 raster 冻结几百 ms(转场首绘大帧的元凶之一)。4096 是
+    // 低端 GPU 的普遍安全上限;长图看细节走查看器的独立高清路径。
     final dpr = MediaQuery.devicePixelRatioOf(context);
     final logicalWidth = width ?? MediaQuery.sizeOf(context).width;
     final cacheWidth = (logicalWidth * dpr).round().clamp(1, 1 << 16);
 
     final imageChild = Image(
-      image: ResizeImage.resizeIfNeeded(cacheWidth, null, imageProvider),
+      image: ResizeImage(
+        imageProvider,
+        width: cacheWidth,
+        height: _kMaxDecodeHeight,
+        policy: ResizeImagePolicy.fit,
+      ),
       fit: fit,
       width: width,
       height: height,
@@ -69,7 +82,11 @@ class LazyImage extends StatelessWidget {
       loadingBuilder: (context, child, loadingProgress) {
         if (loadingProgress == null) return child;
 
-        // 加载中显示进度指示器
+        // 加载中显示进度指示器。
+        // RepaintBoundary 包住 spinner:指示器每帧动画,不隔离的话脏区
+        // 冒泡到外层图片级 RepaintBoundary,慢加载的大图占位(整图尺寸
+        // 的层)会被每帧全量重栅格化 —— 实测就是"无动图页面 raster
+        // 每帧 8ms 常驻、加载完自愈"的来源。
         return Container(
           width: width,
           height: height ?? 200,
@@ -80,15 +97,17 @@ class LazyImage extends StatelessWidget {
             ),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              value: loadingProgress.expectedTotalBytes != null
-                  ? loadingProgress.cumulativeBytesLoaded /
-                      loadingProgress.expectedTotalBytes!
-                  : null,
+          child: RepaintBoundary(
+            child: SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                value: loadingProgress.expectedTotalBytes != null
+                    ? loadingProgress.cumulativeBytesLoaded /
+                        loadingProgress.expectedTotalBytes!
+                    : null,
+              ),
             ),
           ),
         );

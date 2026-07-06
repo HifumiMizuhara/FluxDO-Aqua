@@ -1086,23 +1086,18 @@ class FluxdoRenderCallbacks {
         // 外层 SizedBox(dispW, dispH) 给它 tight 约束,强制按 Discourse
         // max-width:100% 的实际尺寸渲染(列宽富余时左对齐留白,不上采样)。
         //
-        // 解码上限:显示宽的物理像素 ×1.5(轻缩放裕量,512~2560)。
-        // 不 clamp 的话超大原图全尺寸解码 + 上传(诊断实测
-        // DecompressTexture 95ms、raster 214ms,独占期间全 app 掉帧);
-        // 点开大图走查看器的独立原图路径,不受此限。
-        final logicalW =
-            dispW ?? (lbc.maxWidth.isFinite ? lbc.maxWidth : 1080.0);
-        final decodeCap =
-            (logicalW * MediaQuery.of(lbCtx).devicePixelRatio * 1.5)
-                .round()
-                .clamp(512, 2560);
+        // 解码上限由 LazyImage 内的 ResizeImage 承担(decode-time,engine
+        // 下采样解码,全格式生效)。不要走 CachedNetworkImageProvider 的
+        // maxWidth —— 那是 flutter_cache_manager 的 resize 路径:webp 不在
+        // supportedFileNames 里直接原图返回(Discourse CDN 主流恰是 webp,
+        // 等于没约束);jpg/png 则解码后 PNG 重编码再写第二份磁盘缓存,
+        // 首次加载反而多付几百 ms。
         return SizedBox(
           width: dispW,
           height: dispH,
           child: Builder(
             builder: (ctx) => LazyImage(
-              imageProvider:
-                  discourseImageProvider(resolvedUrl, maxWidth: decodeCap),
+              imageProvider: discourseImageProvider(resolvedUrl),
               width: dispW,
               height: dispH,
               heroTag: heroTag,
