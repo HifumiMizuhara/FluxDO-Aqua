@@ -4,6 +4,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import 'jank_profiler.dart';
 
@@ -106,12 +107,19 @@ class FrameJankMonitor {
     sessionStart ??= DateTime.now();
     SchedulerBinding.instance.addTimingsCallback(_onTimings);
     _startStallProbes();
+    // 版本指纹(异步补齐):诊断导出必须能对上代码版本,否则
+    // "旧包跑出的日志被当成新修复无效"——生产排查的头号陷阱
+    unawaited(PackageInfo.fromPlatform().then((info) {
+      _buildFingerprint = '${info.version}+${info.buildNumber}';
+    }).catchError((_) {}));
     // 掉帧现场抓取(debug/profile;release 内部自动跳过)
     unawaited(JankProfiler.ensureInitialized());
     debugPrint(
       '[JANK] monitor started, threshold ${_jankThreshold.inMilliseconds}ms',
     );
   }
+
+  static String? _buildFingerprint;
 
   static void stop() {
     if (!_started) return;
@@ -338,6 +346,7 @@ class FrameJankMonitor {
         : sessionJanks / sessionFrames * 100;
     final semanticsEnabled = SemanticsBinding.instance.semanticsEnabled;
     buf.writeln('FluxDO 性能诊断导出');
+    buf.writeln('应用版本: ${_buildFingerprint ?? '?'}');
     buf.writeln('导出时间: ${DateTime.now()}');
     if (elapsed != null) {
       buf.writeln('会话时长: ${elapsed.inMinutes}m${elapsed.inSeconds % 60}s');
