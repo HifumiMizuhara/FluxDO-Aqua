@@ -121,6 +121,15 @@
         <!-- 禁用 Firebase 自动采集，由用户手动开启 -->
         <meta-data android:name="firebase_crashlytics_collection_enabled" android:value="false" />
         <meta-data android:name="firebase_analytics_collection_enabled" android:value="false" />
+        <!-- HCPP (Hybrid Composition++):平台视图(帖内 iframe WebView 等)
+             在屏期间,经典 HC 会把整个 Flutter UI 的合成从专用 raster 线程
+             搬到平台主线程(官方文档明言 "Flutter performance suffers /
+             FPS will be lower"),这是"iframe 显示时整页滚动都卡"的根因。
+             HCPP 用 SurfaceControl 原生事务同步消除该降级;仅 API 34+ 且
+             Vulkan 设备生效,不满足时引擎自动回退经典 HC,无兼容风险。 -->
+        <meta-data
+            android:name="io.flutter.embedding.android.EnableHcpp"
+            android:value="true" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
