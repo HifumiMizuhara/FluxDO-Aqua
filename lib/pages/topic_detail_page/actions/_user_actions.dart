@@ -1038,6 +1038,39 @@ extension _UserActions on _TopicDetailPageState {
       'MSGBUS',
       '${update.type.name} post=${update.postId}',
     );
+    // 滚动/惯性滚动进行中,推迟"会改变帖子高度"的更新到滚停后应用:
+    // 双向列表里 before-center 区任何帖子高度变化(新 reaction 行、
+    // boost 气泡、编辑后内容增减)都会让锚点下方内容整体平移,视觉上
+    // 就是滚动中突然"拉一下"(SCROLL-PROBE 抓到的 36~57px 回跳与
+    // msgbus/typing 活跃期同窗)。created 不受影响(追加在流末尾,
+    // 不在滚动路径上方);滚停后统一放行,交互延迟无感知。
+    if (_isUserScrolling && update.type != TopicMessageType.created) {
+      _deferredPostUpdates.add(update);
+      return;
+    }
+    _applyPostUpdate(notifier, update);
+  }
+
+  bool get _isUserScrolling {
+    final sc = _controller.scrollController;
+    if (!sc.hasClients) return false;
+    return sc.position.isScrollingNotifier.value;
+  }
+
+  /// 滚动停止后回放推迟的更新(去重:同帖同类型只留最后一条)
+  void _flushDeferredPostUpdates(TopicDetailNotifier notifier) {
+    if (_deferredPostUpdates.isEmpty) return;
+    final deduped = <String, PostUpdate>{};
+    for (final u in _deferredPostUpdates) {
+      deduped['${u.postId}:${u.type.name}'] = u;
+    }
+    _deferredPostUpdates.clear();
+    for (final u in deduped.values) {
+      _applyPostUpdate(notifier, u);
+    }
+  }
+
+  void _applyPostUpdate(TopicDetailNotifier notifier, PostUpdate update) {
     switch (update.type) {
       case TopicMessageType.created:
         notifier.onNewPostCreated(update.postId);

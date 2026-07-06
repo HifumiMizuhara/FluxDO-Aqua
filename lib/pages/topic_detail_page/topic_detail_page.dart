@@ -197,6 +197,9 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
   late final AnimationController _expandController;
   late final Animation<Offset> _animation;
   Set<int> _lastReadPostNumbers = {};
+
+  /// 滚动中推迟的 msgbus 帖子更新(滚停后回放,防滚动路径上方高度跳变)
+  final List<PostUpdate> _deferredPostUpdates = [];
   bool? _lastCanShowDetailPane;
   bool _isAutoSwitching = false;
   bool _autoOpenReplyHandled = false; // 是否已处理自动打开回复框
@@ -311,6 +314,12 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
     );
 
     _controller.scrollController.addListener(_onScroll);
+    // 滚动停止 → 回放滚动期间推迟的 msgbus 帖子更新
+    // (isScrollingNotifier 在 position attach 后才有,帧后挂)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _attachScrollIdleFlush();
+    });
     _pageController = PageController(initialPage: 0);
 
     // 桌面端：注册 J/K 帖子导航 + AI 面板切换
@@ -321,6 +330,33 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
   }
 
   bool _isAiSheetOpen = false;
+
+  /// 已挂 idle-flush 监听的 ScrollPosition(attach/detach 时换绑)
+  ScrollPosition? _idleFlushPosition;
+
+  void _attachScrollIdleFlush() {
+    final sc = _controller.scrollController;
+    if (!sc.hasClients) {
+      // position 尚未 attach(骨架屏期),下一帧再试
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _attachScrollIdleFlush();
+      });
+      return;
+    }
+    final position = sc.position;
+    if (identical(_idleFlushPosition, position)) return;
+    _idleFlushPosition?.isScrollingNotifier.removeListener(_onScrollIdle);
+    _idleFlushPosition = position;
+    position.isScrollingNotifier.addListener(_onScrollIdle);
+  }
+
+  void _onScrollIdle() {
+    if (!mounted) return;
+    if (_idleFlushPosition?.isScrollingNotifier.value ?? true) return;
+    if (_deferredPostUpdates.isEmpty) return;
+    final notifier = ref.read(topicDetailProvider(_params).notifier);
+    _flushDeferredPostUpdates(notifier);
+  }
 
   void _onToggleAiPanel() {
     if (!mounted) return;
@@ -508,6 +544,8 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
 
   @override
   void dispose() {
+    _idleFlushPosition?.isScrollingNotifier.removeListener(_onScrollIdle);
+    _idleFlushPosition = null;
     if (_route != null) {
       appRouteObserver.unsubscribe(this);
     }
