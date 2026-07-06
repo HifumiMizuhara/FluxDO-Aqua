@@ -1,0 +1,23 @@
+// discourse-i18n 的裸引擎 stub。
+//
+// cook 管线里 i18n 只出现在 anchor（heading 锚点 aria-label）、
+// image-controls（web 预览的图片缩放按钮 title）、poll（投票 UI 文案）
+// 这类辅助文案上，不影响 HTML 结构；FluxdoRender 渲染时也不消费它们。
+// 返回 key 末段并附上插值，保证输出确定性、可断言。
+function translate(key, params) {
+  let text = String(key ?? "");
+  if (params && typeof params === "object") {
+    for (const [k, v] of Object.entries(params)) {
+      if (k === "count") {
+        continue;
+      }
+      text += ` ${v}`;
+    }
+  }
+  return text;
+}
+
+export const i18n = translate;
+
+const I18n = { t: translate };
+export default I18n;

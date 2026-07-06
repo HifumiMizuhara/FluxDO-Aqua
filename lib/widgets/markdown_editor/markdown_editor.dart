@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 
 import '../../providers/preferences_provider.dart';
+import '../../services/discourse_cook_service.dart';
 import '../../services/emoji_handler.dart';
 import '../../utils/platform_utils.dart';
 import '../mention/mention_autocomplete.dart';
@@ -123,6 +124,9 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
       _ownsFocusNode = true;
     }
     EmojiHandler().init();
+    // 预热 1:1 cook 引擎(eval bundle + 注入站点数据),
+    // 让首次切预览时 JS cook 已就绪
+    DiscourseCookService().warmUp();
     _previousText = widget.controller.text;
     widget.controller.addListener(_handleTextChange);
   }

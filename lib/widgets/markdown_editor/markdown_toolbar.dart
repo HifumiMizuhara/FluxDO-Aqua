@@ -16,6 +16,7 @@ import '../../services/app_error_handler.dart';
 import '../../services/discourse/discourse_service.dart';
 import '../../services/toast_service.dart';
 import '../common/fading_edge_scroll_view.dart';
+import '../content/discourse_html_content/image_utils.dart';
 import 'editor_tools.dart';
 import 'image_upload_dialog.dart';
 import 'link_insert_dialog.dart';
@@ -756,6 +757,15 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
   }
 
   /// 从文件路径上传图片（公开方法，供外部调用）
+  /// 上传成功后把 short_url → 完整 url 预置进解析缓存，
+  /// 编辑器预览里的 upload:// 新图不用再发 lookup-urls 请求
+  void _seedUploadCache(UploadResult uploadResult) {
+    final url = uploadResult.url;
+    if (url != null) {
+      DiscourseImageUtils.seedUploadUrl(uploadResult.shortUrl, url);
+    }
+  }
+
   Future<void> uploadImageFromPath({required String imagePath, required String imageName}) async {
     try {
       // 显示确认弹框
@@ -772,6 +782,7 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
       try {
         final service = DiscourseService();
         final uploadResult = await service.uploadImage(result.path);
+        _seedUploadCache(uploadResult);
 
         if (!mounted) return;
         // 使用 Discourse 格式：![alt|widthxheight](url)
@@ -833,6 +844,7 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
             setState(() => _uploadProgress = '${i + 1}/${results.length}');
           }
           final uploadResult = await service.uploadImage(result.path);
+          _seedUploadCache(uploadResult);
           markdowns.add(uploadResult.toMarkdown(alt: result.originalName));
         }
 
@@ -880,6 +892,7 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
       try {
         final service = DiscourseService();
         final uploadResult = await service.uploadFile(file.path!);
+        _seedUploadCache(uploadResult);
 
         if (!mounted) return;
 

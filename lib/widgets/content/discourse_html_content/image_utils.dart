@@ -161,6 +161,13 @@ class DiscourseImageUtils {
     return _uploadUrlCache[shortUrl];
   }
 
+  /// 预置短链解析结果（上传成功时响应里已带完整 URL，
+  /// 直接 seed 缓存让编辑器预览零请求显示新图）
+  static void seedUploadUrl(String shortUrl, String resolvedUrl) {
+    if (!isUploadUrl(shortUrl) || resolvedUrl.isEmpty) return;
+    _uploadUrlCache[shortUrl] = resolvedUrl;
+  }
+
   /// 异步解析 upload:// 短链接并缓存结果
   static Future<String?> resolveUploadUrl(String shortUrl) {
     if (!isUploadUrl(shortUrl)) return Future.value(shortUrl);

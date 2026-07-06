@@ -42,6 +42,9 @@ dependencies:
   native_dio_adapter: ^1.6.0
   flutter_secure_storage: ^10.3.1
   flutter_inappwebview: ^6.2.0-beta.3
+  # 编辑器 1:1 预览:跑 Discourse 官方 markdown-it cook bundle
+  # (Android/Win/Linux=QuickJS,iOS/macOS=JavaScriptCore,均走 FFI)
+  flutter_js: ^0.8.7
   cached_network_image: ^3.4.1
   octo_image: ^2.1.0
   flutter_cache_manager: ^3.4.1
@@ -187,6 +190,7 @@ flutter:
     - assets/ai_brands/
     - assets/icons/thinking/
     - assets/polyfill/
+    - assets/cook/
 
   fonts:
     - family: MiSans
