@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import 'jank_profiler.dart';
@@ -104,6 +105,7 @@ class FrameJankMonitor {
     _started = true;
     sessionStart ??= DateTime.now();
     SchedulerBinding.instance.addTimingsCallback(_onTimings);
+    _startStallProbes();
     // 掉帧现场抓取(debug/profile;release 内部自动跳过)
     unawaited(JankProfiler.ensureInitialized());
     debugPrint(
@@ -115,7 +117,79 @@ class FrameJankMonitor {
     if (!_started) return;
     _started = false;
     SchedulerBinding.instance.removeTimingsCallback(_onTimings);
+    _stopStallProbes();
     debugPrint('[JANK] monitor stopped');
+  }
+
+  // ---------------------------------------------------------------------------
+  // 线程阻塞探针:归因 vsyncOverhead 型掉帧(build/raster 都小、ov 巨大)
+  //
+  // 这类帧的成因不在渲染管线里,而是两条线程之一被别的活堵住:
+  // - UI isolate 事件循环:isolate 消息回传(compute 结果)、大 Timer 任务
+  // - 平台主线程:WebView 创建/销毁/重建、CookieManager IPC、平台通道
+  //   同步处理 —— vsync 通知经平台线程分发,它被堵 = ov 直接上天
+  // 两个探针只在监控运行时活跃,窗口期波动做了节流,常态零输出。
+  // ---------------------------------------------------------------------------
+
+  static Timer? _uiHeartbeat;
+  static DateTime? _lastBeat;
+  static Timer? _platformProbe;
+  static bool _platformProbeInFlight = false;
+  static DateTime _lastStallLog = DateTime.fromMillisecondsSinceEpoch(0);
+  static const _beatInterval = Duration(milliseconds: 50);
+
+  /// UI 事件循环:单个任务把 timer 压后 ≥30ms 才报(帧 build 最多 20ms
+  /// 级,不会误报;isolate 消息回传 40ms+ 正好落网)
+  static const _uiStallThreshold = Duration(milliseconds: 30);
+
+  /// 平台线程 RTT:正常 <2ms,>30ms 说明有重活(WebView init/destroy 等)
+  static const _platformRttThreshold = Duration(milliseconds: 30);
+  static const _stallLogThrottle = Duration(milliseconds: 800);
+
+  static void _startStallProbes() {
+    _lastBeat = DateTime.now();
+    _uiHeartbeat = Timer.periodic(_beatInterval, (_) {
+      final now = DateTime.now();
+      final drift = now.difference(_lastBeat!) - _beatInterval;
+      _lastBeat = now;
+      if (drift >= _uiStallThreshold &&
+          now.difference(_lastStallLog) >= _stallLogThrottle) {
+        _lastStallLog = now;
+        logEvent('STALL', 'UI 事件循环被单任务阻塞 ~${drift.inMilliseconds}ms');
+      }
+    });
+
+    _platformProbe = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      if (_platformProbeInFlight) return;
+      _platformProbeInFlight = true;
+      final sw = Stopwatch()..start();
+      // 故意调不存在的方法:平台侧走一遍消息分发后回 notImplemented,
+      // 零副作用;RTT = 平台主线程当下的响应能力
+      SystemChannels.platform
+          .invokeMethod<void>('__fluxdoJankProbe__')
+          .catchError((_) {})
+          .whenComplete(() {
+        sw.stop();
+        _platformProbeInFlight = false;
+        final now = DateTime.now();
+        if (sw.elapsed >= _platformRttThreshold &&
+            now.difference(_lastStallLog) >= _stallLogThrottle) {
+          _lastStallLog = now;
+          logEvent(
+            'STALL',
+            '平台主线程阻塞 ~${sw.elapsedMilliseconds}ms '
+            '(WebView 操作/平台通道/系统 IPC)',
+          );
+        }
+      });
+    });
+  }
+
+  static void _stopStallProbes() {
+    _uiHeartbeat?.cancel();
+    _uiHeartbeat = null;
+    _platformProbe?.cancel();
+    _platformProbe = null;
   }
 
   /// 统一事件入口:打印到 Logcat 并汇入诊断时间轴。

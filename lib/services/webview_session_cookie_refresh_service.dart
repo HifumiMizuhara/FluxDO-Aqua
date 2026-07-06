@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../constants.dart';
+import '../utils/frame_jank_monitor.dart';
 import 'log/log_writer.dart';
 import 'network/cookie/boundary_sync_service.dart';
 import 'network/cookie/cookie_jar_service.dart';
@@ -269,6 +270,8 @@ class WebViewSessionCookieRefreshService {
     );
 
     try {
+      // WebView 创建/销毁占用平台主线程,与掉帧时间轴对齐归因
+      FrameJankMonitor.logEvent('WEBVIEW', 'SessionSync run(): $reason');
       await webView.run();
       final c = webView.webViewController;
       if (c == null) {
@@ -336,6 +339,7 @@ class WebViewSessionCookieRefreshService {
       } catch (e) {
         debugPrint('[WebViewSessionSync] dispose WebView 失败: $e');
       }
+      FrameJankMonitor.logEvent('WEBVIEW', 'SessionSync dispose');
     }
   }
 

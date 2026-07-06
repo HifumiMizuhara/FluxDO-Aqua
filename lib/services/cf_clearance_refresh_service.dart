@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../constants.dart';
+import '../utils/frame_jank_monitor.dart';
 import 'cf_challenge_logger.dart';
 import 'network/cookie/boundary_sync_service.dart';
 import 'network/cookie/cookie_jar_service.dart';
@@ -281,8 +282,11 @@ class CfClearanceRefreshService {
 
     try {
       CfChallengeLogger.log('[CfRefresh] 启动 Turnstile WebView');
+      // WebView 创建/加载在平台主线程执行重活,与掉帧时间轴对齐归因
+      FrameJankMonitor.logEvent('WEBVIEW', 'CfRefresh run() 开始');
 
       await webView.run();
+      FrameJankMonitor.logEvent('WEBVIEW', 'CfRefresh run() 完成');
       if (!_canHandleGeneration(gen)) return;
 
       final controller = webView.webViewController;
@@ -451,6 +455,7 @@ document.close();
     } finally {
       _isDisposing = false;
     }
+    FrameJankMonitor.logEvent('WEBVIEW', 'CfRefresh dispose: $reason');
 
     CfChallengeLogger.log(
       '[CfRefresh] disposing end: reason=$reason, shouldRun=$_shouldBeRunning',

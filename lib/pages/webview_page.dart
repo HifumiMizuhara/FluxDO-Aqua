@@ -5,6 +5,7 @@ import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../utils/frame_jank_monitor.dart';
 import '../utils/link_launcher.dart';
 import '../services/toast_service.dart';
 import '../services/app_link_service.dart';
@@ -67,10 +68,14 @@ class _WebViewPageState extends ConsumerState<WebViewPage> {
     super.initState();
     _currentUrl = widget.url;
     _currentTitle = widget.title ?? '';
+    // 可见 WebView(hybrid composition)在位期间会参与每帧合成,
+    // 打点让诊断时间轴能对齐"WebView 页在前台"与掉帧段
+    FrameJankMonitor.logEvent('WEBVIEW', 'WebViewPage mount');
   }
 
   @override
   void dispose() {
+    FrameJankMonitor.logEvent('WEBVIEW', 'WebViewPage dispose');
     _controller?.dispose();
     super.dispose();
   }

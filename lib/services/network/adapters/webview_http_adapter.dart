@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import '../../../constants.dart';
+import '../../../utils/frame_jank_monitor.dart';
 import '../../auth_session.dart';
 import '../cookie/app_cookie_manager.dart';
 import '../cookie/boundary_sync_service.dart';
@@ -181,6 +182,11 @@ class WebViewHttpAdapter implements HttpClientAdapter {
       initWatch.stop();
       debugPrint(
         '[WebViewAdapter] Initialized (${initWatch.elapsedMilliseconds}ms)',
+      );
+      // WebView 创建占用平台主线程,与掉帧时间轴对齐归因
+      FrameJankMonitor.logEvent(
+        'WEBVIEW',
+        'HttpAdapter init ${initWatch.elapsedMilliseconds}ms',
       );
     } catch (e) {
       debugPrint('[WebViewAdapter] Init failed: $e');
@@ -910,6 +916,9 @@ document.close();
     if (!force && _activeFetches > 0) {
       _disposeWhenIdle = true;
       return;
+    }
+    if (_headlessWebView != null) {
+      FrameJankMonitor.logEvent('WEBVIEW', 'HttpAdapter dispose');
     }
     _headlessWebView?.dispose();
     _headlessWebView = null;

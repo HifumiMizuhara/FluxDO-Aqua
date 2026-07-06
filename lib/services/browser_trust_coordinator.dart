@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../constants.dart';
+import '../utils/frame_jank_monitor.dart';
 import 'app_logger.dart';
 import 'cf_challenge_logger.dart';
 import 'cf_challenge_service.dart';
@@ -485,6 +486,8 @@ class BrowserTrustCoordinator {
     );
 
     try {
+      // WebView 创建/销毁占用平台主线程,与掉帧时间轴对齐归因
+      FrameJankMonitor.logEvent('WEBVIEW', 'BrowserTrust run(): $reason');
       await webView.run();
       final c = webView.webViewController;
       if (c == null) return false;
@@ -565,6 +568,7 @@ class BrowserTrustCoordinator {
       } catch (e) {
         _log('dispose startup WebView failed: $e', level: 'warning');
       }
+      FrameJankMonitor.logEvent('WEBVIEW', 'BrowserTrust dispose');
     }
   }
 
