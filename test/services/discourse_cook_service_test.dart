@@ -55,4 +55,41 @@ void main() {
       );
     });
   });
+
+  group('DiscourseCookService.extractOneboxTargets', () {
+    test('块级 a.onebox 提取到 blockUrls', () {
+      const cooked =
+          '<p><a href="https://example.com/page" class="onebox" target="_blank">https://example.com/page</a></p>';
+      final t = DiscourseCookService.extractOneboxTargets(cooked);
+      expect(t.blockUrls, ['https://example.com/page']);
+      expect(t.inlineUrls, isEmpty);
+    });
+
+    test('行内 inline-onebox-loading 提取到 inlineUrls', () {
+      const cooked =
+          '<p>参考 <a href="https://example.com/deep/path" class="inline-onebox-loading">https://example.com/deep/path</a> 这篇</p>';
+      final t = DiscourseCookService.extractOneboxTargets(cooked);
+      expect(t.blockUrls, isEmpty);
+      expect(t.inlineUrls, ['https://example.com/deep/path']);
+    });
+
+    test('已展开的 inline-onebox 不再提取', () {
+      const cooked =
+          '<p><a href="https://example.com/a" class="inline-onebox">标题</a></p>';
+      final t = DiscourseCookService.extractOneboxTargets(cooked);
+      expect(t.blockUrls, isEmpty);
+      expect(t.inlineUrls, isEmpty);
+    });
+
+    test('普通链接与 mention 不提取，href 实体解码，重复去重', () {
+      const cooked =
+          '<p><a href="https://x.com">普通</a>'
+          '<a class="mention" href="/u/sam">@sam</a>'
+          '<a href="https://example.com/q?a=1&amp;b=2" class="onebox">x</a>'
+          '<a href="https://example.com/q?a=1&amp;b=2" class="onebox">x</a></p>';
+      final t = DiscourseCookService.extractOneboxTargets(cooked);
+      expect(t.blockUrls, ['https://example.com/q?a=1&b=2']);
+      expect(t.inlineUrls, isEmpty);
+    });
+  });
 }

@@ -99,7 +99,25 @@ class _MarkdownBodyState extends State<MarkdownBody> {
         _cooked = cooked;
         _cookedFor = text;
       });
+      unawaited(_resolveOneboxes(text, cooked));
     }
+  }
+
+  /// 异步解析 onebox 占位（对齐 web 预览的 loadOneboxes）：
+  /// 请求端点 → seed 进 JS 引擎缓存 → 有新结果时对同一文本重 cook 一次，
+  /// 占位替换成卡片/标题。已请求过的 URL 由服务层去重，不会重复打点。
+  Future<void> _resolveOneboxes(String text, String cooked) async {
+    final service = DiscourseCookService();
+    final seeded = await service.resolveOneboxes(cooked);
+    if (!seeded || !mounted) return;
+    // 期间文本已变则放弃：新文本的 cook 会自己再走一轮解析
+    if (widget.data != text) return;
+    final recooked = await service.cook(text);
+    if (!mounted || recooked == null || widget.data != text) return;
+    setState(() {
+      _cooked = recooked;
+      _cookedFor = text;
+    });
   }
 
   @override

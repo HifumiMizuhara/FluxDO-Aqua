@@ -65,6 +65,7 @@ part '_templates.dart';
 part '_nested.dart';
 part '_policy.dart';
 part '_revisions.dart';
+part '_onebox.dart';
 
 /// 基类，包含所有共享字段
 abstract class _DiscourseServiceBase {
@@ -126,7 +127,8 @@ class DiscourseService extends _DiscourseServiceBase
         _TemplatesMixin,
         _NestedMixin,
         _PolicyMixin,
-        _RevisionsMixin {
+        _RevisionsMixin,
+        _OneboxMixin {
   static const String baseUrl = AppConstants.baseUrl;
   static const String _usernameKey = 'linux_do_username';
   static const _summaryCacheDuration = Duration(minutes: 5);

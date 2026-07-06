@@ -9,6 +9,12 @@
 import "./globals-setup.js";
 
 import DiscourseMarkdownIt from "discourse-markdown-it";
+import {
+  emojiReplacementRegex,
+  replacements as emojiReplacements,
+} from "pretty-text/emoji/data";
+import { applyCachedInlineOnebox } from "pretty-text/inline-oneboxer";
+import { setLocalCache as setOneboxCache } from "pretty-text/oneboxer-cache";
 
 // footnote 插件依赖 vendored UMD 全局（footnotes.js 检查
 // window.markdownitFootnote）。esbuild 把 UMD 当 CJS 处理会走
@@ -165,6 +171,50 @@ function buildHashtagLookup({ categories, tagNames, baseUri }) {
 }
 
 // ---------------------------------------------------------------------------
+// unicode emoji → :name:（进而被 emoji feature 转成 <img class="emoji">）。
+// 算法逐行照抄服务端 lib/pretty_text/shims.js 的 __setUnicode，保证与
+// 服务端 cooked 一致（web composer 预览没这一步，我们比它更贴近服务端）。
+// replacements / regex 数据来自 pretty-text/emoji/data（与服务端同源生成）。
+// ---------------------------------------------------------------------------
+function buildEmojiUnicodeReplacer() {
+  const regexp = new RegExp(emojiReplacementRegex, "g");
+
+  return function (text) {
+    regexp.lastIndex = 0;
+
+    let m;
+    while ((m = regexp.exec(text)) !== null) {
+      let match = m[0];
+
+      let replacement = emojiReplacements[match];
+
+      if (!replacement) {
+        // if we can't find replacement for an emoji match
+        // attempts to look for the same without trailing variation selector
+        match = match.replace(/\ufe0f$/g, "");
+        replacement = emojiReplacements[match];
+      }
+
+      if (!replacement) {
+        continue;
+      }
+
+      replacement = ":" + replacement + ":";
+      const before = text.charAt(m.index - 1);
+      if (!/\B/.test(before)) {
+        replacement = "\u200b" + replacement;
+      }
+      text = text.replace(match, replacement);
+    }
+
+    // fixes Safari VARIATION SELECTOR-16 issue with some emojis
+    text = text.replace(/\ufe0f/g, "");
+
+    return text;
+  };
+}
+
+// ---------------------------------------------------------------------------
 // init / cook
 // ---------------------------------------------------------------------------
 let engine = null;
@@ -208,6 +258,7 @@ function init(optJsonString) {
     watchedWordsReplace: site.watched_words_replace ?? null,
     watchedWordsLink: site.watched_words_link ?? null,
     additionalOptions: site.markdown_additional_options ?? {},
+    emojiUnicodeReplacer: buildEmojiUnicodeReplacer(),
     previewing: true,
     hashtagTypesInPriorityOrder:
       hashtagConfigurations["topic-composer"] ?? ["category", "tag"],
@@ -229,8 +280,34 @@ function cook(raw) {
   return engine.cook(raw);
 }
 
+// ---------------------------------------------------------------------------
+// onebox seed：Dart 侧请求 /onebox 与 /inline-onebox 后把结果灌进
+// pretty-text 的缓存，下一次 cook 时 onebox feature 直接命中——
+// 与 Discourse web 预览「异步取回后再渲染」同一套缓存机制。
+// ---------------------------------------------------------------------------
+
+// 块级 onebox：/onebox 返回的 HTML 片段（aside.onebox…）。
+// oneboxer-cache 的 lookupCache 读 `.outerHTML`，Discourse web 里存的是
+// DOM 元素，这里裸引擎没有 DOM，用同形对象即可。
+function seedOnebox(url, html) {
+  setOneboxCache(url.replace(/\/$/, ""), { outerHTML: html });
+  return "ok";
+}
+
+// 行内 onebox：/inline-onebox 返回的 {url, title, css_class}。
+function seedInlineOnebox(url, title, cssClass) {
+  applyCachedInlineOnebox(url, {
+    url,
+    title: title || null,
+    css_class: cssClass || null,
+  });
+  return "ok";
+}
+
 globalThis.__fluxdoCook = {
   init,
   cook,
+  seedOnebox,
+  seedInlineOnebox,
   isReady: () => engine != null,
 };

@@ -23,6 +23,8 @@ pnpm test   # node 冒烟测试，覆盖 22 个 feature fixture
 ```js
 __fluxdoCook.init(optJsonString)  // 注入站点数据建 engine，返回 "ok"
 __fluxdoCook.cook(rawMarkdown)    // → cooked HTML
+__fluxdoCook.seedOnebox(url, html)              // 块级 onebox 结果灌缓存
+__fluxdoCook.seedInlineOnebox(url, title, cls)  // 行内 onebox 标题灌缓存
 __fluxdoCook.isReady()            // → bool
 ```
 
@@ -39,9 +41,9 @@ hashtag_configurations, hashtag_icons, categories}, customEmoji, tagNames }`。
 |---|---|---|
 | mention | `<span class="mention">` | 服务端的 `<a class="mention">` 是 Ruby 后处理；Dart 侧 `postProcessCooked` 会补成 `a.mention` |
 | upload:// | `transparent.png` + `data-orig-src` | fluxdo_render 已支持 data-orig-src 异步解析 |
-| 裸链接 onebox | 普通链接 | 服务端才有 onebox 展开 |
+| 裸链接 onebox | 首 cook 出 `a.onebox` / `inline-onebox-loading` 占位 | Dart 侧 `resolveOneboxes` 请求 /onebox、/inline-onebox 后 seed 缓存并重 cook，占位替换为卡片/标题 |
 | hashtag | 本地 categories/top_tags 查表 | 查不到降级 `span.hashtag-raw` |
-| unicode emoji | 保持字形不转 img | 未注入 emojiUnicodeReplacer（web 预览同） |
+| unicode emoji | 转 `img.emoji`（emojiUnicodeReplacer 照抄服务端 shims 算法） | 与服务端 cooked 一致；Discourse web 预览反而不做这步 |
 
 ## 升级 Discourse 管线版本
 

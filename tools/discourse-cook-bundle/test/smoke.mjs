@@ -206,6 +206,27 @@ const cases = [
     expects: ['正常文本'],
   },
   {
+    name: 'unicode emoji → img.emoji（对齐服务端,web 预览做不到）',
+    raw: '你好 😀 世界',
+    expects: ['/images/emoji/twitter/grinning_face.png', 'title=":grinning_face:"'],
+    absent: ['😀'],
+  },
+  {
+    name: '独行 unicode emoji 拿到 only-emoji',
+    raw: '😀',
+    expects: ['class="emoji only-emoji"'],
+  },
+  {
+    name: '裸链接独行 → a.onebox 占位（未 seed）',
+    raw: '看这个\n\nhttps://example.com/some-page\n\n结尾',
+    expects: ['class="onebox"', 'href="https://example.com/some-page"'],
+  },
+  {
+    name: '行内深链 → inline-onebox-loading 占位（未 seed）',
+    raw: '参考 https://example.com/deep/path 这篇',
+    expects: ['inline-onebox-loading'],
+  },
+  {
     name: 'code fence 保持原样不 cook 内部',
     raw: '```dart\nfinal a = :smile:; // @sam\n```',
     expects: ['<code class="lang-dart">', ':smile:', '@sam'],
@@ -244,4 +265,25 @@ if (failed) {
   console.error(`\n${failed}/${cases.length} 个用例失败`);
   process.exit(1);
 }
-console.log(`\n全部 ${cases.length} 个用例通过`);
+
+// --- onebox seed 后重 cook：占位应替换成卡片/标题 ---
+{
+  const url = 'https://example.com/some-page';
+  const cardHtml =
+    '<aside class="onebox allowlistedgeneric"><article class="onebox-body"><h3><a href="https://example.com/some-page">示例标题</a></h3></article></aside>';
+  cookApi.seedOnebox(url, cardHtml);
+  const cooked = cookApi.cook(`看这个\n\n${url}\n\n结尾`);
+  assert.ok(cooked.includes('onebox-body'), `块级 onebox seed 未生效: ${cooked}`);
+  assert.ok(cooked.includes('示例标题'), `seed 的卡片内容丢失: ${cooked}`);
+  console.log('✓ seedOnebox 后重 cook 输出卡片');
+
+  const inlineUrl = 'https://example.com/deep/path';
+  cookApi.seedInlineOnebox(inlineUrl, '深链页面标题', null);
+  const cooked2 = cookApi.cook(`参考 ${inlineUrl} 这篇`);
+  assert.ok(cooked2.includes('inline-onebox'), `inline seed 未生效: ${cooked2}`);
+  assert.ok(cooked2.includes('深链页面标题'), `inline 标题未替换: ${cooked2}`);
+  assert.ok(!cooked2.includes('inline-onebox-loading'), `loading 占位未消除: ${cooked2}`);
+  console.log('✓ seedInlineOnebox 后重 cook 替换链接标题');
+}
+
+console.log(`\n全部 ${cases.length} 个用例 + onebox seed 通过`);

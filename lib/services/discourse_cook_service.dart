@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 
 import 'preloaded_data_service.dart';
+import 'discourse/discourse_service.dart';
 import 'cook/cook_js_engine_stub.dart'
     if (dart.library.io) 'cook/cook_js_engine_io.dart';
 
@@ -165,4 +166,114 @@ class DiscourseCookService {
   static final RegExp _mentionSpanRe = RegExp(
     r'<span class="mention">@([^<]+)</span>',
   );
+
+  // -------------------------------------------------------------------
+  // onebox 异步解析（对齐 web composer 预览的 loadOneboxes /
+  // applyInlineOneboxes：cook 先输出占位 → 请求端点 → seed 进 JS 引擎
+  // 的 oneboxer 缓存 → 重 cook 时占位替换成卡片/标题）
+  // -------------------------------------------------------------------
+
+  /// 已请求过的 URL（成功已 seed / 失败不重试），进程级
+  final Set<String> _oneboxAttempted = {};
+  final Set<String> _inlineOneboxAttempted = {};
+
+  /// 解析 [cooked] 中的未完成 onebox 占位。
+  ///
+  /// 有任何新结果 seed 进引擎时返回 true（调用方应重 cook 刷新预览）；
+  /// 无占位/全部请求过/全部失败返回 false。块级 onebox 串行请求
+  /// （服务端限制每用户同时只允许 1 个预览）；行内每批 ≤10。
+  Future<bool> resolveOneboxes(String cooked) async {
+    final engine = _engine;
+    if (engine == null) return false;
+
+    final targets = extractOneboxTargets(cooked);
+    var seeded = false;
+    final service = DiscourseService();
+
+    // 块级：串行
+    for (final url in targets.blockUrls) {
+      if (!_oneboxAttempted.add(url)) continue;
+      final html = await service.fetchOneboxPreview(url);
+      if (html == null) continue;
+      String? err;
+      engine.evaluate(
+        '__fluxdoCook.seedOnebox(${jsonEncode(url)}, ${jsonEncode(html)})',
+        onError: (e) => err = e,
+      );
+      if (err == null) {
+        seeded = true;
+      } else {
+        debugPrint('[DiscourseCook] seedOnebox 失败: $err');
+      }
+    }
+
+    // 行内：分批
+    final pendingInline = targets.inlineUrls
+        .where(_inlineOneboxAttempted.add)
+        .toList();
+    for (var i = 0; i < pendingInline.length; i += 10) {
+      final batch = pendingInline.sublist(
+        i,
+        i + 10 > pendingInline.length ? pendingInline.length : i + 10,
+      );
+      final boxes = await service.fetchInlineOneboxes(batch);
+      for (final entry in boxes.entries) {
+        String? err;
+        engine.evaluate(
+          '__fluxdoCook.seedInlineOnebox(${jsonEncode(entry.key)}, '
+          '${jsonEncode(entry.value.title)}, '
+          '${jsonEncode(entry.value.cssClass)})',
+          onError: (e) => err = e,
+        );
+        if (err == null) {
+          seeded = true;
+        } else {
+          debugPrint('[DiscourseCook] seedInlineOnebox 失败: $err');
+        }
+      }
+    }
+
+    return seeded;
+  }
+
+  /// 从 cooked HTML 提取待解析的 onebox 链接（纯函数，可单测）。
+  ///
+  /// 块级占位：`<a class="onebox">`（cook 时无缓存的裸链接独行）；
+  /// 行内占位：`<a class="inline-onebox-loading">`。class 按空白拆 token
+  /// 精确匹配，避免 `inline-onebox` 误入块级组。href 做 HTML 实体解码
+  /// （引擎缓存键是未转义 URL）。
+  @visibleForTesting
+  static ({List<String> blockUrls, List<String> inlineUrls})
+  extractOneboxTargets(String cooked) {
+    final blockUrls = <String>[];
+    final inlineUrls = <String>[];
+    for (final m in _anchorTagRe.allMatches(cooked)) {
+      final attrs = m.group(1)!;
+      final classAttr = _classAttrRe.firstMatch(attrs)?.group(1);
+      if (classAttr == null) continue;
+      final classes = classAttr.split(RegExp(r'\s+'));
+      final href = _hrefAttrRe.firstMatch(attrs)?.group(1);
+      if (href == null || href.isEmpty) continue;
+      final url = _unescapeHtml(href);
+      if (classes.contains('onebox')) {
+        if (!blockUrls.contains(url)) blockUrls.add(url);
+      } else if (classes.contains('inline-onebox-loading')) {
+        if (!inlineUrls.contains(url)) inlineUrls.add(url);
+      }
+    }
+    return (blockUrls: blockUrls, inlineUrls: inlineUrls);
+  }
+
+  static final RegExp _anchorTagRe = RegExp(r'<a\b([^>]*)>');
+  static final RegExp _classAttrRe = RegExp(r'class="([^"]*)"');
+  static final RegExp _hrefAttrRe = RegExp(r'href="([^"]*)"');
+
+  static String _unescapeHtml(String text) {
+    return text
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#39;', "'");
+  }
 }
