@@ -144,52 +144,10 @@ class IframeWidget extends StatefulWidget {
   State<IframeWidget> createState() => _IframeWidgetState();
 }
 
-/// iframe 保活登记表(LRU,容量有界)。
-///
-/// 新引擎长帖按 chunk 做 sliver 虚拟化,iframe 所在 chunk(往往只有
-/// 两三百 px 高)滚出 cacheExtent(500px)即 dispose —— 内嵌 WebView
-/// 是 hybrid composition 平台视图,销毁/重建都是平台主线程百 ms 级
-/// 重活,来回滚动 = 反复卡顿(旧引擎长帖是 Column 全量构建,iframe
-/// 跟随整个 post 存活,同距离滚动几乎不重建,故"旧引擎没这么卡")。
-///
-/// 保活复刻旧引擎的长存活行为;LRU 限量防病态帖子(几十个 iframe)
-/// 把 WebView 全部驻留导致内存无界 —— 超量时最久未挂载的先降级为
-/// 可回收,滚出后正常销毁,滚回来重建时重新入表。
-class _IframeKeepAliveRegistry {
-  static const _capacity = 4;
-  static final List<_IframeWidgetState> _active = [];
-
-  static void touch(_IframeWidgetState state) {
-    _active
-      ..remove(state)
-      ..add(state);
-    while (_active.length > _capacity) {
-      _active.removeAt(0)._setKeptAlive(false);
-    }
-  }
-
-  static void remove(_IframeWidgetState state) {
-    _active.remove(state);
-  }
-}
-
-class _IframeWidgetState extends State<IframeWidget>
-    with RouteAware, AutomaticKeepAliveClientMixin {
+class _IframeWidgetState extends State<IframeWidget> with RouteAware {
   bool _isLoaded = false;
   bool _hasError = false;
   bool _didLockLayout = false;
-
-  /// 是否处于保活期(在 LRU 表内)。被挤出后允许随 sliver 回收销毁。
-  bool _keptAlive = true;
-
-  @override
-  bool get wantKeepAlive => _keptAlive;
-
-  void _setKeptAlive(bool value) {
-    if (_keptAlive == value) return;
-    _keptAlive = value;
-    if (mounted) updateKeepAlive();
-  }
 
   /// 桌面平台：是否进入交互模式
   bool _interacting = false;
@@ -202,7 +160,6 @@ class _IframeWidgetState extends State<IframeWidget>
   @override
   void initState() {
     super.initState();
-    _IframeKeepAliveRegistry.touch(this);
   }
 
   @override
@@ -226,7 +183,6 @@ class _IframeWidgetState extends State<IframeWidget>
 
   @override
   void dispose() {
-    _IframeKeepAliveRegistry.remove(this);
     appRouteObserver.unsubscribe(this);
     _removeOverlay();
     _unlockLayoutIfNeeded();
@@ -289,11 +245,6 @@ class _IframeWidgetState extends State<IframeWidget>
 
   @override
   Widget build(BuildContext context) {
-    super.build(context); // AutomaticKeepAliveClientMixin 契约
-    // 每次可见构建都触摸 LRU:保活期滚回视口不走 initState,
-    // 这里是唯一能感知"它又被看到了"的时机(表容量 ≤4,开销可忽略)
-    _IframeKeepAliveRegistry.touch(this);
-    _keptAlive = true;
     final attrs = widget.attributes;
     final theme = Theme.of(context);
     final windowsWebViewEnvironment =
