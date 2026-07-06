@@ -43,12 +43,21 @@ class AvifImageProvider extends ImageProvider<AvifImageProvider> {
   /// 后续直接读取缓存 PNG，不再触发 AV1 解码。
   final int? targetSize;
 
+  /// 完整(动画)路径的帧尺寸上限(长边,物理像素)。解出的帧超过时
+  /// GPU 缩放到该尺寸再 setImage —— AVIF 是自解码 provider,外层
+  /// ResizeImage 的 targetSize 经 decode 回调传递、到不了 AV1 解码器,
+  /// 不在这里自保护的话 4000px 级照片会全尺寸上传纹理(单帧 40MB+,
+  /// raster 冻结 200ms 级)。2048 覆盖任何帖内显示宽度;查看器等
+  /// 需要原图的场景显式传更大值或 null(不限制)。
+  final int? maxDimension;
+
   const AvifImageProvider(
     this.url, {
     this.scale = 1.0,
     this.cacheManager,
     this.singleFrame = false,
     this.targetSize,
+    this.maxDimension = 2048,
   });
 
   static bool isAvifUrl(String url) {
@@ -121,6 +130,7 @@ class AvifImageProvider extends ImageProvider<AvifImageProvider> {
       codecFactory: () => _createCodec(key),
       scale: key.scale,
       singleFrame: key.singleFrame,
+      maxDimension: key.maxDimension,
       onError: () {
         scheduleMicrotask(() {
           PaintingBinding.instance.imageCache.evict(key);
@@ -334,11 +344,13 @@ class AvifImageProvider extends ImageProvider<AvifImageProvider> {
         other.url == url &&
         other.scale == scale &&
         other.singleFrame == singleFrame &&
-        other.targetSize == targetSize;
+        other.targetSize == targetSize &&
+        other.maxDimension == maxDimension;
   }
 
   @override
-  int get hashCode => Object.hash(url, scale, singleFrame, targetSize);
+  int get hashCode =>
+      Object.hash(url, scale, singleFrame, targetSize, maxDimension);
 
   @override
   String toString() => 'AvifImageProvider("$url", scale: $scale)';
@@ -361,6 +373,7 @@ class _AvifAnimatedImageStreamCompleter extends ImageStreamCompleter {
     required Future<fa.AvifCodec> Function() codecFactory,
     required this.scale,
     this.singleFrame = false,
+    this.maxDimension,
     VoidCallback? onError,
   })  : _codecFactory = codecFactory,
         _onError = onError;
@@ -370,6 +383,9 @@ class _AvifAnimatedImageStreamCompleter extends ImageStreamCompleter {
 
   /// 只播第一帧(provider 的 singleFrame 且无 targetSize 的场景)。
   final bool singleFrame;
+
+  /// 帧尺寸上限(长边)。超限帧 GPU 缩放后 setImage,防全尺寸纹理上传。
+  final int? maxDimension;
 
   /// 初始化 / 解帧失败时回调(provider 用它做 ImageCache evict)。
   final VoidCallback? _onError;
@@ -446,8 +462,21 @@ class _AvifAnimatedImageStreamCompleter extends ImageStreamCompleter {
       return;
     }
 
+    // 超限帧缩到上限再交付:防原图级帧全尺寸上传纹理独占 raster
+    var image = frame.image;
+    final cap = maxDimension;
+    if (cap != null && (image.width > cap || image.height > cap)) {
+      final resized = await AvifImageProvider._resize(image, cap);
+      image.dispose();
+      if (gen != _generation || !hasListeners) {
+        resized.dispose();
+        return;
+      }
+      image = resized;
+    }
+
     // setImage 接管 image 所有权(替换时基类会 dispose 旧帧)
-    setImage(ImageInfo(image: frame.image, scale: scale));
+    setImage(ImageInfo(image: image, scale: scale));
 
     if (singleFrame || codec.frameCount <= 1) {
       // 静态图 / 单帧:不会再要帧,立即释放 Rust 端 decoder

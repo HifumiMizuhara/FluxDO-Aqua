@@ -100,6 +100,7 @@ class FrameJankMonitor {
 
   static DateTime? _lastNav;
   static String _lastNavDesc = '';
+  static int _lastImageCacheBytes = 0;
 
   static void start() {
     if (_started) return;
@@ -272,6 +273,21 @@ class FrameJankMonitor {
           vsyncOverhead: t.vsyncOverhead,
           cause: cause,
         );
+        // raster 大帧(>40ms)十有八九是纹理上传:附 ImageCache 增量快照,
+        // 生产日志(无 VM Service)也能指认"这帧前后进了几张/多大的图"
+        if (t.rasterDuration > const Duration(milliseconds: 40)) {
+          final cache = PaintingBinding.instance.imageCache;
+          final sizeMb =
+              (cache.currentSizeBytes / (1024 * 1024)).toStringAsFixed(1);
+          final deltaMb = ((cache.currentSizeBytes - _lastImageCacheBytes) /
+                  (1024 * 1024))
+              .toStringAsFixed(1);
+          record.detail =
+              'imageCache ${cache.currentSize}张/${sizeMb}MB (Δ${deltaMb}MB) '
+              'pending=${cache.pendingImageCount}';
+        }
+        _lastImageCacheBytes =
+            PaintingBinding.instance.imageCache.currentSizeBytes;
         jankRecords.add(record);
         if (jankRecords.length > _maxJankRecords) {
           jankRecords.removeRange(0, jankRecords.length - _maxJankRecords);
