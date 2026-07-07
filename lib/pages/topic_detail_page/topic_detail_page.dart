@@ -354,8 +354,18 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
     if (!mounted) return;
     if (_idleFlushPosition?.isScrollingNotifier.value ?? true) return;
     if (_deferredPostUpdates.isEmpty) return;
-    final notifier = ref.read(topicDetailProvider(_params).notifier);
-    _flushDeferredPostUpdates(notifier);
+    // 推迟一帧回放:isScrollingNotifier 翻 false 发生在惯性最后一个 tick
+    // 的同一帧,若同帧内直接回放,布局时 pixels 相对上一帧仍在变,
+    // AnchorGuardSliver 的"偏移与基线一致"守卫会判为不可比,回放引发的
+    // 高度位移就漏掉锚定修正。推一帧让更新落在纯空闲帧,位移被全额补偿。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      // 帧间隙内可能又开始滚动:保持冻结,等下一次滚停
+      if (_idleFlushPosition?.isScrollingNotifier.value ?? true) return;
+      if (_deferredPostUpdates.isEmpty) return;
+      final notifier = ref.read(topicDetailProvider(_params).notifier);
+      _flushDeferredPostUpdates(notifier);
+    });
   }
 
   void _onToggleAiPanel() {

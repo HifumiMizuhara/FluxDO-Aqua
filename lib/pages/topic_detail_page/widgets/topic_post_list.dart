@@ -13,6 +13,7 @@ import '../../../services/toast_service.dart';
 import '../../../utils/frame_jank_monitor.dart';
 import '../../../utils/responsive.dart';
 import '../../../utils/time_utils.dart';
+import '../../../widgets/common/anchor_guard_sliver.dart';
 import '../../../widgets/common/loading_spinner.dart';
 import 'package:fluxdo_render/fluxdo_render.dart' show HtmlChunk;
 import '../../../widgets/post/post_item/post_item.dart';
@@ -159,6 +160,11 @@ class _TopicPostListState extends State<TopicPostList> {
 
   /// postNumber → postIndex 反查表（避免 indexWhere 线性查找）
   Map<int, int> _postNumberToIndex = const {};
+
+  /// segments 结构签名:增删帖/翻页/gap 填充/长帖分块数变化都会改变它,
+  /// 锚定哨兵据此作废基线(sliver child 按 index 复用,结构变化 = 同一
+  /// RenderBox 换内容,不能再按旧基线修正)。纯数据更新(点赞等)不改。
+  int _segmentsStructureHash = 0;
   final Map<int, _LongPostRenderCacheEntry> _longPostRenderCache = {};
 
   /// shortPost 段的 widget 实例缓存(key: post.id):构建输入未变化时
@@ -581,6 +587,16 @@ class _TopicPostListState extends State<TopicPostList> {
     _longPostRenderCache.removeWhere(
       (postId, _) => !activePostIds.contains(postId),
     );
+    var structureHash = 0;
+    for (final s in segments) {
+      structureHash = Object.hash(
+        structureHash,
+        s.type,
+        s.post.id,
+        s.chunkIndex ?? -1,
+      );
+    }
+    _segmentsStructureHash = structureHash;
     _renderSegments = segments;
     _postIndexToScrollIndex = postIndexToScrollIndex;
     _scrollIndexToPostNumber = scrollIndexToPostNumber;
@@ -656,6 +672,12 @@ class _TopicPostListState extends State<TopicPostList> {
     final hasFirstPost = posts.isNotEmpty && posts.first.postNumber == 1;
     _buildRenderSegments(posts);
     final centerScrollIndex = _postIndexToScrollIndex[centerPostIndex] ?? 0;
+    // 锚定哨兵的结构签名:segments 结构 + center 分割点(center 变化会让
+    // before/after 两个 SliverList 的 index↔内容映射整体重排)
+    final anchorSignature = Object.hash(
+      _segmentsStructureHash,
+      centerScrollIndex,
+    );
 
     // 不再包系统 SelectionArea:正文选区全部由 FluxdoRender 自研选区承担
     // (含未登录场景 —— toolbar 降级只留「复制」),header/footer 等本就
@@ -679,6 +701,10 @@ class _TopicPostListState extends State<TopicPostList> {
               parent: BouncingScrollPhysics(),
             ),
             slivers: [
+              // 滚动锚定哨兵(before 区):位于 center 之前 = reverse 增长区,
+              // 该区布局序从近 center 向外推进,首位哨兵最后布局,能读到
+              // 本区兄弟的新鲜位置。作用见 AnchorGuardSliver 文档。
+              AnchorGuardSliver(structureSignature: anchorSignature),
               // 向上加载骨架屏 / 失败重试(ListenableBuilder 就地切换,
               // 分页起止只重建这一个 sliver,不整页 rebuild)
               if (hasMoreBefore)
@@ -843,6 +869,10 @@ class _TopicPostListState extends State<TopicPostList> {
                   bottom: 80 + MediaQuery.of(context).padding.bottom,
                 ),
               ),
+              // 滚动锚定哨兵(center/after 区):全局最后布局,守护 forward
+              // 区的空闲期高度变化(before 区约束不含对面区尺寸,单哨兵会
+              // 对 forward 区变化失明,故首尾各一)
+              AnchorGuardSliver(structureSignature: anchorSignature),
             ],
           ),
         ),
