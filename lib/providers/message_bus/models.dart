@@ -131,7 +131,14 @@ class SharedIssueUpdate {
 class TopicChannelState {
   final bool hasNewReplies;
   final List<TypingUser> typingUsers;
+
+  /// 最近一批帖子更新(微任务边界攒批后整体替换,配合
+  /// [postUpdatesGeneration] 消费 —— 不是累积列表)
   final List<PostUpdate> postUpdates;
+
+  /// 批次号:每 flush 一批 +1。监听方比较它判断"有新一批",
+  /// 一次拿到整批做去重/坍缩,替代逐条通知。
+  final int postUpdatesGeneration;
   final TopicStatsUpdate? statsUpdate;
   final SharedIssueUpdate? sharedIssueUpdate;
   final bool messageArchived;
@@ -143,6 +150,7 @@ class TopicChannelState {
     this.hasNewReplies = false,
     this.typingUsers = const [],
     this.postUpdates = const [],
+    this.postUpdatesGeneration = 0,
     this.statsUpdate,
     this.sharedIssueUpdate,
     this.messageArchived = false,
@@ -155,6 +163,7 @@ class TopicChannelState {
     bool? hasNewReplies,
     List<TypingUser>? typingUsers,
     List<PostUpdate>? postUpdates,
+    int? postUpdatesGeneration,
     TopicStatsUpdate? statsUpdate,
     bool? clearStatsUpdate,
     SharedIssueUpdate? sharedIssueUpdate,
@@ -169,6 +178,8 @@ class TopicChannelState {
       hasNewReplies: hasNewReplies ?? this.hasNewReplies,
       typingUsers: typingUsers ?? this.typingUsers,
       postUpdates: postUpdates ?? this.postUpdates,
+      postUpdatesGeneration:
+          postUpdatesGeneration ?? this.postUpdatesGeneration,
       statsUpdate: clearStatsUpdate == true ? null : (statsUpdate ?? this.statsUpdate),
       sharedIssueUpdate: clearSharedIssueUpdate
           ? null

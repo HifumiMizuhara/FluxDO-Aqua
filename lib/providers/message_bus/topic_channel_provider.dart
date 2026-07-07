@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/message_bus_service.dart';
@@ -17,6 +19,7 @@ class TopicChannelNotifier extends Notifier<TopicChannelState> {
   
   @override
   TopicChannelState build() {
+    _disposed = false;
     // 确保 MessageBus 已 configure（域名配置），避免用主站域名轮询
     ref.watch(messageBusInitProvider);
     final messageBus = ref.watch(messageBusServiceProvider);
@@ -55,7 +58,10 @@ class TopicChannelNotifier extends Notifier<TopicChannelState> {
 
       switch (type) {
         case 'created':
-          state = state.copyWith(hasNewReplies: true);
+          // 幂等:积压回放里几十条 created 逐条 copyWith 只是白给的通知
+          if (!state.hasNewReplies) {
+            state = state.copyWith(hasNewReplies: true);
+          }
           if (postId != null) {
             final createdUserId = data['user_id'] as int?;
             _addPostUpdate(postId, TopicMessageType.created, updatedAt, userId: createdUserId);
@@ -267,6 +273,8 @@ class TopicChannelNotifier extends Notifier<TopicChannelState> {
     _loadInitialPresence(service, messageBus, presenceChannel, topicId, onPresenceMessage);
 
     ref.onDispose(() {
+      _disposed = true;
+      _pendingUpdates.clear();
       messageBus.unsubscribe(topicChannel, onTopicMessage);
       messageBus.unsubscribe(reactionsChannel, onReactionsMessage);
       messageBus.unsubscribe(presenceChannel, onPresenceMessage);
@@ -314,6 +322,44 @@ class TopicChannelNotifier extends Notifier<TopicChannelState> {
     state = state.copyWith(clearNotificationLevelChange: true);
   }
 
+  // —— 帖子更新攒批 ——
+  //
+  // msgbus 在同一个同步循环里逐条派发消息(长时间挂后台回前台时,一次
+  // poll 会吐出全部积压,热帖可达几十上百条)。逐条 state 通知会让监听方
+  // (详情页)以 1 条为单位处理:每条 reactions/revised 一个网络请求 +
+  // 一次整列表拷贝 + rebuild,回前台瞬间就是几秒的请求与重建风暴。
+  //
+  // 攒到微任务边界统一 flush:正常实时场景一批 1~2 条,积压回放一批
+  // 几十条 —— 批大小本身成为监听方"坍缩为整流刷新"的可靠信号。
+  bool _disposed = false;
+  final List<PostUpdate> _pendingUpdates = [];
+  bool _flushScheduled = false;
+
+  void _enqueueUpdate(PostUpdate update) {
+    // 批内去重:同帖同类型只留最新(积压里同一帖的多条 reactions/liked
+    // 只有最终状态有意义)。boost 是增量事件,每条独立,不去重。
+    final isIncremental = update.type == TopicMessageType.boostAdded ||
+        update.type == TopicMessageType.boostRemoved;
+    if (!isIncremental) {
+      _pendingUpdates.removeWhere(
+        (u) => u.postId == update.postId && u.type == update.type,
+      );
+    }
+    _pendingUpdates.add(update);
+    if (_flushScheduled) return;
+    _flushScheduled = true;
+    scheduleMicrotask(() {
+      _flushScheduled = false;
+      if (_disposed || _pendingUpdates.isEmpty) return;
+      final batch = List<PostUpdate>.unmodifiable(_pendingUpdates);
+      _pendingUpdates.clear();
+      state = state.copyWith(
+        postUpdates: batch,
+        postUpdatesGeneration: state.postUpdatesGeneration + 1,
+      );
+    });
+  }
+
   void _addPostUpdate(
     int postId,
     TopicMessageType type,
@@ -322,58 +368,31 @@ class TopicChannelNotifier extends Notifier<TopicChannelState> {
     int? readersCount,
     int? userId,
   }) {
-    // 去重：如果最近 2 秒内已有相同 postId + type 的更新，跳过
-    final updates = List<PostUpdate>.from(state.postUpdates);
-    if (updates.isNotEmpty) {
-      final last = updates.last;
-      if (last.postId == postId && last.type == type &&
-          updatedAt.difference(last.updatedAt).inSeconds.abs() < 2) {
-        return;
-      }
-    }
-
-    final update = PostUpdate(
+    _enqueueUpdate(PostUpdate(
       postId: postId,
       type: type,
       updatedAt: updatedAt,
       likesCount: likesCount,
       readersCount: readersCount,
       userId: userId,
-    );
-
-    updates.add(update);
-    if (updates.length > 50) {
-      updates.removeAt(0);
-    }
-
-    state = state.copyWith(postUpdates: updates);
+    ));
   }
-  
+
   void _addBoostUpdate(
     int postId,
     TopicMessageType type, {
     Map<String, dynamic>? boostData,
     int? boostId,
   }) {
-    final updates = List<PostUpdate>.from(state.postUpdates);
-    final update = PostUpdate(
+    _enqueueUpdate(PostUpdate(
       postId: postId,
       type: type,
       updatedAt: DateTime.now(),
       boostData: boostData,
       boostId: boostId,
-    );
-    updates.add(update);
-    if (updates.length > 50) {
-      updates.removeAt(0);
-    }
-    state = state.copyWith(postUpdates: updates);
+    ));
   }
 
-  void clearPostUpdates() {
-    state = state.copyWith(postUpdates: []);
-  }
-  
   void clearStatsUpdate() {
     state = state.copyWith(clearStatsUpdate: true);
   }

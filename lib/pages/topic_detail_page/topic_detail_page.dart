@@ -1674,14 +1674,12 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
             .clearSharedIssueUpdate();
       }
 
-      // 4. 帖子级别更新（created/revised/deleted/liked 等）
-      final prevLen = previous?.postUpdates.length ?? 0;
-      final nextLen = next.postUpdates.length;
-      if (nextLen > prevLen) {
-        final newUpdates = next.postUpdates.sublist(prevLen);
-        for (final update in newUpdates) {
-          _handlePostUpdate(notifier, update);
-        }
+      // 4. 帖子级别更新（created/revised/deleted/liked 等）:
+      // generation 变化 = 新一批(postUpdates 即该批全量,由频道层在
+      // 微任务边界攒批)。批入口统一做去重与积压坍缩。
+      if (next.postUpdatesGeneration !=
+          (previous?.postUpdatesGeneration ?? 0)) {
+        _handlePostUpdateBatch(notifier, next.postUpdates);
       }
     });
 

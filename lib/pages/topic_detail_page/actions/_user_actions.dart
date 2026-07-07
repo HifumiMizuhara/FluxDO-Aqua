@@ -1031,6 +1031,83 @@ extension _UserActions on _TopicDetailPageState {
     }
   }
 
+  /// 批量坍缩阈值:一批里需要逐帖网络刷新的帖子数超过它时,逐条回放
+  /// 已没有意义 —— 典型场景是长时间挂后台回前台,msgbus 一次 poll 吐出
+  /// 全部积压(热帖几十上百条),逐条 = N 个 /posts/{id} 请求 + N 轮整
+  /// 列表重建的几秒卡顿,且逐条中间态早已过时。对齐 message bus 的
+  /// reset 语义:一次整流刷新直接取最终态。实时场景一批(一个微任务
+  /// 窗口)不同帖的网络类更新极少超过 2~3 条,不会误伤。
+  static const _batchCollapseThreshold = 8;
+
+  /// 一批 msgbus 帖子更新的统一入口:去重 → 坍缩判定 → 逐条分发。
+  /// 来源两个:频道层微任务攒批(实时/积压)、滚停回放的冻结队列。
+  void _handlePostUpdateBatch(
+    TopicDetailNotifier notifier,
+    List<PostUpdate> updates,
+  ) {
+    if (updates.isEmpty) return;
+    final deduped = _dedupePostUpdates(updates);
+
+    // 统计需要逐帖发网络请求(refreshPost 系)的不同帖子数
+    final networkPostIds = <int>{};
+    for (final u in deduped) {
+      switch (u.type) {
+        case TopicMessageType.revised:
+        case TopicMessageType.rebaked:
+        case TopicMessageType.acted:
+        case TopicMessageType.deleted:
+        case TopicMessageType.recovered:
+        case TopicMessageType.policyChanged:
+          networkPostIds.add(u.postId);
+          break;
+        case TopicMessageType.liked:
+        case TopicMessageType.unliked:
+          // likesCount 缺失时 updatePostLikes 会退化为 refreshPost
+          if (u.likesCount == null) networkPostIds.add(u.postId);
+          break;
+        default:
+          break;
+      }
+    }
+    if (networkPostIds.length > _batchCollapseThreshold) {
+      FrameJankMonitor.logEvent(
+        'MSGBUS',
+        '积压批量 ${updates.length} 条(${networkPostIds.length} 帖需刷新),'
+        '坍缩为一次整流刷新',
+      );
+      // 旧积压全部作废:整流刷新拉回的就是最终态
+      _deferredPostUpdates.clear();
+      _handleReloadTopic(notifier, true);
+      return;
+    }
+
+    for (final u in deduped) {
+      _handlePostUpdate(notifier, u);
+    }
+  }
+
+  /// 同帖同类型只留最后一条;boost 是增量事件,逐条保留
+  List<PostUpdate> _dedupePostUpdates(List<PostUpdate> updates) {
+    final result = <PostUpdate>[];
+    final indexByKey = <String, int>{};
+    for (final u in updates) {
+      if (u.type == TopicMessageType.boostAdded ||
+          u.type == TopicMessageType.boostRemoved) {
+        result.add(u);
+        continue;
+      }
+      final key = '${u.postId}:${u.type.name}';
+      final existing = indexByKey[key];
+      if (existing != null) {
+        result[existing] = u;
+      } else {
+        indexByKey[key] = result.length;
+        result.add(u);
+      }
+    }
+    return result;
+  }
+
   /// 处理帖子级别的 MessageBus 更新
   void _handlePostUpdate(TopicDetailNotifier notifier, PostUpdate update) {
     // 汇入性能诊断时间轴,定位"message bus 更新是否引发掉帧"
@@ -1057,17 +1134,12 @@ extension _UserActions on _TopicDetailPageState {
     return sc.position.isScrollingNotifier.value;
   }
 
-  /// 滚动停止后回放推迟的更新(去重:同帖同类型只留最后一条)
+  /// 滚动停止后回放推迟的更新(去重与积压坍缩在批入口统一处理)
   void _flushDeferredPostUpdates(TopicDetailNotifier notifier) {
     if (_deferredPostUpdates.isEmpty) return;
-    final deduped = <String, PostUpdate>{};
-    for (final u in _deferredPostUpdates) {
-      deduped['${u.postId}:${u.type.name}'] = u;
-    }
+    final batch = List<PostUpdate>.of(_deferredPostUpdates);
     _deferredPostUpdates.clear();
-    for (final u in deduped.values) {
-      _applyPostUpdate(notifier, u);
-    }
+    _handlePostUpdateBatch(notifier, batch);
   }
 
   void _applyPostUpdate(TopicDetailNotifier notifier, PostUpdate update) {
