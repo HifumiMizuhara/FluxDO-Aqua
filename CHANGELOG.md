@@ -2,6 +2,18 @@
 
 所有版本的变更记录。beta / rc 版本提交在 stable 发版时会折叠并入对应 stable 版本。
 
+## [0.2.22] - 2026-07-07
+
+
+### 🐛 修复
+
+- Fingerprint 端点正则不再写死压缩函数名 by @Lingyan000
+
+
+
+
+**Full Changelog**: https://github.com/lingyan000/fluxdo/compare/v0.2.21...v0.2.22
+
 ## [0.2.21] - 2026-06-23
 
 
