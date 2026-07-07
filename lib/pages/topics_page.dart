@@ -21,6 +21,7 @@ import 'topic_detail_page/topic_detail_page.dart';
 import 'search_page.dart';
 import '../models/search_filter.dart';
 import '../widgets/common/notification_icon_button.dart';
+import '../widgets/common/anchor_guard_sliver.dart';
 import '../widgets/topic/topic_list_skeleton.dart';
 import '../widgets/topic/keyword_filter_hint_bar.dart';
 import '../widgets/topic/sort_and_tags_bar.dart';
@@ -1202,6 +1203,29 @@ class _TopicListState extends ConsumerState<_TopicList>
   /// 自行订阅,复用实例不影响其响应。theme/断点变化时整体失效。
   final Map<int, ({Object signature, Widget widget})> _topicItemCache = {};
 
+  /// keyed reconcile 的行 key 常量(pill/提示条/footer 三个固定行)
+  static const _pillKeyValue = 'topics-pill';
+  static const _filterHintKeyValue = 'topics-filter-hint';
+  static const _footerKeyValue = 'topics-footer';
+
+  /// topic.id → 可见列表 index,供 findChildIndexCallback O(1) 反查。
+  /// 行 key 化 + 该回调是列表版"锚定"的身份基础:顶部插入新话题 / pill
+  /// 出现导致全列表 index 平移时,Element/RenderObject 跟随 topic.id
+  /// 迁移而不是按 index 换内容(无 key 时视口内每行会"换脸"成上一条),
+  /// 迁移残留的布局位移再由列表尾部的 AnchorGuardSliver 同帧修正。
+  List<Topic>? _visibleIndexSource;
+  Map<int, int> _topicIdToVisibleIndex = const {};
+
+  Map<int, int> _visibleIndexMapFor(List<Topic> topics) {
+    if (!identical(_visibleIndexSource, topics)) {
+      _visibleIndexSource = topics;
+      _topicIdToVisibleIndex = <int, int>{
+        for (var i = 0; i < topics.length; i++) topics[i].id: i,
+      };
+    }
+    return _topicIdToVisibleIndex;
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -1539,6 +1563,7 @@ class _TopicListState extends ConsumerState<_TopicList>
         final newTopicOffset = hasNewTopics ? 1 : 0;
         final hintOffset = hiddenCount > 0 ? 1 : 0;
         final headerOffset = newTopicOffset + hintOffset;
+        final idToIndex = _visibleIndexMapFor(topics);
 
         return DesktopRefreshIndicator(
           refreshIndicatorKey: _refreshIndicatorKey,
@@ -1571,67 +1596,139 @@ class _TopicListState extends ConsumerState<_TopicList>
                 }
                 return false;
               },
-              child: ListView.builder(
+              child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.only(top: 8, bottom: 12),
-                itemCount: topics.length + headerOffset + 1,
-                itemBuilder: (context, index) {
-                  if (hasNewTopics && index == 0) {
-                    return _buildNewTopicIndicator(
-                      context,
-                      newTopicCount,
-                      providerKey,
-                    );
-                  }
-                  if (hintOffset > 0 && index == newTopicOffset) {
-                    return KeywordFilterHintBar(
-                      hiddenCount: hiddenCount,
-                      hiddenByBlocked: hiddenByBlocked,
-                    );
-                  }
-                  final topicIndex = index - headerOffset;
-                  if (topicIndex >= topics.length) {
-                    final notifier = ref.watch(
-                      topicListProvider(providerKey).notifier,
-                    );
-                    return PagedListFooter(
-                      hasMore: notifier.hasMore,
-                      isLoadingMore: notifier.isLoadingMore,
-                      isLoadMoreFailed: notifier.isLoadMoreFailed,
-                      onRetry: notifier.retryLoadMore,
-                    );
-                  }
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.only(top: 8, bottom: 12),
+                    sliver: SliverList.builder(
+                      itemCount: topics.length + headerOffset + 1,
+                      // keyed reconcile:pill 出现/新话题插入/全量替换导致
+                      // index 平移时,已有行的 Element/RenderObject 按 key
+                      // 迁移,而不是按 index 复用"换脸"(无 key 时视口内
+                      // 每行会瞬间变成相邻一条的内容)。迁移残留的布局
+                      // 位移由列表尾部的 AnchorGuardSliver 同帧修正。
+                      findChildIndexCallback: (key) {
+                        if (key is! ValueKey<String>) return null;
+                        final value = key.value;
+                        if (value == _pillKeyValue) {
+                          return hasNewTopics ? 0 : null;
+                        }
+                        if (value == _filterHintKeyValue) {
+                          return hintOffset > 0 ? newTopicOffset : null;
+                        }
+                        if (value == _footerKeyValue) {
+                          return topics.length + headerOffset;
+                        }
+                        if (value.startsWith('topic-')) {
+                          final id = int.tryParse(value.substring(6));
+                          final topicIndex = id == null ? null : idToIndex[id];
+                          if (topicIndex != null) {
+                            return topicIndex + headerOffset;
+                          }
+                        }
+                        return null;
+                      },
+                      itemBuilder: (context, index) {
+                        if (hasNewTopics && index == 0) {
+                          return KeyedSubtree(
+                            key: const ValueKey(_pillKeyValue),
+                            child: _buildNewTopicIndicator(
+                              context,
+                              newTopicCount,
+                              providerKey,
+                            ),
+                          );
+                        }
+                        if (hintOffset > 0 && index == newTopicOffset) {
+                          return KeyedSubtree(
+                            key: const ValueKey(_filterHintKeyValue),
+                            child: KeywordFilterHintBar(
+                              hiddenCount: hiddenCount,
+                              hiddenByBlocked: hiddenByBlocked,
+                            ),
+                          );
+                        }
+                        final topicIndex = index - headerOffset;
+                        if (topicIndex >= topics.length) {
+                          final notifier = ref.watch(
+                            topicListProvider(providerKey).notifier,
+                          );
+                          return KeyedSubtree(
+                            key: const ValueKey(_footerKeyValue),
+                            child: PagedListFooter(
+                              hasMore: notifier.hasMore,
+                              isLoadingMore: notifier.isLoadingMore,
+                              isLoadMoreFailed: notifier.isLoadMoreFailed,
+                              onRetry: notifier.retryLoadMore,
+                            ),
+                          );
+                        }
 
-                  final topic = topics[topicIndex];
-                  final enableLongPress = ref
-                      .watch(preferencesProvider)
-                      .longPressPreview;
-                  final shouldHighlight = _highlightedTopicIds.contains(
-                    topic.id,
-                  );
+                        final topic = topics[topicIndex];
+                        final rowKey = ValueKey('topic-${topic.id}');
+                        final enableLongPress = ref
+                            .watch(preferencesProvider)
+                            .longPressPreview;
+                        final shouldHighlight = _highlightedTopicIds.contains(
+                          topic.id,
+                        );
 
-                  if (shouldHighlight) {
-                    final theme = Theme.of(context);
-                    // 卡片正常背景色（需与 TopicCard / CompactTopicCard 的默认 color 一致）
-                    final normalColor = topic.pinned
-                        ? theme.colorScheme.surfaceContainerLow.withValues(
-                            alpha: 0.5,
-                          )
-                        : theme.cardTheme.color ??
-                              theme.colorScheme.surfaceContainerHighest;
-                    final highlightColor = theme.colorScheme.primaryContainer
-                        .withValues(alpha: 0.3);
-                    return TweenAnimationBuilder<Color?>(
-                      key: ValueKey('highlight_${topic.id}'),
-                      tween: ColorTween(
-                        begin: highlightColor,
-                        end: normalColor,
-                      ),
-                      duration: const Duration(milliseconds: 2000),
-                      curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
-                      onEnd: () => _highlightedTopicIds.remove(topic.id),
-                      builder: (context, color, _) {
-                        return buildTopicItem(
+                        if (shouldHighlight) {
+                          final theme = Theme.of(context);
+                          // 卡片正常背景色（需与 TopicCard / CompactTopicCard 的默认 color 一致）
+                          final normalColor = topic.pinned
+                              ? theme.colorScheme.surfaceContainerLow
+                                    .withValues(alpha: 0.5)
+                              : theme.cardTheme.color ??
+                                    theme.colorScheme.surfaceContainerHighest;
+                          final highlightColor = theme
+                              .colorScheme
+                              .primaryContainer
+                              .withValues(alpha: 0.3);
+                          return KeyedSubtree(
+                            key: rowKey,
+                            child: TweenAnimationBuilder<Color?>(
+                              tween: ColorTween(
+                                begin: highlightColor,
+                                end: normalColor,
+                              ),
+                              duration: const Duration(milliseconds: 2000),
+                              curve: const Interval(
+                                0.2,
+                                1.0,
+                                curve: Curves.easeOut,
+                              ),
+                              onEnd: () =>
+                                  _highlightedTopicIds.remove(topic.id),
+                              builder: (context, color, _) {
+                                return buildTopicItem(
+                                  context: context,
+                                  topic: topic,
+                                  isSelected: topic.id == selectedTopicId,
+                                  onTap: () {
+                                    _syncKeyboardFocusToIndex(topicIndex);
+                                    _openTopic(topic);
+                                  },
+                                  enableLongPress: enableLongPress,
+                                  highlightColor: color,
+                                );
+                              },
+                            ),
+                          );
+                        }
+
+                        final signature = (
+                          topic: topic,
+                          isSelected: topic.id == selectedTopicId,
+                          enableLongPress: enableLongPress,
+                          index: topicIndex,
+                        );
+                        final cached = _topicItemCache[topic.id];
+                        if (cached != null && cached.signature == signature) {
+                          return KeyedSubtree(key: rowKey, child: cached.widget);
+                        }
+                        final item = buildTopicItem(
                           context: context,
                           topic: topic,
                           isSelected: topic.id == selectedTopicId,
@@ -1640,36 +1737,19 @@ class _TopicListState extends ConsumerState<_TopicList>
                             _openTopic(topic);
                           },
                           enableLongPress: enableLongPress,
-                          highlightColor: color,
                         );
+                        _topicItemCache[topic.id] =
+                            (signature: signature, widget: item);
+                        return KeyedSubtree(key: rowKey, child: item);
                       },
-                    );
-                  }
-
-                  final signature = (
-                    topic: topic,
-                    isSelected: topic.id == selectedTopicId,
-                    enableLongPress: enableLongPress,
-                    index: topicIndex,
-                  );
-                  final cached = _topicItemCache[topic.id];
-                  if (cached != null && cached.signature == signature) {
-                    return cached.widget;
-                  }
-                  final item = buildTopicItem(
-                    context: context,
-                    topic: topic,
-                    isSelected: topic.id == selectedTopicId,
-                    onTap: () {
-                      _syncKeyboardFocusToIndex(topicIndex);
-                      _openTopic(topic);
-                    },
-                    enableLongPress: enableLongPress,
-                  );
-                  _topicItemCache[topic.id] =
-                      (signature: signature, widget: item);
-                  return item;
-                },
+                    ),
+                  ),
+                  // 滚动锚定哨兵:keyed 迁移会把"index 格子的旧账"分给新
+                  // 住户(framework 按 index 搬 layoutOffset),整窗因此
+                  // 平移约一行高 —— 在这里被同帧修正;贴顶时哨兵自带
+                  // 顶部抑制,pill/新话题自然推入视野(浏览器同款语义)。
+                  const AnchorGuardSliver(),
+                ],
               ),
             ),
           ),

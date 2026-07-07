@@ -160,11 +160,16 @@ class RenderAnchorGuardSliver extends RenderSliver {
     final anchor = _anchorBox;
     // pixels 用逐位相等:空闲期没人动它,双精度原样保留;任何滚动/跳转/
     // 修正都会让它偏离基线,正是"这趟只重建基线"的信号。
+    // 顶部抑制(浏览器 scroll anchoring 同款):滚动位置贴着列表顶端时
+    // 不锚定 —— 驻留顶部的用户应该看到新内容自然推入视野(话题列表的
+    // "N 个新话题"pill、插入的新话题),钉住反而把它们藏进视口上方。
     final canCompare =
         !offset.isScrollingNotifier.value &&
         anchor != null &&
         _anchorStillValid(anchor, viewport) &&
         offset.pixels == _basePixels &&
+        offset.hasContentDimensions &&
+        offset.pixels > offset.minScrollExtent + 1.0 &&
         viewport.anchor == _baseViewportAnchor &&
         viewport.size == _baseViewportSize;
 
