@@ -16,7 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
 import 'package:fluxdo_render/editor.dart';
 import 'package:fluxdo_render/fluxdo_render.dart'
-    show EmojiRun, ImageRun, MentionRun, NodeFactory, ParagraphNode;
+    show EmojiRun, ImageRun, MentionRun, NodeFactory, ParagraphNode, TableNode;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -34,6 +34,7 @@ import '../emoji_sticker_panel.dart';
 import '../image_upload_dialog.dart';
 import '../link_insert_dialog.dart';
 import 'composer_doc_codec.dart';
+import 'table_grid_editor.dart';
 
 /// 孤岛渲染工厂:复用 generic callbacks 的全部 builder(emoji 缓存池/
 /// 图片管线/代码高亮…),编辑器里的岛与阅读端视觉一致。
@@ -498,11 +499,30 @@ class RichComposerEditorState extends State<RichComposerEditor> {
   }
 
   /// 岛源码编辑:双击岛 → 对话框(初值 = 岛的 markdown)→ 确认后重
-  /// cook 替换。一次覆盖所有岛类型(表格/代码块/公式/details/…)——
-  /// 岛内 WYSIWYG 前的通用编辑通道。清空 = 删岛。
+  /// cook 替换。一次覆盖所有岛类型 —— 岛内 WYSIWYG 前的通用编辑通道。
+  /// 清空 = 删岛。**表格分流**到结构化网格编辑器(直改 cell 更顺手)。
   Future<void> _editIsland(IslandBlock island) async {
     final editor = _editor;
     if (editor == null) return;
+
+    // 表格:结构化网格编辑(cell 级直改 + 增删行列)
+    final node = island.node;
+    if (node is TableNode) {
+      final md = await showTableGridEditor(
+        context,
+        initialCells: [
+          for (final row in node.rows)
+            [for (final cell in row) tableCellToMarkdown(cell)],
+        ],
+        hasHeader: node.hasHeader,
+      );
+      if (md == null || !mounted) return;
+      final fragment = await markdownToDoc(md);
+      if (!mounted || fragment == null) return;
+      editor.replaceIsland(island.id, fragment);
+      return;
+    }
+
     final source = serializeIslandNode(island.node);
     final text = await _showMarkdownDialog(
       title: '编辑源码',
@@ -783,6 +803,30 @@ class _RichToolbarState extends State<_RichToolbar> {
 
   bool _hasMark(MarkKind kind) => (_sig.marksBits & (1 << kind.index)) != 0;
 
+  /// 行内剧透:有选区 → toggle mark;折叠光标 → 插占位文字并整选
+  /// (官方 rich editor inputRule 同款:立即可打字覆盖占位)。
+  void _toggleInlineSpoiler() {
+    final state = widget.state;
+    final sel = state.selection;
+    if (sel != null && !sel.isCollapsed) {
+      state.toggleMark(MarkKind.spoilerInline);
+      return;
+    }
+    if (sel == null) return;
+    final block = state.textBlockById(sel.extent.blockId);
+    if (block == null) return;
+    const placeholder = '剧透内容';
+    final start = sel.extent.offset;
+    state.insertText(placeholder);
+    // 选中占位并施加 mark(选区保留 —— 用户直接打字即替换)
+    state.updateSelection(EditorSelection(
+      base: EditorPosition(blockId: block.id, offset: start),
+      extent: EditorPosition(
+          blockId: block.id, offset: start + placeholder.length),
+    ));
+    state.toggleMark(MarkKind.spoilerInline);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -842,10 +886,9 @@ class _RichToolbarState extends State<_RichToolbar> {
                             active: _hasMark(MarkKind.inlineCode),
                             onTap: () =>
                                 state.toggleMark(MarkKind.inlineCode)),
-                        _btn(FontAwesomeIcons.eyeSlash, '剧透(选中文字后点)',
+                        _btn(FontAwesomeIcons.eyeSlash, '行内剧透',
                             active: _hasMark(MarkKind.spoilerInline),
-                            onTap: () =>
-                                state.toggleMark(MarkKind.spoilerInline)),
+                            onTap: _toggleInlineSpoiler),
                         _headingBtn(theme),
                         _btn(FontAwesomeIcons.listUl, '无序列表',
                             active: isListItem && !_sig.ordered,
