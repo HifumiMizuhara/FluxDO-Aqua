@@ -553,30 +553,13 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     };
     if (current == null) return;
 
-    final controller = TextEditingController(text: current);
     final text = await showAppDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(frame is DetailsFrame ? '折叠标题' : '标注标题'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(border: OutlineInputBorder()),
-          onSubmitted: (v) => Navigator.pop(ctx, v),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text),
-            child: const Text('应用'),
-          ),
-        ],
+      builder: (ctx) => _SingleLineInputDialog(
+        title: frame is DetailsFrame ? '折叠标题' : '标注标题',
+        initialText: current,
       ),
     );
-    controller.dispose();
     if (text == null || text == current || !mounted) return;
 
     final newFrame = switch (frame) {
@@ -608,39 +591,19 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     required String title,
     required String confirmLabel,
     String? initialText,
-  }) async {
-    final controller = TextEditingController(text: initialText);
-    final text = await showAppDialog<String>(
+  }) {
+    // controller 必须归对话框 State 所有(LinkInsertDialog 同款):
+    // pop 后 future 立即 resolve,但退场动画还在播,外部立刻 dispose
+    // 会让动画帧里的 TextField 摸已析构 controller(真机崩溃实锤,
+    // 并连带触发 Element 半更新 → _dependents 断言红屏)。
+    return showAppDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: SizedBox(
-          width: 480,
-          child: TextField(
-            controller: controller,
-            autofocus: true,
-            maxLines: 10,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
-            decoration: const InputDecoration(
-              hintText: '任意 Discourse markdown/bbcode…',
-              border: OutlineInputBorder(),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text),
-            child: Text(confirmLabel),
-          ),
-        ],
+      builder: (ctx) => _MarkdownInputDialog(
+        title: title,
+        confirmLabel: confirmLabel,
+        initialText: initialText,
       ),
     );
-    controller.dispose();
-    return text;
   }
 
   /// 上传完成后插入图片岛(短链 + 尺寸;渲染层 data-orig-src 异步解析)。
@@ -1079,6 +1042,113 @@ class _Pill extends StatelessWidget {
       ),
       padding: const EdgeInsets.all(2),
       child: child,
+    );
+  }
+}
+
+/// markdown 多行输入对话框(controller 归本 State 所有 —— 退场动画期
+/// 仍存活,dispose 时机正确)。
+class _MarkdownInputDialog extends StatefulWidget {
+  const _MarkdownInputDialog({
+    required this.title,
+    required this.confirmLabel,
+    this.initialText,
+  });
+
+  final String title;
+  final String confirmLabel;
+  final String? initialText;
+
+  @override
+  State<_MarkdownInputDialog> createState() => _MarkdownInputDialogState();
+}
+
+class _MarkdownInputDialogState extends State<_MarkdownInputDialog> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.initialText);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: SizedBox(
+        width: 480,
+        child: TextField(
+          controller: _controller,
+          autofocus: true,
+          maxLines: 10,
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+          decoration: const InputDecoration(
+            hintText: '任意 Discourse markdown/bbcode…',
+            border: OutlineInputBorder(),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _controller.text),
+          child: Text(widget.confirmLabel),
+        ),
+      ],
+    );
+  }
+}
+
+/// 单行输入对话框(壳标题编辑用;controller 生命周期同上)。
+class _SingleLineInputDialog extends StatefulWidget {
+  const _SingleLineInputDialog({
+    required this.title,
+    required this.initialText,
+  });
+
+  final String title;
+  final String initialText;
+
+  @override
+  State<_SingleLineInputDialog> createState() =>
+      _SingleLineInputDialogState();
+}
+
+class _SingleLineInputDialogState extends State<_SingleLineInputDialog> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.initialText);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        decoration: const InputDecoration(border: OutlineInputBorder()),
+        onSubmitted: (v) => Navigator.pop(context, v),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _controller.text),
+          child: const Text('应用'),
+        ),
+      ],
     );
   }
 }
