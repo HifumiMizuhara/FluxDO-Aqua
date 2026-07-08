@@ -16,7 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
 import 'package:fluxdo_render/editor.dart';
 import 'package:fluxdo_render/fluxdo_render.dart'
-    show EmojiRun, ImageRun, MentionRun, NodeFactory, ParagraphNode, TableNode;
+    show EmojiRun, ImageRun, MentionRun, NodeFactory, ParagraphNode;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -34,7 +34,6 @@ import '../emoji_sticker_panel.dart';
 import '../image_upload_dialog.dart';
 import '../link_insert_dialog.dart';
 import 'composer_doc_codec.dart';
-import 'table_grid_editor.dart';
 
 /// 孤岛渲染工厂:复用 generic callbacks 的全部 builder(emoji 缓存池/
 /// 图片管线/代码高亮…),编辑器里的岛与阅读端视觉一致。
@@ -500,28 +499,10 @@ class RichComposerEditorState extends State<RichComposerEditor> {
 
   /// 岛源码编辑:双击岛 → 对话框(初值 = 岛的 markdown)→ 确认后重
   /// cook 替换。一次覆盖所有岛类型 —— 岛内 WYSIWYG 前的通用编辑通道。
-  /// 清空 = 删岛。**表格分流**到结构化网格编辑器(直改 cell 更顺手)。
+  /// 清空 = 删岛。(表格不走这:cell 原位编辑见 [_onTableEdited]。)
   Future<void> _editIsland(IslandBlock island) async {
     final editor = _editor;
     if (editor == null) return;
-
-    // 表格:结构化网格编辑(cell 级直改 + 增删行列)
-    final node = island.node;
-    if (node is TableNode) {
-      final md = await showTableGridEditor(
-        context,
-        initialCells: [
-          for (final row in node.rows)
-            [for (final cell in row) tableCellToMarkdown(cell)],
-        ],
-        hasHeader: node.hasHeader,
-      );
-      if (md == null || !mounted) return;
-      final fragment = await markdownToDoc(md);
-      if (!mounted || fragment == null) return;
-      editor.replaceIsland(island.id, fragment);
-      return;
-    }
 
     final source = serializeIslandNode(island.node);
     final text = await _showMarkdownDialog(
@@ -542,6 +523,76 @@ class RichComposerEditorState extends State<RichComposerEditor> {
       return;
     }
     editor.replaceIsland(island.id, fragment);
+  }
+
+  /// 表格 cell 原位编辑确认:新表格 markdown → cook → 替换岛。
+  Future<void> _onTableEdited(IslandBlock island, String markdown) async {
+    final editor = _editor;
+    if (editor == null) return;
+    final fragment = await markdownToDoc(markdown);
+    if (!mounted || fragment == null || fragment.isEmpty) return;
+    editor.replaceIsland(island.id, fragment);
+  }
+
+  /// 点 details/callout 壳标题 → 弹单行输入改标题(groupId 不变,壳
+  /// Element 复用,只有属性变;undo 一步)。
+  Future<void> _editContainerTitle(ContainerFrame frame) async {
+    final editor = _editor;
+    if (editor == null) return;
+    final current = switch (frame) {
+      DetailsFrame(:final summary) => summary,
+      CalloutFrame(:final title) => title ?? '',
+      _ => null,
+    };
+    if (current == null) return;
+
+    final controller = TextEditingController(text: current);
+    final text = await showAppDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(frame is DetailsFrame ? '折叠标题' : '标注标题'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(border: OutlineInputBorder()),
+          onSubmitted: (v) => Navigator.pop(ctx, v),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('应用'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (text == null || text == current || !mounted) return;
+
+    final newFrame = switch (frame) {
+      DetailsFrame(:final groupId, :final open) =>
+        DetailsFrame(groupId: groupId, summary: text, open: open),
+      CalloutFrame(
+        :final groupId,
+        :final kind,
+        :final typeRaw,
+        :final foldable,
+      ) =>
+        CalloutFrame(
+          groupId: groupId,
+          kind: kind,
+          typeRaw: typeRaw,
+          title: text.isEmpty ? null : text,
+          foldable: foldable,
+        ),
+      _ => null,
+    };
+    if (newFrame != null) {
+      editor.updateContainerFrame(frame.groupId, newFrame);
+    }
   }
 
   /// markdown 多行输入对话框(插入片段/岛编辑共用;showAppDialog 统一
@@ -651,6 +702,10 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                     markdownImporter: markdownToDoc,
                     // 双击岛 → 源码编辑对话框
                     onIslandEditRequest: _editIsland,
+                    // 点 details/callout 壳标题 → 原位改标题
+                    onContainerTitleEdit: _editContainerTitle,
+                    // 表格 cell 原位编辑 → 重建 markdown 经 cook 替换
+                    onTableEdited: _onTableEdited,
                     baseTextStyle: Theme.of(context)
                         .textTheme
                         .bodyLarge
