@@ -61,6 +61,7 @@ class RichComposerEditor extends StatefulWidget {
     this.onEmojiPanelChanged,
     this.mentionDataSource,
     this.onFallbackToPlain,
+    this.onSwitchToSource,
   });
 
   /// 对外真相源镜像(宿主草稿/提交读它)。
@@ -75,6 +76,11 @@ class RichComposerEditor extends StatefulWidget {
   /// 初始导入失败(cook 不可用/草稿含不可解析内容)时回调 —— 宿主应
   /// 切回纯文本 MarkdownEditor。
   final VoidCallback? onFallbackToPlain;
+
+  /// 用户主动点"源码模式"按钮。调用前编辑器已 flushToController
+  /// (controller.text 即最新 markdown),宿主直接换 MarkdownEditor
+  /// 即可,内容无缝衔接。null 时不显示切换按钮。
+  final VoidCallback? onSwitchToSource;
 
   @override
   State<RichComposerEditor> createState() => RichComposerEditorState();
@@ -95,6 +101,8 @@ class RichComposerEditorState extends State<RichComposerEditor> {
   final FocusNode _linkBtnFocus =
       FocusNode(canRequestFocus: false, skipTraversal: true);
   final FocusNode _insertBtnFocus =
+      FocusNode(canRequestFocus: false, skipTraversal: true);
+  final FocusNode _sourceBtnFocus =
       FocusNode(canRequestFocus: false, skipTraversal: true);
 
   // mention 补全状态
@@ -148,6 +156,7 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     _imageBtnFocus.dispose();
     _linkBtnFocus.dispose();
     _insertBtnFocus.dispose();
+    _sourceBtnFocus.dispose();
     _serializeDebounce?.cancel();
     _mentionDebounce?.cancel();
     _removeMentionOverlay();
@@ -481,17 +490,59 @@ class RichComposerEditorState extends State<RichComposerEditor> {
   /// 自由 markdown 输入(兜底:poll/policy/iframe 等任意语法都能进来,
   /// 走 cook 后所见即所得 —— 相当于局部源码模式)。
   Future<void> _insertCustomMarkdown() async {
-    final controller = TextEditingController();
+    final text = await _showMarkdownDialog(
+      title: '插入 Markdown 片段',
+      confirmLabel: '插入',
+    );
+    if (text == null || text.trim().isEmpty || !mounted) return;
+    await insertMarkdownSnippet(text);
+  }
+
+  /// 岛源码编辑:双击岛 → 对话框(初值 = 岛的 markdown)→ 确认后重
+  /// cook 替换。一次覆盖所有岛类型(表格/代码块/公式/details/…)——
+  /// 岛内 WYSIWYG 前的通用编辑通道。清空 = 删岛。
+  Future<void> _editIsland(IslandBlock island) async {
+    final editor = _editor;
+    if (editor == null) return;
+    final source = serializeIslandNode(island.node);
+    final text = await _showMarkdownDialog(
+      title: '编辑源码',
+      confirmLabel: '应用',
+      initialText: source,
+    );
+    if (text == null || !mounted) return;
+    if (text.trim().isEmpty) {
+      editor.replaceIsland(island.id, const []);
+      return;
+    }
+    if (text == source) return; // 没改
+    final fragment = await markdownToDoc(text);
+    if (!mounted) return;
+    if (fragment == null) {
+      // cook 不可用:不动原岛(比替换成纯文本更安全)
+      return;
+    }
+    editor.replaceIsland(island.id, fragment);
+  }
+
+  /// markdown 多行输入对话框(插入片段/岛编辑共用)。
+  Future<String?> _showMarkdownDialog({
+    required String title,
+    required String confirmLabel,
+    String? initialText,
+  }) async {
+    final controller = TextEditingController(text: initialText);
     final text = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('插入 Markdown 片段'),
+        title: Text(title),
         content: SizedBox(
           width: 480,
           child: TextField(
             controller: controller,
             autofocus: true,
-            maxLines: 8,
+            maxLines: 10,
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
             decoration: const InputDecoration(
               hintText: '任意 Discourse markdown/bbcode…',
               border: OutlineInputBorder(),
@@ -505,14 +556,13 @@ class RichComposerEditorState extends State<RichComposerEditor> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, controller.text),
-            child: const Text('插入'),
+            child: Text(confirmLabel),
           ),
         ],
       ),
     );
     controller.dispose();
-    if (text == null || text.trim().isEmpty || !mounted) return;
-    await insertMarkdownSnippet(text);
+    return text;
   }
 
   /// 上传完成后插入图片岛(短链 + 尺寸;渲染层 data-orig-src 异步解析)。
@@ -581,6 +631,8 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                     // 粘贴导入:剪贴板 markdown → cook 链路 → 编辑块
                     // (失败/不可用时 FluxdoEditor 内部降级纯文本粘贴)
                     markdownImporter: markdownToDoc,
+                    // 双击岛 → 源码编辑对话框
+                    onIslandEditRequest: _editIsland,
                     baseTextStyle: Theme.of(context)
                         .textTheme
                         .bodyLarge
@@ -648,6 +700,19 @@ class RichComposerEditorState extends State<RichComposerEditor> {
               Text('上传中…',
                   style: Theme.of(context).textTheme.bodySmall),
             ],
+            const Spacer(),
+            if (widget.onSwitchToSource != null)
+              IconButton(
+                tooltip: '源码模式(切回 Markdown 编辑)',
+                icon: const Icon(Icons.code_off_rounded),
+                focusNode: _sourceBtnFocus,
+                onPressed: () {
+                  // 先落盘再切换:controller.text 即最新 markdown,
+                  // 宿主换 MarkdownEditor 后内容无缝衔接
+                  flushToController();
+                  widget.onSwitchToSource!();
+                },
+              ),
           ],
         ),
         if (_showEmojiPanel)

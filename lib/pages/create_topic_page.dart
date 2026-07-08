@@ -734,6 +734,13 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
                                                     _richFallback = true);
                                               }
                                             },
+                                            // 主动切源码(会话内单向)
+                                            onSwitchToSource: () {
+                                              if (mounted) {
+                                                setState(() =>
+                                                    _richFallback = true);
+                                              }
+                                            },
                                           ))
                                     : MarkdownEditor(
                                         key: _editorKey,

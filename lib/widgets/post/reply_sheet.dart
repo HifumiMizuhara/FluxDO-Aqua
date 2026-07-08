@@ -789,6 +789,13 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
                                         setState(() => _richFallback = true);
                                       }
                                     },
+                                    // 主动切源码:会话内单向(重开恢复
+                                    // 富文本并重跑导入门禁)
+                                    onSwitchToSource: () {
+                                      if (mounted) {
+                                        setState(() => _richFallback = true);
+                                      }
+                                    },
                                   ))
                             : MarkdownEditor(
                                 key: _editorKey,
