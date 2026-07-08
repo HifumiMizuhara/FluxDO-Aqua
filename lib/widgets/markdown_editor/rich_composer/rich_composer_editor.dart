@@ -16,7 +16,14 @@ import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
 import 'package:fluxdo_render/editor.dart';
 import 'package:fluxdo_render/fluxdo_render.dart'
-    show EmojiRun, ImageRun, MentionRun, NodeFactory, ParagraphNode;
+    show
+        EmojiRun,
+        ImageRun,
+        InlineNode,
+        LocalDateRun,
+        MentionRun,
+        NodeFactory,
+        ParagraphNode;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -34,6 +41,7 @@ import '../emoji_sticker_panel.dart';
 import '../image_upload_dialog.dart';
 import '../link_insert_dialog.dart';
 import 'composer_doc_codec.dart';
+import 'local_date_edit_dialog.dart';
 
 /// 孤岛渲染工厂:复用 generic callbacks 的全部 builder(emoji 缓存池/
 /// 图片管线/代码高亮…),编辑器里的岛与阅读端视觉一致。
@@ -443,7 +451,6 @@ class RichComposerEditorState extends State<RichComposerEditor> {
       ('折叠详情', '[details="点开看"]\n折叠内容\n[/details]', Icons.expand_circle_down_outlined),
       ('剧透遮罩', '[spoiler]\n剧透内容\n[/spoiler]', Icons.blur_on_rounded),
       ('引用卡', '[quote]\n引用内容\n[/quote]', Icons.format_quote_rounded),
-      ('日期时间', '[date=2026-12-31 time=20:00 timezone="Asia/Shanghai"]', Icons.event_rounded),
     ];
 
     final box = context.findRenderObject() as RenderBox?;
@@ -472,6 +479,17 @@ class RichComposerEditorState extends State<RichComposerEditor> {
               ],
             ),
           ),
+        // 日期时间:弹属性对话框选时间再插原子(不再是死模板)
+        PopupMenuItem<String>(
+          value: '__date__',
+          child: Row(
+            children: const [
+              Icon(Icons.event_rounded, size: 18),
+              SizedBox(width: 10),
+              Text('日期时间'),
+            ],
+          ),
+        ),
         const PopupMenuDivider(),
         PopupMenuItem<String>(
           value: '__custom__',
@@ -488,9 +506,27 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     if (selected == null || !mounted) return;
     if (selected == '__custom__') {
       await _insertCustomMarkdown();
+    } else if (selected == '__date__') {
+      await _insertLocalDate();
     } else {
       await insertMarkdownSnippet(selected);
     }
+  }
+
+  /// 插入日期时间:属性对话框 → date 原子插入光标处(行内语义,
+  /// 对齐官方 composer 的 modal 插入)。
+  Future<void> _insertLocalDate() async {
+    final editor = _editor;
+    if (editor == null) return;
+    final run = await showLocalDateEditDialog(context);
+    if (run == null || !mounted) return;
+    if (editor.selection == null) {
+      final last = editor.blocks.last;
+      editor.updateSelection(EditorSelection.collapsed(
+        EditorPosition(blockId: last.id, offset: last.selectionLength),
+      ));
+    }
+    editor.insertAtom(run);
   }
 
   /// 自由 markdown 输入(兜底:poll/policy/iframe 等任意语法都能进来,
@@ -539,6 +575,15 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     final fragment = await markdownToDoc(markdown);
     if (!mounted || fragment == null || fragment.isEmpty) return;
     editor.replaceIsland(island.id, fragment);
+  }
+
+  /// 单击可编辑原子:date chip → 属性对话框 → replaceAtomAt。
+  Future<void> _onAtomTap(String blockId, int offset, InlineNode atom) async {
+    final editor = _editor;
+    if (editor == null || atom is! LocalDateRun) return;
+    final next = await showLocalDateEditDialog(context, initial: atom);
+    if (next == null || !mounted) return;
+    editor.replaceAtomAt(blockId, offset, next);
   }
 
   /// 点 details/callout 壳标题 → 弹单行输入改标题(groupId 不变,壳
@@ -676,6 +721,8 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                     onContainerTitleEdit: _editContainerTitle,
                     // 表格 cell 原位编辑 → 重建 markdown 经 cook 替换
                     onTableEdited: _onTableEdited,
+                    // 单击 date chip → 属性编辑对话框
+                    onAtomTap: _onAtomTap,
                     baseTextStyle: Theme.of(context)
                         .textTheme
                         .bodyLarge
