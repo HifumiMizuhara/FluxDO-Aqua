@@ -706,9 +706,11 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
                                             .useRichComposer &&
                                         !_richFallback)
                                     // 草稿加载完成前不挂富 composer:初始导入
-                                    // 一次性,提前挂会以空文档镜像覆盖草稿
+                                    // 一次性,提前挂会以空文档镜像覆盖草稿。
+                                    // 占位留空 —— 加载视觉由页面级草稿遮罩
+                                    // 统一提供(双 spinner 叠影)
                                     ? (_isLoadingDraft
-                                        ? const Center(child: LoadingSpinner())
+                                        ? const SizedBox.shrink()
                                         : RichComposerEditor(
                                             key: _richKey,
                                             controller: _contentController,

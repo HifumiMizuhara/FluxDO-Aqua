@@ -764,9 +764,11 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
                             // 富文本的初始导入是一次性的(不监听 controller
                             // 后续变化)——编辑原帖 raw / 草稿加载完成前挂载
                             // 会用空 controller 建空文档,之后镜像回写覆盖
-                            // 真内容(毁帖)。内容源就绪后才挂。
+                            // 真内容(毁帖)。内容源就绪后才挂;占位留空,
+                            // 加载视觉由草稿遮罩/RichComposer 自身统一提供
+                            // (双 spinner 叠影)。
                             ? ((_isLoadingRaw || _isLoadingDraft)
-                                ? const Center(child: LoadingSpinner())
+                                ? const SizedBox.shrink()
                                 : RichComposerEditor(
                                     key: _richKey,
                                     controller: _contentController,
