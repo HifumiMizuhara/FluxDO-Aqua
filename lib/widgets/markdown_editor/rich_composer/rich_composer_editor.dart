@@ -344,7 +344,7 @@ class RichComposerEditorState extends State<RichComposerEditor> {
 
   /// 万能插入原语:markdown 片段 → cook 链路 → 富内容块,粘贴语义并入
   /// 光标处。所有"+"菜单项(表格/公式/details/…)与链接/图片全走这条 ——
-  /// 插入面 = markdown 语法面,零专用代码。cook 失败静默降级纯文本。
+  /// 插入面 = markdown 语法面,零专用代码。cook 失败/超时降级纯文本。
   Future<void> insertMarkdownSnippet(String markdown) async {
     final editor = _editor;
     if (editor == null || markdown.isEmpty) return;
@@ -355,12 +355,19 @@ class RichComposerEditorState extends State<RichComposerEditor> {
         EditorPosition(blockId: last.id, offset: last.selectionLength),
       ));
     }
+    final sw = kDebugMode ? (Stopwatch()..start()) : null;
     final fragment = await markdownToDoc(markdown);
     if (!mounted) return;
+    final before = editor.blocks.length;
     if (fragment != null && fragment.isNotEmpty) {
       editor.pasteBlocks(fragment);
     } else {
       editor.pastePlainText(markdown);
+    }
+    if (kDebugMode) {
+      debugPrint('[RichComposer] insert "${markdown.split('\n').first}" '
+          'cook=${sw!.elapsedMilliseconds}ms frag=${fragment?.length} '
+          'blocks $before→${editor.blocks.length} sel=${editor.selection}');
     }
   }
 

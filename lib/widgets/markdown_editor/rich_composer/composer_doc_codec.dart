@@ -10,6 +10,8 @@
 ///   chat/policy 岛、或语法缺口),返回 null 降级源码模式,**防止提交毁帖**。
 library;
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import 'package:fluxdo_render/editor.dart';
 import 'package:fluxdo_render/fluxdo_render.dart' show ParagraphParser;
@@ -17,12 +19,24 @@ import 'package:fluxdo_render/fluxdo_render.dart' show ParagraphParser;
 import '../../../services/discourse_cook_service.dart';
 
 /// raw markdown → 编辑文档。cook 不可用/失败返回 null。
-Future<List<EditorBlock>?> markdownToDoc(String raw) async {
+///
+/// [timeout]:cook 引擎初始化依赖站点数据(网络),挂起/慢时不能拖死
+/// 调用方(插入块点了没反应连降级都走不到)—— 超时按 cook 不可用处理。
+Future<List<EditorBlock>?> markdownToDoc(
+  String raw, {
+  Duration timeout = const Duration(seconds: 3),
+}) async {
   if (raw.trim().isEmpty) {
     var n = 0;
     return blockNodesToDoc(const [], () => 'e_${n++}');
   }
-  final cooked = await DiscourseCookService().cook(raw);
+  String? cooked;
+  try {
+    cooked = await DiscourseCookService().cook(raw).timeout(timeout);
+  } on TimeoutException {
+    debugPrint('[RichComposer] cook 超时(${timeout.inSeconds}s),降级');
+    return null;
+  }
   if (cooked == null) return null;
   final nodes = ParagraphParser().parse(cooked);
   var n = 0;
@@ -41,7 +55,15 @@ String docToRaw(List<EditorBlock> doc) => docToMarkdown(doc);
 Future<List<EditorBlock>?> markdownToDocGuarded(String raw) async {
   if (raw.trim().isEmpty) return markdownToDoc(raw);
   final cookService = DiscourseCookService();
-  final cookedOrig = await cookService.cook(raw);
+  String? cookedOrig;
+  try {
+    // 初次导入允许更长等待(冷启动站点数据+bundle eval),但同样有界
+    cookedOrig =
+        await cookService.cook(raw).timeout(const Duration(seconds: 10));
+  } on TimeoutException {
+    debugPrint('[RichComposer] 导入 cook 超时,降级源码模式');
+    return null;
+  }
   if (cookedOrig == null) return null;
 
   final nodes = ParagraphParser().parse(cookedOrig);
