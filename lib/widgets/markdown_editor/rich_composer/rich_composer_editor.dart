@@ -13,9 +13,11 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:fluxdo_render/editor.dart';
 import 'package:fluxdo_render/fluxdo_render.dart'
     show EmojiRun, ImageRun, MentionRun, NodeFactory, ParagraphNode;
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../models/mention_user.dart';
@@ -23,7 +25,9 @@ import '../../../services/app_error_handler.dart';
 import '../../../services/discourse/discourse_service.dart';
 import '../../../services/discourse_cook_service.dart';
 import '../../../services/emoji_handler.dart';
+import '../../../utils/dialog_utils.dart';
 import '../../../utils/fluxdo_render_callbacks.dart';
+import '../../common/fading_edge_scroll_view.dart';
 import '../../content/discourse_html_content/image_utils.dart';
 import '../../mention/mention_autocomplete.dart';
 import '../emoji_sticker_panel.dart';
@@ -93,17 +97,6 @@ class RichComposerEditorState extends State<RichComposerEditor> {
   Timer? _serializeDebounce;
 
   bool _showEmojiPanel = false;
-  final FocusNode _emojiBtnFocus =
-      FocusNode(canRequestFocus: false, skipTraversal: true);
-  // 功能条按钮全部不抢编辑器焦点(点完光标还在原处,插入直达光标)
-  final FocusNode _imageBtnFocus =
-      FocusNode(canRequestFocus: false, skipTraversal: true);
-  final FocusNode _linkBtnFocus =
-      FocusNode(canRequestFocus: false, skipTraversal: true);
-  final FocusNode _insertBtnFocus =
-      FocusNode(canRequestFocus: false, skipTraversal: true);
-  final FocusNode _sourceBtnFocus =
-      FocusNode(canRequestFocus: false, skipTraversal: true);
 
   // mention 补全状态
   final LayerLink _mentionLink = LayerLink();
@@ -152,11 +145,6 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     // 宿主的草稿监听也还挂着;不 flush 的话宿主 dispose 里的兜底草稿
     // 保存读到旧文本(丢最后一句话)。
     flushToController();
-    _emojiBtnFocus.dispose();
-    _imageBtnFocus.dispose();
-    _linkBtnFocus.dispose();
-    _insertBtnFocus.dispose();
-    _sourceBtnFocus.dispose();
     _serializeDebounce?.cancel();
     _mentionDebounce?.cancel();
     _removeMentionOverlay();
@@ -416,13 +404,24 @@ class RichComposerEditorState extends State<RichComposerEditor> {
 
   int _uploadingCount = 0;
 
-  /// 插入链接(复用纯文本编辑器的对话框;产 `[text](url)` 走 cook)。
+  /// 插入/施加链接:选区非空 → 对选中文字加 link mark(文字保留);
+  /// 折叠 → 对话框输入文字+URL 后插入(经 cook)。
   Future<void> _insertLink() async {
+    final editor = _editor;
+    if (editor == null) return;
+    final sel = editor.selection;
+    final hasRange = sel != null && !sel.isCollapsed && sel.isSingleBlock;
+
     final result = await showLinkInsertDialog(context);
     if (result == null || !mounted) return;
     final text = result['text'] ?? '';
     final url = result['url'] ?? '';
     if (url.isEmpty) return;
+
+    if (hasRange && editor.selection == sel) {
+      editor.applyLink(url);
+      return;
+    }
     await insertMarkdownSnippet('[${text.isEmpty ? url : text}]($url)');
   }
 
@@ -525,14 +524,15 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     editor.replaceIsland(island.id, fragment);
   }
 
-  /// markdown 多行输入对话框(插入片段/岛编辑共用)。
+  /// markdown 多行输入对话框(插入片段/岛编辑共用;showAppDialog 统一
+  /// app 弹窗风格)。
   Future<String?> _showMarkdownDialog({
     required String title,
     required String confirmLabel,
     String? initialText,
   }) async {
     final controller = TextEditingController(text: initialText);
-    final text = await showDialog<String>(
+    final text = await showAppDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(title),
@@ -614,8 +614,6 @@ class RichComposerEditorState extends State<RichComposerEditor> {
 
     return Column(
       children: [
-        EditorToolbar(state: editor),
-        const Divider(height: 1),
         Expanded(
           child: CompositedTransformTarget(
             link: _mentionLink,
@@ -658,62 +656,24 @@ class RichComposerEditorState extends State<RichComposerEditor> {
             ),
           ),
         ),
-        // 底部功能条:emoji / 图片上传 / 链接 / 块插入菜单
-        Row(
-          children: [
-            IconButton(
-              tooltip: '表情',
-              icon: Icon(
-                _showEmojiPanel
-                    ? Icons.keyboard_alt_outlined
-                    : Icons.emoji_emotions_outlined,
-              ),
-              focusNode: _emojiBtnFocus,
-              onPressed: _toggleEmojiPanel,
-            ),
-            IconButton(
-              tooltip: '上传图片',
-              icon: const Icon(Icons.image_outlined),
-              focusNode: _imageBtnFocus,
-              onPressed: _uploadingCount > 0 ? null : _pickAndUploadImages,
-            ),
-            IconButton(
-              tooltip: '插入链接',
-              icon: const Icon(Icons.link_rounded),
-              focusNode: _linkBtnFocus,
-              onPressed: _insertLink,
-            ),
-            IconButton(
-              tooltip: '插入块(表格/代码/公式…)',
-              icon: const Icon(Icons.add_box_outlined),
-              focusNode: _insertBtnFocus,
-              onPressed: _showInsertMenu,
-            ),
-            if (_uploadingCount > 0) ...[
-              const SizedBox(width: 4),
-              const SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              const SizedBox(width: 6),
-              Text('上传中…',
-                  style: Theme.of(context).textTheme.bodySmall),
-            ],
-            const Spacer(),
-            if (widget.onSwitchToSource != null)
-              IconButton(
-                tooltip: '源码模式(切回 Markdown 编辑)',
-                icon: const Icon(Icons.code_off_rounded),
-                focusNode: _sourceBtnFocus,
-                onPressed: () {
+        // 单一底部工具栏(与 MarkdownToolbar 同构:左表情胶囊 + 中部
+        // 可滚工具 + 右胶囊;FaIcon 图标语言 + compact 密度)
+        _RichToolbar(
+          state: editor,
+          isEmojiPanelVisible: _showEmojiPanel,
+          onToggleEmoji: _toggleEmojiPanel,
+          uploading: _uploadingCount > 0,
+          onPickImage: _pickAndUploadImages,
+          onInsertLink: _insertLink,
+          onInsertMenu: _showInsertMenu,
+          onSwitchToSource: widget.onSwitchToSource == null
+              ? null
+              : () {
                   // 先落盘再切换:controller.text 即最新 markdown,
                   // 宿主换 MarkdownEditor 后内容无缝衔接
                   flushToController();
                   widget.onSwitchToSource!();
                 },
-              ),
-          ],
         ),
         if (_showEmojiPanel)
           SizedBox(
@@ -736,6 +696,284 @@ class RichComposerEditorState extends State<RichComposerEditor> {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// 富 composer 的统一底部工具栏。
+///
+/// 视觉与 [MarkdownToolbar] 完全同构:左右胶囊(圆角 22 +
+/// surfaceContainerHighest 0.45)+ 中部渐隐可滚工具排 + FaIcon 16 +
+/// onSurfaceVariant/primary 双态 + compact 密度。区别只在命令目标:
+/// 纯文本改 controller.text,这里调 EditorState 命令。
+///
+/// 激活态签名驱动重建(EditorToolbar 同款):纯打字签名不变零重建。
+class _RichToolbar extends StatefulWidget {
+  const _RichToolbar({
+    required this.state,
+    required this.isEmojiPanelVisible,
+    required this.onToggleEmoji,
+    required this.uploading,
+    required this.onPickImage,
+    required this.onInsertLink,
+    required this.onInsertMenu,
+    this.onSwitchToSource,
+  });
+
+  final EditorState state;
+  final bool isEmojiPanelVisible;
+  final VoidCallback onToggleEmoji;
+  final bool uploading;
+  final VoidCallback onPickImage;
+  final VoidCallback onInsertLink;
+  final VoidCallback onInsertMenu;
+  final VoidCallback? onSwitchToSource;
+
+  @override
+  State<_RichToolbar> createState() => _RichToolbarState();
+}
+
+typedef _Sig = ({int marksBits, int kindIndex, int headingLevel, bool ordered, bool inQuote});
+
+class _RichToolbarState extends State<_RichToolbar> {
+  late _Sig _sig = _compute();
+
+  @override
+  void initState() {
+    super.initState();
+    widget.state.addListener(_onState);
+  }
+
+  @override
+  void didUpdateWidget(covariant _RichToolbar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.state != widget.state) {
+      oldWidget.state.removeListener(_onState);
+      widget.state.addListener(_onState);
+      _sig = _compute();
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.state.removeListener(_onState);
+    super.dispose();
+  }
+
+  void _onState() {
+    final next = _compute();
+    if (next != _sig && mounted) {
+      setState(() => _sig = next);
+    }
+  }
+
+  _Sig _compute() {
+    final state = widget.state;
+    final marks = state.effectiveMarksAtCaret();
+    final sel = state.selection;
+    final block = sel == null ? null : state.textBlockById(sel.extent.blockId);
+    return (
+      marksBits: marks.fold(0, (a, k) => a | (1 << k.index)),
+      kindIndex: block?.kind.index ?? -1,
+      headingLevel: block?.isHeading == true ? block!.headingLevel : 0,
+      ordered: block?.isListItem == true && block!.ordered,
+      inQuote: (block?.quoteDepth ?? 0) > 0,
+    );
+  }
+
+  bool _hasMark(MarkKind kind) => (_sig.marksBits & (1 << kind.index)) != 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final state = widget.state;
+    final pillColor =
+        theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.45);
+    final isListItem = _sig.kindIndex == TextBlockKind.listItem.index;
+
+    return Container(
+      color: theme.colorScheme.surface,
+      child: Focus(
+        canRequestFocus: false,
+        descendantsAreFocusable: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+          child: Row(
+            children: [
+              // 左:表情按钮(胶囊背景,固定)
+              _Pill(
+                color: pillColor,
+                child: IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: FaIcon(
+                    widget.isEmojiPanelVisible
+                        ? FontAwesomeIcons.keyboard
+                        : FontAwesomeIcons.faceSmile,
+                    size: 20,
+                    color: widget.isEmojiPanelVisible
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurfaceVariant,
+                  ),
+                  onPressed: widget.onToggleEmoji,
+                ),
+              ),
+              // 中:格式/插入工具(可滚动,无背景)
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: FadingEdgeScrollView(
+                    fadeLeft: true,
+                    fadeRight: true,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(children: [
+                        _btn(FontAwesomeIcons.bold, '粗体 (Cmd+B)',
+                            active: _hasMark(MarkKind.strong),
+                            onTap: () => state.toggleMark(MarkKind.strong)),
+                        _btn(FontAwesomeIcons.italic, '斜体 (Cmd+I)',
+                            active: _hasMark(MarkKind.em),
+                            onTap: () => state.toggleMark(MarkKind.em)),
+                        _btn(FontAwesomeIcons.strikethrough,
+                            '删除线 (Cmd+Shift+X)',
+                            active: _hasMark(MarkKind.lineThrough),
+                            onTap: () =>
+                                state.toggleMark(MarkKind.lineThrough)),
+                        _btn(FontAwesomeIcons.code, '行内代码 (Cmd+E)',
+                            active: _hasMark(MarkKind.inlineCode),
+                            onTap: () =>
+                                state.toggleMark(MarkKind.inlineCode)),
+                        _btn(FontAwesomeIcons.eyeSlash, '剧透(选中文字后点)',
+                            active: _hasMark(MarkKind.spoilerInline),
+                            onTap: () =>
+                                state.toggleMark(MarkKind.spoilerInline)),
+                        _headingBtn(theme),
+                        _btn(FontAwesomeIcons.listUl, '无序列表',
+                            active: isListItem && !_sig.ordered,
+                            onTap: () => state.toggleList(ordered: false)),
+                        _btn(FontAwesomeIcons.listOl, '有序列表',
+                            active: isListItem && _sig.ordered,
+                            onTap: () => state.toggleList(ordered: true)),
+                        _btn(FontAwesomeIcons.quoteRight, '引用',
+                            active: _sig.inQuote, onTap: state.toggleQuote),
+                        _btn(FontAwesomeIcons.link, '插入链接',
+                            onTap: widget.onInsertLink),
+                        widget.uploading
+                            ? const Padding(
+                                padding:
+                                    EdgeInsets.symmetric(horizontal: 12),
+                                child: SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2),
+                                ),
+                              )
+                            : _btn(FontAwesomeIcons.image, '上传图片',
+                                onTap: widget.onPickImage),
+                        _btn(FontAwesomeIcons.circlePlus,
+                            '插入块(表格/代码/公式…)',
+                            onTap: widget.onInsertMenu),
+                      ]),
+                    ),
+                  ),
+                ),
+              ),
+              // 右:源码模式(胶囊背景)
+              if (widget.onSwitchToSource != null)
+                _Pill(
+                  color: pillColor,
+                  child: IconButton(
+                    visualDensity: VisualDensity.compact,
+                    icon: Icon(
+                      Symbols.code_rounded,
+                      size: 20,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    onPressed: widget.onSwitchToSource,
+                    tooltip: '源码模式',
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 标准工具按钮(MarkdownToolbar._ToolbarButton 同参:FaIcon 16 +
+  /// compact + onSurfaceVariant;激活态 primary)。
+  Widget _btn(FaIconData icon, String tooltip,
+      {bool active = false, required VoidCallback onTap}) {
+    final theme = Theme.of(context);
+    return IconButton(
+      visualDensity: VisualDensity.compact,
+      icon: FaIcon(icon, size: 16),
+      onPressed: onTap,
+      tooltip: tooltip,
+      style: IconButton.styleFrom(
+        foregroundColor: active
+            ? theme.colorScheme.primary
+            : theme.colorScheme.onSurfaceVariant,
+        backgroundColor: active
+            ? theme.colorScheme.primary.withValues(alpha: 0.12)
+            : null,
+      ),
+    );
+  }
+
+  /// 标题按钮:弹菜单选 H1-H3/正文(纯文本工具栏单 heading 按钮的
+  /// 富文本版 —— 块级命令需要明确级别)。
+  Widget _headingBtn(ThemeData theme) {
+    final active = _sig.headingLevel > 0;
+    return PopupMenuButton<int>(
+      tooltip: '标题',
+      position: PopupMenuPosition.over,
+      itemBuilder: (context) => [
+        for (final level in [1, 2, 3])
+          PopupMenuItem(
+            value: level,
+            child: Text('标题 $level',
+                style: TextStyle(
+                  fontSize: 18.0 - level * 1.5,
+                  fontWeight: FontWeight.w600,
+                )),
+          ),
+        const PopupMenuItem(value: 0, child: Text('正文')),
+      ],
+      onSelected: (level) =>
+          widget.state.setHeading(level == 0 ? null : level),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        child: active
+            ? Text('H${_sig.headingLevel}',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: theme.colorScheme.primary,
+                ))
+            : FaIcon(FontAwesomeIcons.heading,
+                size: 16, color: theme.colorScheme.onSurfaceVariant),
+      ),
+    );
+  }
+}
+
+/// 工具栏两侧的胶囊背景容器(MarkdownToolbar._ToolbarPill 同款)。
+class _Pill extends StatelessWidget {
+  const _Pill({required this.color, required this.child});
+
+  final Color color;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(22),
+      ),
+      padding: const EdgeInsets.all(2),
+      child: child,
     );
   }
 }
