@@ -62,6 +62,8 @@
   "preferences_blockedUsernamesHelper": "Do not include @. Usernames are matched exactly, case-insensitively. This does not use Discourse ignore.",
   "preferences_autoPanguSpacing": "Auto CJK spacing",
   "preferences_autoPanguSpacingDesc": "Auto-insert spaces between CJK and Latin text",
+  "preferences_useRichComposer": "Rich composer (experimental)",
+  "preferences_useRichComposerDesc": "WYSIWYG editor for replies/posts; switch back anytime",
   "preferences_aiPostReview": "AI review before posting",
   "preferences_aiPostReviewDesc": "Ask AI for opinions and edit directions based on the community guidelines before publishing. It will not block posting.",
   "preferences_aiPostReviewModel": "Review model",

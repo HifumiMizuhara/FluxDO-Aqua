@@ -3,7 +3,9 @@ import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluxdo/widgets/common/error_view.dart';
 import 'package:fluxdo/widgets/common/loading_spinner.dart';
+import 'package:fluxdo/providers/preferences_provider.dart';
 import 'package:fluxdo/widgets/markdown_editor/markdown_editor.dart';
+import 'package:fluxdo/widgets/markdown_editor/rich_composer/rich_composer_editor.dart';
 import 'package:fluxdo/models/category.dart';
 import 'package:fluxdo/models/draft.dart';
 import 'package:fluxdo/models/shortcut_binding.dart';
@@ -40,6 +42,10 @@ class CreateTopicPage extends ConsumerStatefulWidget {
 }
 
 class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
+  /// 富文本导入失败时本次会话降级纯文本
+  bool _richFallback = false;
+  final _richKey = GlobalKey<RichComposerEditorState>();
+
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
@@ -348,6 +354,8 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
   }
 
   Future<void> _submit() async {
+    // 富文本模式:先强制序列化镜像
+    _richKey.currentState?.flushToController();
     if (!_formKey.currentState!.validate()) {
       // 预览模式下验证错误不可见，切回编辑模式并提示
       if (_showPreview) {
@@ -691,29 +699,65 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
                                 ),
                               ),
 
-                              // 内容编辑器
+                              // 内容编辑器(feature flag:富文本 / markdown)
                               Expanded(
-                                child: MarkdownEditor(
-                                  key: _editorKey,
-                                  controller: _contentController,
-                                  focusNode: _contentFocusNode,
-                                  hintText:
-                                      context.l10n.createTopic_contentHint,
-                                  expands: true,
-                                  emojiPanelHeight: 350,
-                                  onTogglePreview: _togglePreview,
-                                  isPreview: _showPreview,
-                                  onEmojiPanelChanged: (show) {
-                                    setState(() => _showEmojiPanel = show);
-                                  },
-                                  mentionDataSource: (term) => ref
-                                      .read(discourseServiceProvider)
-                                      .searchUsers(
-                                        term: term,
-                                        categoryId: _selectedCategory?.id,
-                                        includeGroups: true,
+                                child: (ref
+                                            .watch(preferencesProvider)
+                                            .useRichComposer &&
+                                        !_richFallback)
+                                    // 草稿加载完成前不挂富 composer:初始导入
+                                    // 一次性,提前挂会以空文档镜像覆盖草稿
+                                    ? (_isLoadingDraft
+                                        ? const Center(child: LoadingSpinner())
+                                        : RichComposerEditor(
+                                            key: _richKey,
+                                            controller: _contentController,
+                                            focusNode: _contentFocusNode,
+                                            hintText: context
+                                                .l10n.createTopic_contentHint,
+                                            emojiPanelHeight: 350,
+                                            onEmojiPanelChanged: (show) {
+                                              setState(() =>
+                                                  _showEmojiPanel = show);
+                                            },
+                                            mentionDataSource: (term) => ref
+                                                .read(discourseServiceProvider)
+                                                .searchUsers(
+                                                  term: term,
+                                                  categoryId:
+                                                      _selectedCategory?.id,
+                                                  includeGroups: true,
+                                                ),
+                                            onFallbackToPlain: () {
+                                              if (mounted) {
+                                                setState(() =>
+                                                    _richFallback = true);
+                                              }
+                                            },
+                                          ))
+                                    : MarkdownEditor(
+                                        key: _editorKey,
+                                        controller: _contentController,
+                                        focusNode: _contentFocusNode,
+                                        hintText: context
+                                            .l10n.createTopic_contentHint,
+                                        expands: true,
+                                        emojiPanelHeight: 350,
+                                        onTogglePreview: _togglePreview,
+                                        isPreview: _showPreview,
+                                        onEmojiPanelChanged: (show) {
+                                          setState(
+                                              () => _showEmojiPanel = show);
+                                        },
+                                        mentionDataSource: (term) => ref
+                                            .read(discourseServiceProvider)
+                                            .searchUsers(
+                                              term: term,
+                                              categoryId:
+                                                  _selectedCategory?.id,
+                                              includeGroups: true,
+                                            ),
                                       ),
-                                ),
                               ),
                             ],
                           ),

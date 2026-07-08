@@ -62,6 +62,8 @@
   "preferences_blockedUsernamesHelper": "無需輸入 @；用戶名精確匹配，不區分大小寫；不會調用 Discourse 的忽略功能",
   "preferences_autoPanguSpacing": "自動混排優化",
   "preferences_autoPanguSpacingDesc": "輸入時自動插入中英文混排空格",
+  "preferences_useRichComposer": "富文本編輯器(實驗性)",
+  "preferences_useRichComposerDesc": "回帖/發帖使用所見即所得編輯器,可隨時關閉回到純文字",
   "preferences_aiPostReview": "發帖前 AI 審核",
   "preferences_aiPostReviewDesc": "發佈前讓 AI 根據社區準則給出意見和修改方向，不會阻止發佈",
   "preferences_aiPostReviewModel": "審核模型",

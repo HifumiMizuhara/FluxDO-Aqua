@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fluxdo_render/editor.dart' show FluxdoEditor;
 
 import '../models/shortcut_binding.dart';
 import '../pages/create_topic_page.dart';
@@ -351,7 +352,10 @@ class _KeyboardShortcutHandlerState
     var element = focus!.context! as Element;
     var found = false;
     element.visitAncestorElements((ancestor) {
-      if (ancestor.widget is EditableText) {
+      // FluxdoEditor:自研富文本编辑器(非 EditableText,自己的
+      // TextInputClient)—— 不豁免的话 j/k/d/s 等单键快捷键把字母
+      // 抢走并标记 handled,嵌入层不再路由给 IME,字母打不出来。
+      if (ancestor.widget is EditableText || ancestor.widget is FluxdoEditor) {
         found = true;
         return false;
       }

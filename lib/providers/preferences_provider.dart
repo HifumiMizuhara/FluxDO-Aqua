@@ -144,6 +144,9 @@ class AppPreferences {
   /// AI 助手左滑入口（PageView 模式）
   final bool aiSwipeEntry;
 
+  /// 富文本编辑器(实验性,自研 WYSIWYG composer)
+  final bool useRichComposer;
+
   /// 发帖前 AI 审核
   final bool aiPostReviewEnabled;
 
@@ -235,6 +238,7 @@ class AppPreferences {
     required this.autoCfChallenge,
     required this.expandRelatedLinks,
     required this.aiSwipeEntry,
+    this.useRichComposer = false,
     this.aiPostReviewEnabled = false,
     this.aiPostReviewModelKey,
     this.hcaptchaCreateEndpoint,
@@ -280,6 +284,7 @@ class AppPreferences {
     bool? autoCfChallenge,
     bool? expandRelatedLinks,
     bool? aiSwipeEntry,
+    bool? useRichComposer,
     bool? aiPostReviewEnabled,
     Object? aiPostReviewModelKey = _unset,
     Object? hcaptchaCreateEndpoint = _unset,
@@ -326,6 +331,7 @@ class AppPreferences {
       autoCfChallenge: autoCfChallenge ?? this.autoCfChallenge,
       expandRelatedLinks: expandRelatedLinks ?? this.expandRelatedLinks,
       aiSwipeEntry: aiSwipeEntry ?? this.aiSwipeEntry,
+      useRichComposer: useRichComposer ?? this.useRichComposer,
       aiPostReviewEnabled: aiPostReviewEnabled ?? this.aiPostReviewEnabled,
       aiPostReviewModelKey: identical(aiPostReviewModelKey, _unset)
           ? this.aiPostReviewModelKey
@@ -389,6 +395,7 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
   static const String _autoCfChallengeKey = 'pref_auto_cf_challenge';
   static const String _expandRelatedLinksKey = 'pref_expand_related_links';
   static const String _aiSwipeEntryKey = 'pref_ai_swipe_entry';
+  static const String _useRichComposerKey = 'pref_use_rich_composer';
   static const String _aiPostReviewEnabledKey = 'pref_ai_post_review_enabled';
   static const String _aiPostReviewModelPrefKey = 'pref_ai_post_review_model';
   static const String _hcaptchaCreateEndpointKey =
@@ -454,6 +461,7 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
           autoCfChallenge: _prefs.getBool(_autoCfChallengeKey) ?? true,
           expandRelatedLinks: _prefs.getBool(_expandRelatedLinksKey) ?? false,
           aiSwipeEntry: _prefs.getBool(_aiSwipeEntryKey) ?? false,
+          useRichComposer: _prefs.getBool(_useRichComposerKey) ?? false,
           aiPostReviewEnabled: _prefs.getBool(_aiPostReviewEnabledKey) ?? false,
           aiPostReviewModelKey: _prefs.getString(_aiPostReviewModelPrefKey),
           hcaptchaCreateEndpoint: _prefs.getString(_hcaptchaCreateEndpointKey),
@@ -640,6 +648,11 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
   Future<void> setAiSwipeEntry(bool enabled) async {
     state = state.copyWith(aiSwipeEntry: enabled);
     await _prefs.setBool(_aiSwipeEntryKey, enabled);
+  }
+
+  Future<void> setUseRichComposer(bool enabled) async {
+    state = state.copyWith(useRichComposer: enabled);
+    await _prefs.setBool(_useRichComposerKey, enabled);
   }
 
   Future<void> setAiPostReviewEnabled(bool enabled) async {

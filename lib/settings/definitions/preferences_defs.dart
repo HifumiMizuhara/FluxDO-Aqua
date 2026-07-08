@@ -111,6 +111,15 @@ List<SettingsGroup> buildPreferencesGroups(BuildContext context) {
               ref.read(preferencesProvider.notifier).setAutoPanguSpacing(v),
         ),
         SwitchModel(
+          id: 'useRichComposer',
+          title: l10n.preferences_useRichComposer,
+          subtitle: l10n.preferences_useRichComposerDesc,
+          icon: Symbols.edit_document_rounded,
+          getValue: (ref) => ref.watch(preferencesProvider).useRichComposer,
+          onChanged: (ref, v) =>
+              ref.read(preferencesProvider.notifier).setUseRichComposer(v),
+        ),
+        SwitchModel(
           id: 'aiPostReview',
           title: l10n.preferences_aiPostReview,
           subtitle: l10n.preferences_aiPostReviewDesc,
