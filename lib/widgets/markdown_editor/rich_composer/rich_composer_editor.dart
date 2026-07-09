@@ -13,6 +13,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:app_icons/app_icons.dart';
 import 'package:fluxdo_render/editor.dart';
 import 'package:fluxdo_render/fluxdo_render.dart'
@@ -198,9 +199,14 @@ class RichComposerEditorState extends State<RichComposerEditor> {
   bool _computeIsEmpty() {
     final editor = _editor;
     if (editor == null) return true;
-    return editor.blocks.length == 1 &&
-        editor.blocks.first is TextBlock &&
-        (editor.blocks.first as TextBlock).content.length == 0;
+    if (editor.blocks.length != 1) return false;
+    final b = editor.blocks.first;
+    if (b is! TextBlock) return false;
+    // 空文档判定含块类型:'- ' 转成空列表项/'# ' 转成空标题/包了容器
+    // 都不算空 —— 否则 hint 与列表圆点/标题光标叠画(实测截图)。
+    return b.content.length == 0 &&
+        b.isParagraph &&
+        b.containers.isEmpty;
   }
 
   /// 立即序列化(宿主提交前调用,确保 controller 是最新;镜像 debounce
@@ -221,6 +227,39 @@ class RichComposerEditorState extends State<RichComposerEditor> {
 
   OverlayEntry? _slashOverlay;
   String? _slashQuery;
+  int _slashSelected = 0;
+
+  /// 光标全局矩形(FluxdoEditor 帧后上抛;斜杠/mention 浮层锚定用)。
+  Rect? _caretGlobalRect;
+
+  /// 浮层按键拦截(编辑器 onKeyEvent 首先调):斜杠菜单激活时接管
+  /// 上下/回车/Tab/Esc。
+  bool _interceptKeyEvent(KeyEvent event) {
+    if (_slashOverlay == null) return false;
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return false;
+    final items = _slashFiltered;
+    switch (event.logicalKey) {
+      case LogicalKeyboardKey.arrowDown:
+        _slashSelected = (_slashSelected + 1) % items.length;
+        _slashOverlay!.markNeedsBuild();
+        return true;
+      case LogicalKeyboardKey.arrowUp:
+        _slashSelected = (_slashSelected - 1 + items.length) % items.length;
+        _slashOverlay!.markNeedsBuild();
+        return true;
+      case LogicalKeyboardKey.enter:
+      case LogicalKeyboardKey.numpadEnter:
+      case LogicalKeyboardKey.tab:
+        if (_slashSelected < items.length) {
+          _runSlashAction(items[_slashSelected].$4);
+        }
+        return true;
+      case LogicalKeyboardKey.escape:
+        _dismissSlash();
+        return true;
+    }
+    return false;
+  }
 
   /// 候选:(关键字集, 标签, 图标, 动作)。关键字含中文与英文别名。
   late final List<(List<String>, String, IconData, Future<void> Function())>
@@ -295,6 +334,7 @@ class RichComposerEditorState extends State<RichComposerEditor> {
       return;
     }
     _slashQuery = query;
+    _slashSelected = 0; // 过滤集变了,选中项重置到首个
     if (_slashFiltered.isEmpty) {
       _dismissSlash();
       return;
@@ -308,30 +348,56 @@ class RichComposerEditorState extends State<RichComposerEditor> {
 
   void _showSlashOverlay() {
     _removeSlashOverlay();
+    _slashSelected = 0;
     _slashOverlay = OverlayEntry(
-      builder: (context) => Positioned(
-        width: 240,
-        child: CompositedTransformFollower(
-          link: _mentionLink,
-          showWhenUnlinked: false,
-          targetAnchor: Alignment.bottomLeft,
-          offset: const Offset(16, -8),
-          followerAnchor: Alignment.bottomLeft,
+      builder: (context) {
+        // 锚定光标(全局矩形):默认弹光标下方;近屏幕底翻到上方。
+        final caret = _caretGlobalRect;
+        final screen = MediaQuery.sizeOf(context);
+        const menuWidth = 240.0;
+        const menuMaxHeight = 280.0;
+        double left;
+        double? top;
+        double? bottom;
+        if (caret != null) {
+          left = caret.left.clamp(8.0, screen.width - menuWidth - 8);
+          final below = screen.height - caret.bottom;
+          if (below >= menuMaxHeight + 16) {
+            top = caret.bottom + 4;
+          } else {
+            bottom = screen.height - caret.top + 4;
+          }
+        } else {
+          left = 16;
+          bottom = 80;
+        }
+        final items = _slashFiltered;
+        if (_slashSelected >= items.length) _slashSelected = 0;
+        return Positioned(
+          left: left,
+          top: top,
+          bottom: bottom,
+          width: menuWidth,
           child: Material(
             elevation: 4,
             borderRadius: BorderRadius.circular(8),
             clipBehavior: Clip.antiAlias,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 280),
+              constraints: const BoxConstraints(maxHeight: menuMaxHeight),
               child: ListView.builder(
                 shrinkWrap: true,
                 padding: const EdgeInsets.symmetric(vertical: 4),
-                itemCount: _slashFiltered.length,
+                itemCount: items.length,
                 itemBuilder: (context, i) {
-                  final (_, label, icon, action) = _slashFiltered[i];
+                  final (_, label, icon, action) = items[i];
                   return ListTile(
                     dense: true,
                     visualDensity: VisualDensity.compact,
+                    selected: i == _slashSelected,
+                    selectedTileColor: Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withValues(alpha: 0.1),
                     leading: Icon(icon, size: 18),
                     title: Text(label, style: const TextStyle(fontSize: 13)),
                     onTap: () => _runSlashAction(action),
@@ -340,8 +406,8 @@ class RichComposerEditorState extends State<RichComposerEditor> {
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
     Overlay.of(context).insert(_slashOverlay!);
   }
@@ -435,20 +501,37 @@ class RichComposerEditorState extends State<RichComposerEditor> {
   void _showMentionOverlay() {
     _removeMentionOverlay();
     _mentionOverlay = OverlayEntry(
-      builder: (context) => Positioned(
-        width: 260,
-        child: CompositedTransformFollower(
-          link: _mentionLink,
-          showWhenUnlinked: false,
-          targetAnchor: Alignment.bottomLeft,
-          offset: const Offset(16, -8),
-          followerAnchor: Alignment.bottomLeft,
+      builder: (context) {
+        // 锚定光标(斜杠菜单同款):下方优先,近底翻上方
+        final caret = _caretGlobalRect;
+        final screen = MediaQuery.sizeOf(context);
+        const menuWidth = 260.0;
+        const menuMaxHeight = 220.0;
+        double left;
+        double? top;
+        double? bottom;
+        if (caret != null) {
+          left = caret.left.clamp(8.0, screen.width - menuWidth - 8);
+          if (screen.height - caret.bottom >= menuMaxHeight + 16) {
+            top = caret.bottom + 4;
+          } else {
+            bottom = screen.height - caret.top + 4;
+          }
+        } else {
+          left = 16;
+          bottom = 80;
+        }
+        return Positioned(
+          left: left,
+          top: top,
+          bottom: bottom,
+          width: menuWidth,
           child: Material(
             elevation: 4,
             borderRadius: BorderRadius.circular(8),
             clipBehavior: Clip.antiAlias,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 220),
+              constraints: const BoxConstraints(maxHeight: menuMaxHeight),
               child: ListView.builder(
                 shrinkWrap: true,
                 padding: EdgeInsets.zero,
@@ -467,8 +550,8 @@ class RichComposerEditorState extends State<RichComposerEditor> {
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
     Overlay.of(context).insert(_mentionOverlay!);
   }
@@ -897,6 +980,10 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                     onTableEdited: _onTableEdited,
                     // 单击 date chip → 属性编辑对话框
                     onAtomTap: _onAtomTap,
+                    // 光标全局矩形上抛(斜杠/mention 浮层锚定用)
+                    onCaretRectChanged: (r) => _caretGlobalRect = r,
+                    // 浮层激活时接管上下/回车/Esc(否则被编辑器拿去移光标)
+                    keyEventInterceptor: _interceptKeyEvent,
                     baseTextStyle: Theme.of(context)
                         .textTheme
                         .bodyLarge
