@@ -210,11 +210,11 @@ class _TopicPostListState extends State<TopicPostList> {
   @override
   void initState() {
     super.initState();
-    // 首屏渐进物化:仅顶部进入启用(跳转进入需要立即定位到目标楼层)
-    if (widget.centerPostIndex == 0) {
-      _materializeCap = _materializeStep;
-      _scheduleMaterializeStep();
-    }
+    // 首屏渐进物化:顶部/跳转进入都启用。跳转进入时 center 在 after
+    // 列表 index 0、before 列表 index 0 离 center 最近 —— cap 截断的
+    // 都是两侧**远端**,center 及近邻首帧即物化,定位不受影响。
+    _materializeCap = _materializeStep;
+    _scheduleMaterializeStep();
     // 首帧渲染后触发一次可见性检测，确保进入页面时即上报阅读状态
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -785,7 +785,12 @@ class _TopicPostListState extends State<TopicPostList> {
               // center 之前的 sliver 向上增长，index 0 离 center 最近，需要反转映射
               if (centerPostIndex > 0)
                 SliverList.builder(
-                  itemCount: centerScrollIndex,
+                  // 渐进物化:cap 截断的是远离 center 的上方远端
+                  itemCount: _materializeCap == null
+                      ? centerScrollIndex
+                      : (_materializeCap! < centerScrollIndex
+                          ? _materializeCap!
+                          : centerScrollIndex),
                   itemBuilder: (context, index) {
                     final segmentIndex = centerScrollIndex - 1 - index;
                     return _buildSegmentItem(
@@ -835,7 +840,12 @@ class _TopicPostListState extends State<TopicPostList> {
               else
                 SliverList.builder(
                   key: centerKey,
-                  itemCount: _renderSegments.length - centerScrollIndex,
+                  // 渐进物化:center 是本列表 index 0,cap 截断下方远端
+                  itemCount: () {
+                    final total = _renderSegments.length - centerScrollIndex;
+                    final cap = _materializeCap;
+                    return cap == null || cap >= total ? total : cap;
+                  }(),
                   itemBuilder: (context, index) {
                     final segmentIndex = centerScrollIndex + index;
                     return _buildSegmentItem(

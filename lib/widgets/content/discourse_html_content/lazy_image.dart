@@ -82,6 +82,12 @@ class _LazyImageState extends State<LazyImage> {
   /// 无声明尺寸的图,首帧落地会把占位换成真实高度 —— 只武装一次哨兵
   bool _armedForFirstFrame = false;
 
+  /// 与 Image 内部同款的滚动感知上下文:比例监听经 [ScrollAwareImageProvider]
+  /// 包装后,快速滚动中不首发加载。此前挂载即裸 resolve,把框架给 Image
+  /// 内建的快滚保护整个绕开了(cacheExtent 进入即发起下载+解码)。
+  late final DisposableBuildContext<State<LazyImage>> _scrollAwareContext =
+      DisposableBuildContext<State<LazyImage>>(this);
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -101,6 +107,7 @@ class _LazyImageState extends State<LazyImage> {
   @override
   void dispose() {
     _stopRatioResolve();
+    _scrollAwareContext.dispose();
     super.dispose();
   }
 
@@ -109,11 +116,14 @@ class _LazyImageState extends State<LazyImage> {
 
   /// 监听与 build 中同一 provider 的 ImageStream 拿实测尺寸(共享
   /// ImageCache 条目,不产生第二次解码),记入比例记忆。仅无声明尺寸
-  /// 的图需要;拿到首帧即移除监听。
+  /// 的图需要;拿到首帧即移除监听。经 ScrollAware 包装,快滚中不首发。
   void _resolveRatioIfNeeded() {
     if (_hasFixedBox || _ratioListener != null) return;
 
-    final stream = _buildProvider(context).resolve(
+    final stream = ScrollAwareImageProvider(
+      context: _scrollAwareContext,
+      imageProvider: _buildProvider(context),
+    ).resolve(
       createLocalImageConfiguration(context),
     );
     void onImage(ImageInfo info, bool synchronousCall) {
