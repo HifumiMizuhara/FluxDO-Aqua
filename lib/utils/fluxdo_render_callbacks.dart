@@ -1228,8 +1228,13 @@ class FluxdoRenderCallbacks {
                   position: details.globalPosition,
                 ),
               );
-              // 预览缩放胶囊(右上角浮层,子包统一视觉)。
-              if (onImageScaleChanged != null && image.scale != null) {
+              // 预览缩放胶囊(右上角浮层,子包统一视觉)。仅有界宽上下文
+              // (正常文档流段落图)出 —— grid 瓦片在 FittedBox(cover) 内
+              // 无约束测量(maxWidth infinite),浮层会随之缩放变形;grid
+              // 布局本身吃掉显示尺寸,瓦片内缩放视觉意义也弱,改走源码。
+              if (onImageScaleChanged != null &&
+                  image.scale != null &&
+                  lbc.maxWidth.isFinite) {
                 img = Stack(
                   clipBehavior: Clip.none,
                   children: [
