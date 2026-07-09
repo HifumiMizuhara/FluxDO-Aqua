@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:archive/archive.dart' show ZLibEncoder;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app_icons/app_icons.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
@@ -16,6 +18,7 @@ import 'package:visibility_detector/visibility_detector.dart';
 
 import '../l10n/s.dart';
 import '../pages/image_viewer_page.dart';
+import '../pages/mermaid_viewer_page.dart';
 import '../pages/user_profile_page.dart';
 import '../pages/topic_detail_page/topic_detail_page.dart';
 import '../models/topic.dart' show Post, MentionedUser, LinkCount;
@@ -24,6 +27,7 @@ import '../services/discourse/discourse_service.dart';
 import '../services/discourse_cache_manager.dart';
 import '../services/emoji_handler.dart';
 import '../services/highlighter_service.dart';
+import '../services/toast_service.dart';
 import '../utils/discourse_url_parser.dart';
 import '../utils/link_launcher.dart';
 import '../utils/url_helper.dart';
@@ -82,6 +86,7 @@ class FluxdoRenderCallbacks {
     required this.mentionTapHandler,
     required this.imageContentBuilder,
     required this.codeBlockHighlighter,
+    required this.codeBlockBuilder,
     required this.quoteAvatarBuilder,
     required this.footnoteTapHandler,
     required this.lazyVideoBuilder,
@@ -105,6 +110,7 @@ class FluxdoRenderCallbacks {
   final MentionTapHandler mentionTapHandler;
   final ImageContentBuilder imageContentBuilder;
   final CodeBlockHighlighter codeBlockHighlighter;
+  final CodeBlockBuilder codeBlockBuilder;
   final QuoteAvatarBuilder quoteAvatarBuilder;
   final FootnoteTapHandler footnoteTapHandler;
   final LazyVideoBuilder lazyVideoBuilder;
@@ -167,6 +173,7 @@ class FluxdoRenderCallbacks {
       mentionTapHandler: mentionTapHandler,
       imageContentBuilder: imageContentBuilder,
       codeBlockHighlighter: codeBlockHighlighter,
+      codeBlockBuilder: codeBlockBuilder,
       quoteAvatarBuilder: quoteAvatarBuilder,
       oneboxBuilder: oneboxBuilder,
       imageGridBuilder: imageGridBuilder,
@@ -316,18 +323,24 @@ class FluxdoRenderCallbacks {
     ));
   };
 
-  /// 代码块高亮:mermaid 走服务端出图,其余走 HighlighterService。
+  /// 代码块高亮:走 HighlighterService(mermaid 不会到这里 ——
+  /// [_codeBlockBuilder] 已按 language 整块接管)。
   static CodeBlockHighlighter get _codeBlockHighlighter =>
       (ctx, code, language) {
-    // mermaid 走服务端出图(mermaid.ink),不走语法高亮。
-    // language 由子包 parser 提取并已小写化(lang-mermaid → 'mermaid'),
-    // 直接全等比较即可。逐字对齐 legacy code_block_builder.dart 的
-    // _MermaidWidget(URL 构造 / 明暗 / 懒加载 / 错误兜底 / 点开高清)。
-    if (language == 'mermaid') {
-      return _MermaidView(code: code);
-    }
-    // 其余语言:同步 fast-path,async 高亮用 _AsyncHighlightedCode 包一层。
+    // 同步 fast-path,async 高亮用 _AsyncHighlightedCode 包一层。
     return _AsyncHighlightedCode(code: code, language: language);
+  };
+
+  /// 代码块整块 override:mermaid 换成独立图表块(灰底容器 + 图表/代码
+  /// 切换顶栏 + mermaid.ink 出图,逐字对齐 legacy _MermaidWidget)。
+  /// 其余语言返回 null → 子包默认代码块外壳(行号/滚动/复制)+ 上面的
+  /// highlighter。language 由子包 parser 提取并已小写化(lang-mermaid →
+  /// 'mermaid'),直接全等比较即可。
+  static CodeBlockBuilder get _codeBlockBuilder => (ctx, node) {
+    if (node.language == 'mermaid') {
+      return _MermaidBlock(code: node.code);
+    }
+    return null;
   };
 
   /// 引用卡头像:走 SmartAvatar(鉴权 + CDN 重写)。
@@ -874,6 +887,7 @@ class FluxdoRenderCallbacks {
         onQuoteImage: onQuoteImage,
       ),
       codeBlockHighlighter: _codeBlockHighlighter,
+      codeBlockBuilder: _codeBlockBuilder,
       quoteAvatarBuilder: _quoteAvatarBuilder,
       footnoteTapHandler: _footnoteHandler(heroNamespace, topicId),
       lazyVideoBuilder: _lazyVideoHandler(post.linkCounts ?? const []),
@@ -963,6 +977,7 @@ class FluxdoRenderCallbacks {
         topicId: topicId,
       ),
       codeBlockHighlighter: _codeBlockHighlighter,
+      codeBlockBuilder: _codeBlockBuilder,
       quoteAvatarBuilder: _quoteAvatarBuilder,
       footnoteTapHandler: _footnoteHandler(heroTagNamespace, topicId),
       lazyVideoBuilder: _lazyVideoHandler(const []),
@@ -1311,31 +1326,41 @@ class _AsyncHighlightedCodeState extends State<_AsyncHighlightedCode> {
   }
 }
 
-/// Mermaid 图渲染(纯主项目侧,逐字照搬 legacy
-/// `code_block_builder.dart` 的 `_MermaidWidget`:mermaid.ink 服务端出图 +
-/// 明暗主题 + 懒加载 + 错误重试 + 点开高清 width=2000)。
+/// Mermaid 图表块(纯主项目侧,经子包 CodeBlockBuilder 整块接管,UI 照搬
+/// legacy `code_block_builder.dart` 的 `_MermaidWidget`):
+/// 灰底容器(282a36/f6f8fa)+ 顶栏「图表⇄代码」切换 + 复制按钮;
+/// 图表态 mermaid.ink 服务端出图(懒加载 shimmer / 错误重试 / 点开高清
+/// width=2000),代码态 HighlighterService 高亮源码。
 ///
-/// 与 legacy 的差异(由新引擎容器结构决定):
-/// 1. 不再自带『图表/代码』切换工具栏与外层灰底容器 —— 子包 NodeFactory
-///    的 buildCodeBlock 已经包了灰底容器 + 顶栏(MERMAID chip + 复制按钮)。
-///    本 widget 按 CodeBlockHighlighter 约定『只返回内容』,只出图。
-/// 2. 父级(子包 _CodeBlockBody)水平方向给无界宽,故图片必须用 LayoutBuilder
-///    约束最大宽度,否则 CachedNetworkImage 在无界宽下测量崩溃 / 撑爆。
-class _MermaidView extends StatefulWidget {
-  const _MermaidView({required this.code});
+/// 与 legacy 的差异:
+/// 1. screenshotMode 不走构造参数,读子包 [ScreenshotMode] InheritedWidget
+///    (离屏渲染时立即出图、代码态不限高)。
+/// 2. **固定高度内容框**:对齐官方 mermaid 主题组件 `.mermaid-wrapper` 的
+///    `aspect-ratio: 16/9` —— shimmer / 出图 / 错误 / 代码态都在同一个
+///    16:9 框内(图 contain 缩放进框,代码框内滚动),加载完成或切换视图
+///    都不改块高,页面不抖。
+class _MermaidBlock extends StatefulWidget {
+  const _MermaidBlock({required this.code});
 
   /// 原始 mermaid 源码(子包已剥掉 ```mermaid 包裹,等于 legacy 的 text)。
   final String code;
 
   @override
-  State<_MermaidView> createState() => _MermaidViewState();
+  State<_MermaidBlock> createState() => _MermaidBlockState();
 }
 
-class _MermaidViewState extends State<_MermaidView>
+class _MermaidBlockState extends State<_MermaidBlock>
     with SingleTickerProviderStateMixin {
+  bool _showCode = false;
   bool _shouldLoad = false;
   bool _initialized = false;
   int _retryCount = 0;
+
+  /// 出图源:0 = kroki.io(主),1 = mermaid.ink(备)。
+  /// 主源加载失败自动 +1 降级;手动重试归零从主源重来。
+  int _sourceIndex = 0;
+  final _vController = ScrollController();
+  final _hController = ScrollController();
   AnimationController? _shimmerController;
 
   // 缓存 key:对齐 legacy 'mermaid-${text.hashCode}',用于 LazyLoadScope。
@@ -1368,6 +1393,8 @@ class _MermaidViewState extends State<_MermaidView>
 
   @override
   void dispose() {
+    _vController.dispose();
+    _hController.dispose();
     _shimmerController?.dispose();
     super.dispose();
   }
@@ -1379,10 +1406,32 @@ class _MermaidViewState extends State<_MermaidView>
     }
   }
 
-  void _retry() => setState(() => _retryCount++);
+  void _retry() => setState(() {
+        _retryCount++;
+        _sourceIndex = 0; // 重试从主源(kroki)重来
+      });
 
-  /// 逐字照搬 legacy _buildMermaidInkUrl:base64url(utf8) +
-  /// theme(dark/default)+ bgColor(282a36/f6f8fa)+ 可选 width。
+  /// kroki.io 出图 URL(主源):`GET /mermaid/{png|svg}/{zlib+base64url}?theme=`。
+  ///
+  /// 实测(2026-07-09)mermaid.ink 在国内网络已不可达(15s 超时),
+  /// kroki.io 稳定 ~1s;PNG 透明背景(左上像素 alpha=0 实测),直接透出
+  /// 容器灰底;`?theme=dark/default` 实测生效,对齐 legacy 两档。
+  /// PNG 只有 1x(公共实例 scale/width 不生效),高清查看走 [svg] 矢量
+  /// (含 foreignObject,只能 WebView 渲,见 MermaidViewerPage)。
+  String _buildKrokiUrl(String code, bool isDark, {bool svg = false}) {
+    final compressed = const ZLibEncoder().encodeBytes(
+      utf8.encode(code),
+      level: 9,
+    );
+    final encoded = base64Url.encode(compressed);
+    final theme = isDark ? 'dark' : 'default';
+    final format = svg ? 'svg' : 'png';
+    return 'https://kroki.io/mermaid/$format/$encoded?theme=$theme';
+  }
+
+  /// mermaid.ink 出图 URL(备源 + 高清):逐字照搬 legacy
+  /// _buildMermaidInkUrl:base64url(utf8) + theme(dark/default)+
+  /// bgColor(282a36/f6f8fa)+ 可选 width。
   String _buildMermaidInkUrl(String code, bool isDark, {int? width}) {
     final encoded = base64Url.encode(utf8.encode(code));
     final theme = isDark ? 'dark' : 'default';
@@ -1392,16 +1441,16 @@ class _MermaidViewState extends State<_MermaidView>
     return url;
   }
 
-  /// shimmer 占位(高度 100,1500ms 线性渐变,RepaintBoundary 隔离重绘)。
-  Widget _buildShimmer(ThemeData theme) {
+  /// shimmer 占位(铺满固定内容框,1500ms 线性渐变,RepaintBoundary 隔离重绘)。
+  Widget _buildShimmer(ThemeData theme, {bool withMargin = true}) {
     final controller = _shimmerController;
-    if (controller == null) return const SizedBox(height: 100);
+    if (controller == null) return const SizedBox.expand();
     return RepaintBoundary(
       child: AnimatedBuilder(
         animation: controller,
         builder: (context, child) {
           return Container(
-            height: 100,
+            margin: withMargin ? const EdgeInsets.all(12) : null,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
               gradient: LinearGradient(
@@ -1424,77 +1473,262 @@ class _MermaidViewState extends State<_MermaidView>
     );
   }
 
+  /// 代码态:HighlighterService 高亮 mermaid 源码,在固定内容框内双向滚动。
+  /// 截图模式不滚动、自动换行(块高仍由外层固定框决定)。
+  Widget _buildCodeView(bool isDark, Color thumbColor, bool screenshotMode) {
+    if (screenshotMode) {
+      return Padding(
+        padding: const EdgeInsets.all(12),
+        child: HighlighterService.instance.buildHighlightView(
+          widget.code,
+          language: 'mermaid',
+          isDark: isDark,
+          backgroundColor: Colors.transparent,
+          padding: EdgeInsets.zero,
+        ),
+      );
+    }
+    return Align(
+      alignment: Alignment.topLeft,
+      child: RawScrollbar(
+        controller: _vController,
+        thumbVisibility: false,
+        thickness: 4,
+        radius: const Radius.circular(2),
+        thumbColor: thumbColor,
+        child: SingleChildScrollView(
+          controller: _vController,
+          child: RawScrollbar(
+            controller: _hController,
+            thumbVisibility: false,
+            thickness: 4,
+            thumbColor: thumbColor,
+            child: SingleChildScrollView(
+              controller: _hController,
+              scrollDirection: Axis.horizontal,
+              child: HighlighterService.instance.buildHighlightView(
+                widget.code,
+                language: 'mermaid',
+                isDark: isDark,
+                backgroundColor: Colors.transparent,
+                padding: const EdgeInsets.all(12),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 图表态:懒加载 → 服务端出图(contain 缩放进固定内容框,点开高清,
+  /// 失败可重试)。占位 / 出图 / 错误共用同一个框,高度不变。
+  ///
+  /// 双源降级:kroki.io 主源(国内可达 ~1s)→ 失败自动切 mermaid.ink
+  /// 备源 → 再失败出错误 UI(重试从主源重来)。点开高清按当前生效源:
+  /// ink 支持 width=2000;kroki 公共实例无高清参数(scale/width 实测
+  /// 不生效),开原图靠手势放大。
+  Widget _buildChartView(ThemeData theme, bool isDark) {
+    if (!_shouldLoad) {
+      return VisibilityDetector(
+        key: Key('mermaid-$_cacheKey'),
+        onVisibilityChanged: (info) {
+          if (!_shouldLoad && info.visibleFraction > 0.01) {
+            _triggerLoad();
+          }
+        },
+        child: _buildShimmer(theme),
+      );
+    }
+    final onInk = _sourceIndex > 0;
+    final imageUrl = onInk
+        ? _buildMermaidInkUrl(widget.code, isDark)
+        : _buildKrokiUrl(widget.code, isDark);
+    return GestureDetector(
+      onTap: () {
+        // 点图 = 位图查看器(手势/保存/分享体验成熟)。高清:ink 可达时
+        // width=2000;kroki 只有 1x(公共实例 scale/width 不生效),大图
+        // 看细节走顶栏「放大」按钮的矢量查看页(SVG 缩放不糊)。
+        final hdUrl = onInk
+            ? _buildMermaidInkUrl(widget.code, isDark, width: 2000)
+            : imageUrl;
+        ImageViewerPage.open(context, hdUrl, enableShare: true);
+      },
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: CachedNetworkImage(
+          key: ValueKey('$imageUrl-$_retryCount'),
+          imageUrl: imageUrl,
+          cacheManager: ExternalImageCacheManager(),
+          fit: BoxFit.contain,
+          placeholder: (context, url) =>
+              _buildShimmer(theme, withMargin: false),
+          errorWidget: (context, url, error) {
+            if (!onInk) {
+              // 主源失败 → 下一帧切备源(build 内不能直接 setState)
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted && _sourceIndex == 0) {
+                  setState(() => _sourceIndex = 1);
+                }
+              });
+              return _buildShimmer(theme, withMargin: false);
+            }
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Symbols.error_rounded, color: theme.colorScheme.error),
+                  const SizedBox(height: 8),
+                  Text(
+                    S.current.codeBlock_chartLoadFailed,
+                    style: TextStyle(
+                        color: theme.colorScheme.error, fontSize: 12),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    onPressed: _retry,
+                    icon: const Icon(Symbols.refresh_rounded, size: 16),
+                    label: Text(S.current.common_retry),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final imageUrl = _buildMermaidInkUrl(widget.code, isDark);
+    final screenshotMode = ScreenshotMode.of(context);
+    final bgColor = isDark ? const Color(0xff282a36) : const Color(0xfff6f8fa);
+    final borderColor = theme.colorScheme.outlineVariant.withValues(alpha: 0.3);
+    final thumbColor =
+        (isDark ? Colors.white : Colors.black).withValues(alpha: 0.15);
 
-    // 子包父级(_CodeBlockBody)水平方向给无界宽,这里用 LayoutBuilder
-    // 取一个有界最大宽:有界则用之,无界兜底 600,避免 CachedNetworkImage
-    // 在无界宽下崩溃 / 横向无限撑。
-    return LayoutBuilder(
-      builder: (ctx, constraints) {
-        final maxW =
-            constraints.maxWidth.isFinite ? constraints.maxWidth : 600.0;
-        final content = !_shouldLoad
-            ? VisibilityDetector(
-                key: Key('mermaid-$_cacheKey'),
-                onVisibilityChanged: (info) {
-                  if (!_shouldLoad && info.visibleFraction > 0.01) {
-                    _triggerLoad();
-                  }
-                },
-                child: _buildShimmer(theme),
-              )
-            : GestureDetector(
-                onTap: () {
-                  final hdUrl =
-                      _buildMermaidInkUrl(widget.code, isDark, width: 2000);
-                  ImageViewerPage.open(ctx, hdUrl, enableShare: true);
-                },
-                child: CachedNetworkImage(
-                  key: ValueKey('$imageUrl-$_retryCount'),
-                  imageUrl: imageUrl,
-                  cacheManager: ExternalImageCacheManager(),
-                  fit: BoxFit.contain,
-                  placeholder: (context, url) => _buildShimmer(theme),
-                  errorWidget: (context, url, error) => Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Symbols.error_rounded,
-                            color: theme.colorScheme.error),
-                        const SizedBox(height: 8),
-                        Text(
-                          S.current.codeBlock_chartLoadFailed,
-                          style: TextStyle(
-                              color: theme.colorScheme.error, fontSize: 12),
-                        ),
-                        const SizedBox(height: 8),
-                        TextButton.icon(
-                          onPressed: _retry,
-                          icon: const Icon(Symbols.refresh_rounded, size: 16),
-                          label: Text(S.current.common_retry),
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 4),
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        color: bgColor,
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 工具栏:「图表⇄代码」切换 + 复制(不参与选区)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: borderColor)),
+            ),
+            child: SelectionContainer.disabled(
+              child: Row(
+                children: [
+                  InkWell(
+                    onTap: () => setState(() => _showCode = !_showCode),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _showCode
+                                ? Symbols.auto_graph_rounded
+                                : Symbols.code_rounded,
+                            size: 16,
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.7),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 4),
+                          Text(
+                            _showCode
+                                ? S.current.codeBlock_chart
+                                : S.current.codeBlock_code,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              );
-        // 用有界宽包住,水平方向不再向父级请求无限宽。
-        return ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: maxW),
-          child: SizedBox(width: maxW, child: content),
-        );
-      },
+                  const Spacer(),
+                  // 矢量放大(仅图表态):kroki SVG + WebView,大图任意
+                  // 缩放不糊 —— kroki PNG 恒 1x,mindmap 等大图位图必糊。
+                  if (!_showCode)
+                    InkWell(
+                      onTap: () {
+                        MermaidViewerPage.open(
+                          context,
+                          svgUrl:
+                              _buildKrokiUrl(widget.code, isDark, svg: true),
+                          fallbackImageUrl: _sourceIndex > 0
+                              ? _buildMermaidInkUrl(widget.code, isDark,
+                                  width: 2000)
+                              : _buildKrokiUrl(widget.code, isDark),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(4),
+                      child: Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: Icon(
+                          Symbols.pan_zoom_rounded,
+                          size: 16,
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ),
+                  InkWell(
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: widget.code));
+                      ToastService.showSuccess(S.current.common_codeCopied);
+                    },
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.all(6),
+                      child: Icon(
+                        Symbols.content_copy_rounded,
+                        size: 16,
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // 内容区域:16:9 固定高度框(对齐官方 mermaid 主题组件
+          // .mermaid-wrapper 的 aspect-ratio: 16/9)。shimmer / 出图 /
+          // 错误 / 代码态共用同一个框 → 加载完成或切视图块高不变,页面不抖。
+          ClipRRect(
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(8),
+              bottomRight: Radius.circular(8),
+            ),
+            child: AspectRatio(
+              aspectRatio: 16 / 9,
+              child: _showCode
+                  ? _buildCodeView(isDark, thumbColor, screenshotMode)
+                  : _buildChartView(theme, isDark),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -245,6 +245,7 @@ class NewEngineChunkSegment extends StatelessWidget {
           mentionTapHandler: callbacks.mentionTapHandler,
           imageContentBuilder: callbacks.imageContentBuilder,
           codeBlockHighlighter: callbacks.codeBlockHighlighter,
+          codeBlockBuilder: callbacks.codeBlockBuilder,
           quoteAvatarBuilder: callbacks.quoteAvatarBuilder,
           footnoteTapHandler: callbacks.footnoteTapHandler,
           lazyVideoBuilder: callbacks.lazyVideoBuilder,
