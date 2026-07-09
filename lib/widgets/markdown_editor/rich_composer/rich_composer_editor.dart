@@ -28,6 +28,7 @@ import 'package:fluxdo_render/fluxdo_render.dart'
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../constants.dart';
 import '../../../models/mention_user.dart';
 import '../../../services/app_error_handler.dart';
 import '../../../services/discourse/discourse_service.dart';
@@ -36,6 +37,7 @@ import '../../../services/emoji_handler.dart';
 import '../../../utils/dialog_utils.dart';
 import '../../../utils/fluxdo_render_callbacks.dart';
 import '../../common/fading_edge_scroll_view.dart';
+import '../../common/smart_avatar.dart';
 import '../../content/discourse_html_content/image_utils.dart';
 import '../../mention/mention_autocomplete.dart';
 import '../emoji_sticker_panel.dart';
@@ -158,6 +160,7 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     _mentionDebounce?.cancel();
     _removeMentionOverlay();
     _removeSlashOverlay();
+    _slashScroll.dispose();
     _editor?.removeListener(_onDocChanged);
     _editor?.dispose();
     super.dispose();
@@ -242,10 +245,14 @@ class RichComposerEditorState extends State<RichComposerEditor> {
       case LogicalKeyboardKey.arrowDown:
         _slashSelected = (_slashSelected + 1) % items.length;
         _slashOverlay!.markNeedsBuild();
+        WidgetsBinding.instance
+            .addPostFrameCallback((_) => _ensureSlashSelectedVisible());
         return true;
       case LogicalKeyboardKey.arrowUp:
         _slashSelected = (_slashSelected - 1 + items.length) % items.length;
         _slashOverlay!.markNeedsBuild();
+        WidgetsBinding.instance
+            .addPostFrameCallback((_) => _ensureSlashSelectedVisible());
         return true;
       case LogicalKeyboardKey.enter:
       case LogicalKeyboardKey.numpadEnter:
@@ -346,6 +353,9 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     }
   }
 
+  /// 键盘选中项滚动到可视区用。
+  final ScrollController _slashScroll = ScrollController();
+
   void _showSlashOverlay() {
     _removeSlashOverlay();
     _slashSelected = 0;
@@ -354,8 +364,8 @@ class RichComposerEditorState extends State<RichComposerEditor> {
         // 锚定光标(全局矩形):默认弹光标下方;近屏幕底翻到上方。
         final caret = _caretGlobalRect;
         final screen = MediaQuery.sizeOf(context);
-        const menuWidth = 240.0;
-        const menuMaxHeight = 280.0;
+        const menuWidth = 244.0;
+        const menuMaxHeight = 302.0; // 7 行 × 40 + 边距(半行截断暗示可滚)
         double left;
         double? top;
         double? bottom;
@@ -363,9 +373,9 @@ class RichComposerEditorState extends State<RichComposerEditor> {
           left = caret.left.clamp(8.0, screen.width - menuWidth - 8);
           final below = screen.height - caret.bottom;
           if (below >= menuMaxHeight + 16) {
-            top = caret.bottom + 4;
+            top = caret.bottom + 6;
           } else {
-            bottom = screen.height - caret.top + 4;
+            bottom = screen.height - caret.top + 6;
           }
         } else {
           left = 16;
@@ -378,38 +388,45 @@ class RichComposerEditorState extends State<RichComposerEditor> {
           top: top,
           bottom: bottom,
           width: menuWidth,
-          child: Material(
-            elevation: 4,
-            borderRadius: BorderRadius.circular(8),
-            clipBehavior: Clip.antiAlias,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: menuMaxHeight),
-              child: ListView.builder(
-                shrinkWrap: true,
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                itemCount: items.length,
-                itemBuilder: (context, i) {
-                  final (_, label, icon, action) = items[i];
-                  return ListTile(
-                    dense: true,
-                    visualDensity: VisualDensity.compact,
-                    selected: i == _slashSelected,
-                    selectedTileColor: Theme.of(context)
-                        .colorScheme
-                        .primary
-                        .withValues(alpha: 0.1),
-                    leading: Icon(icon, size: 18),
-                    title: Text(label, style: const TextStyle(fontSize: 13)),
-                    onTap: () => _runSlashAction(action),
-                  );
-                },
-              ),
+          child: _FloatingPanel(
+            maxHeight: menuMaxHeight,
+            child: ListView.builder(
+              controller: _slashScroll,
+              shrinkWrap: true,
+              padding: const EdgeInsets.all(4),
+              itemCount: items.length,
+              itemExtent: 40,
+              itemBuilder: (context, i) {
+                final (_, label, icon, action) = items[i];
+                return _SlashMenuRow(
+                  icon: icon,
+                  label: label,
+                  selected: i == _slashSelected,
+                  onTap: () => _runSlashAction(action),
+                );
+              },
             ),
           ),
         );
       },
     );
     Overlay.of(context).insert(_slashOverlay!);
+  }
+
+  /// 键盘导航后把选中项滚进可视区(itemExtent 固定行高,直接算)。
+  void _ensureSlashSelectedVisible() {
+    if (!_slashScroll.hasClients) return;
+    const itemH = 40.0;
+    final top = _slashSelected * itemH;
+    final bottom = top + itemH;
+    final viewTop = _slashScroll.offset;
+    final viewBottom = viewTop + _slashScroll.position.viewportDimension;
+    if (top < viewTop) {
+      _slashScroll.jumpTo(top);
+    } else if (bottom > viewBottom) {
+      _slashScroll.jumpTo(
+          bottom - _slashScroll.position.viewportDimension);
+    }
   }
 
   /// 执行候选:先删 `/query` 前缀,再跑动作。
@@ -526,28 +543,19 @@ class RichComposerEditorState extends State<RichComposerEditor> {
           top: top,
           bottom: bottom,
           width: menuWidth,
-          child: Material(
-            elevation: 4,
-            borderRadius: BorderRadius.circular(8),
-            clipBehavior: Clip.antiAlias,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: menuMaxHeight),
-              child: ListView.builder(
-                shrinkWrap: true,
-                padding: EdgeInsets.zero,
-                itemCount: _mentionCandidates.length,
-                itemBuilder: (context, i) {
-                  final user = _mentionCandidates[i];
-                  return ListTile(
-                    dense: true,
-                    title: Text('@${user.username}'),
-                    subtitle: (user.name?.isNotEmpty ?? false)
-                        ? Text(user.name!)
-                        : null,
-                    onTap: () => _insertMention(user),
-                  );
-                },
-              ),
+          child: _FloatingPanel(
+            maxHeight: menuMaxHeight,
+            child: ListView.builder(
+              shrinkWrap: true,
+              padding: const EdgeInsets.all(4),
+              itemCount: _mentionCandidates.length,
+              itemBuilder: (context, i) {
+                final user = _mentionCandidates[i];
+                return _MentionRow(
+                  user: user,
+                  onTap: () => _insertMention(user),
+                );
+              },
             ),
           ),
         );
@@ -1450,6 +1458,187 @@ class _SingleLineInputDialogState extends State<_SingleLineInputDialog> {
           child: const Text('应用'),
         ),
       ],
+    );
+  }
+}
+
+/// 编辑器浮层统一容器(斜杠菜单/mention 面板):圆角 12 + 细边框 +
+/// 柔和投影 + surface 底 —— 对齐 app 弹层视觉,替代裸 Material elevation。
+class _FloatingPanel extends StatelessWidget {
+  const _FloatingPanel({required this.maxHeight, required this.child});
+
+  final double maxHeight;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: child,
+      ),
+    );
+  }
+}
+
+/// 斜杠菜单行:图标底板 + 紧凑行高 + 圆角选中态(Notion 风)。
+class _SlashMenuRow extends StatelessWidget {
+  const _SlashMenuRow({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+      child: Material(
+        color: selected
+            ? scheme.primary.withValues(alpha: 0.12)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(children: [
+              Container(
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest
+                      .withValues(alpha: selected ? 0.9 : 0.6),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(
+                  icon,
+                  size: 15,
+                  color: selected ? scheme.primary : scheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                    color: selected ? scheme.primary : scheme.onSurface,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (selected)
+                Icon(Icons.keyboard_return_rounded,
+                    size: 13,
+                    color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// mention 候选行:头像 + @用户名/显示名(纯文本编辑器 mention 面板
+/// 同视觉语言)。
+class _MentionRow extends StatelessWidget {
+  const _MentionRow({required this.user, required this.onTap});
+
+  final MentionUser user;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final avatarUrl = user.getAvatarUrl(AppConstants.baseUrl, size: 48);
+    final showName =
+        (user.name?.isNotEmpty ?? false) && user.name != user.username;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            child: Row(children: [
+              if (avatarUrl != null && avatarUrl.isNotEmpty)
+                SmartAvatar(
+                  imageUrl: avatarUrl,
+                  radius: 12,
+                  fallbackText: user.username,
+                )
+              else
+                CircleAvatar(
+                  radius: 12,
+                  backgroundColor: scheme.primaryContainer,
+                  child: Text(
+                    user.username.isEmpty
+                        ? '?'
+                        : user.username[0].toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: scheme.onPrimaryContainer,
+                    ),
+                  ),
+                ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '@${user.username}',
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w500),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (showName)
+                      Text(
+                        user.name!,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
+              ),
+            ]),
+          ),
+        ),
+      ),
     );
   }
 }
