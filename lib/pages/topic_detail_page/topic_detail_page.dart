@@ -717,7 +717,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
     }
   }
 
-  void _maybeSwitchToMasterDetail(bool canShowDetailPane, TopicDetail? detail) {
+  void _maybeSwitchToMasterDetail(bool canShowDetailPane) {
     if (widget.embeddedMode) {
       _lastCanShowDetailPane = canShowDetailPane;
       return;
@@ -740,17 +740,17 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
 
     if (previous == null) {
       if (canShowDetailPane) {
-        _switchToMasterDetail(detail);
+        _switchToMasterDetail();
       }
       return;
     }
     if (previous == canShowDetailPane) return;
     if (!previous && canShowDetailPane) {
-      _switchToMasterDetail(detail);
+      _switchToMasterDetail();
     }
   }
 
-  void _switchToMasterDetail(TopicDetail? detail) {
+  void _switchToMasterDetail() {
     _isAutoSwitching = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -765,7 +765,11 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
           .read(selectedTopicProvider.notifier)
           .select(
             topicId: widget.topicId,
-            initialTitle: detail?.title ?? widget.initialTitle,
+            // 切换瞬间现读即可,不需要 build 期持有 detail(顶层已不再
+            // watch 完整 detail,见 build 内注释)
+            initialTitle:
+                ref.read(topicDetailProvider(_params)).value?.title ??
+                widget.initialTitle,
             scrollToPostNumber: currentPostNumber,
             instanceId: _instanceId,
           );
@@ -1622,8 +1626,15 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
     });
 
     final params = _params;
-    final detailAsync = ref.watch(topicDetailProvider(params));
-    final detail = detailAsync.value;
+    // 整页 rebuild 解耦:顶层不再 watch 完整 detail —— 生产 STALL-PROF
+    // 定案,每次翻页落地/msgbus 更新都从 Scaffold 到浮层全链重建
+    // (~60ms UI 阻塞,STALL 主力)。完整 detail 的 watch 下沉到
+    // AppBar/body/AI 页各自的 Consumer 边界,落地帧只重建这三块,
+    // 页面骨架(LazyLoadScope/PopScope/PageView/Scaffold)整体短路。
+    // 顶层只保留"是否已有数据"布尔信号(null↔非null 边界才重建)。
+    final hasDetail = ref.watch(
+      topicDetailProvider(params).select((a) => a.value != null),
+    );
     final notifier = ref.read(topicDetailProvider(params).notifier);
 
     // 会话已读集合变化(timings 上报成功后 markAsRead)只需推给 controller
@@ -1640,7 +1651,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
       _updateReadPostNumbers(readPostNumbers);
     });
 
-    _maybeSwitchToMasterDetail(canShowDetailPane, detail);
+    _maybeSwitchToMasterDetail(canShowDetailPane);
 
     // 监听 MessageBus 事件
     ref.listen(topicChannelProvider(widget.topicId), (previous, next) {
@@ -1824,7 +1835,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
     }
 
     // 首次引导检查（仅滑动入口模式）
-    if (useSwipeEntry && hasAiModel && !_aiGuideChecked && detail != null) {
+    if (useSwipeEntry && hasAiModel && !_aiGuideChecked && hasDetail) {
       _aiGuideChecked = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -1834,9 +1845,35 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
       });
     }
 
+    // AppBar 两个分支高度恒为 kToolbarHeight(搜索 AppBar 无 bottom,
+    // 正常分支自身就是 PreferredSize(kToolbarHeight)),外层声明恒定
+    // 高度后,内部随 detail 重建不影响 Scaffold 布局
     final topicScaffold = Scaffold(
-      appBar: _buildAppBar(theme: theme, detail: detail, notifier: notifier),
-      body: _buildBody(context, detailAsync, detail, notifier, isLoggedIn),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: Consumer(
+          builder: (context, ref, _) {
+            final detail = ref.watch(topicDetailProvider(params)).value;
+            return _buildAppBar(
+              theme: theme,
+              detail: detail,
+              notifier: notifier,
+            );
+          },
+        ),
+      ),
+      body: Consumer(
+        builder: (context, ref, _) {
+          final detailAsync = ref.watch(topicDetailProvider(params));
+          return _buildBody(
+            context,
+            detailAsync,
+            detailAsync.value,
+            notifier,
+            isLoggedIn,
+          );
+        },
+      ),
     );
 
     // 无 AI 模型或非滑动入口模式：普通布局
@@ -1896,28 +1933,36 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
               children: [
                 _KeepAlivePage(child: topicScaffold),
                 _KeepAlivePage(
-                  child: AiChatPage(
-                    topicId: widget.topicId,
-                    detail: detail,
-                    embedded: true,
-                    onReplyToTopic: detail == null
-                        ? null
-                        : (imageMarkdown) {
-                            _pageController.animateToPage(
-                              0,
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeOutCubic,
-                            );
-                            showReplySheet(
-                              context: context,
-                              topicId: widget.topicId,
-                              categoryId: detail.categoryId,
-                              initialContent: '$imageMarkdown\n',
-                              topicTitle: detail.title,
-                              isPrivateMessageTopic: detail.isPrivateMessage,
-                              isPmWithNonHumanUser: detail.pmWithNonHumanUser,
-                            );
-                          },
+                  child: Consumer(
+                    builder: (context, ref, _) {
+                      final detail =
+                          ref.watch(topicDetailProvider(params)).value;
+                      return AiChatPage(
+                        topicId: widget.topicId,
+                        detail: detail,
+                        embedded: true,
+                        onReplyToTopic: detail == null
+                            ? null
+                            : (imageMarkdown) {
+                                _pageController.animateToPage(
+                                  0,
+                                  duration: const Duration(milliseconds: 300),
+                                  curve: Curves.easeOutCubic,
+                                );
+                                showReplySheet(
+                                  context: context,
+                                  topicId: widget.topicId,
+                                  categoryId: detail.categoryId,
+                                  initialContent: '$imageMarkdown\n',
+                                  topicTitle: detail.title,
+                                  isPrivateMessageTopic:
+                                      detail.isPrivateMessage,
+                                  isPmWithNonHumanUser:
+                                      detail.pmWithNonHumanUser,
+                                );
+                              },
+                      );
+                    },
                   ),
                 ),
               ],
