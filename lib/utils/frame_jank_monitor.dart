@@ -1,11 +1,15 @@
 import 'dart:async';
+import 'dart:io' show Directory, File, Platform, pid;
+import 'dart:ui' show FramePhase;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../widgets/common/perf_overlay.dart';
 import 'jank_profiler.dart';
 
 /// 一条掉帧记录(供诊断页展示与导出)
@@ -115,6 +119,8 @@ class FrameJankMonitor {
     }).catchError((_) {}));
     // 掉帧现场抓取(debug/profile;release 内部自动跳过)
     unawaited(JankProfiler.ensureInitialized());
+    // 悬浮监控面板:开关持久化在 prefs,跟随监控启动恢复
+    unawaited(PerfOverlay.restoreIfEnabled());
     debugPrint(
       '[JANK] monitor started, threshold ${_jankThreshold.inMilliseconds}ms',
     );
@@ -312,6 +318,15 @@ class FrameJankMonitor {
           cause: cause,
         );
         final details = <String>[];
+        // 排队拆分:total 远大于三分项之和的帧,缺口在 buildFinish →
+        // rasterStart 之间(raster 线程忙别的活/抢不到核,帧在管线里干等)。
+        // 显式写出"等待"vs"实干",高负载卡顿的定性不再靠减法心算。
+        final queueMs = (t.timestampInMicroseconds(FramePhase.rasterStart) -
+                t.timestampInMicroseconds(FramePhase.buildFinish)) /
+            1000.0;
+        if (queueMs > 3) {
+          details.add('队列等待 ${queueMs.toStringAsFixed(1)}ms');
+        }
         // build 大帧:附本帧构建清单(为空 = 空转/GC/线程挤占,见 noteBuild)
         if (t.buildDuration > const Duration(milliseconds: 6)) {
           final notes = _buildNotesFor(t.frameNumber);
@@ -345,6 +360,9 @@ class FrameJankMonitor {
         }
         // 异步抓取该帧的 timeline 解剖(节流在 profiler 内部)
         JankProfiler.captureForFrame(t, record);
+        // jank 爆发时自动抓一次线程 CPU 分布(卡顿不必现,人工采样永远
+        // 慢一步;30s 节流)
+        _maybeAutoCpuSample(t);
         changed = true;
       }
     }
@@ -365,6 +383,133 @@ class FrameJankMonitor {
       _worstBuild = Duration.zero;
       _worstRaster = Duration.zero;
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 线程 CPU 采样(release 可用,Android/Linux):回答"CPU 烧在谁身上"。
+  //
+  // 读 /proc/self/task/*/stat 两次(间隔 1s)取 utime+stime 差值,按线程
+  // 归类排序写入时间轴。USER_HZ=100 → 1s 窗口内的 tick 数值上等于
+  // 单核占用百分比,无需换算。触发:jank 爆发(1s 内 ≥8 掉帧或单帧
+  // total>40ms)自动一次(30s 节流),悬浮面板可手动。
+  // ---------------------------------------------------------------------------
+
+  static bool get cpuSampleSupported =>
+      !kIsWeb && (Platform.isAndroid || Platform.isLinux);
+
+  static DateTime _lastCpuSampleAt = DateTime.fromMillisecondsSinceEpoch(0);
+  static bool _cpuSampling = false;
+  static final List<DateTime> _recentJankTimes = [];
+
+  static void _maybeAutoCpuSample(FrameTiming t) {
+    if (!cpuSampleSupported || _cpuSampling) return;
+    final now = DateTime.now();
+    _recentJankTimes.add(now);
+    while (_recentJankTimes.isNotEmpty &&
+        now.difference(_recentJankTimes.first) > const Duration(seconds: 1)) {
+      _recentJankTimes.removeAt(0);
+    }
+    final burst = _recentJankTimes.length >= 8 ||
+        t.totalSpan > const Duration(milliseconds: 40);
+    if (!burst) return;
+    if (now.difference(_lastCpuSampleAt) < const Duration(seconds: 30)) return;
+    _lastCpuSampleAt = now;
+    unawaited(sampleThreadCpu(reason: 'jank爆发'));
+  }
+
+  /// 采一次线程 CPU 分布(1s 窗口)并写入时间轴。悬浮面板手动触发也走这。
+  static Future<void> sampleThreadCpu({String reason = '手动'}) async {
+    if (!cpuSampleSupported || _cpuSampling || !_started) return;
+    _cpuSampling = true;
+    try {
+      final first = await _readThreadTicks();
+      await Future.delayed(const Duration(seconds: 1));
+      final second = await _readThreadTicks();
+      if (first.isEmpty || second.isEmpty) return;
+
+      final byGroup = <String, int>{};
+      var total = 0;
+      second.forEach((tid, info) {
+        final prev = first[tid];
+        if (prev == null) return;
+        final d = info.$2 - prev.$2;
+        if (d <= 0) return;
+        total += d;
+        final g = _threadGroup(tid, info.$1);
+        byGroup[g] = (byGroup[g] ?? 0) + d;
+      });
+      if (total <= 0) {
+        logEvent('CPU', '$reason:1s 窗口内进程近乎空闲');
+        return;
+      }
+      final parts =
+          (byGroup.entries.toList()..sort((a, b) => b.value.compareTo(a.value)))
+              .take(6)
+              .map((e) => '${e.key} ${e.value}%')
+              .join(' | ');
+      logEvent('CPU', '$reason 采样(单核%): $parts | 进程合计 $total%');
+    } catch (e) {
+      logEvent('CPU', '采样失败: $e');
+    } finally {
+      _cpuSampling = false;
+    }
+  }
+
+  /// tid → (线程名, utime+stime ticks)。
+  static Future<Map<int, (String, int)>> _readThreadTicks() async {
+    final result = <int, (String, int)>{};
+    try {
+      await for (final e in Directory('/proc/self/task').list()) {
+        final tid = int.tryParse(e.path.split('/').last);
+        if (tid == null) continue;
+        try {
+          final stat = await File('${e.path}/stat').readAsString();
+          // comm 在括号内且可能含空格:定位最后一个 ')'
+          final close = stat.lastIndexOf(')');
+          if (close < 0) continue;
+          final name = stat.substring(stat.indexOf('(') + 1, close);
+          final fields = stat.substring(close + 2).split(' ');
+          // stat 第 14/15 字段是 utime/stime,')' 后偏移 11/12
+          if (fields.length < 13) continue;
+          final utime = int.tryParse(fields[11]) ?? 0;
+          final stime = int.tryParse(fields[12]) ?? 0;
+          result[tid] = (name, utime + stime);
+        } catch (_) {
+          // 线程窗口期退出,跳过
+        }
+      }
+    } catch (_) {}
+    return result;
+  }
+
+  static String _threadGroup(int tid, String name) {
+    if (tid == pid) return 'main平台线程';
+    if (name.contains('.ui')) return 'ui(Dart)';
+    if (name.contains('.raster')) return 'raster';
+    if (name.contains('.io')) return 'io';
+    if (name.startsWith('DartWorker') ||
+        name.startsWith('Worker') ||
+        name.startsWith('io.flutter')) {
+      return 'worker(解码等)';
+    }
+    if (name.startsWith('Chrome') ||
+        name.startsWith('Compositor') ||
+        name.startsWith('CookieMonster') ||
+        name.startsWith('ThreadPool') ||
+        name.startsWith('Network') ||
+        name.startsWith('VizCompositor')) {
+      return 'webview';
+    }
+    if (name.startsWith('Cronet') || name.contains('OkHttp')) return '网络';
+    if (name.startsWith('mali') ||
+        name.startsWith('Adreno') ||
+        name.contains('GPU')) {
+      return 'gpu驱动';
+    }
+    if (name.contains('GC') || name.contains('Heap') || name.startsWith('Jit')) {
+      return 'gc/jit';
+    }
+    return '其它';
   }
 
   /// 当前语义树节点总数(未启用语义时为 -1)。
