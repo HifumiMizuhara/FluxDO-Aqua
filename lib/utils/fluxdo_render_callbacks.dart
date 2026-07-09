@@ -300,18 +300,13 @@ class FluxdoRenderCallbacks {
       ),
     );
     // 动图 emoji 逐帧 markNeedsPaint,不隔离会冒泡到帖子 segment 的
-    // RepaintBoundary 造成整帖每帧重绘(滚动中有动图 emoji 即持续掉帧)
-    if (_isGifUrl(resolvedUrl)) {
-      image = RepaintBoundary(child: image);
-    }
-    return image;
+    // RepaintBoundary 造成整帖每帧重绘(滚动中有动图 emoji 即持续掉帧)。
+    // 无条件包 boundary:此前按 .gif 后缀判定,动 WebP/动 AVIF/无后缀
+    // CDN 改写 URL 全部漏网 —— 一个漏网动表情 = 整帖每帧全量重光栅。
+    // boundary 本身只是一个 layer 节点(Impeller 无独立纹理驻留成本),
+    // 静图多付的这层远小于漏网代价。
+    return RepaintBoundary(child: image);
   };
-
-  static bool _isGifUrl(String url) {
-    final q = url.indexOf('?');
-    final path = q == -1 ? url : url.substring(0, q);
-    return path.toLowerCase().endsWith('.gif');
-  }
 
   /// Mention chip 点击 → 跳用户资料页。
   static MentionTapHandler get _mentionTapHandler => (ctx, username, href) {
