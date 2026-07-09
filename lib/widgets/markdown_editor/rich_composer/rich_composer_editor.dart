@@ -156,6 +156,7 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     _serializeDebounce?.cancel();
     _mentionDebounce?.cancel();
     _removeMentionOverlay();
+    _removeSlashOverlay();
     _editor?.removeListener(_onDocChanged);
     _editor?.dispose();
     super.dispose();
@@ -191,6 +192,7 @@ class RichComposerEditorState extends State<RichComposerEditor> {
       }
     });
     _updateMentionQuery();
+    _updateSlashQuery();
   }
 
   bool _computeIsEmpty() {
@@ -211,6 +213,178 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     if (raw != widget.controller.text) {
       widget.controller.text = raw;
     }
+  }
+
+  // -----------------------------------------------------------------
+  // 斜杠菜单(段首 `/` 唤起块插入 —— 类 Notion)
+  // -----------------------------------------------------------------
+
+  OverlayEntry? _slashOverlay;
+  String? _slashQuery;
+
+  /// 候选:(关键字集, 标签, 图标, 动作)。关键字含中文与英文别名。
+  late final List<(List<String>, String, IconData, Future<void> Function())>
+      _slashItems = [
+    (['h1', 'heading', '标题', 'bt'], '标题 1', Icons.title_rounded,
+        () async => _applySlashBlock((s) => s.setHeading(1))),
+    (['h2', '标题2'], '标题 2', Icons.title_rounded,
+        () async => _applySlashBlock((s) => s.setHeading(2))),
+    (['h3', '标题3'], '标题 3', Icons.title_rounded,
+        () async => _applySlashBlock((s) => s.setHeading(3))),
+    (['ul', 'list', '列表', 'lb', 'wxlb'], '无序列表',
+        Icons.format_list_bulleted_rounded,
+        () async => _applySlashBlock((s) => s.toggleList(ordered: false))),
+    (['ol', '有序', 'yxlb'], '有序列表', Icons.format_list_numbered_rounded,
+        () async => _applySlashBlock((s) => s.toggleList(ordered: true))),
+    (['quote', '引用', 'yy'], '引用', Icons.format_quote_rounded,
+        () async => _applySlashBlock((s) => s.toggleQuote())),
+    (['table', '表格', 'bg'], '表格', Icons.table_chart_outlined,
+        () async => insertMarkdownSnippet(
+            '| 列 1 | 列 2 |\n|---|---|\n| 内容 | 内容 |')),
+    (['code', '代码', 'dm'], '代码块', Icons.code_rounded,
+        () async => insertMarkdownSnippet('```dart\n// 代码\n```')),
+    (['math', '公式', 'gs'], '公式块', Icons.functions_rounded,
+        () async => insertMarkdownSnippet(r'$$' '\nE=mc^2\n' r'$$')),
+    (['hr', 'divider', '分隔', 'fgx'], '分隔线', Icons.horizontal_rule_rounded,
+        () async => insertMarkdownSnippet('---')),
+    (['details', '折叠', 'zd'], '折叠详情', Icons.expand_circle_down_outlined,
+        () async =>
+            insertMarkdownSnippet('[details="点开看"]\n折叠内容\n[/details]')),
+    (['spoiler', '剧透', 'jt'], '剧透遮罩', Icons.blur_on_rounded,
+        () async => insertMarkdownSnippet('[spoiler]\n剧透内容\n[/spoiler]')),
+    (['date', '日期', '时间', 'rq', 'sj'], '日期时间', Icons.event_rounded,
+        () async => _insertLocalDate()),
+    (['image', '图片', 'tp'], '上传图片', Icons.image_outlined,
+        () async => _pickAndUploadImages()),
+  ];
+
+  List<(List<String>, String, IconData, Future<void> Function())>
+      get _slashFiltered {
+    final q = (_slashQuery ?? '').toLowerCase();
+    if (q.isEmpty) return _slashItems;
+    return [
+      for (final item in _slashItems)
+        if (item.$1.any((k) => k.contains(q)) || item.$2.contains(q)) item,
+    ];
+  }
+
+  /// 光标前缀 = 段首 `/query` → 弹菜单(块级插入语义只在段首,行中的
+  /// `/` 是普通字符 —— Notion 同款)。
+  void _updateSlashQuery() {
+    final editor = _editor;
+    if (editor == null) return;
+    final sel = editor.selection;
+    if (sel == null || !sel.isCollapsed) {
+      _dismissSlash();
+      return;
+    }
+    final block = editor.textBlockById(sel.extent.blockId);
+    if (block == null || editor.hasComposing) {
+      _dismissSlash();
+      return;
+    }
+    final before = block.content.text.substring(0, sel.extent.offset);
+    final m = RegExp(r'^/([\w一-鿿]*)$').firstMatch(before);
+    if (m == null) {
+      _dismissSlash();
+      return;
+    }
+    final query = m.group(1)!;
+    if (query == _slashQuery && _slashOverlay != null) {
+      _slashOverlay!.markNeedsBuild();
+      return;
+    }
+    _slashQuery = query;
+    if (_slashFiltered.isEmpty) {
+      _dismissSlash();
+      return;
+    }
+    if (_slashOverlay == null) {
+      _showSlashOverlay();
+    } else {
+      _slashOverlay!.markNeedsBuild();
+    }
+  }
+
+  void _showSlashOverlay() {
+    _removeSlashOverlay();
+    _slashOverlay = OverlayEntry(
+      builder: (context) => Positioned(
+        width: 240,
+        child: CompositedTransformFollower(
+          link: _mentionLink,
+          showWhenUnlinked: false,
+          targetAnchor: Alignment.bottomLeft,
+          offset: const Offset(16, -8),
+          followerAnchor: Alignment.bottomLeft,
+          child: Material(
+            elevation: 4,
+            borderRadius: BorderRadius.circular(8),
+            clipBehavior: Clip.antiAlias,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 280),
+              child: ListView.builder(
+                shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                itemCount: _slashFiltered.length,
+                itemBuilder: (context, i) {
+                  final (_, label, icon, action) = _slashFiltered[i];
+                  return ListTile(
+                    dense: true,
+                    visualDensity: VisualDensity.compact,
+                    leading: Icon(icon, size: 18),
+                    title: Text(label, style: const TextStyle(fontSize: 13)),
+                    onTap: () => _runSlashAction(action),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    Overlay.of(context).insert(_slashOverlay!);
+  }
+
+  /// 执行候选:先删 `/query` 前缀,再跑动作。
+  Future<void> _runSlashAction(Future<void> Function() action) async {
+    final editor = _editor;
+    _dismissSlash();
+    if (editor == null) return;
+    final sel = editor.selection;
+    if (sel != null && sel.isCollapsed) {
+      final block = editor.textBlockById(sel.extent.blockId);
+      if (block != null) {
+        final before = block.content.text.substring(0, sel.extent.offset);
+        final m = RegExp(r'^/[\w一-鿿]*$').firstMatch(before);
+        if (m != null) {
+          editor.updateSelection(EditorSelection(
+            base: EditorPosition(blockId: block.id, offset: 0),
+            extent:
+                EditorPosition(blockId: block.id, offset: sel.extent.offset),
+          ));
+          editor.deleteSelection();
+        }
+      }
+    }
+    await action();
+  }
+
+  /// 块属性类候选(标题/列表/引用):直接对当前块执行命令。
+  Future<void> _applySlashBlock(void Function(EditorState) command) async {
+    final editor = _editor;
+    if (editor == null) return;
+    command(editor);
+  }
+
+  void _dismissSlash() {
+    _slashQuery = null;
+    _removeSlashOverlay();
+  }
+
+  void _removeSlashOverlay() {
+    _slashOverlay?.remove();
+    _slashOverlay = null;
   }
 
   // -----------------------------------------------------------------
