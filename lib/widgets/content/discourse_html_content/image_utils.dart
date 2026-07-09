@@ -145,9 +145,15 @@ class DiscourseImageUtils {
 
   /// upload:// 短链接解析缓存（全局共享，仅缓存成功结果；key 统一为
   /// `upload://<base62>(.ext)` 归一化形态，见 [_normalizeUploadUrl]）
-  /// 失败不缓存：临时性失败（速率限制、网络抖动）可在下次 build 时重试，
-  /// 否则一次失败会被永久缓存为 null，即使后续 lookup-urls 成功也一直显示裂图
+  /// 临时性失败（速率限制、网络抖动）不缓存，可在下次 build 时重试；
+  /// 服务端确认不存在的短链记入 [_missingUploads] 负缓存（见下）。
   static final Map<String, String> _uploadUrlCache = {};
+
+  /// 负缓存：lookup-urls 请求成功但服务端未返回的短链（上传已删除/失效）。
+  /// 会话内不再发起解析（对齐官方 upload-short-url.js 的 MISSING 语义），
+  /// 否则失效短链在预览持续重建场景下每次都重发请求 → 429 连坐拖垮
+  /// 同帖正常图片的解析。
+  static final Set<String> _missingUploads = {};
 
   /// 进行中的解析请求（同一短链共享同一个 Future，避免并发解析互相覆盖结果）
   static final Map<String, Future<String?>> _inflightResolves = {};
@@ -203,24 +209,31 @@ class DiscourseImageUtils {
     _uploadUrlCache[_normalizeUploadUrl(shortUrl)] = resolvedUrl;
   }
 
-  /// 异步解析上传短链并缓存结果
+  /// 异步解析上传短链并缓存结果。
+  /// 返回 null = 不可用(missing 负缓存命中 / 服务端确认不存在 / 网络失败,
+  /// 前两者不再重试,后者下次 build 重试)。
   static Future<String?> resolveUploadUrl(String shortUrl) {
     if (!isUploadUrl(shortUrl)) return Future.value(shortUrl);
 
     final key = _normalizeUploadUrl(shortUrl);
     final cached = _uploadUrlCache[key];
     if (cached != null) return Future.value(cached);
+    if (_missingUploads.contains(key)) return Future.value(null);
 
     return _inflightResolves[key] ??= _doResolveUploadUrl(key);
   }
 
   static Future<String?> _doResolveUploadUrl(String shortUrl) async {
     try {
-      final resolved = await DiscourseService().resolveShortUrl(shortUrl);
-      if (resolved != null) {
-        _uploadUrlCache[shortUrl] = resolved;
+      final resolved = await DiscourseService().resolveShortUpload(shortUrl);
+      if (resolved == null) return null; // 网络失败,可重试
+      if (resolved.isMissing) {
+        _missingUploads.add(shortUrl);
+        return null;
       }
-      return resolved;
+      final url = resolved.mediaUrl();
+      _uploadUrlCache[shortUrl] = url;
+      return url;
     } catch (e) {
       debugPrint('[DiscourseImageUtils] Failed to resolve upload url: $shortUrl, error: $e');
       return null;

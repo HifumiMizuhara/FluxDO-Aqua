@@ -6,6 +6,14 @@ class ResolvedUploadUrl {
 
   const ResolvedUploadUrl({required this.url, this.shortPath});
 
+  /// 负缓存哨兵:lookup-urls 请求**成功**但服务端未返回此短链(上传已
+  /// 删除/失效)。对齐官方 upload-short-url.js 的 MISSING 语义 —— 会话内
+  /// 不再重试。否则失效短链每次 build 都 cache miss 重发请求,编辑预览
+  /// 持续刷新时演变成请求风暴 → 429 速率限制连坐拖垮同帖正常图片的解析。
+  static const missing = ResolvedUploadUrl(url: '');
+
+  bool get isMissing => url.isEmpty;
+
   String mediaUrl() {
     if (url.contains('secure-media-uploads') ||
         url.contains('secure-uploads')) {
@@ -379,6 +387,12 @@ mixin _UploadsMixin on _DiscourseServiceBase {
             }
           }
         }
+        // 请求成功但未返回的短链 = 上传不存在(已删除/失效),写负缓存
+        // 会话内不再重试(对齐官方 MISSING);网络失败(catch 分支)不写,
+        // 临时性失败下次仍可重试。
+        for (final url in missingUrls) {
+          _urlCache.putIfAbsent(url, () => ResolvedUploadUrl.missing);
+        }
         return result;
       } on DioException catch (e) {
         // ErrorInterceptor 将 429 throw 为 RateLimitException，
@@ -444,7 +458,8 @@ mixin _UploadsMixin on _DiscourseServiceBase {
     return future;
   }
 
-  /// 解析单个 short_url
+  /// 解析单个 short_url。返回 null = 网络失败(可重试);
+  /// [ResolvedUploadUrl.missing] = 服务端确认不存在(调用方按裂图处理)。
   Future<ResolvedUploadUrl?> resolveShortUpload(String shortUrl) async {
     if (!shortUrl.startsWith('upload://')) {
       return ResolvedUploadUrl(url: shortUrl, shortPath: shortUrl);
@@ -462,14 +477,15 @@ mixin _UploadsMixin on _DiscourseServiceBase {
     if (!shortUrl.startsWith('upload://')) return shortUrl;
 
     final resolved = await resolveShortUpload(shortUrl);
-    return resolved?.mediaUrl();
+    if (resolved == null || resolved.isMissing) return null;
+    return resolved.mediaUrl();
   }
 
   Future<String?> resolveShortUrlForLink(String shortUrl) async {
     if (!shortUrl.startsWith('upload://')) return shortUrl;
 
     final resolved = await resolveShortUpload(shortUrl);
-    if (resolved == null) return null;
+    if (resolved == null || resolved.isMissing) return null;
 
     final secureUploads =
         PreloadedDataService().siteSettingsSync?['secure_uploads'] == true;
