@@ -27,6 +27,7 @@ import '../services/discourse/discourse_service.dart';
 import '../services/discourse_cache_manager.dart';
 import '../services/emoji_handler.dart';
 import '../services/highlighter_service.dart';
+import '../services/media_compat_service.dart';
 import '../services/toast_service.dart';
 import '../utils/discourse_url_parser.dart';
 import '../utils/link_launcher.dart';
@@ -408,16 +409,29 @@ class FluxdoRenderCallbacks {
   };
 
   /// 原生上传视频:复用 DiscourseVideoPlayer(chewie)。VideoNode 已结构化,
-  /// upload:// 短链先解析成真实 URL(与 image builder 同套路)。
+  /// upload:// 短链先解析成真实 URL(与 image builder 同套路);再过
+  /// MediaCompatService 处理「改名上传」(.xz 装 mp4 等,AVFoundation
+  /// 按扩展名认容器,须本地化改回正确后缀,详见该服务文档)。
   static VideoBuilder get _videoBuilder => (ctx, node) {
     final rawSrc = node.src;
     if (rawSrc.isEmpty) return null; // 让子包出占位卡
-    final posterUrl = (node.poster == null || node.poster!.isEmpty)
-        ? null
-        : (DiscourseImageUtils.isUploadUrl(node.poster!)
-            ? (DiscourseImageUtils.getCachedUploadUrl(node.poster!) ??
-                node.poster!)
-            : UrlHelper.resolveUrlWithCdn(node.poster!));
+    // poster 只接受能解析成绝对 http(s) 的:手写 <video poster="cover.jpg">
+    // 的相对路径解析不出来(resolveUrlWithCdn 原样返回),upload:// 缓存
+    // miss 也拿不到真实地址 —— 这类喂给 Image 必失败,而 poster 的 Image
+    // 此前没配 errorBuilder,debug 模式下 Flutter 会显示暗红 Placeholder
+    // + 错误文字(_debugBuildErrorWidget),就是「出画前红色一闪」的来源。
+    // 源头滤掉,失败降级为无封面(转圈),而不是红块。
+    String? posterUrl;
+    final rawPoster = node.poster;
+    if (rawPoster != null && rawPoster.isNotEmpty) {
+      final resolved = DiscourseImageUtils.isUploadUrl(rawPoster)
+          ? DiscourseImageUtils.getCachedUploadUrl(rawPoster)
+          : UrlHelper.resolveUrlWithCdn(rawPoster);
+      final uri = resolved == null ? null : Uri.tryParse(resolved);
+      if (uri != null && (uri.isScheme('http') || uri.isScheme('https'))) {
+        posterUrl = resolved;
+      }
+    }
     final dimensOk = node.width != null &&
         node.width! > 0 &&
         node.height != null &&
@@ -443,6 +457,9 @@ class FluxdoRenderCallbacks {
                         discourseImageProvider(posterUrl),
                       ),
                       fit: BoxFit.contain,
+                      // 加载失败降级为无封面。不配的话 debug 模式下
+                      // Flutter 用暗红 Placeholder 顶上来(红色一闪)。
+                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
                     ),
               errorBuilder: (c, failedUrl, error) => _VideoErrorFallback(
                 url: failedUrl,
@@ -459,57 +476,85 @@ class FluxdoRenderCallbacks {
             ),
           ),
         );
+    const probing = Padding(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: AspectRatio(
+        aspectRatio: 16 / 9,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      ),
+    );
+    Widget compatPlayerFor(String src) =>
+        _withPlayableUrl(src, playerFor, probing);
     if (!DiscourseImageUtils.isUploadUrl(rawSrc)) {
-      return playerFor(UrlHelper.resolveUrlWithCdn(rawSrc));
+      return compatPlayerFor(UrlHelper.resolveUrlWithCdn(rawSrc));
     }
     final cached = DiscourseImageUtils.getCachedUploadUrl(rawSrc);
-    if (cached != null) return playerFor(cached);
+    if (cached != null) return compatPlayerFor(cached);
     return FutureBuilder<String?>(
       future: DiscourseImageUtils.resolveUploadUrl(rawSrc),
       builder: (c, snap) {
         if (snap.connectionState != ConnectionState.done) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: AspectRatio(
-              aspectRatio: 16 / 9,
-              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-            ),
-          );
+          return probing;
         }
         final url = snap.data;
         if (url == null || url.isEmpty) return const SizedBox.shrink();
-        return playerFor(url);
+        return compatPlayerFor(url);
       },
     );
   };
 
-  /// 原生上传音频:just_audio 的 DiscourseAudioPlayer。upload:// 先解析。
+  /// 原生上传音频:just_audio 的 DiscourseAudioPlayer。upload:// 先解析,
+  /// 再过 MediaCompatService(改名上传的 mp3 等同样过不了 AVFoundation)。
   static AudioBuilder get _audioBuilder => (ctx, node) {
     final rawSrc = node.src;
     if (rawSrc.isEmpty) return null;
+    const probing = Padding(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: SizedBox(
+        height: 56,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      ),
+    );
+    Widget compatPlayerFor(String src) => _withPlayableUrl(
+        src, (url) => DiscourseAudioPlayer(url: url), probing);
     if (!DiscourseImageUtils.isUploadUrl(rawSrc)) {
-      return DiscourseAudioPlayer(url: UrlHelper.resolveUrlWithCdn(rawSrc));
+      return compatPlayerFor(UrlHelper.resolveUrlWithCdn(rawSrc));
     }
     final cached = DiscourseImageUtils.getCachedUploadUrl(rawSrc);
-    if (cached != null) return DiscourseAudioPlayer(url: cached);
+    if (cached != null) return compatPlayerFor(cached);
     return FutureBuilder<String?>(
       future: DiscourseImageUtils.resolveUploadUrl(rawSrc),
       builder: (c, snap) {
         if (snap.connectionState != ConnectionState.done) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: SizedBox(
-              height: 56,
-              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-            ),
-          );
+          return probing;
         }
         final url = snap.data;
         if (url == null || url.isEmpty) return const SizedBox.shrink();
-        return DiscourseAudioPlayer(url: url);
+        return compatPlayerFor(url);
       },
     );
   };
+
+  /// 媒体 URL 过 MediaCompatService 的通用包装:无需处理(绝大多数)
+  /// 时同步直出 [builder];需要嗅探/本地化时先出 [placeholder],完成后
+  /// 换可播放地址(失败回退原 URL,交给播放器错误链路)。
+  static Widget _withPlayableUrl(
+    String url,
+    Widget Function(String url) builder,
+    Widget placeholder,
+  ) {
+    final compat = MediaCompatService.instance;
+    if (!compat.needsProbe(url)) return builder(url);
+    final cached = compat.cachedPlayableUrl(url);
+    if (cached != null) return builder(cached);
+    return FutureBuilder<String>(
+      future: compat.resolvePlayableUrl(url),
+      builder: (c, snap) {
+        if (snap.connectionState != ConnectionState.done) return placeholder;
+        return builder(snap.data ?? url);
+      },
+    );
+  }
 
   /// 附件下载:复用 legacy launchContentLink 的下载链路(_isUploadLink 判附件
   /// 后回调 startDownload);文件名用 parser 抓到的锚点文件名。

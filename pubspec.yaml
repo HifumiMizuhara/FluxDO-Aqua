@@ -112,6 +112,11 @@ dependencies:
   win32_registry: ^2.1.0
   path_provider: ^2.1.5
   path: ^1.9.1
+  # 「改名上传」媒体修复的魔数嗅探(MediaCompatService):.xz 等白名单
+  # 扩展名内实为 mp4/mp3,靠 magic bytes 还原真实容器
+  mime: ^2.0.0
+  # MediaCompatService 本地副本文件名(sha1(url),确定性、重启可复用)
+  crypto: ^3.0.7
   hive_ce: ^2.19.3
   hive_ce_flutter: ^2.3.4
   dns_client: ^1.3.1

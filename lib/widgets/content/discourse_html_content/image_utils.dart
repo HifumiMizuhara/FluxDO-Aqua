@@ -143,7 +143,8 @@ class GalleryInfo {
 class DiscourseImageUtils {
   DiscourseImageUtils._();
 
-  /// upload:// 短链接解析缓存（全局共享，仅缓存成功结果）
+  /// upload:// 短链接解析缓存（全局共享，仅缓存成功结果；key 统一为
+  /// `upload://<base62>(.ext)` 归一化形态，见 [_normalizeUploadUrl]）
   /// 失败不缓存：临时性失败（速率限制、网络抖动）可在下次 build 时重试，
   /// 否则一次失败会被永久缓存为 null，即使后续 lookup-urls 成功也一直显示裂图
   static final Map<String, String> _uploadUrlCache = {};
@@ -151,31 +152,66 @@ class DiscourseImageUtils {
   /// 进行中的解析请求（同一短链共享同一个 Future，避免并发解析互相覆盖结果）
   static final Map<String, Future<String?>> _inflightResolves = {};
 
-  /// 检查是否是 upload:// 短链接
-  static bool isUploadUrl(String url) => url.startsWith('upload://');
+  /// `/uploads/short-url/<base62>(.ext)` 短链路径段
+  /// （与 Discourse Upload.sha1_from_short_path 同口径）
+  static final RegExp _shortUrlPathRe =
+      RegExp(r'/uploads/short-url/([a-zA-Z0-9]+(?:\.[a-zA-Z0-9.]+)?)');
+
+  /// 检查是否是需要 lookup-urls 解析的上传短链：
+  /// `upload://<base62>` 短链 scheme，或站内 `/uploads/short-url/<base62>` 路径。
+  ///
+  /// 后者是 Rails 动态路由（uploads#show_short，302 → 真实上传 URL），
+  /// 不是静态资源：CDN 域名下不存在（404），源站直连又要求浏览器态
+  /// cookie（匿名 403）。原生播放器/图片加载器都带不动，必须像 web 端
+  /// resolveAllShortUrls 一样先经 lookup-urls 换成真实 URL（用户手写
+  /// `<video><source src="/uploads/short-url/..">` 的帖子就是这形态）。
+  static bool isUploadUrl(String url) =>
+      url.startsWith('upload://') || _isShortUrlPath(url);
+
+  /// 站内短链路径判定：相对路径一律算本站；绝对 URL 仅接管本站源站 / CDN
+  /// 前缀（前缀由站点配置动态派生，外站同形路径不动）。
+  static bool _isShortUrlPath(String url) {
+    if (!url.contains('/uploads/short-url/')) return false;
+    if (url.startsWith('/') && !url.startsWith('//')) return true;
+    final absolute = url.startsWith('//') ? 'https:$url' : url;
+    if (!absolute.startsWith('http://') && !absolute.startsWith('https://')) {
+      return false;
+    }
+    return absolute.startsWith(UrlHelper.resolveUrl('/uploads/short-url/')) ||
+        absolute.startsWith(UrlHelper.resolveUrlWithCdn('/uploads/short-url/'));
+  }
+
+  /// 把 `/uploads/short-url/<base62>(.ext)` 归一化为 `upload://<base62>(.ext)`
+  /// （lookup-urls 的标准入参 / 统一缓存 key）；upload:// 及其他 URL 原样返回。
+  static String _normalizeUploadUrl(String url) {
+    if (url.startsWith('upload://')) return url;
+    final match = _shortUrlPathRe.firstMatch(url);
+    return match == null ? url : 'upload://${match[1]}';
+  }
 
   /// 从缓存中获取已解析的 URL
   /// 返回 null 表示未缓存，需要异步解析
   static String? getCachedUploadUrl(String shortUrl) {
     if (!isUploadUrl(shortUrl)) return shortUrl;
-    return _uploadUrlCache[shortUrl];
+    return _uploadUrlCache[_normalizeUploadUrl(shortUrl)];
   }
 
   /// 预置短链解析结果（上传成功时响应里已带完整 URL，
   /// 直接 seed 缓存让编辑器预览零请求显示新图）
   static void seedUploadUrl(String shortUrl, String resolvedUrl) {
     if (!isUploadUrl(shortUrl) || resolvedUrl.isEmpty) return;
-    _uploadUrlCache[shortUrl] = resolvedUrl;
+    _uploadUrlCache[_normalizeUploadUrl(shortUrl)] = resolvedUrl;
   }
 
-  /// 异步解析 upload:// 短链接并缓存结果
+  /// 异步解析上传短链并缓存结果
   static Future<String?> resolveUploadUrl(String shortUrl) {
     if (!isUploadUrl(shortUrl)) return Future.value(shortUrl);
 
-    final cached = _uploadUrlCache[shortUrl];
+    final key = _normalizeUploadUrl(shortUrl);
+    final cached = _uploadUrlCache[key];
     if (cached != null) return Future.value(cached);
 
-    return _inflightResolves[shortUrl] ??= _doResolveUploadUrl(shortUrl);
+    return _inflightResolves[key] ??= _doResolveUploadUrl(key);
   }
 
   static Future<String?> _doResolveUploadUrl(String shortUrl) async {
