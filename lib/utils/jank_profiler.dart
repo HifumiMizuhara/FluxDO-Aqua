@@ -24,6 +24,10 @@ class JankProfiler {
   static bool _initTried = false;
   static DateTime _lastCapture = DateTime.fromMillisecondsSinceEpoch(0);
 
+  /// STALL 抓取的独立节流:与帧抓取共享节流时,STALL 前总有 jank 帧
+  /// 先占掉窗口,STALL-PROF 实际从未触发(生产验证)——分开计
+  static DateTime _lastStallCapture = DateTime.fromMillisecondsSinceEpoch(0);
+
   /// 当前状态(诊断页/导出报告展示):ready / 各种失败原因
   static String status = '未初始化';
 
@@ -121,6 +125,39 @@ class JankProfiler {
           _service = null;
           _initTried = false;
         }
+      }
+    }());
+  }
+
+  /// STALL(UI 事件循环单任务阻塞)现场抓取:jank 抓取按帧时间窗,
+  /// STALL 常发生在帧间隙、或伴随帧被 2s 节流吃掉,这里按"刚过去的
+  /// [windowMs]"独立抓一窗,汇总写回诊断时间轴 —— 回答"那 ~100ms
+  /// 的单任务是谁"(配合业务侧的 Timeline 标记:ParseShortPost /
+  /// ParseLongChunk / MsgBusDecode 等)。与帧抓取共享节流。
+  static void captureStallWindow(int windowMs) {
+    final service = _service;
+    if (service == null) {
+      unawaited(ensureInitialized());
+      return;
+    }
+    final now = DateTime.now();
+    if (now.difference(_lastStallCapture) < _throttle) return;
+    _lastStallCapture = now;
+
+    final nowUs = developer.Timeline.now;
+    final extent = (windowMs * 1000).clamp(1000, _maxWindowUs);
+    unawaited(() async {
+      try {
+        final timeline = await service.getVMTimeline(
+          timeOriginMicros: nowUs - extent,
+          timeExtentMicros: extent,
+        );
+        final summary = _summarize(timeline.traceEvents ?? []);
+        if (summary.isNotEmpty) {
+          FrameJankMonitor.logEvent('STALL-PROF', summary);
+        }
+      } catch (_) {
+        // 抓取失败不影响 STALL 事件本身;下次掉帧路径会自动重连
       }
     }());
   }

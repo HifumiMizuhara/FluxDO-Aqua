@@ -171,6 +171,11 @@ class FrameJankMonitor {
           now.difference(_lastStallLog) >= _stallLogThrottle) {
         _lastStallLog = now;
         logEvent('STALL', 'UI 事件循环被单任务阻塞 ~${drift.inMilliseconds}ms');
+        // 现场解剖:抓刚过去的阻塞窗口,点名单任务(debug/profile 有效;
+        // 心跳检测发生在阻塞结束后,往回抓正好覆盖阻塞本体)
+        JankProfiler.captureStallWindow(
+          drift.inMilliseconds + _beatInterval.inMilliseconds,
+        );
       }
     });
 
@@ -263,6 +268,23 @@ class FrameJankMonitor {
     final head = notes.take(12).join(' ');
     final more = notes.length > 12 ? ' +${notes.length - 12}' : '';
     return 'build[$head$more]';
+  }
+
+  /// 最近 [frames] 帧的构建清单摘要。SCROLL-PROBE 类事件的归因线索:
+  /// SliverList 的 scrollOffsetCorrection 型回跳,嫌疑对象就是跳变前
+  /// 刚物化/重建的 item(重挂载高度与上次记账不符才触发修正)。
+  static String recentBuildNotes({int frames = 3}) {
+    if (_buildNotes.isEmpty) return '(无)';
+    final keys = _buildNotes.keys.toList()..sort();
+    final take = keys.length < frames ? keys.length : frames;
+    final parts = <String>[];
+    for (final k in keys.sublist(keys.length - take)) {
+      final notes = _buildNotes[k];
+      if (notes == null || notes.isEmpty) continue;
+      final head = notes.take(6).join(' ');
+      parts.add(notes.length > 6 ? '$head+${notes.length - 6}' : head);
+    }
+    return parts.isEmpty ? '(无)' : parts.join(' / ');
   }
 
   static void clear() {
@@ -375,7 +397,8 @@ class FrameJankMonitor {
         '[JANK] summary: $_janks/$_frames janky, '
         'worst build ${_ms(_worstBuild)}ms, '
         'worst raster ${_ms(_worstRaster)}ms, '
-        'semantics: ${semanticsEnabled ? countSemanticsNodes() : 'off'}',
+        'semantics: ${semanticsEnabled ? countSemanticsNodes() : 'off'}, '
+        'platform views: ${countPlatformViews()}',
       );
       _lastSummary = now;
       _frames = 0;
@@ -428,6 +451,7 @@ class FrameJankMonitor {
       if (first.isEmpty || second.isEmpty) return;
 
       final byGroup = <String, int>{};
+      final ungrouped = <String, int>{};
       var total = 0;
       second.forEach((tid, info) {
         final prev = first[tid];
@@ -437,6 +461,11 @@ class FrameJankMonitor {
         total += d;
         final g = _threadGroup(tid, info.$1);
         byGroup[g] = (byGroup[g] ?? 0) + d;
+        // "其它"组按原始线程名单独记账:分组表没覆盖到的大户
+        // (生产采样出现过"其它 59%")需要能直接看到线程名定位
+        if (g == '其它') {
+          ungrouped[info.$1] = (ungrouped[info.$1] ?? 0) + d;
+        }
       });
       if (total <= 0) {
         logEvent('CPU', '$reason:1s 窗口内进程近乎空闲');
@@ -447,7 +476,14 @@ class FrameJankMonitor {
               .take(6)
               .map((e) => '${e.key} ${e.value}%')
               .join(' | ');
-      logEvent('CPU', '$reason 采样(单核%): $parts | 进程合计 $total%');
+      final otherDetail = ungrouped.isEmpty
+          ? ''
+          : ' | 其它明细: ${(ungrouped.entries.toList()
+                ..sort((a, b) => b.value.compareTo(a.value)))
+              .take(3)
+              .map((e) => '${e.key} ${e.value}%')
+              .join(' / ')}';
+      logEvent('CPU', '$reason 采样(单核%): $parts | 进程合计 $total%$otherDetail');
     } catch (e) {
       logEvent('CPU', '采样失败: $e');
     } finally {
@@ -539,6 +575,37 @@ class FrameJankMonitor {
     return count == 0 ? -1 : count;
   }
 
+  /// 当前渲染树中的 platform view 数(RenderObject 类型名匹配)。
+  ///
+  /// timeline 里出现 AndroidExternalViewEmbedder2::SubmitFlutterView 且
+  /// 耗时可观,说明合成走了 external view embedder 路径 —— 树上存在
+  /// platform view,哪怕不可见(Overlay 残留、下层缓存页面等)。
+  /// headless WebView 不进渲染树,不计入。用这个数字定案"页面无内嵌
+  /// WebView 却有合成税"到底是谁挂在树上。
+  static int countPlatformViews() {
+    var count = 0;
+    void visit(RenderObject node) {
+      final name = node.runtimeType.toString();
+      if (name.contains('PlatformView') ||
+          name.contains('AndroidView') ||
+          name.contains('UiKitView') ||
+          name.contains('AppKitView') ||
+          name.contains('DarwinPlatformView')) {
+        count++;
+      }
+      node.visitChildren(visit);
+    }
+
+    void visitOwner(PipelineOwner owner) {
+      final root = owner.rootNode;
+      if (root != null) visit(root);
+      owner.visitChildren(visitOwner);
+    }
+
+    visitOwner(RendererBinding.instance.rootPipelineOwner);
+    return count;
+  }
+
   /// 当前显示刷新率(拿不到时为 null)
   static double? displayRefreshRate() {
     final views = WidgetsBinding.instance.platformDispatcher.views;
@@ -574,6 +641,7 @@ class FrameJankMonitor {
     buf.writeln(
       '语义树: ${semanticsEnabled ? '${countSemanticsNodes()} 节点' : '未启用'}',
     );
+    buf.writeln('platform views: ${countPlatformViews()}');
     buf.writeln('监控状态: ${_started ? '运行中' : '已停止'}');
     buf.writeln('现场抓取: ${JankProfiler.status}');
     buf.writeln('--- 时间轴(旧→新) ---');
