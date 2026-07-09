@@ -485,6 +485,24 @@ mixin _AuthMixin on _DiscourseServiceBase {
         return true;
       }
 
+      // 200 但无 current_user → 先尝试 User API Key 自愈,再确认失效
+      final healedUser = await _recoverViaUserApiKeySelfHeal(
+        source: source,
+        triggerInfo: triggerInfo,
+      );
+      if (healedUser != null) {
+        currentUserNotifier.value = healedUser;
+        if (healedUser.username.isNotEmpty) {
+          _username = healedUser.username;
+          await _storage.write(
+            key: DiscourseService._usernameKey,
+            value: healedUser.username,
+          );
+        }
+        _resetStrikes();
+        return true;
+      }
+
       // 200 但无 current_user → 确认失效
       LogWriter.instance.write({
         'timestamp': DateTime.now().toIso8601String(),
@@ -534,6 +552,23 @@ mixin _AuthMixin on _DiscourseServiceBase {
               e.response?.requestOptions ?? e.requestOptions,
             ),
           });
+          _resetStrikes();
+          return true;
+        }
+
+        final healedUser404 = await _recoverViaUserApiKeySelfHeal(
+          source: source,
+          triggerInfo: triggerInfo,
+        );
+        if (healedUser404 != null) {
+          currentUserNotifier.value = healedUser404;
+          if (healedUser404.username.isNotEmpty) {
+            _username = healedUser404.username;
+            await _storage.write(
+              key: DiscourseService._usernameKey,
+              value: healedUser404.username,
+            );
+          }
           _resetStrikes();
           return true;
         }
@@ -779,6 +814,44 @@ mixin _AuthMixin on _DiscourseServiceBase {
       if (requestGeneration != null) 'requestGeneration': requestGeneration,
     });
     return candidateUser;
+  }
+
+  /// 第三级恢复:WebView 候选与上一枚 _t 候选都失败后,若存在已授权的
+  /// User API Key,静默补发 OTP 兑换全新 _t(DiscourseHub 模式自愈)。
+  /// 成功 = 服务端签发了与密码登录同源的新 UserAuthToken,取消本次登出。
+  Future<User?> _recoverViaUserApiKeySelfHeal({
+    required String source,
+    String? triggerInfo,
+  }) async {
+    try {
+      final currentUserJson = await UserApiKeyService().selfHeal(_dio);
+      if (currentUserJson == null) return null;
+
+      final newToken = await _cookieJar.getTToken();
+      if (!_hasTokenValue(newToken)) return null;
+
+      _tToken = newToken;
+      _clearPreviousTTokenFallback();
+      _clearRejectedSessionCandidate();
+
+      final user = User.fromJson(currentUserJson);
+      LogWriter.instance.write({
+        'timestamp': DateTime.now().toIso8601String(),
+        'level': 'info',
+        'type': 'auth',
+        'event': 'auth_probe_user_api_key_recovered',
+        'message': 'User API Key 自愈成功,已兑换新 _t,取消本次登出',
+        'source': source,
+        if (triggerInfo != null) 'trigger': triggerInfo,
+        'username': user.username,
+        'newTLen': _tokenLength(newToken),
+        'newTHash': _safeTokenHash(newToken),
+      });
+      return user;
+    } catch (e) {
+      debugPrint('[Auth] User API Key 自愈异常: $e');
+      return null;
+    }
   }
 
   Future<User?> _probeCandidateSession(
@@ -1473,6 +1546,8 @@ mixin _AuthMixin on _DiscourseServiceBase {
 
     // ===== 第三步：调用登出 API（可选，用新的 generation） =====
     if (callApi) {
+      // 显式登出:自愈凭证一并撤销,防止之后被自愈机制"复活"会话
+      await UserApiKeyService().revokeAndClear(_dio);
       final usernameForLogout =
           _username ?? await _storage.read(key: DiscourseService._usernameKey);
       try {

@@ -44,6 +44,7 @@ import '../app_logger.dart';
 import '../log/log_writer.dart';
 import '../network/exceptions/api_exception.dart';
 import '../storage/resilient_secure_storage.dart';
+import '../user_api_key_service.dart';
 import '../user_presence_service.dart';
 import '../../l10n/s.dart';
 import '../../utils/url_helper.dart';

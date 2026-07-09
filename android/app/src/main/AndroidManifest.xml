@@ -92,6 +92,10 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="fluxdo" />
+                <!-- 浏览器授权登录回调:discourse://auth_redirect 为
+                     Discourse 站点 allowed_user_api_auth_redirects 默认白名单,
+                     无需站方加白(DiscourseHub 同款流程) -->
+                <data android:scheme="discourse" />
             </intent-filter>
         </activity>
         <!-- 经典图标（默认启动入口） -->

@@ -101,6 +101,12 @@ dependencies:
   extended_nested_scroll_view: ^6.2.1
   popover: ^0.4.0
   uuid: ^4.5.2
+  # User API Key 授权自愈:RSA 密钥对生成/PKCS1 解密(payload 与 OTP 均为
+  # 服务端用客户端公钥加密回传,见 discourse user_api_keys_controller)
+  pointycastle: ^4.0.0
+  # Windows 深链前提:discourse://、fluxdo:// 协议需写入 HKCU 注册表
+  # (3.x 被 device_info_plus 12.3.0 的 ^2.1.0 约束挡住,升级时一并跟进)
+  win32_registry: ^2.1.0
   path_provider: ^2.1.5
   path: ^1.9.1
   hive_ce: ^2.19.3

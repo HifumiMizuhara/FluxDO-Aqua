@@ -8,6 +8,8 @@ import '../pages/webview_page.dart';
 import '../constants.dart';
 import '../utils/discourse_url_parser.dart';
 import 'discourse/discourse_service.dart';
+import 'user_api_key_login_flow.dart';
+import 'user_api_key_service.dart';
 
 /// Deep Link 服务
 /// 处理从外部链接打开应用的场景
@@ -97,6 +99,13 @@ class DeepLinkService {
     _lastHandledTime = now;
 
     debugPrint('DeepLinkService: 收到链接 $url');
+
+    // 浏览器授权登录回调:discourse://auth_redirect?payload=...
+    // (discourse:// 是站点 auth_redirect 默认白名单 scheme,App 已注册)
+    if (UserApiKeyService().isAuthRedirect(uri)) {
+      UserApiKeyLoginFlow.instance.handleCallback(uri);
+      return;
+    }
 
     // 自定义 scheme (fluxdo://...)
     if (uri.scheme == 'fluxdo') {
@@ -252,6 +261,8 @@ class DeepLinkService {
 
   static bool _canHandleUri(Uri uri) {
     if (uri.scheme == 'fluxdo') return true;
+    // 浏览器授权登录回调(仅 auth_redirect,不接管其他 discourse:// 链接)
+    if (uri.scheme == 'discourse' && uri.host == 'auth_redirect') return true;
     if (uri.scheme != 'http' && uri.scheme != 'https') return false;
     return _isLinuxDoHost(uri.host);
   }

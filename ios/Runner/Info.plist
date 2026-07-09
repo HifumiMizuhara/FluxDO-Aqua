@@ -36,6 +36,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>fluxdo</string>
+				<string>discourse</string>
 			</array>
 		</dict>
 	</array>

@@ -10,6 +10,7 @@ import '../services/discourse/discourse_service.dart';
 import '../services/network/cookie/boundary_sync_service.dart';
 import '../services/network/cookie/cookie_jar_service.dart';
 import '../services/toast_service.dart';
+import '../services/user_api_key_login_flow.dart';
 import '../utils/blur_config.dart';
 import '../widgets/auth/webview_login_dialog.dart';
 import '../widgets/auth/login_form.dart';
@@ -47,6 +48,7 @@ class _LoginPageState extends State<LoginPage>
   String? _savedUsername;
   String? _savedPassword;
   bool _credentialsLoaded = false;
+  bool _browserAuthLaunching = false;
 
   late final AnimationController _entryController;
   final List<Animation<double>> _fade = [];
@@ -90,8 +92,35 @@ class _LoginPageState extends State<LoginPage>
 
   @override
   void dispose() {
+    if (identical(UserApiKeyLoginFlow.instance.onFlowFinished, _onBrowserAuthFinished)) {
+      UserApiKeyLoginFlow.instance.onFlowFinished = null;
+    }
     _entryController.dispose();
     super.dispose();
+  }
+
+  /// 浏览器授权登录:拉起系统浏览器打开 /user-api-key/new,授权后
+  /// 深链 fluxdo://auth_redirect 回 App,由 UserApiKeyLoginFlow 完成
+  /// OTP 兑换与登录收口,这里只负责发起和成功后 pop。
+  Future<void> _loginWithBrowserAuth() async {
+    if (_browserAuthLaunching) return;
+    setState(() => _browserAuthLaunching = true);
+    UserApiKeyLoginFlow.instance.onFlowFinished = _onBrowserAuthFinished;
+    try {
+      // 首次会懒生成 RSA 密钥对(isolate),可能耗时数秒
+      final launched = await UserApiKeyLoginFlow.instance.start();
+      if (!launched && mounted) {
+        ToastService.showError('无法打开浏览器,请重试');
+      }
+    } finally {
+      if (mounted) setState(() => _browserAuthLaunching = false);
+    }
+  }
+
+  void _onBrowserAuthFinished(bool success) {
+    if (success && mounted) {
+      Navigator.of(context).pop(true);
+    }
   }
 
   Future<void> _loadSavedCredentials() async {
@@ -416,6 +445,27 @@ class _LoginPageState extends State<LoginPage>
       children: [
         const _DividerWithLabel(label: '或'),
         const SizedBox(height: 16),
+        OutlinedButton.icon(
+          onPressed: _browserAuthLaunching ? null : _loginWithBrowserAuth,
+          icon: _browserAuthLaunching
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: LoadingSpinner(size: 20),
+                )
+              : const Icon(Symbols.verified_user_rounded, size: 20),
+          label: const Text('浏览器授权登录'),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(double.infinity, 52),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(28),
+            ),
+            side: BorderSide(
+              color: scheme.outlineVariant.withValues(alpha: 0.6),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
         OutlinedButton.icon(
           onPressed: () => _loginWithWebView(),
           icon: const Icon(Symbols.open_in_browser_rounded, size: 20),

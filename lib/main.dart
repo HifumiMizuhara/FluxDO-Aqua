@@ -53,6 +53,8 @@ import 'services/update_service.dart';
 import 'services/update_checker_helper.dart';
 import 'services/clipboard_topic_link_service.dart';
 import 'services/deep_link_service.dart';
+import 'services/windows_protocol_registrar_stub.dart'
+    if (dart.library.ffi) 'services/windows_protocol_registrar_io.dart';
 import 'services/background/background_notification_service.dart';
 import 'services/message_bus_service.dart';
 import 'services/connectivity_service.dart';
@@ -206,6 +208,9 @@ Future<void> main() async {
     ProxyCertificate.initialize(),
     if (Platform.isWindows)
       WindowsWebViewEnvironmentService.instance.initialize(),
+    // Windows 深链协议注册(discourse:// / fluxdo://):写 HKCU 免管理员,
+    // 幂等,失败不阻塞启动。其他平台由清单/plist 声明,此调用为 no-op。
+    if (Platform.isWindows) ensureWindowsProtocolsRegistered(),
     CookieJarService().initialize(),
     CsrfTokenService().init(),
     BackgroundNotificationService().initialize(),
