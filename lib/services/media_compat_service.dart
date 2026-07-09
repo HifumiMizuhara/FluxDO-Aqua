@@ -10,6 +10,7 @@ import 'package:mime/mime.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'network/discourse_dio.dart';
+import '../utils/webm_opus_to_caf.dart';
 
 /// 「改名上传」媒体兼容服务。
 ///
@@ -104,6 +105,15 @@ class MediaCompatService {
       if (!_isMediaMime(mime)) {
         // 确定性结论:内容确实不是媒体,负缓存防滚动重建反复嗅探
         return _resolved[url] = url;
+      }
+      // EBML(webm/mkv)容器:AVFoundation 不认,改扩展名也没用。纯 Opus
+      // 音轨(Discourse 录音消息的标准形态)可无损重封装成 CAF ——
+      // CoreAudio 认 CAF 内 Opus,afplay 已实证;webm 视频 / vorbis 无解,
+      // 负缓存原 URL 走播放器错误链兜底。
+      if (mime == 'audio/weba') {
+        final caf = await _remuxWebmOpusToCaf(url);
+        return _resolved[url] =
+            caf != null ? Uri.file(caf.path).toString() : url;
       }
       final file = await _localize(url, extensionForMimeType(mime!));
       return _resolved[url] = Uri.file(file.path).toString();
@@ -224,6 +234,34 @@ class MediaCompatService {
     );
     await File(tmp).rename(file.path);
     return file;
+  }
+
+  /// webm/opus 重封装大小上限:语音消息都是 KB 级,超限的多半是
+  /// webm 视频(反正也接管不了),不值得整读进内存。
+  static const _maxRemuxBytes = 64 << 20;
+
+  /// 下载 webm 并把 Opus 音轨无损重封装为 CAF(webm_opus_to_caf.dart)。
+  /// 解析/封装在 isolate 里跑,防大文件卡主线程;不可接管返回 null。
+  Future<File?> _remuxWebmOpusToCaf(String url) async {
+    final dir = await _cacheDir();
+    final name = sha1.convert(utf8.encode(url)).toString();
+    final target = File('${dir.path}/$name.caf');
+    if (await target.exists() && await target.length() > 0) return target;
+    final part = File('${target.path}.part');
+    await _dio.download(
+      url,
+      part.path,
+      options: Options(followRedirects: true, maxRedirects: 3),
+    );
+    try {
+      if (await part.length() > _maxRemuxBytes) return null;
+      final caf = await compute(webmOpusToCaf, await part.readAsBytes());
+      if (caf == null) return null;
+      await target.writeAsBytes(caf);
+      return target;
+    } finally {
+      if (await part.exists()) await part.delete();
+    }
   }
 
   Future<Directory> _cacheDir() => _dirFuture ??= () async {

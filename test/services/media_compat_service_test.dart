@@ -65,6 +65,18 @@ void main() {
       );
     });
 
+    test('detects M4A brand via ftyp fallback (real-world header)', () {
+      // linux.do 「.xz 装 m4a」帖子的真实头部形态(ftyp M4A )
+      final header = _bytes([
+        0x00, 0x00, 0x00, 0x1C, 0x66, 0x74, 0x79, 0x70, // ....ftyp
+        0x4D, 0x34, 0x41, 0x20, // 'M4A '
+      ]);
+      expect(
+        MediaCompatService.sniffMime('https://c.example.com/a.xz', header),
+        'audio/mp4',
+      );
+    });
+
     test('detects mp3 (ID3) renamed to .xz', () {
       expect(
         MediaCompatService.sniffMime('https://c.example.com/a.xz', _id3Mp3),

@@ -36,6 +36,9 @@ class _DiscourseAudioPlayerState extends State<DiscourseAudioPlayer> {
       await _player.setUrl(widget.url);
       if (mounted) setState(() => _ready = true);
     } catch (e) {
+      // 平台差异排查的关键线索:AVFoundation 对容器/扩展名远比
+      // ExoPlayer 挑剔,失败原因只在这里可见(对齐 DiscourseVideoPlayer)
+      debugPrint('[Audio] 加载失败 url=${widget.url} error=$e');
       if (mounted) setState(() => _error = e);
     }
   }
