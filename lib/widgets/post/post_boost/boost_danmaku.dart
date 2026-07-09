@@ -76,7 +76,12 @@ class _BoostDanmakuState extends State<BoostDanmaku>
   late List<double> _trackLastRightEdge;
   double _viewportWidth = 0;
   int _trackCount = 1;
-  bool _visible = true;
+
+  /// 初值 false:等 VisibilityDetector 首报可见才启动 Ticker。
+  /// 此前 initState 即 start、dispose 才停,_visible 只让回调早退 ——
+  /// Ticker 常驻 = 只要弹幕帖挂载(含 cacheExtent 预取区)整个 app 就
+  /// 永不空闲;且全部放完后(发完即止)每帧 setState 空转永不停。
+  bool _visible = false;
 
   final math.Random _rng = math.Random();
 
@@ -88,7 +93,7 @@ class _BoostDanmakuState extends State<BoostDanmaku>
     _groups = groupBoostsByContent(widget.boosts);
     _trackCount = widget.maxTrackCount.clamp(1, widget.maxTrackCount);
     _trackLastRightEdge = List.filled(_trackCount, -double.infinity);
-    _ticker = Ticker(_onTick)..start();
+    _ticker = Ticker(_onTick);
   }
 
   @override
@@ -101,6 +106,19 @@ class _BoostDanmakuState extends State<BoostDanmaku>
       if (_groups.length < oldGroupCount) {
         _nextGroupIndex = _groups.length;
       }
+      _ensureTicker(); // 新 boost 到达:停表状态下重新起飞
+    }
+  }
+
+  /// Ticker 生命周期唯一裁决点:可见 且 还有活(飞行中/未发完)才跑。
+  void _ensureTicker() {
+    final hasWork = _flying.isNotEmpty || _nextGroupIndex < _groups.length;
+    final shouldRun = _visible && _groups.isNotEmpty && hasWork;
+    if (shouldRun && !_ticker.isActive) {
+      _lastElapsed = Duration.zero;
+      _ticker.start();
+    } else if (!shouldRun && _ticker.isActive) {
+      _ticker.stop();
     }
   }
 
@@ -150,6 +168,12 @@ class _BoostDanmakuState extends State<BoostDanmaku>
         }
       }
     });
+
+    // 全部放完且飞尽:停表。此前这里每帧 setState 空转到 dispose;
+    // 重新可见(重置一轮)或新 boost 到达时由 _ensureTicker 再启。
+    if (_flying.isEmpty && _nextGroupIndex >= _groups.length) {
+      _ticker.stop();
+    }
   }
 
   void _tryLaunchNext() {
@@ -199,6 +223,7 @@ class _BoostDanmakuState extends State<BoostDanmaku>
             _nextGroupIndex = 0;
             _secondsUntilNextLaunch = 0;
           }
+          _ensureTicker();
         }
       },
       child: LayoutBuilder(
