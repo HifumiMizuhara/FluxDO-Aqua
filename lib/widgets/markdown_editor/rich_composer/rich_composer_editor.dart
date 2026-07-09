@@ -727,12 +727,23 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     final btnRect =
         btnBox.localToGlobal(Offset.zero, ancestor: overlay) & btnBox.size;
 
+    final menuScheme = Theme.of(context).colorScheme;
     PopupMenuItem<String> item(String value, IconData icon, String label) =>
         PopupMenuItem<String>(
           value: value,
-          height: 38,
+          height: 40,
           child: Row(children: [
-            Icon(icon, size: 17),
+            Container(
+              width: 26,
+              height: 26,
+              decoration: BoxDecoration(
+                color: menuScheme.surfaceContainerHighest
+                    .withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(icon, size: 15,
+                  color: menuScheme.onSurfaceVariant),
+            ),
             const SizedBox(width: 10),
             Text(label, style: const TextStyle(fontSize: 13)),
           ]),
@@ -747,7 +758,15 @@ class RichComposerEditorState extends State<RichComposerEditor> {
         overlay.size.width - btnRect.right,
         overlay.size.height - btnRect.top + 8,
       ),
-      constraints: const BoxConstraints(maxWidth: 220),
+      // 浮层统一规格(_FloatingPanel 同款):圆角 12 + 细边框 + 浮层底
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: menuScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      color: menuScheme.surfaceContainerLow,
+      constraints: const BoxConstraints(maxWidth: 230),
       items: [
         for (final (label, md, icon) in entries) item(md, icon, label),
         // 日期时间:弹属性对话框选时间再插原子(不再是死模板)
@@ -1305,6 +1324,13 @@ class _RichToolbarState extends State<_RichToolbar> {
     return PopupMenuButton<int>(
       tooltip: '标题',
       position: PopupMenuPosition.over,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      color: theme.colorScheme.surfaceContainerLow,
       itemBuilder: (context) => [
         for (final level in [1, 2, 3])
           PopupMenuItem(
