@@ -1099,19 +1099,12 @@ class RichComposerEditorState extends State<RichComposerEditor> {
             height: widget.emojiPanelHeight,
             child: EmojiStickerPanel(
               onEmojiSelected: (emoji) => _insertEmoji(emoji.name),
-              onStickerSelected: (markdown) {
-                // sticker 是 markdown 图片:解析 src 插图片岛
-                final m = RegExp(r'!\[([^\]|]*)(?:\|(\d+)x(\d+))?\]\(([^)]+)\)')
-                    .firstMatch(markdown);
-                if (m != null) {
-                  insertUploadedImage(
-                    shortUrl: m.group(4)!,
-                    alt: m.group(1) ?? '',
-                    width: int.tryParse(m.group(2) ?? ''),
-                    height: int.tryParse(m.group(3) ?? ''),
-                  );
-                }
-              },
+              // sticker 是 markdown 图片(`![name|WxH,30%](url)`,带
+              // 30% 缩放后缀):直接走 cook 链路整段导入 —— 此前用
+              // 手写正则解析,`WxH,30%` 段不匹配 → m=null 静默丢弃
+              // (表现:点表情包没反应)。cook 链路天然认全部语法,
+              // 缩放/外链/短链一视同仁。
+              onStickerSelected: insertMarkdownSnippet,
             ),
           ),
       ],
