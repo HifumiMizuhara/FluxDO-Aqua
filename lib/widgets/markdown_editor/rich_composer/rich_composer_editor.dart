@@ -18,6 +18,7 @@ import 'package:app_icons/app_icons.dart';
 import 'package:fluxdo_render/editor.dart';
 import 'package:fluxdo_render/fluxdo_render.dart'
     show
+        CodeBlockNode,
         EmojiRun,
         ImageRun,
         InlineNode,
@@ -849,6 +850,17 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     editor.replaceIsland(island.id, fragment);
   }
 
+  /// 代码块岛内编辑提交:结构化节点原位形变,不经 cook(fence 冲突由
+  /// 序列化器处理:内容含 ``` 自动升 ````)。
+  void _onCodeBlockEdited(IslandBlock island, String code, String? language) {
+    final editor = _editor;
+    if (editor == null || island.node is! CodeBlockNode) return;
+    editor.updateIslandNode(
+      island.id,
+      CodeBlockNode(id: island.node.id, code: code, language: language),
+    );
+  }
+
   /// 图片岛缩放胶囊(100/75/50):同步改 ImageRun 的 scale + 显示尺寸,
   /// updateIslandNode 原位换节点(岛身份/光标不动,预览即时缩放)。
   /// 显示尺寸按 cook engine 同款 floor 乘法算,与下次导入的预览一致;
@@ -1021,6 +1033,8 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                     onContainerTitleEdit: _editContainerTitle,
                     // 表格 cell 原位编辑 → 重建 markdown 经 cook 替换
                     onTableEdited: _onTableEdited,
+                    // 代码块岛内原位编辑 → 结构化节点直换(不经 cook)
+                    onCodeBlockEdited: _onCodeBlockEdited,
                     // 单击 date chip → 属性编辑对话框
                     onAtomTap: _onAtomTap,
                     // 光标全局矩形上抛(斜杠/mention 浮层锚定用)。
