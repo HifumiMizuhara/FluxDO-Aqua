@@ -849,6 +849,29 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     editor.replaceIsland(island.id, fragment);
   }
 
+  /// 图片岛缩放胶囊(100/75/50):同步改 ImageRun 的 scale + 显示尺寸,
+  /// updateIslandNode 原位换节点(岛身份/光标不动,预览即时缩放)。
+  /// 显示尺寸按 cook engine 同款 floor 乘法算,与下次导入的预览一致;
+  /// origWidth/origHeight 固化 raw 声明尺寸,序列化写 `|WxH, N%`。
+  void _onImageScale(IslandBlock island, ImageRun image, int scale) {
+    final editor = _editor;
+    if (editor == null || island.node is! ParagraphNode) return;
+    final para = island.node as ParagraphNode;
+    final origW = image.origWidth ?? image.width;
+    final origH = image.origHeight ?? image.height;
+    final next = image.copyWith(
+      scale: scale.toDouble(),
+      origWidth: origW,
+      origHeight: origH,
+      width: origW == null ? null : (origW * scale / 100).floorToDouble(),
+      height: origH == null ? null : (origH * scale / 100).floorToDouble(),
+    );
+    final inlines = [
+      for (final n in para.inlines) identical(n, image) ? next : n,
+    ];
+    editor.updateIslandNode(island.id, para.copyWith(inlines: inlines));
+  }
+
   /// 单击可编辑原子:date chip → 属性对话框 → replaceAtomAt。
   Future<void> _onAtomTap(String blockId, int offset, InlineNode atom) async {
     final editor = _editor;
@@ -943,6 +966,9 @@ class RichComposerEditorState extends State<RichComposerEditor> {
               alt: alt,
               width: width?.toDouble(),
               height: height?.toDouble(),
+              // 100 档 = 可缩放(岛选中出 100/75/50 胶囊)。序列化时
+              // 100 不写后缀,raw 形态与官方上传一致。
+              scale: (width != null && height != null) ? 100 : null,
             ),
           ]),
     );
@@ -989,6 +1015,8 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                     markdownImporter: markdownToDoc,
                     // 双击岛 → 源码编辑对话框
                     onIslandEditRequest: _editIsland,
+                    // 图片岛缩放胶囊(100/75/50)→ 原位切档
+                    onImageScale: _onImageScale,
                     // 点 details/callout 壳标题 → 原位改标题
                     onContainerTitleEdit: _editContainerTitle,
                     // 表格 cell 原位编辑 → 重建 markdown 经 cook 替换

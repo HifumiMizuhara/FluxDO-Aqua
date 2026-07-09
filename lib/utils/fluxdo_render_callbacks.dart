@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app_icons/app_icons.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:fluxdo_render/fluxdo_render.dart';
+import 'package:fluxdo_render/editor.dart' show EditorImageScaleBar;
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html_parser;
 import 'package:jovial_svg/jovial_svg.dart';
@@ -728,6 +729,7 @@ class FluxdoRenderCallbacks {
     Post? post,
     int? topicId,
     void Function(String quote, Post post)? onQuoteImage,
+    void Function(ImageRun image, int scale)? onImageScaleChanged,
   }) {
     return (ctx, image, totalImagesInPost) {
       final heroTag = '${heroNamespace}_img_${image.indexInPost}';
@@ -746,6 +748,7 @@ class FluxdoRenderCallbacks {
           post: post,
           topicId: topicId,
           onQuoteImage: onQuoteImage,
+          onImageScaleChanged: onImageScaleChanged,
         );
       }
       // upload:// — 优先看缓存
@@ -760,6 +763,7 @@ class FluxdoRenderCallbacks {
           post: post,
           topicId: topicId,
           onQuoteImage: onQuoteImage,
+          onImageScaleChanged: onImageScaleChanged,
         );
       }
       return FutureBuilder<String?>(
@@ -794,6 +798,7 @@ class FluxdoRenderCallbacks {
             post: post,
             topicId: topicId,
             onQuoteImage: onQuoteImage,
+            onImageScaleChanged: onImageScaleChanged,
           );
         },
       );
@@ -994,6 +999,9 @@ class FluxdoRenderCallbacks {
     int? topicId,
     void Function(int topicId, String? topicSlug, int? postNumber)?
         onInternalLinkTap,
+    // 编辑器预览场景:可缩放图(客户端 cook 预览形态)出 100/75/50 缩放
+    // 胶囊,点击回调宿主改 raw。阅读端不传(无控件,零成本)。
+    void Function(ImageRun image, int scale)? onImageScaleChanged,
   }) {
     return FluxdoRenderCallbacks(
       linkHandler: (ctx, href) {
@@ -1015,6 +1023,7 @@ class FluxdoRenderCallbacks {
       imageContentBuilder: _imageContentBuilder(
         heroNamespace: heroTagNamespace,
         topicId: topicId,
+        onImageScaleChanged: onImageScaleChanged,
       ),
       codeBlockHighlighter: _codeBlockHighlighter,
       codeBlockBuilder: _codeBlockBuilder,
@@ -1072,6 +1081,10 @@ class FluxdoRenderCallbacks {
     Post? post,
     int? topicId,
     void Function(String quote, Post post)? onQuoteImage,
+    // 预览缩放控件(编辑器预览场景注入;帖子阅读端不传)。可缩放图
+    // (客户端 cook 预览形态,image.scale 非 null)hover/常显 100/75/50
+    // 胶囊,点击回调宿主改 raw 的 `, N%` 后缀。
+    void Function(ImageRun image, int scale)? onImageScaleChanged,
   }) {
     final isSvg = _isSvgUrl(resolvedUrl) || _isSvgUrl(originalUrl);
     // max-width: 100% + 不上采样 —— 对齐 Discourse `.cooked img { max-width:
@@ -1154,65 +1167,86 @@ class FluxdoRenderCallbacks {
           width: dispW,
           height: dispH,
           child: Builder(
-            builder: (ctx) => LazyImage(
-              imageProvider: discourseImageProvider(resolvedUrl),
-              width: dispW,
-              height: dispH,
-              heroTag: heroTag,
-              cacheKey: resolvedUrl,
-              onTap: () {
-                // 打开大图前清掉自研选区:图片 tap 被 HeroImage 手势赢走,
-                // 选区层收不到不会自动清(否则返回后选区还残留)。
-                SelectionScope.clearAt(ctx);
-                // 优先用 lightboxUrl(原图大版本);否则用当前 resolvedUrl(已 CDN 重写)
-                final fullUrl = image.lightboxUrl ?? resolvedUrl;
-                final resolvedFullUrl =
-                    DiscourseImageUtils.isUploadUrl(fullUrl)
-                        ? (DiscourseImageUtils.getCachedUploadUrl(fullUrl) ??
-                            fullUrl)
-                        : UrlHelper.resolveUrlWithCdn(fullUrl);
-                // 画廊数据在点击时才解析(长帖懒解析场景首次点图会触发
-                // 全 chunk parse,离散动作可接受;之后命中缓存)。
-                // 全帖画廊非空时走画廊 viewer(左右切同帖其他图);否则单图。
-                final gallery = galleryResolver?.call();
-                final galleryIndex =
-                    gallery?.indexByImageIndex[image.indexInPost];
-                final hasGallery = gallery != null &&
-                    gallery.urls.length > 1 &&
-                    galleryIndex != null &&
-                    galleryIndex >= 0 &&
-                    galleryIndex < gallery.urls.length;
-                DiscourseImageUtils.openViewer(
-                  context: ctx,
-                  imageUrl: DiscourseImageUtils.getOriginalUrl(resolvedFullUrl),
-                  heroTag: heroTag,
-                  thumbnailUrl: resolvedUrl,
-                  galleryImages: hasGallery ? gallery.urls : null,
-                  thumbnailUrls: hasGallery ? gallery.thumbs : null,
-                  heroTags: hasGallery ? gallery.heroTags : null,
-                  initialIndex: hasGallery ? galleryIndex : 0,
+            builder: (ctx) {
+              Widget img = LazyImage(
+                imageProvider: discourseImageProvider(resolvedUrl),
+                width: dispW,
+                height: dispH,
+                heroTag: heroTag,
+                cacheKey: resolvedUrl,
+                onTap: () {
+                  // 打开大图前清掉自研选区:图片 tap 被 HeroImage 手势赢走,
+                  // 选区层收不到不会自动清(否则返回后选区还残留)。
+                  SelectionScope.clearAt(ctx);
+                  // 优先用 lightboxUrl(原图大版本);否则用当前 resolvedUrl(已 CDN 重写)
+                  final fullUrl = image.lightboxUrl ?? resolvedUrl;
+                  final resolvedFullUrl =
+                      DiscourseImageUtils.isUploadUrl(fullUrl)
+                          ? (DiscourseImageUtils.getCachedUploadUrl(fullUrl) ??
+                              fullUrl)
+                          : UrlHelper.resolveUrlWithCdn(fullUrl);
+                  // 画廊数据在点击时才解析(长帖懒解析场景首次点图会触发
+                  // 全 chunk parse,离散动作可接受;之后命中缓存)。
+                  // 全帖画廊非空时走画廊 viewer(左右切同帖其他图);否则单图。
+                  final gallery = galleryResolver?.call();
+                  final galleryIndex =
+                      gallery?.indexByImageIndex[image.indexInPost];
+                  final hasGallery = gallery != null &&
+                      gallery.urls.length > 1 &&
+                      galleryIndex != null &&
+                      galleryIndex >= 0 &&
+                      galleryIndex < gallery.urls.length;
+                  DiscourseImageUtils.openViewer(
+                    context: ctx,
+                    imageUrl:
+                        DiscourseImageUtils.getOriginalUrl(resolvedFullUrl),
+                    heroTag: heroTag,
+                    thumbnailUrl: resolvedUrl,
+                    galleryImages: hasGallery ? gallery.urls : null,
+                    thumbnailUrls: hasGallery ? gallery.thumbs : null,
+                    heroTags: hasGallery ? gallery.heroTags : null,
+                    initialIndex: hasGallery ? galleryIndex : 0,
+                  );
+                },
+                // 长按/右键 → 图片上下文菜单(对齐 legacy LazyImage
+                // onLongPress/onSecondaryTapUp,discourse_widget_factory.dart)。
+                onLongPress: () => _showImageContextMenu(
+                  ctx,
+                  image: image,
+                  resolvedUrl: resolvedUrl,
+                  post: post,
+                  topicId: topicId,
+                  onQuoteImage: onQuoteImage,
+                ),
+                onSecondaryTapUp: (details) => _showImageContextMenu(
+                  ctx,
+                  image: image,
+                  resolvedUrl: resolvedUrl,
+                  post: post,
+                  topicId: topicId,
+                  onQuoteImage: onQuoteImage,
+                  position: details.globalPosition,
+                ),
+              );
+              // 预览缩放胶囊(右上角浮层,子包统一视觉)。
+              if (onImageScaleChanged != null && image.scale != null) {
+                img = Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    img,
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: EditorImageScaleBar(
+                        current: image.scale!.round(),
+                        onSelect: (s) => onImageScaleChanged(image, s),
+                      ),
+                    ),
+                  ],
                 );
-              },
-              // 长按/右键 → 图片上下文菜单(对齐 legacy LazyImage
-              // onLongPress/onSecondaryTapUp,discourse_widget_factory.dart)。
-              onLongPress: () => _showImageContextMenu(
-                ctx,
-                image: image,
-                resolvedUrl: resolvedUrl,
-                post: post,
-                topicId: topicId,
-                onQuoteImage: onQuoteImage,
-              ),
-              onSecondaryTapUp: (details) => _showImageContextMenu(
-                ctx,
-                image: image,
-                resolvedUrl: resolvedUrl,
-                post: post,
-                topicId: topicId,
-                onQuoteImage: onQuoteImage,
-                position: details.globalPosition,
-              ),
-            ),
+              }
+              return img;
+            },
           ),
         );
       },

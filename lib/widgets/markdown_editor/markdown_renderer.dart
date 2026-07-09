@@ -1,12 +1,34 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:fluxdo_render/fluxdo_render.dart' show ImageRun;
 import 'package:markdown/markdown.dart' as md;
 import '../../services/discourse_cook_service.dart';
 import '../../services/emoji_handler.dart';
 import '../../constants.dart';
 import '../../utils/fluxdo_render_callbacks.dart';
 import '../../utils/url_helper.dart';
+
+/// 官方 composer 的图片 markdown 正则(uploads.js IMAGE_MARKDOWN_REGEX
+/// 逐字翻译):`![alt|WxH(, N%)(其余后缀)](upload://…)`,排除行内 code
+/// 尾随反引号的近似(与 web 端同口径)。
+final _imageMarkdownRegex = RegExp(
+    r'!\[(.*?)\|(\d{1,4}x\d{1,4})(,\s*\d{1,3}%)?(.*?)\]\((upload://.*?)\)(?!(.*`))');
+
+/// 预览缩放胶囊点击 → 改 raw 的 `, N%` 后缀(对齐官方
+/// `_handleImageScaleButtonClick`:第 [ImageRun.previewImageIndex] 个
+/// 正则命中整体替换)。定位失败(index 缺失/越界)返回 null 不动 raw。
+String? applyImageScaleToRaw(String raw, ImageRun image, int scale) {
+  final index = image.previewImageIndex;
+  if (index == null || index < 0) return null;
+  final matches = _imageMarkdownRegex.allMatches(raw).toList();
+  if (index >= matches.length) return null;
+  final m = matches[index];
+  final replacement =
+      '![${m[1]}|${m[2]}, $scale%${m[4]}](${m[5]})';
+  if (raw.substring(m.start, m.end) == replacement) return null;
+  return raw.replaceRange(m.start, m.end, replacement);
+}
 
 /// Markdown 预览组件
 ///
@@ -26,7 +48,17 @@ class MarkdownBody extends StatefulWidget {
   final void Function(int topicId, String? topicSlug, int? postNumber)?
   onInternalLinkTap;
 
-  const MarkdownBody({super.key, required this.data, this.onInternalLinkTap});
+  /// 图片缩放胶囊点击回调（编辑器预览场景传入；只读预览不传）。
+  /// 可缩放图（客户端 cook 预览形态）出 100/75/50 胶囊，点击后宿主
+  /// 按官方 IMAGE_MARKDOWN_REGEX 语义改 raw 的 `, N%` 后缀。
+  final void Function(ImageRun image, int scale)? onImageScaleChanged;
+
+  const MarkdownBody({
+    super.key,
+    required this.data,
+    this.onInternalLinkTap,
+    this.onImageScaleChanged,
+  });
 
   @override
   State<MarkdownBody> createState() => _MarkdownBodyState();
@@ -129,6 +161,7 @@ class _MarkdownBodyState extends State<MarkdownBody> {
     return FluxdoRenderCallbacks.generic(
       heroTagNamespace: 'markdown_preview',
       onInternalLinkTap: widget.onInternalLinkTap,
+      onImageScaleChanged: widget.onImageScaleChanged,
     ).render(
       cookedHtml: html,
       baseTextStyle: Theme.of(

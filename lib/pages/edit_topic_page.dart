@@ -641,7 +641,17 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
                             ),
                           )
                         else
-                          MarkdownBody(data: _contentController.text),
+                          MarkdownBody(
+                            data: _contentController.text,
+                            onImageScaleChanged: (image, scale) {
+                              final next = applyImageScaleToRaw(
+                                  _contentController.text, image, scale);
+                              if (next != null) {
+                                _contentController.text = next;
+                                setState(() {});
+                              }
+                            },
+                          ),
                       ],
                     ),
                   ),

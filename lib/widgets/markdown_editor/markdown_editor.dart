@@ -667,7 +667,20 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
                           S.current.editor_noContent,
                           style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
                         )
-                      : MarkdownBody(data: widget.controller.text),
+                      : MarkdownBody(
+                          data: widget.controller.text,
+                          // 预览里可缩放图(上传图)的 100/75/50 胶囊:
+                          // 官方同款正则改 raw 的 `, N%` 后缀,预览随
+                          // controller 变更自动重 cook。
+                          onImageScaleChanged: (image, scale) {
+                            final next = applyImageScaleToRaw(
+                                widget.controller.text, image, scale);
+                            if (next != null) {
+                              widget.controller.text = next;
+                              setState(() {});
+                            }
+                          },
+                        ),
                 )
               : Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),

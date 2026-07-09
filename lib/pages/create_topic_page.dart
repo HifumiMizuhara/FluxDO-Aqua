@@ -818,7 +818,19 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
                                     ),
                                   )
                                 else
-                                  MarkdownBody(data: _contentController.text),
+                                  MarkdownBody(
+                                    data: _contentController.text,
+                                    onImageScaleChanged: (image, scale) {
+                                      final next = applyImageScaleToRaw(
+                                          _contentController.text,
+                                          image,
+                                          scale);
+                                      if (next != null) {
+                                        _contentController.text = next;
+                                        setState(() {});
+                                      }
+                                    },
+                                  ),
                               ],
                             ),
                           ),
