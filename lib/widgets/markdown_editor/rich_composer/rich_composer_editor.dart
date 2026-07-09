@@ -699,7 +699,7 @@ class RichComposerEditorState extends State<RichComposerEditor> {
 
   /// "+"插入菜单:每项 = 一段模板 markdown(经 cook 变成对应块类型)。
   /// 覆盖编辑白名单外的全部常用块 —— 验证任何类型不再需要手写语法。
-  Future<void> _showInsertMenu() async {
+  Future<void> _showInsertMenu(BuildContext anchorContext) async {
     final entries = <(String, String, IconData)>[
       ('表格', '| 列 1 | 列 2 |\n|---|---|\n| 内容 | 内容 |', Icons.table_chart_outlined),
       ('代码块', '```dart\n// 代码\n```', Icons.code_rounded),
@@ -710,54 +710,42 @@ class RichComposerEditorState extends State<RichComposerEditor> {
       ('引用卡', '[quote]\n引用内容\n[/quote]', Icons.format_quote_rounded),
     ];
 
-    final box = context.findRenderObject() as RenderBox?;
+    // 锚定"+"按钮矩形(anchorContext = 按钮自己的 context)—— 此前用
+    // composer 整体 context 定位,菜单弹到编辑器区域角落(与按钮无关)。
+    final btnBox = anchorContext.findRenderObject() as RenderBox?;
     final overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox?;
-    if (box == null || overlay == null) return;
-    final origin = box.localToGlobal(Offset.zero, ancestor: overlay);
+    if (btnBox == null || overlay == null) return;
+    final btnRect =
+        btnBox.localToGlobal(Offset.zero, ancestor: overlay) & btnBox.size;
+
+    PopupMenuItem<String> item(String value, IconData icon, String label) =>
+        PopupMenuItem<String>(
+          value: value,
+          height: 38,
+          child: Row(children: [
+            Icon(icon, size: 17),
+            const SizedBox(width: 10),
+            Text(label, style: const TextStyle(fontSize: 13)),
+          ]),
+        );
 
     final selected = await showMenu<String>(
       context: context,
+      // 锚点 = 按钮顶边,菜单向上展开(工具栏在底部)
       position: RelativeRect.fromLTRB(
-        origin.dx + 8,
-        origin.dy + box.size.height - 380,
-        origin.dx + 300,
-        origin.dy + box.size.height - 56,
+        btnRect.left,
+        btnRect.top - 8,
+        overlay.size.width - btnRect.right,
+        overlay.size.height - btnRect.top + 8,
       ),
+      constraints: const BoxConstraints(maxWidth: 220),
       items: [
-        for (final (label, md, icon) in entries)
-          PopupMenuItem<String>(
-            value: md,
-            child: Row(
-              children: [
-                Icon(icon, size: 18),
-                const SizedBox(width: 10),
-                Text(label),
-              ],
-            ),
-          ),
+        for (final (label, md, icon) in entries) item(md, icon, label),
         // 日期时间:弹属性对话框选时间再插原子(不再是死模板)
-        PopupMenuItem<String>(
-          value: '__date__',
-          child: Row(
-            children: const [
-              Icon(Icons.event_rounded, size: 18),
-              SizedBox(width: 10),
-              Text('日期时间'),
-            ],
-          ),
-        ),
-        const PopupMenuDivider(),
-        PopupMenuItem<String>(
-          value: '__custom__',
-          child: Row(
-            children: const [
-              Icon(Icons.data_object_rounded, size: 18),
-              SizedBox(width: 10),
-              Text('Markdown 片段…'),
-            ],
-          ),
-        ),
+        item('__date__', Icons.event_rounded, '日期时间'),
+        const PopupMenuDivider(height: 8),
+        item('__custom__', Icons.data_object_rounded, 'Markdown 片段…'),
       ],
     );
     if (selected == null || !mounted) return;
@@ -1079,7 +1067,7 @@ class _RichToolbar extends StatefulWidget {
   final bool uploading;
   final VoidCallback onPickImage;
   final VoidCallback onInsertLink;
-  final VoidCallback onInsertMenu;
+  final void Function(BuildContext anchorContext) onInsertMenu;
   final VoidCallback? onSwitchToSource;
 
   @override
@@ -1246,9 +1234,14 @@ class _RichToolbarState extends State<_RichToolbar> {
                               )
                             : _btn(FontAwesomeIcons.image, '上传图片',
                                 onTap: widget.onPickImage),
-                        _btn(FontAwesomeIcons.circlePlus,
-                            '插入块(表格/代码/公式…)',
-                            onTap: widget.onInsertMenu),
+                        // Builder:拿"+"按钮自己的 context —— 菜单锚定
+                        // 按钮矩形(否则弹到编辑器区域角落)
+                        Builder(
+                          builder: (btnCtx) => _btn(
+                              FontAwesomeIcons.circlePlus,
+                              '插入块(表格/代码/公式…)',
+                              onTap: () => widget.onInsertMenu(btnCtx)),
+                        ),
                       ]),
                     ),
                   ),
