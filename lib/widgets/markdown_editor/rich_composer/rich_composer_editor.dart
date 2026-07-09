@@ -995,8 +995,17 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                     onTableEdited: _onTableEdited,
                     // 单击 date chip → 属性编辑对话框
                     onAtomTap: _onAtomTap,
-                    // 光标全局矩形上抛(斜杠/mention 浮层锚定用)
-                    onCaretRectChanged: (r) => _caretGlobalRect = r,
+                    // 光标全局矩形上抛(斜杠/mention 浮层锚定用)。
+                    // 矩形变化且浮层活跃 → 重建重锚定:浮层首建发生在
+                    // 文档变更回调里(同步),彼时矩形还是上一帧旧值,
+                    // 不跟随的话初始位置错、直到下次 markNeedsBuild
+                    // (如按上下键)才跳到正确位置。
+                    onCaretRectChanged: (r) {
+                      if (r == _caretGlobalRect) return;
+                      _caretGlobalRect = r;
+                      _slashOverlay?.markNeedsBuild();
+                      _mentionOverlay?.markNeedsBuild();
+                    },
                     // 浮层激活时接管上下/回车/Esc(否则被编辑器拿去移光标)
                     keyEventInterceptor: _interceptKeyEvent,
                     baseTextStyle: Theme.of(context)
