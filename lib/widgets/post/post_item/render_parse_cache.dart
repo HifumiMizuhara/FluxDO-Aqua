@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:fluxdo_render/fluxdo_render.dart';
 
 import '../../../models/topic.dart';
@@ -68,13 +70,23 @@ class RenderParseCache {
       _short[post.id] = cached; // 触摸移到 LRU 尾
       return (preprocessed: cached.preprocessed, nodes: cached.nodes);
     }
-    final preprocessed = FluxdoRenderCallbacks.preprocessCookedForRender(post);
-    final nodes =
-        List<BlockNode>.unmodifiable(ParagraphParser().parse(preprocessed));
-    _short[post.id] =
-        _ShortEntry(signature: signature, preprocessed: preprocessed, nodes: nodes);
+    // Timeline 标记:STALL/jank 现场抓取的摘要里能点名"这段是帖子
+    // 首次解析"(固定名,按名聚合;监控相关开销仅字符串一枚)
+    final parsed = developer.Timeline.timeSync('ParseShortPost', () {
+      final preprocessed =
+          FluxdoRenderCallbacks.preprocessCookedForRender(post);
+      final nodes = List<BlockNode>.unmodifiable(
+        ParagraphParser().parse(preprocessed),
+      );
+      return (preprocessed: preprocessed, nodes: nodes);
+    });
+    _short[post.id] = _ShortEntry(
+      signature: signature,
+      preprocessed: parsed.preprocessed,
+      nodes: parsed.nodes,
+    );
     _evict(_short, _shortCap);
-    return (preprocessed: preprocessed, nodes: nodes);
+    return parsed;
   }
 
   /// 长帖解析产物;非长帖(不足分块)返回 null。
@@ -162,10 +174,13 @@ class LongPostParseData {
       final prevOffset = i == 0 ? 0 : _offsets[i - 1]!;
       final prevCount = i == 0 ? 0 : countImageRuns(_parsed[i - 1]!);
       final offset = prevOffset + prevCount;
-      final nodes = _parser.parse(
-        chunks[i].html,
-        imageIndexStart: offset,
-        footnotesHtml: footnotesHtml,
+      final nodes = developer.Timeline.timeSync(
+        'ParseLongChunk',
+        () => _parser.parse(
+          chunks[i].html,
+          imageIndexStart: offset,
+          footnotesHtml: footnotesHtml,
+        ),
       );
       _parsed[i] = List.unmodifiable(nodes);
       _offsets[i] = offset;

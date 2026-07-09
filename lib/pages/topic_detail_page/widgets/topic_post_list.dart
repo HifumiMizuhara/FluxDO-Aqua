@@ -149,6 +149,9 @@ class TopicPostList extends StatefulWidget {
 class _TopicPostListState extends State<TopicPostList> {
   int? _lastReportedPostNumber;
   bool _isThrottled = false;
+
+  /// TYPING 诊断日志去重:上次记录的 typing 人数(见 build 内 Consumer)
+  int? _lastLoggedTypingCount;
   List<_PostRenderSegment> _renderSegments = const [];
   Map<int, int> _postIndexToScrollIndex = const {};
   Map<int, int> _scrollIndexToPostNumber = const {};
@@ -180,30 +183,58 @@ class _TopicPostListState extends State<TopicPostList> {
   /// 语义同上;data 实例由 [_longPostDataFor] 的内容签名保证稳定。
   final Map<(int, int), _ChunkWidgetCacheEntry> _chunkWidgetCache = {};
 
-  /// 首屏渐进物化上限(段数,null = 不限制)。
+  /// 渐进物化上限(段数,null = 不限制)。before/after 两条 SliverList
+  /// 各一份:翻页只发生在一侧,单值会误截另一侧已物化的段。
   ///
   /// 生产归因日志:数据到达帧一次物化 viewport+cacheExtent 内的 8~10 帖,
-  /// build 25~29ms(120Hz 预算 8.3ms)。挂载后的前几帧限制顶部进入分支
-  /// (centerPostIndex == 0)的 after 列表 childCount:首帧 header + 4 段,
-  /// 之后每帧 +4,追平即永久置 null —— 铺满全程 2~3 帧(120Hz 下 ~25ms)
-  /// 不可感知,列表只向下增长,已布局项不动、零跳变。跳转进入
-  /// (centerPostIndex > 0)不启用;cap 只存在于挂载初期,刷新/翻页/
-  /// msgbus 更新等后续重建永不受影响。
-  int? _materializeCap;
+  /// build 25~29ms(120Hz 预算 8.3ms)。两个时机启用:
+  /// - 挂载初期:首帧 4 段起步,每帧 +4,追平即置 null —— 铺满全程
+  ///   2~3 帧(120Hz 下 ~25ms)不可感知,列表只向外增长,已布局项
+  ///   不动、零跳变。
+  /// - 翻页落地:尾部追加/头部插入大量新段时对新增侧重启(旧段数 +4
+  ///   起步,cap ≥ 旧 childCount,已物化段绝不被卸载),见
+  ///   [_maybeStartPagingMaterialize];gap 填充/整页替换不启用。
+  int? _materializeCapBefore;
+  int? _materializeCapAfter;
+  bool _materializeTicking = false;
   static const int _materializeStep = 4;
 
   void _scheduleMaterializeStep() {
+    if (_materializeTicking) return;
+    _materializeTicking = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _materializeTicking = false;
       if (!mounted) return;
-      final cap = _materializeCap;
-      if (cap == null) return;
-      if (cap >= _renderSegments.length) {
-        // childCount 已是全量(min 取长度),置 null 无需重建
-        _materializeCap = null;
-        return;
+      final centerScrollIndex =
+          _postIndexToScrollIndex[widget.centerPostIndex] ?? 0;
+      var advanced = false;
+
+      final capBefore = _materializeCapBefore;
+      if (capBefore != null) {
+        if (capBefore >= centerScrollIndex) {
+          // childCount 已是全量(min 取总数),置 null 无需重建
+          _materializeCapBefore = null;
+        } else {
+          _materializeCapBefore = capBefore + _materializeStep;
+          advanced = true;
+        }
       }
-      setState(() => _materializeCap = cap + _materializeStep);
-      _scheduleMaterializeStep();
+
+      final capAfter = _materializeCapAfter;
+      if (capAfter != null) {
+        final afterTotal = _renderSegments.length - centerScrollIndex;
+        if (capAfter >= afterTotal) {
+          _materializeCapAfter = null;
+        } else {
+          _materializeCapAfter = capAfter + _materializeStep;
+          advanced = true;
+        }
+      }
+
+      if (advanced) {
+        setState(() {});
+        _scheduleMaterializeStep();
+      }
     });
   }
 
@@ -213,7 +244,8 @@ class _TopicPostListState extends State<TopicPostList> {
     // 首屏渐进物化:顶部/跳转进入都启用。跳转进入时 center 在 after
     // 列表 index 0、before 列表 index 0 离 center 最近 —— cap 截断的
     // 都是两侧**远端**,center 及近邻首帧即物化,定位不受影响。
-    _materializeCap = _materializeStep;
+    _materializeCapBefore = _materializeStep;
+    _materializeCapAfter = _materializeStep;
     _scheduleMaterializeStep();
     // 首帧渲染后触发一次可见性检测，确保进入页面时即上报阅读状态
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -246,15 +278,46 @@ class _TopicPostListState extends State<TopicPostList> {
     // 与最近滚动方向相反且单次跳变 >8px:用户反向拖动一般达不到,
     // 惯性/动画中出现即为程序性修正
     if (_probeDirection != 0 && direction != _probeDirection && delta.abs() > 8) {
-      FrameJankMonitor.logEvent(
-        'SCROLL-PROBE',
-        'backward jump ${delta.toStringAsFixed(1)}px '
-            'at ${pixels.toStringAsFixed(1)} '
-            '(min ${position.minScrollExtent.toStringAsFixed(1)}, '
-            'max ${position.maxScrollExtent.toStringAsFixed(1)})',
-      );
+      // overscroll 回弹(位置在边界外)是 BouncingScrollPhysics 常态,
+      // 方向必然反转,不是布局跳变 —— 过滤,只记内容区内的程序性修正
+      // (生产样本:一轮 13 次 jump 里大半是边界回弹噪音)
+      final minExtent = position.minScrollExtent;
+      final maxExtent = position.maxScrollExtent;
+      final inBounds = pixels >= minExtent &&
+          pixels <= maxExtent &&
+          last >= minExtent &&
+          last <= maxExtent;
+      if (inBounds) {
+        FrameJankMonitor.logEvent(
+          'SCROLL-PROBE',
+          'backward jump ${delta.toStringAsFixed(1)}px '
+              'at ${pixels.toStringAsFixed(1)} '
+              '(min ${minExtent.toStringAsFixed(1)}, '
+              'max ${maxExtent.toStringAsFixed(1)}) '
+              '| 挂载: ${_mountedSegmentsSummary()} '
+              '| 近帧构建: ${FrameJankMonitor.recentBuildNotes()}',
+        );
+      }
     }
     _probeDirection = direction;
+  }
+
+  /// 跳变现场:当前挂载的 segment 摘要。回跳的根因是"某类 item 重挂载
+  /// 时高度与上次记账不同",每次跳变记录现场类型分布,几次样本对比即可
+  /// 锁定是哪类内容(video/onebox/长帖 chunk...)高度不稳。
+  String _mountedSegmentsSummary() {
+    final parts = <String>[];
+    for (final entry in scrollController.tagMap.entries) {
+      final ctx = entry.value.context;
+      if (!ctx.mounted) continue;
+      final idx = entry.key;
+      if (idx < 0 || idx >= _renderSegments.length) continue;
+      final s = _renderSegments[idx];
+      final chunk = s.chunkIndex != null ? ':${s.chunkIndex}' : '';
+      parts.add('${s.type.name}#${s.post.postNumber}$chunk');
+      if (parts.length >= 10) break;
+    }
+    return parts.isEmpty ? '(无)' : parts.join(' ');
   }
 
   @override
@@ -507,6 +570,9 @@ class _TopicPostListState extends State<TopicPostList> {
         identical(_segmentsSourceGaps, gaps)) {
       return;
     }
+    final oldPosts = _segmentsSourcePosts;
+    final oldSegmentsLength = _renderSegments.length;
+    final oldIndexMap = _postIndexToScrollIndex;
     _segmentsSourcePosts = posts;
     _segmentsSourceGaps = gaps;
 
@@ -619,6 +685,14 @@ class _TopicPostListState extends State<TopicPostList> {
     _longPostRenderCache.removeWhere(
       (postId, _) => !activePostIds.contains(postId),
     );
+    // widget 实例缓存同步淘汰:离开 posts 的帖子(整流刷新/过滤模式)
+    // 不再持有 widget 配置树;翻页只增不减,不受影响
+    _shortPostCache.removeWhere(
+      (postId, _) => !activePostIds.contains(postId),
+    );
+    _chunkWidgetCache.removeWhere(
+      (key, _) => !activePostIds.contains(key.$1),
+    );
     var structureHash = 0;
     for (final s in segments) {
       structureHash = Object.hash(
@@ -636,6 +710,100 @@ class _TopicPostListState extends State<TopicPostList> {
     widget.onScrollIndexMappingChanged?.call(postIndexToScrollIndex);
     widget.onScrollIndexToPostNumberChanged?.call(scrollIndexToPostNumber);
     widget.onPostSegmentRangesChanged?.call(postSegmentRanges);
+    _maybeStartPagingMaterialize(
+      oldPosts,
+      posts,
+      oldSegmentsLength,
+      oldIndexMap,
+    );
+  }
+
+  /// 翻页落地的渐进物化 + 新帖解析预热。
+  ///
+  /// loadMore/loadPrevious 一次落地十几帖时,落在 cacheExtent 内的新段
+  /// 会被同帧全部物化(单帖 build 6~20ms,叠加即 UI 大帧/STALL 的组成
+  /// 部分)。检测"尾部追加/头部插入"型结构变化,对新增侧重启渐进
+  /// cap:旧段数 +4 起步(≥ 旧 childCount,已物化段绝不被卸载),每帧
+  /// +4 追平。中间 gap 填充(首尾都不变)与整页替换(首尾都变)不
+  /// 启用,维持旧行为。
+  void _maybeStartPagingMaterialize(
+    List<Post>? oldPosts,
+    List<Post> newPosts,
+    int oldSegmentsLength,
+    Map<int, int> oldIndexMap,
+  ) {
+    if (oldPosts == null || oldPosts.isEmpty || oldSegmentsLength == 0) return;
+    if (newPosts.length <= oldPosts.length) return;
+    final sameFirst = newPosts.first.id == oldPosts.first.id;
+    final sameLast = newPosts.last.id == oldPosts.last.id;
+    if (sameFirst == sameLast) return; // gap 填充(都同)/整页替换(都变)
+
+    final addedSegments = _renderSegments.length - oldSegmentsLength;
+    final fewAdded = addedSegments < _materializeStep * 2; // 少量新增不值得分帧
+
+    if (sameFirst) {
+      // 尾部追加:append 不改 center 的 postIndex 与 scrollIndex
+      if (!fewAdded && _materializeCapAfter == null) {
+        final oldCenter = oldIndexMap[widget.centerPostIndex] ?? 0;
+        final oldAfterCount = oldSegmentsLength - oldCenter;
+        if (oldAfterCount >= 0) {
+          _materializeCapAfter = oldAfterCount + _materializeStep;
+          _scheduleMaterializeStep();
+          // 汇入诊断时间轴:对照 SCROLL-PROBE,定案"内容区回跳是否
+          // 与 cap 渐进窗口(extent 逐帧长全)重合"
+          FrameJankMonitor.logEvent(
+            'MATERIALIZE',
+            'after cap=$_materializeCapAfter +$addedSegments段',
+          );
+        }
+      }
+      _schedulePostParseWarmUp(newPosts.sublist(oldPosts.length));
+    } else {
+      // 头部插入:prepend 使 centerPostIndex 平移了新增帖数
+      final shift = newPosts.length - oldPosts.length;
+      if (!fewAdded && _materializeCapBefore == null) {
+        final oldCenter = oldIndexMap[widget.centerPostIndex - shift];
+        if (oldCenter != null) {
+          _materializeCapBefore = oldCenter + _materializeStep;
+          _scheduleMaterializeStep();
+          FrameJankMonitor.logEvent(
+            'MATERIALIZE',
+            'before cap=$_materializeCapBefore +$addedSegments段',
+          );
+        }
+      }
+      _schedulePostParseWarmUp(newPosts.sublist(0, shift));
+    }
+  }
+
+  /// 新落地帖子的解析预热:idle 时间逐帖跑 [RenderParseCache.shortPost]
+  /// (preprocess + DOM parse,单帖 1~5ms),配合渐进 cap 后,物化帧只剩
+  /// 纯 widget 构建。长帖跳过(chunk 懒解析 + 滚动停止后的
+  /// [_scheduleChunkWarmUp] 已覆盖)。新一轮落地推进 generation,旧队列
+  /// 自动作废;LRU 命中即免费,与物化竞争不会重复付费。
+  int _parseWarmUpGeneration = 0;
+
+  void _schedulePostParseWarmUp(List<Post> posts) {
+    if (posts.isEmpty) return;
+    final generation = ++_parseWarmUpGeneration;
+    var index = 0;
+    void step() {
+      SchedulerBinding.instance.scheduleTask(() {
+        if (!mounted || generation != _parseWarmUpGeneration) return;
+        while (index < posts.length) {
+          final post = posts[index++];
+          // segments 构建已对每帖做过长短判定并落缓存,据此跳过长帖
+          final isLong =
+              _longPostRenderCache[post.id]?.chunks.isNotEmpty ?? false;
+          if (isLong) continue;
+          RenderParseCache.shortPost(post);
+          break;
+        }
+        if (index < posts.length) step();
+      }, Priority.idle);
+    }
+
+    step();
   }
 
   _LongPostRenderCacheEntry _longPostDataFor(Post post) {
@@ -786,10 +954,10 @@ class _TopicPostListState extends State<TopicPostList> {
               if (centerPostIndex > 0)
                 SliverList.builder(
                   // 渐进物化:cap 截断的是远离 center 的上方远端
-                  itemCount: _materializeCap == null
+                  itemCount: _materializeCapBefore == null
                       ? centerScrollIndex
-                      : (_materializeCap! < centerScrollIndex
-                          ? _materializeCap!
+                      : (_materializeCapBefore! < centerScrollIndex
+                          ? _materializeCapBefore!
                           : centerScrollIndex),
                   itemBuilder: (context, index) {
                     final segmentIndex = centerScrollIndex - 1 - index;
@@ -827,10 +995,10 @@ class _TopicPostListState extends State<TopicPostList> {
                     ),
                     SliverList.builder(
                       // 首屏渐进物化:挂载初期逐帧放开(见 _materializeCap)
-                      itemCount: _materializeCap == null
+                      itemCount: _materializeCapAfter == null
                           ? _renderSegments.length
-                          : (_materializeCap! < _renderSegments.length
-                              ? _materializeCap!
+                          : (_materializeCapAfter! < _renderSegments.length
+                              ? _materializeCapAfter!
                               : _renderSegments.length),
                       itemBuilder: (context, index) =>
                           _buildSegmentItem(context, _renderSegments[index]),
@@ -843,7 +1011,7 @@ class _TopicPostListState extends State<TopicPostList> {
                   // 渐进物化:center 是本列表 index 0,cap 截断下方远端
                   itemCount: () {
                     final total = _renderSegments.length - centerScrollIndex;
-                    final cap = _materializeCap;
+                    final cap = _materializeCapAfter;
                     return cap == null || cap >= total ? total : cap;
                   }(),
                   itemBuilder: (context, index) {
@@ -874,11 +1042,16 @@ class _TopicPostListState extends State<TopicPostList> {
                               ).select((s) => s.typingUsers),
                             );
                             // 汇入性能诊断时间轴:"有人正在输入"场景的
-                            // 卡顿是否与 presence/typing 更新同时刻
-                            FrameJankMonitor.logEvent(
-                              'TYPING',
-                              '${typingUsers.length} users',
-                            );
+                            // 卡顿是否与 presence/typing 更新同时刻。
+                            // 同值去重:presence 消息风暴下重复的
+                            // "0 users" 只会淹没时间轴,不携带信息
+                            if (typingUsers.length != _lastLoggedTypingCount) {
+                              _lastLoggedTypingCount = typingUsers.length;
+                              FrameJankMonitor.logEvent(
+                                'TYPING',
+                                '${typingUsers.length} users',
+                              );
+                            }
                             return TypingAvatars(users: typingUsers);
                           },
                         ),
@@ -1171,7 +1344,11 @@ class _TopicPostListState extends State<TopicPostList> {
         key: ValueKey(_segmentKey(segment)),
         controller: scrollController,
         index: segment.scrollIndex,
-        child: child,
+        // builder 直通:绕开 AutoScrollTag 默认的 buildHighlightTransition
+        // 常驻 DecoratedBoxTransition 包装(项目不用包的 highlight 功能,
+        // 楼层高亮是 PostItem 自己的 highlight 参数),每帖少一层
+        // transition + tween 求值
+        builder: (context, animation) => child,
       ),
     );
 

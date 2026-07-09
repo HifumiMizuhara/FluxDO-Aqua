@@ -7,6 +7,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../constants.dart';
 import '../utils/frame_jank_monitor.dart';
+import '../utils/scroll_busy_signal.dart';
 import 'cf_challenge_logger.dart';
 import 'network/cookie/boundary_sync_service.dart';
 import 'network/cookie/cookie_jar_service.dart';
@@ -72,6 +73,11 @@ class CfClearanceRefreshService {
   Timer? _healthTimer;
   Timer? _delayedRestartTimer;
   Timer? _delayedStopTimer;
+
+  /// 滚动挂起状态机(仅 Android):500ms 检查一次滚动繁忙信号,
+  /// 见 [_updateScrollPause]
+  Timer? _scrollPauseTicker;
+  bool _webViewPausedForScroll = false;
 
   /// 获取当前缓存的 sitekey。
   String? get sitekey => _sitekey;
@@ -547,6 +553,9 @@ document.close();
         _cookiePollTimer?.cancel();
         return;
       }
+      // 滚动中让路:cookie 同步是一趟平台主线程 IPC,与 vsync 分发
+      // 同线程;这是兜底轮询,顺延一轮无影响
+      if (ScrollBusySignal.isBusy) return;
       unawaited(_syncAndCheckCookies('poll', gen));
     });
 
@@ -555,6 +564,8 @@ document.close();
         _healthTimer?.cancel();
         return;
       }
+      // 滚动中让路(同 poll:stale 判定顺延一轮无影响)
+      if (ScrollBusySignal.isBusy) return;
       // 平时不做 WebView cookie 同步(那是一趟平台主线程 IPC,主路径
       // 已由 JS 信号事件驱动 + 2min 兜底轮询覆盖);只在逼近 stale 窗口
       // 时同步一次拿最新状态,确认真 stale 才重载。
@@ -580,6 +591,47 @@ document.close();
         unawaited(_reloadTurnstile('stale_refresh', gen: gen));
       }
     });
+
+    // 滚动窗口内把 headless WebView 挂起(Android onPause:暂停 JS 定时
+    // 器与渲染,不销毁实例):Turnstile 是活网页,常驻 JS 把平台主线程
+    // 烧到 60%+ 单核(生产 CPU 采样),而 vsync 分发/触摸事件与其同
+    // 线程。滚动繁忙即挂起、静默 ~1s 后恢复,JS 信号与刷新逻辑 resume
+    // 后自然补上。初始 Turnstile 运行期(_initialTimer 未清)只恢复不
+    // 挂起,避免把首次验证拖到超时误判重建。
+    if (io.Platform.isAndroid) {
+      _scrollPauseTicker = Timer.periodic(
+        const Duration(milliseconds: 500),
+        (_) {
+          if (!_canHandleGeneration(gen)) {
+            _scrollPauseTicker?.cancel();
+            return;
+          }
+          unawaited(_updateScrollPause());
+        },
+      );
+    }
+  }
+
+  /// 滚动繁忙 ↔ 静默的 WebView 挂起切换(仅 Android,由
+  /// [_scrollPauseTicker] 驱动)。pause/resume 是单实例 onPause/onResume,
+  /// 一次轻量平台调用;失败时复位标记,避免卡死在挂起态。
+  Future<void> _updateScrollPause() async {
+    final controller = _webViewController;
+    if (controller == null) return;
+    final wantPause = ScrollBusySignal.isBusy && _initialTimer == null;
+    if (wantPause == _webViewPausedForScroll) return;
+    try {
+      if (wantPause) {
+        _webViewPausedForScroll = true;
+        await controller.pause();
+      } else {
+        _webViewPausedForScroll = false;
+        await controller.resume();
+      }
+    } catch (e) {
+      _webViewPausedForScroll = false;
+      CfChallengeLogger.log('[CfRefresh] 滚动挂起/恢复失败: $e');
+    }
   }
 
   Future<bool> _syncAndCheckCookies(String reason, int gen) async {
@@ -766,6 +818,10 @@ document.close();
     _cookiePollTimer = null;
     _healthTimer?.cancel();
     _healthTimer = null;
+    _scrollPauseTicker?.cancel();
+    _scrollPauseTicker = null;
+    // 旧实例的挂起态随销毁消失;新实例从 resumed 起步
+    _webViewPausedForScroll = false;
   }
 
   void _cancelDelayedTimers() {

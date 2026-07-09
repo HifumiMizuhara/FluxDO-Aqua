@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
+import '../../../utils/image_paint_gate.dart';
 import '../../common/anchor_guard_sliver.dart';
 import '../../common/hero_image.dart';
 
@@ -82,6 +83,13 @@ class _LazyImageState extends State<LazyImage> {
   /// 无声明尺寸的图,首帧落地会把占位换成真实高度 —— 只武装一次哨兵
   bool _armedForFirstFrame = false;
 
+  /// 首绘闸门:首帧解码完成后是否已获准真正上屏(见 [ImagePaintGate],
+  /// 摊平多图同帧集中纹理上传的 raster 尖峰)。缓存同步命中不走闸门。
+  bool _paintAdmitted = false;
+
+  /// 非 null = 正在闸门队列中排队(防重复入队;dispose/换图时出队)
+  VoidCallback? _gateWaiter;
+
   /// 与 Image 内部同款的滚动感知上下文:比例监听经 [ScrollAwareImageProvider]
   /// 包装后,快速滚动中不首发加载。此前挂载即裸 resolve,把框架给 Image
   /// 内建的快滚保护整个绕开了(cacheExtent 进入即发起下载+解码)。
@@ -100,6 +108,9 @@ class _LazyImageState extends State<LazyImage> {
     if (oldWidget.imageProvider != widget.imageProvider) {
       _stopRatioResolve();
       _resolvedRatio = null;
+      // 换图(列表 item 复用同位置 State):新图重新过首绘闸门
+      _cancelGateWait();
+      _paintAdmitted = false;
       _resolveRatioIfNeeded();
     }
   }
@@ -107,6 +118,7 @@ class _LazyImageState extends State<LazyImage> {
   @override
   void dispose() {
     _stopRatioResolve();
+    _cancelGateWait();
     _scrollAwareContext.dispose();
     super.dispose();
   }
@@ -168,6 +180,21 @@ class _LazyImageState extends State<LazyImage> {
     }
     _ratioListener = null;
     _ratioStream = null;
+  }
+
+  /// 闸门放行回调:排到名额,重建以显示真实图片
+  void _handleGateAdmitted() {
+    _gateWaiter = null;
+    if (!mounted) return;
+    setState(() => _paintAdmitted = true);
+  }
+
+  void _cancelGateWait() {
+    final waiter = _gateWaiter;
+    if (waiter != null) {
+      ImagePaintGate.cancel(waiter);
+      _gateWaiter = null;
+    }
   }
 
   /// 与 build 使用完全相同的 provider 参数,保证 ImageStream 同 key 共享
@@ -241,7 +268,19 @@ class _LazyImageState extends State<LazyImage> {
       // provider 变化(如窗口宽变化导致解码宽变)时保留旧帧,避免闪白
       gaplessPlayback: true,
       frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-        if (frame != null) return child;
+        if (frame == null) return placeholderBox();
+        // 首绘闸门:缓存同步命中(纹理早已上传)与已获准的直接显示;
+        // 新解码完成的图申请本帧名额,拿不到先继续占位,获准回调里
+        // setState 放行 —— 多图同帧集中上传由此摊成逐帧一张
+        if (wasSynchronouslyLoaded || _paintAdmitted) return child;
+        if (_gateWaiter == null) {
+          final waiter = _handleGateAdmitted;
+          if (ImagePaintGate.admit(waiter)) {
+            _paintAdmitted = true;
+            return child;
+          }
+          _gateWaiter = waiter;
+        }
         return placeholderBox();
       },
       loadingBuilder: (context, child, loadingProgress) {

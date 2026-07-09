@@ -73,6 +73,7 @@ import 'constants.dart';
 import 'providers/connectivity_provider.dart';
 import 'utils/dialog_utils.dart';
 import 'utils/frame_jank_monitor.dart';
+import 'utils/scroll_busy_signal.dart';
 import 'utils/time_utils.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -693,6 +694,19 @@ class MainApp extends ConsumerWidget {
                       UserPresenceService().markUserActivity(),
                   onPointerSignal: (_) =>
                       UserPresenceService().markUserActivity(),
+                  child: result,
+                );
+
+                // 全局滚动繁忙信号:后台维护任务(WebView cookie 轮询等
+                // 平台主线程 IPC)据此在滚动中让路,见 ScrollBusySignal
+                result = NotificationListener<ScrollNotification>(
+                  onNotification: (notification) {
+                    if (notification is ScrollUpdateNotification ||
+                        notification is ScrollStartNotification) {
+                      ScrollBusySignal.touch();
+                    }
+                    return false;
+                  },
                   child: result,
                 );
 

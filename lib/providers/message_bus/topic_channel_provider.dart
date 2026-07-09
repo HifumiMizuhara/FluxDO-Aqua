@@ -213,7 +213,10 @@ class TopicChannelNotifier extends Notifier<TopicChannelState> {
       final currentUser = ref.read(currentUserProvider).value;
       final currentUserId = currentUser?.id;
       
-      final currentUsers = List<TypingUser>.from(state.typingUsers);
+      // 防抖基线:窗口内的连续 presence 消息在 pending 上累积,
+      // 否则中间态互相覆盖丢更新
+      final currentUsers =
+          List<TypingUser>.from(_pendingTypingUsers ?? state.typingUsers);
       bool changed = false;
       
       final enteringUsersList = data['entering_users'] as List<dynamic>?;
@@ -250,7 +253,16 @@ class TopicChannelNotifier extends Notifier<TopicChannelState> {
       }
       
       if (changed) {
-        state = state.copyWith(typingUsers: currentUsers);
+        // 防抖 200ms:presence 风暴(生产诊断实测 5 条/80ms)逐条
+        // copyWith 是白给的 provider 链更新;typing 头像晚 200ms 无感
+        _pendingTypingUsers = currentUsers;
+        _typingDebounce ??= Timer(const Duration(milliseconds: 200), () {
+          _typingDebounce = null;
+          final pending = _pendingTypingUsers;
+          if (_disposed || pending == null) return;
+          _pendingTypingUsers = null;
+          state = state.copyWith(typingUsers: pending);
+        });
       }
     }
     
@@ -275,6 +287,9 @@ class TopicChannelNotifier extends Notifier<TopicChannelState> {
     ref.onDispose(() {
       _disposed = true;
       _pendingUpdates.clear();
+      _typingDebounce?.cancel();
+      _typingDebounce = null;
+      _pendingTypingUsers = null;
       messageBus.unsubscribe(topicChannel, onTopicMessage);
       messageBus.unsubscribe(reactionsChannel, onReactionsMessage);
       messageBus.unsubscribe(presenceChannel, onPresenceMessage);
@@ -334,6 +349,10 @@ class TopicChannelNotifier extends Notifier<TopicChannelState> {
   bool _disposed = false;
   final List<PostUpdate> _pendingUpdates = [];
   bool _flushScheduled = false;
+
+  /// typing 防抖(见 onPresenceMessage):200ms 窗口内累积,到期一次 apply
+  Timer? _typingDebounce;
+  List<TypingUser>? _pendingTypingUsers;
 
   void _enqueueUpdate(PostUpdate update) {
     // 批内去重:同帖同类型只留最新(积压里同一帖的多条 reactions/liked

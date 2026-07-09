@@ -85,19 +85,25 @@ class TopicDetailOverlay extends StatelessWidget {
             child: Center(
               child: TopicProgressGestures(
                 onAction: onProgressGesture ?? (_) {},
-                child: ValueListenableBuilder<int>(
-                  valueListenable: streamIndexListenable,
-                  builder: (context, currentStreamIndex, _) {
-                    final progressPercent = totalCount > 1
-                        ? (currentStreamIndex - 1) / (totalCount - 1)
-                        : 0.0;
-                    return TopicProgress(
-                      currentIndex: currentStreamIndex,
-                      totalCount: totalCount,
-                      progressPercent: progressPercent,
-                      onTap: onProgressTap,
-                    );
-                  },
+                child: RepaintBoundary(
+                  // 楼层号滚动中连续变化,elevation Card 的阴影+抗锯齿裁剪
+                  // 重绘不便宜(耗时榜 Card/_ShapeBorderPaint ~3ms);独立
+                  // 图层后自身重绘不与列表脏区互相放大,底栏显隐的位移也
+                  // 只是 layer offset 平移
+                  child: ValueListenableBuilder<int>(
+                    valueListenable: streamIndexListenable,
+                    builder: (context, currentStreamIndex, _) {
+                      final progressPercent = totalCount > 1
+                          ? (currentStreamIndex - 1) / (totalCount - 1)
+                          : 0.0;
+                      return TopicProgress(
+                        currentIndex: currentStreamIndex,
+                        totalCount: totalCount,
+                        progressPercent: progressPercent,
+                        onTap: onProgressTap,
+                      );
+                    },
+                  ),
                 ),
               ),
             ),

@@ -5,6 +5,7 @@ import 'package:flutter/painting.dart';
 import 'package:flutter_avif/flutter_avif.dart' as fa;
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import '../l10n/s.dart';
+import '../utils/scroll_busy_signal.dart';
 import 'discourse_cache_manager.dart';
 
 /// 限制并发 AVIF 解码数(thumbnail batch 场景)。
@@ -442,6 +443,16 @@ class _AvifAnimatedImageStreamCompleter extends ImageStreamCompleter {
   Future<void> _decodeAndEmitNext() async {
     final codec = _codec;
     if (codec == null || !hasListeners) return;
+    // 滚动繁忙时冻结动图:逐帧解码(native worker 线程)与每帧纹理
+    // 上传(raster)在滚动中是持续负载 —— 生产 CPU 采样:动图楼滚动
+    // 时匿名解码线程合计吃 40%+ 单核,raster 反复 50~200ms 大帧且
+    // imageCache 零增量(动图帧不进缓存增量,是它的指纹)。冻结在
+    // 当前帧、静默后恢复播放;滚动中肉眼无感,和首绘闸门口径一致。
+    if (ScrollBusySignal.isBusy) {
+      _timer?.cancel();
+      _timer = Timer(const Duration(milliseconds: 250), _decodeAndEmitNext);
+      return;
+    }
     final gen = _generation;
 
     final fa.AvifFrameInfo frame;

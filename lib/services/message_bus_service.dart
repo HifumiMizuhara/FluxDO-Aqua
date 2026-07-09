@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:io' show Platform;
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -7,6 +8,10 @@ import '../constants.dart';
 import '../utils/client_id_generator.dart';
 import 'network/discourse_dio.dart';
 import 'preloaded_data_service.dart';
+
+/// compute 入口:isolate 内解析大 chunk(结果经 Isolate.exit 转移,
+/// 回传零拷贝)。见 [_isolateDecodeThreshold] 的取舍说明。
+dynamic _decodeJsonChunk(String source) => jsonDecode(source);
 
 /// MessageBus 消息
 class MessageBusMessage {
@@ -530,7 +535,7 @@ class MessageBusService {
           if (next == null) break;
           consumed = next.endOffset;
           if (next.payload.isNotEmpty) {
-            if (_processChunk(next.payload)) gotData = true;
+            if (await _processChunk(next.payload)) gotData = true;
           }
         }
 
@@ -547,7 +552,7 @@ class MessageBusService {
     // 服务端 long_polling 25s 超时无数据时,返回的是 `[]` 而不会带分隔符。
     final tail = buffer.toString().trim();
     if (tail.isNotEmpty && !cancelToken.isCancelled) {
-      if (_processChunk(tail)) gotData = true;
+      if (await _processChunk(tail)) gotData = true;
     }
 
     return gotData;
@@ -596,10 +601,22 @@ class MessageBusService {
     return (payload: payload, endOffset: index + _chunkSeparator.length);
   }
 
+  /// 大包 isolate 解析阈值:长轮询常态是心跳/单事件小包,主线程
+  /// jsonDecode 微秒级;但断线重连/订阅积压回放一次能带几十条 post
+  /// 更新(单条携带整段 cooked HTML),几百 KB 的主线程解析就是 UI
+  /// 事件循环的单任务阻塞(诊断时间轴 STALL / HandleMessage 大帧的
+  /// 来源之一)。超过阈值挪 compute;调用方逐块 await,顺序不变。
+  static const int _isolateDecodeThreshold = 32 * 1024;
+
   /// 处理单个消息块,返回是否产生了实际的数据消息
-  bool _processChunk(String chunk) {
+  Future<bool> _processChunk(String chunk) async {
     try {
-      final parsed = jsonDecode(chunk);
+      final parsed = chunk.length >= _isolateDecodeThreshold
+          ? await compute(_decodeJsonChunk, chunk)
+          : developer.Timeline.timeSync(
+              'MsgBusDecode',
+              () => jsonDecode(chunk),
+            );
       if (parsed is! List) return false;
       var got = false;
       for (final item in parsed) {
