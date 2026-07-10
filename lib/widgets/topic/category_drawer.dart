@@ -16,24 +16,25 @@ import 'category_tab_manager_sheet.dart' show PinnedCategoryEditPage;
 
 /// 首页分类侧栏：分类的管理中枢。
 ///
-/// 以**根 Navigator 全屏透明路由**呈现（非 Scaffold.drawer：首页是
-/// AdaptiveScaffold body 里的子树，内层 drawer 遮罩盖不住外层底栏与
-/// FAB）。右缘大圆角面板。
+/// 宿主以 **DrawerController 常驻根 Overlay** 呈现（原生抽屉全套跟手
+/// 手势：左缘拖出/拖拽关闭/甩动 settle/遮罩渐变;挂根 Overlay 故盖得住
+/// 外层底栏与 FAB —— 嵌套 Scaffold.drawer 与透明路由两版的翻车点）。
+/// 本组件即抽屉面板;关闭走 [onRequestClose]（内容不在路由里，
+/// Navigator.pop 语义不可靠）。
 ///
-/// 行上克制：常驻可点的只有「行本体」和「chevron（有子分类时）」——
-/// 每行 🔔★ 常驻按钮版被否（按钮过密易误触）。收藏/订阅收进
-/// **长按（桌面右键）分类操作菜单**；🔒 受限做成图标块右下角标。
+/// 行上克制：常驻可点的只有「行本体」;收藏/订阅收进长按（桌面右键）
+/// 分类操作菜单;🔒 受限做成图标块右下角标。
 ///
 /// - 收藏区：已 pin 分类，点行 → 切到对应首页 tab
-/// - 全部分类区：全量分类按父子分组（子分类折叠，默认收起），
-///   点行 → push 独立分类页浏览
-/// - 长按任意分类行 → 菜单：收藏/取消收藏、订阅设置
+/// - 全部分类区：父子分组;带 chevron 的父分类点行=展开/收起，展开
+///   首行「全部话题」进父分类聚合页;无子分类行点行=进页
 /// - 「编辑」→ 收藏排序页（拖拽调序，复用 PinnedCategoryEditPage）
 class CategoryDrawer extends ConsumerStatefulWidget {
   const CategoryDrawer({
     super.key,
     required this.onPinnedSelected,
     required this.onSubscriptionTap,
+    required this.onRequestClose,
   });
 
   /// 点收藏分类：切换首页 tab（index 为 pinned 列表内序号）
@@ -42,6 +43,9 @@ class CategoryDrawer extends ConsumerStatefulWidget {
   /// 分类操作菜单选「订阅设置」：弹级别面板（宿主处理乐观更新/回退）
   final ValueChanged<Category> onSubscriptionTap;
 
+  /// 请求关闭抽屉（宿主调 DrawerControllerState.close）
+  final VoidCallback onRequestClose;
+
   @override
   ConsumerState<CategoryDrawer> createState() => _CategoryDrawerState();
 }
@@ -49,6 +53,14 @@ class CategoryDrawer extends ConsumerStatefulWidget {
 class _CategoryDrawerState extends ConsumerState<CategoryDrawer> {
   /// 已展开子分类的父分类 id 集合（默认全收起）
   final Set<int> _expandedIds = {};
+
+  /// 关抽屉并 push 页面。抽屉不在路由里（DrawerController 常驻
+  /// Overlay），Navigator.pop 不可用 —— 关闭走宿主回调，push 用本页
+  /// context 的 Navigator。
+  void _closeAndPush(Widget page) {
+    widget.onRequestClose();
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+  }
 
   /// 长按/右键分类行：收藏与订阅的操作菜单（低频操作不常驻行上）
   Future<void> _showCategoryMenu(
@@ -190,16 +202,9 @@ class _CategoryDrawerState extends ConsumerState<CategoryDrawer> {
                             ? _expandedIds.remove(category.id)
                             : _expandedIds.add(category.id);
                       })
-                    : () {
-                        final navigator = Navigator.of(context);
-                        navigator.pop();
-                        navigator.push(
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                CategoryTopicsPage(category: category),
-                          ),
-                        );
-                      },
+                    : () => _closeAndPush(
+                        CategoryTopicsPage(category: category),
+                      ),
                 onLongPress: (rowContext) => _showCategoryMenu(
                   rowContext,
                   category,
@@ -213,15 +218,8 @@ class _CategoryDrawerState extends ConsumerState<CategoryDrawer> {
             Widget allTopicsRowFor(Category parent) {
               return _AllTopicsRow(
                 parentColor: _parseColor(parent.color, colorScheme.primary),
-                onTap: () {
-                  final navigator = Navigator.of(context);
-                  navigator.pop();
-                  navigator.push(
-                    MaterialPageRoute(
-                      builder: (_) => CategoryTopicsPage(category: parent),
-                    ),
-                  );
-                },
+                onTap: () =>
+                    _closeAndPush(CategoryTopicsPage(category: parent)),
               );
             }
 
@@ -248,15 +246,8 @@ class _CategoryDrawerState extends ConsumerState<CategoryDrawer> {
                           icon: const Icon(Symbols.edit_rounded, size: 20),
                           tooltip: S.current.common_edit,
                           visualDensity: VisualDensity.compact,
-                          onPressed: () {
-                            final navigator = Navigator.of(context);
-                            navigator.pop();
-                            navigator.push(
-                              MaterialPageRoute(
-                                builder: (_) => const PinnedCategoryEditPage(),
-                              ),
-                            );
-                          },
+                          onPressed: () =>
+                              _closeAndPush(const PinnedCategoryEditPage()),
                         ),
                     ],
                   ),
@@ -270,7 +261,7 @@ class _CategoryDrawerState extends ConsumerState<CategoryDrawer> {
                       pinned: true,
                       indent: false,
                       onTap: () {
-                        Navigator.pop(context);
+                        widget.onRequestClose();
                         widget.onPinnedSelected(i);
                       },
                       onLongPress: (rowContext) => _showCategoryMenu(

@@ -595,7 +595,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         hintText: context.l10n.search_hintText,
         border: InputBorder.none,
         isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        // 胶囊容器定高 40：竖向 padding 交给容器居中，写死 12 会在
+        // 大字体档下顶破容器（heroCapsule 外的裸 AppBar title 不受影响）
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: 8,
+          vertical: widget.heroCapsule ? 8 : 12,
+        ),
         suffixIcon: _searchController.text.isNotEmpty
             ? IconButton(
                 icon: const Icon(Symbols.close_rounded, size: 20),
@@ -609,25 +614,29 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     );
 
     // Hero 入场：搜索框套胶囊容器（与首页胶囊同视觉），跨页 morph 的
-    // 落点;flight 用静态胶囊（TextField 不参与飞行，避免光标闪烁）
+    // 落点;flight 用静态胶囊（TextField 不参与飞行，避免光标闪烁）。
+    // 40px 定高胶囊须钳制系统字体缩放（HyperOS 大字体档会撑破胶囊）
     final Widget titleField = widget.heroCapsule
         ? Hero(
             tag: kSearchCapsuleHeroTag,
             flightShuttleBuilder: searchCapsuleFlightShuttle,
-            child: Container(
-              height: 40,
-              margin: const EdgeInsets.only(right: 4),
-              padding: const EdgeInsets.only(left: 8),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest.withValues(
-                  alpha: 0.5,
+            child: MediaQuery.withClampedTextScaling(
+              maxScaleFactor: 1.2,
+              child: Container(
+                height: 40,
+                margin: const EdgeInsets.only(right: 4),
+                padding: const EdgeInsets.only(left: 8),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.5,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              // Hero child 需要 Material 语境（飞行时脱离原位）
-              child: Material(
-                type: MaterialType.transparency,
-                child: searchField,
+                // Hero child 需要 Material 语境（飞行时脱离原位）
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: searchField,
+                ),
               ),
             ),
           )

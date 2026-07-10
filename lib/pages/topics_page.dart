@@ -47,6 +47,7 @@ import '../models/shortcut_binding.dart';
 import '../providers/shortcut_provider.dart';
 import '../widgets/desktop_refresh_indicator.dart';
 import '../services/toast_service.dart';
+import '../services/navigation/app_route_observer.dart';
 import '../utils/dialog_utils.dart';
 import '../utils/platform_utils.dart';
 
@@ -217,14 +218,18 @@ class _HeaderCollapseController extends ChangeNotifier {
 
 /// 帖子列表页面 - 分类 Tab + 排序下拉 + 标签 Chips
 class TopicsPage extends ConsumerStatefulWidget {
-  const TopicsPage({super.key});
+  const TopicsPage({super.key, this.isActive = true});
+
+  /// 是否为底部导航的当前页（分类侧栏的左缘滑手势只在本页激活时生效，
+  /// 否则其他 tab 页的左缘滑会误开侧栏）
+  final bool isActive;
 
   @override
   ConsumerState<TopicsPage> createState() => _TopicsPageState();
 }
 
 class _TopicsPageState extends ConsumerState<TopicsPage>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, RouteAware {
   late TabController _tabController;
   late final ShortcutScopeBinding _tabShortcutBinding = ShortcutScopeBinding(
     ref: ref,
@@ -248,6 +253,44 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
   ScrollController _listControllerFor(int? categoryId) =>
       _listControllers.putIfAbsent(categoryId, ScrollController.new);
 
+  /// 分类侧栏：DrawerController 常驻根 Overlay。
+  /// 拿到原生抽屉全套手势（左缘拖出、拖拽/甩动关闭、遮罩跟手渐变——
+  /// 透明路由版做不到跟手，用户点名），又因挂在根 Overlay 而盖得住
+  /// 外层底栏与 FAB（嵌套 Scaffold.drawer 的翻车点）。
+  final GlobalKey<DrawerControllerState> _drawerKey =
+      GlobalKey<DrawerControllerState>();
+  OverlayEntry? _drawerEntry;
+  LocalHistoryEntry? _drawerHistoryEntry;
+
+  /// 宿主路由是否被其他页面压顶（详情页等）。drawer entry 在根 Overlay
+  /// 里位于路由条目之上，不随路由栈遮挡 —— 压顶期间必须禁用左缘手势，
+  /// 否则在详情页上左缘滑会误开首页的分类侧栏。
+  bool _routeCovered = false;
+  ModalRoute<dynamic>? _subscribedRoute;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route != _subscribedRoute) {
+      if (_subscribedRoute != null) appRouteObserver.unsubscribe(this);
+      _subscribedRoute = route;
+      if (route != null) appRouteObserver.subscribe(this, route);
+    }
+  }
+
+  @override
+  void didPushNext() {
+    _routeCovered = true;
+    _drawerEntry?.markNeedsBuild();
+  }
+
+  @override
+  void didPopNext() {
+    _routeCovered = false;
+    _drawerEntry?.markNeedsBuild();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -267,6 +310,69 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
       onVisibilityChanged: (v) =>
           ref.read(barVisibilityProvider.notifier).state = v,
     );
+    // Overlay.insert 会 setState，避开首帧 build 期
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _insertDrawerOverlay();
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant TopicsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isActive != widget.isActive) {
+      // 左缘滑手势只在本页为当前底部 tab 时启用
+      _drawerEntry?.markNeedsBuild();
+    }
+  }
+
+  void _insertDrawerOverlay() {
+    final overlay = Overlay.maybeOf(context, rootOverlay: true);
+    if (overlay == null || _drawerEntry != null) return;
+    _drawerEntry = OverlayEntry(
+      builder: (context) => DrawerController(
+        key: _drawerKey,
+        alignment: DrawerAlignment.start,
+        // 关闭态只剩 ~20px 左缘手势条（translucent，不挡点击）;
+        // 其他底部 tab 激活、或本页被详情页等压顶时，连手势条也不留
+        enableOpenDragGesture: widget.isActive && !_routeCovered,
+        drawerCallback: _handleDrawerToggled,
+        child: CategoryDrawer(
+          onRequestClose: () => _drawerKey.currentState?.close(),
+          onSubscriptionTap: _openCategorySubscription,
+          onPinnedSelected: (pinnedIndex) {
+            final target = pinnedIndex + 1; // +1: index 0 是"全部"
+            if (target < _tabController.length &&
+                _tabController.index != target) {
+              _tabController.animateTo(target);
+            }
+          },
+        ),
+      ),
+    );
+    overlay.insert(_drawerEntry!);
+  }
+
+  /// 抽屉开合联动返回键：开 = 往宿主路由挂 LocalHistoryEntry（Android
+  /// 返回键/侧滑返回先关抽屉而不是退页;DrawerController 自带的这套在
+  /// Overlay 场景失效 —— 它 ModalRoute.of 到的是 null）。CategoryDrawer
+  /// 内部的 Navigator.pop 同样经由该 entry 收敛为"关抽屉"。
+  void _handleDrawerToggled(bool isOpened) {
+    if (isOpened) {
+      final route = ModalRoute.of(context);
+      if (route != null && _drawerHistoryEntry == null) {
+        _drawerHistoryEntry = LocalHistoryEntry(
+          onRemove: () {
+            _drawerHistoryEntry = null;
+            _drawerKey.currentState?.close();
+          },
+        );
+        route.addLocalHistoryEntry(_drawerHistoryEntry!);
+      }
+    } else {
+      final entry = _drawerHistoryEntry;
+      _drawerHistoryEntry = null;
+      entry?.remove();
+    }
   }
 
   /// 可折叠量：胶囊行恒在；chips 导航行仅有收藏分类时存在（无收藏时
@@ -294,6 +400,10 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
 
   @override
   void dispose() {
+    appRouteObserver.unsubscribe(this);
+    _drawerHistoryEntry?.remove();
+    _drawerEntry?.remove();
+    _drawerEntry?.dispose();
     _headerController.dispose();
     _pointerScrollIdleTimer?.cancel();
     for (final controller in _listControllers.values) {
@@ -444,43 +554,12 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
     );
   }
 
-  /// 打开分类侧栏。
+  /// 打开分类侧栏（☰ / chips 行 ＋）。
   ///
-  /// 不用 Scaffold.drawer：本页是嵌在 AdaptiveScaffold body 里的子树，
-  /// 内层 Scaffold 的 drawer 遮罩盖不住外层的底栏槽位和 MasterDetail
-  /// 的 FAB（都在其绘制层级之上，实测穿帮）。改用根 Navigator 的
-  /// 全屏透明路由：遮罩+面板压在一切之上，语义与系统 drawer 一致
-  /// （点遮罩/返回键关闭）。
+  /// 侧栏是常驻根 Overlay 的 [DrawerController]（见 [_insertDrawerOverlay]）：
+  /// 原生抽屉手势全套跟手，且盖得住外层底栏与 FAB。
   void _openCategoryDrawer() {
-    Navigator.of(context, rootNavigator: true).push(
-      PageRouteBuilder(
-        opaque: false,
-        barrierDismissible: true,
-        barrierColor: Colors.black54,
-        transitionDuration: const Duration(milliseconds: 250),
-        reverseTransitionDuration: const Duration(milliseconds: 200),
-        pageBuilder: (routeContext, _, _) => Align(
-          alignment: Alignment.centerLeft,
-          child: CategoryDrawer(
-            onSubscriptionTap: _openCategorySubscription,
-            onPinnedSelected: (pinnedIndex) {
-              final target = pinnedIndex + 1; // +1: index 0 是"全部"
-              if (target < _tabController.length &&
-                  _tabController.index != target) {
-                _tabController.animateTo(target);
-              }
-            },
-          ),
-        ),
-        transitionsBuilder: (_, animation, _, child) => SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(-1, 0),
-            end: Offset.zero,
-          ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
-          child: child,
-        ),
-      ),
-    );
+    _drawerKey.currentState?.open();
   }
 
   Future<void> _openTagSelection() async {
