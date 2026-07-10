@@ -118,6 +118,13 @@ class RichComposerEditorState extends State<RichComposerEditor> {
       widget.focusNode ?? FocusNode(debugLabel: 'RichComposer');
   bool get _ownsFocus => widget.focusNode == null;
 
+  /// 编辑区**祖先**焦点节点(ChatBottomPanelContainer.inputFocusNode
+  /// 挂它):编辑器正文/表格 cell/代码块输入等任何子输入框聚焦时它都
+  /// hasFocus —— 容器不会在"编辑器 → 表格 cell"焦点切换的间隙误判
+  /// 离开输入区收键盘。canRequestFocus:false 不参与实际聚焦。
+  final FocusNode _editorAreaFocus =
+      FocusNode(debugLabel: 'RichComposerArea', canRequestFocus: false);
+
   /// 键盘/表情面板容器(MarkdownEditor 同款:键盘态占位、表情态等高
   /// 面板、无键盘时底部安全区 —— 切换零跳变)。
   final _panelController =
@@ -188,6 +195,7 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     _altFocus.dispose();
     _slashScroll.dispose();
     if (_ownsFocus) _editorFocus.dispose();
+    _editorAreaFocus.dispose();
     _editor?.removeListener(_onDocChanged);
     _editor?.dispose();
     super.dispose();
@@ -389,14 +397,17 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     _slashOverlay = OverlayEntry(
       builder: (context) {
         // 锚定光标(全局矩形):默认弹光标下方;近安全区底翻到上方。
-        // 安全底 = 屏高 - 软键盘(移动端菜单不能压到键盘底下)。
+        // 安全区:底 = 屏高 - 软键盘;顶 = 状态栏(翻上方时菜单不得
+        // 顶进状态栏 —— 上翻用 bottom 定位,高度不够会向上溢出,
+        // maxHeight 必须按光标上方实际空间收缩)。
         final caret = _caretGlobalRect;
         final screen = MediaQuery.sizeOf(context);
+        final safeTop = MediaQuery.viewPaddingOf(context).top + 8;
         final safeBottom =
             screen.height - MediaQuery.viewInsetsOf(context).bottom - 8;
         const menuWidth = 244.0;
         // 7 行 × 40 + 边距(半行截断暗示可滚);小屏/键盘挤压时收缩
-        final menuMaxHeight =
+        var menuMaxHeight =
             302.0.clamp(120.0, (safeBottom - 24).clamp(120.0, 302.0));
         double left;
         double? top;
@@ -404,10 +415,13 @@ class RichComposerEditorState extends State<RichComposerEditor> {
         if (caret != null) {
           left = caret.left.clamp(8.0, screen.width - menuWidth - 8);
           final below = safeBottom - caret.bottom;
-          if (below >= menuMaxHeight + 16) {
+          final above = caret.top - safeTop;
+          if (below >= menuMaxHeight + 16 || below >= above) {
             top = caret.bottom + 6;
+            menuMaxHeight = menuMaxHeight.clamp(120.0, (below - 12).clamp(120.0, 302.0));
           } else {
             bottom = screen.height - caret.top + 6;
+            menuMaxHeight = menuMaxHeight.clamp(120.0, (above - 12).clamp(120.0, 302.0));
           }
         } else {
           left = 16;
@@ -551,22 +565,30 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     _removeMentionOverlay();
     _mentionOverlay = OverlayEntry(
       builder: (context) {
-        // 锚定光标(斜杠菜单同款):下方优先,近安全区底翻上方
+        // 锚定光标(斜杠菜单同款):下方优先;上翻时高度按光标上方
+        // 空间收缩(不顶进状态栏)
         final caret = _caretGlobalRect;
         final screen = MediaQuery.sizeOf(context);
+        final safeTop = MediaQuery.viewPaddingOf(context).top + 8;
         final safeBottom =
             screen.height - MediaQuery.viewInsetsOf(context).bottom - 8;
         const menuWidth = 260.0;
-        const menuMaxHeight = 220.0;
+        var menuMaxHeight = 220.0;
         double left;
         double? top;
         double? bottom;
         if (caret != null) {
           left = caret.left.clamp(8.0, screen.width - menuWidth - 8);
-          if (safeBottom - caret.bottom >= menuMaxHeight + 16) {
+          final below = safeBottom - caret.bottom;
+          final above = caret.top - safeTop;
+          if (below >= menuMaxHeight + 16 || below >= above) {
             top = caret.bottom + 4;
+            menuMaxHeight =
+                menuMaxHeight.clamp(120.0, (below - 12).clamp(120.0, 220.0));
           } else {
             bottom = screen.height - caret.top + 4;
+            menuMaxHeight =
+                menuMaxHeight.clamp(120.0, (above - 12).clamp(120.0, 220.0));
           }
         } else {
           left = 16;
@@ -676,11 +698,14 @@ class RichComposerEditorState extends State<RichComposerEditor> {
 
   /// 表情面板开着时点编辑区 → 切回键盘态(MarkdownEditor 的 readOnly
   /// Listener 同构:面板意图保持逻辑会拦掉容器自动切换,必须显式收)。
-  /// 编辑器自身 tap 正常落光标 + syncFromState(show:true) 弹键盘。
+  /// 显式 TextInput.show:编辑器自管连接一直挂着,tap 落同位置时
+  /// selection 不变、syncFromState 不触发平台调用 → 键盘不出来
+  /// ("关了面板但键盘没弹"的根因);连接在,show 幂等安全。
   void _onEditorAreaPointerDown() {
     if (_intendedPanel == _RichPanelType.none) return;
     _intendedPanel = _RichPanelType.none;
     _panelController.updatePanelType(ChatBottomPanelType.keyboard);
+    SystemChannels.textInput.invokeMethod('TextInput.show');
     setState(() => _showEmojiPanel = false);
     widget.onEmojiPanelChanged?.call(false);
   }
@@ -1408,24 +1433,32 @@ class RichComposerEditorState extends State<RichComposerEditor> {
             child: Stack(
               children: [
                 // 编辑区空白点击兜底:内容短时编辑器只占滚动区顶部一条,
-                // 下方大片空白点了没反应(弹不出键盘)。LayoutBuilder +
-                // minHeight 把编辑器列撑满视口;FluxdoEditor 根手势
-                // opaque,点其内空白(段落之间/末段之后)命中兜底到
-                // 最近文本位置 —— 此前点不中纯粹因为区域没铺满。
+                // 下方大片空白点了没反应(弹不出键盘)。ConstrainedBox
+                // minHeight 撑满视口 —— FluxdoEditor 根 Column(max)在
+                // min 约束下撑到视口高、根手势 opaque,点空白任意处都
+                // 命中编辑器落光标弹键盘。**不能包 Align**(loosen 约束
+                // 会让编辑器宽高都收缩回内容尺寸,命中区只剩内容那一条
+                // —— "只有第一行能唤起键盘"的根因)。
                 // Listener:表情面板开着时点编辑区任意处 → 切回键盘态
                 // (原始 down,不进手势竞技场不干扰编辑器 tap)。
+                // Focus(_editorAreaFocus):编辑区**祖先**焦点 ——
+                // ChatBottomPanelContainer 的 inputFocusNode 挂它,表格
+                // cell/alt 输入等子输入框聚焦时祖先仍 hasFocus,容器
+                // 不误判"离开输入区"收键盘(表格 cell 键盘被秒收的根因)。
                 Listener(
                   behavior: HitTestBehavior.translucent,
                   onPointerDown: (_) => _onEditorAreaPointerDown(),
-                  child: LayoutBuilder(
-                    builder: (context, viewport) => SingleChildScrollView(
-                      padding: const EdgeInsets.all(12),
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          minHeight: viewport.maxHeight - 24,
-                        ),
-                        child: Align(
-                          alignment: Alignment.topLeft,
+                  child: Focus(
+                    focusNode: _editorAreaFocus,
+                    canRequestFocus: false,
+                    skipTraversal: true,
+                    child: LayoutBuilder(
+                      builder: (context, viewport) => SingleChildScrollView(
+                        padding: const EdgeInsets.all(12),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: viewport.maxHeight - 24,
+                          ),
                           child: FluxdoEditor(
                           state: editor,
                           autofocus: true,
@@ -1468,7 +1501,7 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                         .textTheme
                         .bodyLarge
                         ?.copyWith(height: 1.5),
-                          ),
+                        ),
                         ),
                       ),
                     ),
@@ -1518,7 +1551,7 @@ class RichComposerEditorState extends State<RichComposerEditor> {
         // viewInsets/原生键盘监听,不关心输入连接归属)
         ChatBottomPanelContainer<_RichPanelType>(
           controller: _panelController,
-          inputFocusNode: _editorFocus,
+          inputFocusNode: _editorAreaFocus,
           otherPanelWidget: (type) => type == _RichPanelType.emoji
               ? _buildEmojiPanel()
               : const SizedBox.shrink(),
