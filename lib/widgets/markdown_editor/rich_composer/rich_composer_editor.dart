@@ -896,6 +896,26 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     _altController = null;
   }
 
+  /// 展开 alt 输入(官方 expandInput:展开后 select() 全选)。
+  /// autofocus 在 OverlayEntry 反复 markNeedsBuild 场景不可靠(重建期
+  /// 焦点可能被编辑器抢回),帧后显式 requestFocus + 全选。
+  void _expandAltInput() {
+    final img = _imageSel?.image;
+    if (img == null) return;
+    _altExpanded = true;
+    _altController?.dispose();
+    _altController = TextEditingController(text: img.alt);
+    _imageOverlay?.markNeedsBuild();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_altExpanded || _altController == null) return;
+      _altFocus.requestFocus();
+      _altController!.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _altController!.text.length,
+      );
+    });
+  }
+
   void _showImageOverlay() {
     _altExpanded = false;
     _imageOverlay = OverlayEntry(builder: (context) {
@@ -968,23 +988,32 @@ class RichComposerEditorState extends State<RichComposerEditor> {
             ]),
           ),
         ),
-        // alt 输入条(官方 image-alt-text-input:collapsed 单行显示,
-        // 点击展开输入;Enter/失焦保存;Esc 还原收起)
+        // alt 输入条(官方 image-alt-text-input:collapsed 单行 1.5em →
+        // 展开 4.25em textarea **变高**;Enter 保存收起、Shift+Enter 换行、
+        // Esc 还原;展开即聚焦全选)
         Positioned(
           left: rect.left.clamp(8.0, screen.width - altWidth - 8),
           top: altTop,
           width: altWidth,
           child: _FloatingPanel(
-            maxHeight: 96,
+            maxHeight: 108,
             child: _altExpanded
                 ? Focus(
                     onKeyEvent: (node, event) {
-                      if (event is KeyDownEvent &&
-                          event.logicalKey == LogicalKeyboardKey.escape) {
+                      if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                      if (event.logicalKey == LogicalKeyboardKey.escape) {
                         // Esc:还原收起(不保存)
                         _altExpanded = false;
                         _altController?.text = img.alt;
                         _imageOverlay?.markNeedsBuild();
+                        return KeyEventResult.handled;
+                      }
+                      // Enter 保存收起(官方 keydown Enter → onClose);
+                      // Shift+Enter 留给换行。多行 TextField 的 Enter
+                      // 默认换行、onSubmitted 不触发,必须在这拦。
+                      if (event.logicalKey == LogicalKeyboardKey.enter &&
+                          !HardwareKeyboard.instance.isShiftPressed) {
+                        _saveAlt(_altController?.text ?? '');
                         return KeyEventResult.handled;
                       }
                       return KeyEventResult.ignored;
@@ -994,27 +1023,21 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                           TextEditingController(text: img.alt),
                       focusNode: _altFocus,
                       autofocus: true,
-                      maxLines: 2,
-                      minLines: 1,
-                      style: const TextStyle(fontSize: 13),
+                      // 官方展开 4.25em ≈ 3 行:展开 = 变高
+                      minLines: 3,
+                      maxLines: 3,
+                      style: const TextStyle(fontSize: 13, height: 1.5),
                       decoration: const InputDecoration(
-                        isDense: true,
                         hintText: '替代文本',
                         contentPadding:
                             EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                         border: InputBorder.none,
                       ),
-                      onSubmitted: (t) => _saveAlt(t),
                       onTapOutside: (_) => _saveAlt(_altController!.text),
                     ),
                   )
                 : InkWell(
-                    onTap: () {
-                      _altExpanded = true;
-                      _altController?.dispose();
-                      _altController = TextEditingController(text: img.alt);
-                      _imageOverlay?.markNeedsBuild();
-                    },
+                    onTap: _expandAltInput,
                     borderRadius: BorderRadius.circular(8),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
