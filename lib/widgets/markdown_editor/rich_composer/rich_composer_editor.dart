@@ -24,8 +24,7 @@ import 'package:fluxdo_render/fluxdo_render.dart'
         InlineNode,
         LocalDateRun,
         MentionRun,
-        NodeFactory,
-        ParagraphNode;
+        NodeFactory;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -37,6 +36,7 @@ import '../../../services/discourse_cook_service.dart';
 import '../../../services/emoji_handler.dart';
 import '../../../utils/dialog_utils.dart';
 import '../../../utils/fluxdo_render_callbacks.dart';
+import '../../../utils/url_helper.dart';
 import '../../common/fading_edge_scroll_view.dart';
 import '../../common/smart_avatar.dart';
 import '../../content/discourse_html_content/image_utils.dart';
@@ -161,6 +161,8 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     _mentionDebounce?.cancel();
     _removeMentionOverlay();
     _removeSlashOverlay();
+    _removeImageOverlay();
+    _altFocus.dispose();
     _slashScroll.dispose();
     _editor?.removeListener(_onDocChanged);
     _editor?.dispose();
@@ -861,27 +863,260 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     );
   }
 
-  /// 图片岛缩放胶囊(100/75/50):同步改 ImageRun 的 scale + 显示尺寸,
-  /// updateIslandNode 原位换节点(岛身份/光标不动,预览即时缩放)。
-  /// 显示尺寸按 cook engine 同款 floor 乘法算,与下次导入的预览一致;
-  /// origWidth/origHeight 固化 raw 声明尺寸,序列化写 `|WxH, N%`。
-  void _onImageScale(IslandBlock island, ImageRun image, int scale) {
+  // -----------------------------------------------------------------
+  // 图片原子浮层(官方 ImageNodeView 复刻:上工具条 + 下 alt 输入条)
+  // -----------------------------------------------------------------
+
+  ImageAtomSelection? _imageSel;
+  OverlayEntry? _imageOverlay;
+
+  /// alt 输入条展开态与草稿(浮层重建间保持)。
+  bool _altExpanded = false;
+  TextEditingController? _altController;
+  final FocusNode _altFocus = FocusNode(debugLabel: 'image-alt');
+
+  void _onImageAtomSelectionChanged(ImageAtomSelection? sel) {
+    _imageSel = sel;
+    if (sel == null) {
+      _removeImageOverlay();
+      return;
+    }
+    if (_imageOverlay == null) {
+      _showImageOverlay();
+    } else {
+      _imageOverlay!.markNeedsBuild();
+    }
+  }
+
+  void _removeImageOverlay() {
+    _imageOverlay?.remove();
+    _imageOverlay = null;
+    _altExpanded = false;
+    _altController?.dispose();
+    _altController = null;
+  }
+
+  void _showImageOverlay() {
+    _altExpanded = false;
+    _imageOverlay = OverlayEntry(builder: (context) {
+      final sel = _imageSel;
+      if (sel == null) return const SizedBox.shrink();
+      final rect = sel.globalRect;
+      final img = sel.image;
+      final screen = MediaQuery.sizeOf(context);
+      final scheme = Theme.of(context).colorScheme;
+
+      final effScale = (img.scale ?? 100).round();
+      final hasWxH = (img.origWidth ?? img.width) != null &&
+          (img.origHeight ?? img.height) != null;
+
+      // 上:工具条(顶部空间不足翻到图下方与 alt 条错层)
+      const barH = 40.0;
+      final barAbove = rect.top - barH - 6 >= 8;
+      final barLeft = rect.left.clamp(8.0, screen.width - 220.0);
+
+      // 下:alt 条
+      final altTop = barAbove ? rect.bottom + 6 : rect.bottom + barH + 12;
+      final altWidth = rect.width.clamp(180.0, 320.0);
+
+      Widget iconBtn(IconData icon, String tooltip,
+          {VoidCallback? onTap, Color? color}) {
+        final enabled = onTap != null;
+        return Tooltip(
+          message: tooltip,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(6),
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Icon(
+                icon,
+                size: 18,
+                color: enabled
+                    ? (color ?? scheme.onSurfaceVariant)
+                    : scheme.onSurfaceVariant.withValues(alpha: 0.3),
+              ),
+            ),
+          ),
+        );
+      }
+
+      return Stack(children: [
+        Positioned(
+          left: barLeft,
+          top: barAbove ? rect.top - barH - 6 : rect.bottom + 6,
+          child: _FloatingPanel(
+            maxHeight: barH,
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              iconBtn(Symbols.zoom_out_rounded, '缩小',
+                  onTap: hasWxH && effScale > 50
+                      ? () => _scaleImage(-25)
+                      : null),
+              iconBtn(Symbols.zoom_in_rounded, '放大',
+                  onTap: hasWxH && effScale < 100
+                      ? () => _scaleImage(25)
+                      : null),
+              Container(
+                width: 1,
+                height: 20,
+                color: scheme.outlineVariant.withValues(alpha: 0.5),
+              ),
+              iconBtn(Symbols.grid_view_rounded, '加入网格',
+                  onTap: _addSelectedImageToGrid),
+              iconBtn(Symbols.delete_outline_rounded, '删除图片',
+                  onTap: _deleteSelectedImage, color: scheme.error),
+            ]),
+          ),
+        ),
+        // alt 输入条(官方 image-alt-text-input:collapsed 单行显示,
+        // 点击展开输入;Enter/失焦保存;Esc 还原收起)
+        Positioned(
+          left: rect.left.clamp(8.0, screen.width - altWidth - 8),
+          top: altTop,
+          width: altWidth,
+          child: _FloatingPanel(
+            maxHeight: 96,
+            child: _altExpanded
+                ? Focus(
+                    onKeyEvent: (node, event) {
+                      if (event is KeyDownEvent &&
+                          event.logicalKey == LogicalKeyboardKey.escape) {
+                        // Esc:还原收起(不保存)
+                        _altExpanded = false;
+                        _altController?.text = img.alt;
+                        _imageOverlay?.markNeedsBuild();
+                        return KeyEventResult.handled;
+                      }
+                      return KeyEventResult.ignored;
+                    },
+                    child: TextField(
+                      controller: _altController ??=
+                          TextEditingController(text: img.alt),
+                      focusNode: _altFocus,
+                      autofocus: true,
+                      maxLines: 2,
+                      minLines: 1,
+                      style: const TextStyle(fontSize: 13),
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        hintText: '替代文本',
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        border: InputBorder.none,
+                      ),
+                      onSubmitted: (t) => _saveAlt(t),
+                      onTapOutside: (_) => _saveAlt(_altController!.text),
+                    ),
+                  )
+                : InkWell(
+                    onTap: () {
+                      _altExpanded = true;
+                      _altController?.dispose();
+                      _altController = TextEditingController(text: img.alt);
+                      _imageOverlay?.markNeedsBuild();
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 8),
+                      child: Text(
+                        img.alt.isEmpty ? '替代文本' : img.alt,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: img.alt.isEmpty
+                              ? scheme.onSurfaceVariant.withValues(alpha: 0.6)
+                              : scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+          ),
+        ),
+      ]);
+    });
+    Overlay.of(context).insert(_imageOverlay!);
+  }
+
+  /// 缩放 ±25(官方 SCALE_STEP;50-100 clamp)。显示尺寸按 cook engine
+  /// 同款 floor 乘法;origWidth/origHeight 固化 raw 声明尺寸,序列化写
+  /// `|WxH, N%`。reselect 保持整选 → 浮层原位刷新 disabled 态。
+  void _scaleImage(int delta) {
     final editor = _editor;
-    if (editor == null || island.node is! ParagraphNode) return;
-    final para = island.node as ParagraphNode;
-    final origW = image.origWidth ?? image.width;
-    final origH = image.origHeight ?? image.height;
-    final next = image.copyWith(
-      scale: scale.toDouble(),
-      origWidth: origW,
-      origHeight: origH,
-      width: origW == null ? null : (origW * scale / 100).floorToDouble(),
-      height: origH == null ? null : (origH * scale / 100).floorToDouble(),
+    final sel = _imageSel;
+    if (editor == null || sel == null) return;
+    final img = sel.image;
+    final next = ((img.scale ?? 100) + delta).clamp(50, 100).round();
+    final origW = img.origWidth ?? img.width;
+    final origH = img.origHeight ?? img.height;
+    if (origW == null || origH == null) return;
+    editor.replaceAtomAt(
+      sel.blockId,
+      sel.offset,
+      img.copyWith(
+        scale: next.toDouble(),
+        origWidth: origW,
+        origHeight: origH,
+        width: (origW * next / 100).floorToDouble(),
+        height: (origH * next / 100).floorToDouble(),
+      ),
+      reselect: true,
     );
-    final inlines = [
-      for (final n in para.inlines) identical(n, image) ? next : n,
-    ];
-    editor.updateIslandNode(island.id, para.copyWith(inlines: inlines));
+  }
+
+  void _saveAlt(String text) {
+    final editor = _editor;
+    final sel = _imageSel;
+    _altExpanded = false;
+    if (editor == null || sel == null) {
+      _imageOverlay?.markNeedsBuild();
+      return;
+    }
+    final t = text.trim();
+    if (t == sel.image.alt) {
+      _imageOverlay?.markNeedsBuild();
+      return;
+    }
+    editor.replaceAtomAt(
+      sel.blockId,
+      sel.offset,
+      sel.image.copyWith(alt: t),
+      reselect: true,
+    );
+  }
+
+  void _deleteSelectedImage() {
+    // 选区恰是原子区间,deleteSelection 删图;选中事件自动回 null 关浮层
+    _editor?.deleteSelection();
+  }
+
+  void _addSelectedImageToGrid() {
+    final editor = _editor;
+    final sel = _imageSel;
+    if (editor == null || sel == null) return;
+    addImageAtomToGrid(editor, sel.blockId, sel.offset);
+  }
+
+  /// 已选中的图再点 → 图片查看器(upload:// 先解析;missing 静默不开)。
+  Future<void> _openImageViewer(ImageAtomSelection sel) async {
+    final img = sel.image;
+    final raw = img.lightboxUrl ?? img.origSrc ?? img.src;
+    String resolved;
+    if (DiscourseImageUtils.isUploadUrl(raw)) {
+      final r = DiscourseImageUtils.getCachedUploadUrl(raw) ??
+          await DiscourseImageUtils.resolveUploadUrl(raw);
+      if (r == null || !mounted) return;
+      resolved = r;
+    } else {
+      resolved = UrlHelper.resolveUrlWithCdn(raw);
+    }
+    if (!mounted) return;
+    DiscourseImageUtils.openViewer(
+      context: context,
+      imageUrl: DiscourseImageUtils.getOriginalUrl(resolved),
+      heroTag: 'rich_composer_img_${sel.blockId}_${sel.offset}',
+    );
   }
 
   /// 单击可编辑原子:date chip → 属性对话框 → replaceAtomAt。
@@ -958,7 +1193,9 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     );
   }
 
-  /// 上传完成后插入图片岛(短链 + 尺寸;渲染层 data-orig-src 异步解析)。
+  /// 上传完成后在光标处插入图片原子(官方 inline image 同语义;渲染层
+  /// data-orig-src 异步解析)。scale 留 null(=100 档,序列化不写后缀,
+  /// raw 形态与官方上传一致);选中图后工具条可缩放。
   void insertUploadedImage({
     required String shortUrl,
     String alt = '',
@@ -968,22 +1205,24 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     final editor = _editor;
     if (editor == null) return;
     final sel = editor.selection;
-    final anchorId = sel?.extent.blockId ?? editor.blocks.last.id;
-    editor.insertIslandAfter(
-      anchorId,
-      ParagraphNode(id: 'b_up_${DateTime.now().microsecondsSinceEpoch}',
-          inlines: [
-            ImageRun(
-              src: shortUrl,
-              alt: alt,
-              width: width?.toDouble(),
-              height: height?.toDouble(),
-              // 100 档 = 可缩放(岛选中出 100/75/50 胶囊)。序列化时
-              // 100 不写后缀,raw 形态与官方上传一致。
-              scale: (width != null && height != null) ? 100 : null,
-            ),
-          ]),
-    );
+    // 从未聚焦 / 光标停在岛上(整选态):落到最后一个文本块尾
+    if (sel == null || editor.textBlockById(sel.extent.blockId) == null) {
+      final lastText = editor.blocks.lastWhere(
+        (b) => b is TextBlock,
+        orElse: () => editor.blocks.last,
+      );
+      if (lastText is! TextBlock) return;
+      editor.updateSelection(EditorSelection.collapsed(
+        EditorPosition(
+            blockId: lastText.id, offset: lastText.selectionLength),
+      ));
+    }
+    editor.insertAtom(ImageRun(
+      src: shortUrl,
+      alt: alt,
+      width: width?.toDouble(),
+      height: height?.toDouble(),
+    ));
   }
 
   // -----------------------------------------------------------------
@@ -1027,8 +1266,6 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                     markdownImporter: markdownToDoc,
                     // 双击岛 → 源码编辑对话框
                     onIslandEditRequest: _editIsland,
-                    // 图片岛缩放胶囊(100/75/50)→ 原位切档
-                    onImageScale: _onImageScale,
                     // 点 details/callout 壳标题 → 原位改标题
                     onContainerTitleEdit: _editContainerTitle,
                     // 表格 cell 原位编辑 → 重建 markdown 经 cook 替换
@@ -1037,6 +1274,10 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                     onCodeBlockEdited: _onCodeBlockEdited,
                     // 单击 date chip → 属性编辑对话框
                     onAtomTap: _onAtomTap,
+                    // 图片原子选中 → 浮出工具条(缩放/删除/加网格)+ alt 条
+                    onImageAtomSelectionChanged: _onImageAtomSelectionChanged,
+                    // 已选中的图再点 → 打开查看器
+                    onImageAtomOpenRequest: _openImageViewer,
                     // 光标全局矩形上抛(斜杠/mention 浮层锚定用)。
                     // 矩形变化且浮层活跃 → 重建重锚定:浮层首建发生在
                     // 文档变更回调里(同步),彼时矩形还是上一帧旧值,

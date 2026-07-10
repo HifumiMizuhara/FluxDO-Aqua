@@ -8,6 +8,12 @@
 /// - 门禁导入(编辑已有帖子):导入后立即序列化回 raw、二次 cook,与原
 ///   raw 的 cook 逐结构对比 —— 不等价说明序列化器覆盖不了这帖(poll/
 ///   chat/policy 岛、或语法缺口),返回 null 降级源码模式,**防止提交毁帖**。
+///
+/// 已知 raw 表示塌陷(语义无损,门禁放行,官方 ProseMirror composer
+/// 同病):外链图 `![a|600x400, 50%](https://…)` cook 后是普通
+/// `<img width=300 height=200>`(image-controls 只注入 upload 图,无
+/// data-scale)→ 再导入 scale=null → 序列化塌为 `![a|300x200](…)`。
+/// cook 产物等价(floor 乘法先行,二次 cook 不再乘),仅 raw 写法变。
 library;
 
 import 'dart:async';
