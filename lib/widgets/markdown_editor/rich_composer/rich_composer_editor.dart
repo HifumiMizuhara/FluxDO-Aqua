@@ -364,17 +364,22 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     _slashSelected = 0;
     _slashOverlay = OverlayEntry(
       builder: (context) {
-        // 锚定光标(全局矩形):默认弹光标下方;近屏幕底翻到上方。
+        // 锚定光标(全局矩形):默认弹光标下方;近安全区底翻到上方。
+        // 安全底 = 屏高 - 软键盘(移动端菜单不能压到键盘底下)。
         final caret = _caretGlobalRect;
         final screen = MediaQuery.sizeOf(context);
+        final safeBottom =
+            screen.height - MediaQuery.viewInsetsOf(context).bottom - 8;
         const menuWidth = 244.0;
-        const menuMaxHeight = 302.0; // 7 行 × 40 + 边距(半行截断暗示可滚)
+        // 7 行 × 40 + 边距(半行截断暗示可滚);小屏/键盘挤压时收缩
+        final menuMaxHeight =
+            302.0.clamp(120.0, (safeBottom - 24).clamp(120.0, 302.0));
         double left;
         double? top;
         double? bottom;
         if (caret != null) {
           left = caret.left.clamp(8.0, screen.width - menuWidth - 8);
-          final below = screen.height - caret.bottom;
+          final below = safeBottom - caret.bottom;
           if (below >= menuMaxHeight + 16) {
             top = caret.bottom + 6;
           } else {
@@ -382,7 +387,7 @@ class RichComposerEditorState extends State<RichComposerEditor> {
           }
         } else {
           left = 16;
-          bottom = 80;
+          bottom = screen.height - safeBottom + 80;
         }
         final items = _slashFiltered;
         if (_slashSelected >= items.length) _slashSelected = 0;
@@ -522,9 +527,11 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     _removeMentionOverlay();
     _mentionOverlay = OverlayEntry(
       builder: (context) {
-        // 锚定光标(斜杠菜单同款):下方优先,近底翻上方
+        // 锚定光标(斜杠菜单同款):下方优先,近安全区底翻上方
         final caret = _caretGlobalRect;
         final screen = MediaQuery.sizeOf(context);
+        final safeBottom =
+            screen.height - MediaQuery.viewInsetsOf(context).bottom - 8;
         const menuWidth = 260.0;
         const menuMaxHeight = 220.0;
         double left;
@@ -532,14 +539,14 @@ class RichComposerEditorState extends State<RichComposerEditor> {
         double? bottom;
         if (caret != null) {
           left = caret.left.clamp(8.0, screen.width - menuWidth - 8);
-          if (screen.height - caret.bottom >= menuMaxHeight + 16) {
+          if (safeBottom - caret.bottom >= menuMaxHeight + 16) {
             top = caret.bottom + 4;
           } else {
             bottom = screen.height - caret.top + 4;
           }
         } else {
           left = 16;
-          bottom = 80;
+          bottom = screen.height - safeBottom + 80;
         }
         return Positioned(
           left: left,
@@ -943,14 +950,22 @@ class RichComposerEditorState extends State<RichComposerEditor> {
       final hasWxH = (img.origWidth ?? img.width) != null &&
           (img.origHeight ?? img.height) != null;
 
+      // 键盘上方安全底(移动端浮层不压键盘)
+      final safeBottom =
+          screen.height - MediaQuery.viewInsetsOf(context).bottom - 8;
+
       // 上:工具条(顶部空间不足翻到图下方与 alt 条错层)
-      const barH = 40.0;
+      const barH = 44.0; // 40px 图标钮 + 面板边
       final barAbove = rect.top - barH - 6 >= 8;
       final barLeft = rect.left.clamp(8.0, screen.width - 220.0);
+      final barTop = (barAbove ? rect.top - barH - 6 : rect.bottom + 6)
+          .clamp(8.0, (safeBottom - barH).clamp(8.0, double.infinity));
 
-      // 下:alt 条
-      final altTop = barAbove ? rect.bottom + 6 : rect.bottom + barH + 12;
+      // 下:alt 条(clamp 进安全区;放不下与 bar 同侧错层)
       final altWidth = rect.width.clamp(180.0, 320.0);
+      const altH = 40.0;
+      final altTop = (barAbove ? rect.bottom + 6 : rect.bottom + barH + 12)
+          .clamp(8.0, (safeBottom - altH).clamp(8.0, double.infinity));
 
       Widget iconBtn(IconData icon, String tooltip,
           {VoidCallback? onTap, Color? color}) {
@@ -961,7 +976,8 @@ class RichComposerEditorState extends State<RichComposerEditor> {
             onTap: onTap,
             borderRadius: BorderRadius.circular(6),
             child: Padding(
-              padding: const EdgeInsets.all(8),
+              // 18 + 11×2 = 40px 触控目标(移动可点性;桌面统一无碍)
+              padding: const EdgeInsets.all(11),
               child: Icon(
                 icon,
                 size: 18,
@@ -977,7 +993,7 @@ class RichComposerEditorState extends State<RichComposerEditor> {
       return Stack(children: [
         Positioned(
           left: barLeft,
-          top: barAbove ? rect.top - barH - 6 : rect.bottom + 6,
+          top: barTop,
           child: _FloatingPanel(
             maxHeight: barH,
             child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -1400,6 +1416,19 @@ class RichComposerEditorState extends State<RichComposerEditor> {
               // 缩放/外链/短链一视同仁。
               onStickerSelected: insertMarkdownSnippet,
             ),
+          )
+        else
+          // 软键盘占位(宿主页 resizeToAvoidBottomInset:false,Scaffold
+          // 不消费 inset):键盘弹出时工具栏浮到键盘上方,编辑区不被
+          // 盖住下半截。AnimatedPadding 跟随键盘弹收动画;表情面板打开
+          // 时面板自身即占位(互斥)。
+          AnimatedPadding(
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(context).bottom,
+            ),
+            child: const SizedBox.shrink(),
           ),
       ],
     );
