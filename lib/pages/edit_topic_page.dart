@@ -215,6 +215,9 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
         _togglePreview();
         ToastService.showInfo(S.current.common_checkInput);
       }
+      // 标题在滚动流里可能已滚出屏,拉回顶部让校验错误可见
+      _richKey.currentState?.scrollToTop();
+      _editorKey.currentState?.scrollToTop();
       return;
     }
 
@@ -352,11 +355,30 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
       child: Scaffold(
         resizeToAvoidBottomInset: false,
         appBar: AppBar(
-          title: Text(
-            _isPrivateMessage
-                ? context.l10n.editTopic_editPm
-                : context.l10n.editTopic_editTopic,
-          ),
+          // 分类上收 AppBar(创建页同款):非私信时页面标题文字位换成
+          // 分类选择胶囊;私信无分类,保留文字标题。不可编元数据时
+          // 禁用态展示(与原行内分类一致的 IgnorePointer+Opacity)
+          centerTitle: false,
+          titleSpacing: 8,
+          title: _isPrivateMessage
+              ? Text(context.l10n.editTopic_editPm)
+              : categoriesAsync.maybeWhen(
+                  data: (categories) => Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: IgnorePointer(
+                      ignoring: !_canEditMetadata,
+                      child: Opacity(
+                        opacity: _canEditMetadata ? 1.0 : 0.6,
+                        child: CategoryTrigger(
+                          category: _selectedCategory,
+                          categories: categories,
+                          onSelected: _onCategorySelected,
+                        ),
+                      ),
+                    ),
+                  ),
+                  orElse: () => Text(context.l10n.editTopic_editTopic),
+                ),
           scrolledUnderElevation: 0,
           actions: [
             Padding(
@@ -454,12 +476,14 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
                 }) => null,
             validator: _canEditMetadata
                 ? (value) {
-                    if (value == null || value.trim().isEmpty)
+                    if (value == null || value.trim().isEmpty) {
                       return context.l10n.createTopic_enterTitle;
-                    if (value.trim().length < minTitleLength)
+                    }
+                    if (value.trim().length < minTitleLength) {
                       return context.l10n.createTopic_minTitleLength(
                         minTitleLength,
                       );
+                    }
                     return null;
                   }
                 : null,
@@ -468,45 +492,58 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
             },
           ),
 
-          const SizedBox(height: 16),
-
-          // 元数据区域 (分类 + 标签) - 私信不显示
-          if (!_isPrivateMessage)
+          // 标签区 - 私信不显示(分类已上收 AppBar 胶囊)
+          if (!_isPrivateMessage && canTagTopics) ...[
+            const SizedBox(height: 16),
             IgnorePointer(
               ignoring: !_canEditMetadata,
               child: Opacity(
                 opacity: _canEditMetadata ? 1.0 : 0.6,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    CategoryTrigger(
-                      category: _selectedCategory,
-                      categories: categories,
-                      onSelected: _onCategorySelected,
-                    ),
-                    if (canTagTopics) ...[
-                      const SizedBox(height: 12),
-                      tagsAsync.when(
-                        data: (tags) => TagsArea(
-                          selectedCategory: _selectedCategory,
-                          selectedTags: _selectedTags,
-                          allTags: tags,
-                          onTagsChanged: (newTags) =>
-                              setState(() => _selectedTags = newTags),
-                        ),
-                        loading: () => const SizedBox.shrink(),
-                        error: (e, s) => const SizedBox.shrink(),
-                      ),
-                    ],
-                  ],
+                child: tagsAsync.when(
+                  data: (tags) => TagsArea(
+                    selectedCategory: _selectedCategory,
+                    selectedTags: _selectedTags,
+                    allTags: tags,
+                    onTagsChanged: (newTags) =>
+                        setState(() => _selectedTags = newTags),
+                  ),
+                  loading: () => const SizedBox.shrink(),
+                  error: (e, s) => const SizedBox.shrink(),
                 ),
               ),
             ),
+          ],
 
           const SizedBox(height: 20),
           Divider(
             height: 1,
             color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+          ),
+        ],
+      );
+    }
+
+    // 滚动头部:元数据区 + 字符计数,注入编辑器滚动容器顶部与正文
+    // 同滚(创建页同款,手机写正文时头部自然滚出屏)
+    Widget buildComposerHeader() {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+            child: buildMetadataSection(),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 20, top: 8),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                context.l10n.createTopic_charCount(_contentLength),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
           ),
         ],
       );
@@ -547,114 +584,77 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
                   }
                 },
                 children: [
-                  // Page 0: 编辑模式
-                  Column(
-                    children: [
-                      // 标题 + 元数据区域
-                      Form(
-                        key: _formKey,
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [buildMetadataSection()],
-                          ),
-                        ),
-                      ),
-
-                      // 字符计数
-                      Padding(
-                        padding: const EdgeInsets.only(right: 20, top: 8),
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: Text(
-                            context.l10n.createTopic_charCount(_contentLength),
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
+                  // Page 0: 编辑模式 —— 标题/标签/字数打包为 header
+                  // 注入编辑器滚动流,与正文同滚(创建页同款);
+                  // Form 上提防双模切换过渡期 _formKey 双挂
+                  Form(
+                    key: _formKey,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 150),
+                      child:
+                          (ref.watch(preferencesProvider).useRichComposer &&
+                              !_richFallback)
+                          ? (_isLoadingContent
+                                ? const SizedBox.shrink()
+                                : RichComposerEditor(
+                                    key: _richKey,
+                                    header: buildComposerHeader(),
+                                    controller: _contentController,
+                                    focusNode: _contentFocusNode,
+                                    hintText:
+                                        context.l10n.createTopic_contentHint,
+                                    emojiPanelHeight: 350,
+                                    onEmojiPanelChanged: (show) {
+                                      setState(() => _showEmojiPanel = show);
+                                    },
+                                    mentionDataSource: (term) => ref
+                                        .read(discourseServiceProvider)
+                                        .searchUsers(
+                                          term: term,
+                                          categoryId: _selectedCategory?.id,
+                                          includeGroups: !_isPrivateMessage,
+                                        ),
+                                    onFallbackToPlain: () {
+                                      if (mounted) {
+                                        setState(() => _richFallback = true);
+                                      }
+                                    },
+                                    onSwitchToSource: () {
+                                      if (mounted) {
+                                        setState(() => _richFallback = true);
+                                      }
+                                    },
+                                  ))
+                          : MarkdownEditor(
+                              key: _editorKey,
+                              header: buildComposerHeader(),
+                              controller: _contentController,
+                              focusNode: _contentFocusNode,
+                              hintText: context.l10n.createTopic_contentHint,
+                              expands: true,
+                              emojiPanelHeight: 350,
+                              onTogglePreview: _togglePreview,
+                              isPreview: _showPreview,
+                              onEmojiPanelChanged: (show) {
+                                setState(() => _showEmojiPanel = show);
+                              },
+                              onSwitchToRich:
+                                  ref.watch(preferencesProvider).useRichComposer
+                                  ? () {
+                                      if (mounted) {
+                                        setState(() => _richFallback = false);
+                                      }
+                                    }
+                                  : null,
+                              mentionDataSource: (term) => ref
+                                  .read(discourseServiceProvider)
+                                  .searchUsers(
+                                    term: term,
+                                    categoryId: _selectedCategory?.id,
+                                    includeGroups: !_isPrivateMessage,
+                                  ),
                             ),
-                          ),
-                        ),
-                      ),
-
-                      // 内容编辑器(feature flag:富文本 / markdown;
-                      // 编辑已有帖 → 富文本走导入门禁,吃不下的内容
-                      // (poll/chat 等岛)自动降级源码,防毁帖;
-                      // 内容加载完成前不挂富 composer(初始导入一次性,
-                      // 提前挂会以空文档镜像覆盖真内容)
-                      Expanded(
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 150),
-                          child: (ref
-                                      .watch(preferencesProvider)
-                                      .useRichComposer &&
-                                  !_richFallback)
-                              ? (_isLoadingContent
-                                  ? const SizedBox.shrink()
-                                  : RichComposerEditor(
-                                      key: _richKey,
-                                      controller: _contentController,
-                                      focusNode: _contentFocusNode,
-                                      hintText:
-                                          context.l10n.createTopic_contentHint,
-                                      emojiPanelHeight: 350,
-                                      onEmojiPanelChanged: (show) {
-                                        setState(
-                                            () => _showEmojiPanel = show);
-                                      },
-                                      mentionDataSource: (term) => ref
-                                          .read(discourseServiceProvider)
-                                          .searchUsers(
-                                            term: term,
-                                            categoryId: _selectedCategory?.id,
-                                            includeGroups: !_isPrivateMessage,
-                                          ),
-                                      onFallbackToPlain: () {
-                                        if (mounted) {
-                                          setState(
-                                              () => _richFallback = true);
-                                        }
-                                      },
-                                      onSwitchToSource: () {
-                                        if (mounted) {
-                                          setState(
-                                              () => _richFallback = true);
-                                        }
-                                      },
-                                    ))
-                              : MarkdownEditor(
-                                  key: _editorKey,
-                                  controller: _contentController,
-                                  focusNode: _contentFocusNode,
-                                  hintText:
-                                      context.l10n.createTopic_contentHint,
-                                  expands: true,
-                                  emojiPanelHeight: 350,
-                                  onTogglePreview: _togglePreview,
-                                  isPreview: _showPreview,
-                                  onEmojiPanelChanged: (show) {
-                                    setState(() => _showEmojiPanel = show);
-                                  },
-                                  onSwitchToRich: ref
-                                          .watch(preferencesProvider)
-                                          .useRichComposer
-                                      ? () {
-                                          if (mounted) {
-                                            setState(
-                                                () => _richFallback = false);
-                                          }
-                                        }
-                                      : null,
-                                  mentionDataSource: (term) => ref
-                                      .read(discourseServiceProvider)
-                                      .searchUsers(
-                                        term: term,
-                                        categoryId: _selectedCategory?.id,
-                                        includeGroups: !_isPrivateMessage,
-                                      ),
-                                ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
 
                   // Page 1: 预览模式
@@ -708,7 +708,10 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
                             data: _contentController.text,
                             onImageScaleChanged: (image, scale) {
                               final next = applyImageScaleToRaw(
-                                  _contentController.text, image, scale);
+                                _contentController.text,
+                                image,
+                                scale,
+                              );
                               if (next != null) {
                                 _contentController.text = next;
                                 setState(() {});

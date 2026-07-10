@@ -277,11 +277,17 @@ class CategoryTrigger extends StatelessWidget {
               children: [
                 Icon(Symbols.category_rounded, size: 18, color: theme.colorScheme.onSurfaceVariant),
                 const SizedBox(width: 8),
-                Text(
-                  S.current.topic_selectCategory,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w500,
+                // Flexible+ellipsis:进 AppBar title 等受限宽度场合时
+                // 长文案截断不溢出;常规场合 Row(min) 行为不变
+                Flexible(
+                  child: Text(
+                    S.current.topic_selectCategory,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -330,11 +336,15 @@ class CategoryTrigger extends StatelessWidget {
               else
                 buildColorDot(color),
               const SizedBox(width: 8),
-              Text(
-                category!.name,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurface,
-                  fontWeight: FontWeight.w500,
+              Flexible(
+                child: Text(
+                  category!.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurface,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
               const SizedBox(width: 4),

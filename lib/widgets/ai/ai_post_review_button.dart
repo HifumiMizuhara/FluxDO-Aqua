@@ -90,6 +90,7 @@ class AiPostReviewButton extends ConsumerStatefulWidget {
     this.categoryNameBuilder,
     this.categoryDescriptionBuilder,
     this.tagsBuilder,
+    this.builder,
   });
 
   final String? Function() titleBuilder;
@@ -99,6 +100,16 @@ class AiPostReviewButton extends ConsumerStatefulWidget {
   final String? Function()? categoryNameBuilder;
   final String? Function()? categoryDescriptionBuilder;
   final List<String> Function()? tagsBuilder;
+
+  /// 自定义外形:非空时不渲染默认 TextButton,由宿主决定形态(如收进
+  /// AppBar ⋯ 溢出菜单 —— 审核结果 popover 会锚定在 builder 产出的
+  /// widget 上)。trigger == null 表示当前不可触发:功能关闭
+  /// (且 isReviewing 为 false)/ 审核进行中 / enabled=false。
+  final Widget Function(
+    BuildContext anchorContext,
+    bool isReviewing,
+    VoidCallback? trigger,
+  )? builder;
 
   @override
   ConsumerState<AiPostReviewButton> createState() => _AiPostReviewButtonState();
@@ -113,14 +124,28 @@ class _AiPostReviewButtonState extends ConsumerState<AiPostReviewButton> {
     final enabled = ref.watch(
       preferencesProvider.select((prefs) => prefs.aiPostReviewEnabled),
     );
-    if (!enabled) return const SizedBox.shrink();
+    if (!enabled) {
+      // 自定义外形时仍交给宿主渲染(如菜单项置灰),默认外形直接消失
+      final custom = widget.builder;
+      if (custom != null) {
+        return Builder(
+          builder: (anchorContext) => custom(anchorContext, false, null),
+        );
+      }
+      return const SizedBox.shrink();
+    }
 
     return Builder(
       builder: (anchorContext) {
+        final trigger = _isReviewing || !widget.enabled
+            ? null
+            : () => _runReview(anchorContext);
+        final custom = widget.builder;
+        if (custom != null) {
+          return custom(anchorContext, _isReviewing, trigger);
+        }
         return TextButton(
-          onPressed: _isReviewing || !widget.enabled
-              ? null
-              : () => _runReview(anchorContext),
+          onPressed: trigger,
           child: _isReviewing
               ? Row(
                   mainAxisSize: MainAxisSize.min,
