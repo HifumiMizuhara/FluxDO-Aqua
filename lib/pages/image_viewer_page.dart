@@ -57,8 +57,9 @@ class ImageViewerPage extends StatefulWidget {
     this.filenames,
   }) : assert(imageUrl != null || imageBytes != null);
 
-  /// 使用透明路由打开图片查看器
-  static void open(
+  /// 使用透明路由打开图片查看器。返回的 Future 在查看器关闭时完成
+  /// (调用方可借此恢复被隐藏的浮层等)。
+  static Future<void> open(
     BuildContext context,
     String imageUrl, {
     String? heroTag,
@@ -70,7 +71,7 @@ class ImageViewerPage extends StatefulWidget {
     List<String>? thumbnailUrls,
     List<String?>? filenames,
   }) {
-    Navigator.push(
+    return Navigator.push(
       context,
       PageRouteBuilder(
         opaque: false,

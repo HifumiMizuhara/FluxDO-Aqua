@@ -358,8 +358,8 @@ class DiscourseImageUtils {
     );
   }
 
-  /// 打开图片查看器
-  static void openViewer({
+  /// 打开图片查看器。返回 Future 在关闭时完成(恢复浮层等用)。
+  static Future<void> openViewer({
     required BuildContext context,
     required String imageUrl,
     required String heroTag,
@@ -371,7 +371,7 @@ class DiscourseImageUtils {
     bool enableShare = true,
     List<String?>? filenames,
   }) {
-    ImageViewerPage.open(
+    return ImageViewerPage.open(
       context,
       imageUrl,
       heroTag: heroTag,
