@@ -591,6 +591,7 @@ class _SubmenuRoute extends PopupRoute<void> with _MenuChainRoute<void> {
     required this.labelColor,
     required this.tiles,
     required this.capturedThemes,
+    required this.subtitleCount,
     this.anchor,
   });
 
@@ -600,6 +601,9 @@ class _SubmenuRoute extends PopupRoute<void> with _MenuChainRoute<void> {
   final Color? labelColor;
   final List<Widget> tiles;
   final CapturedThemes capturedThemes;
+
+  /// tiles 中带 subtitle 的行数（高度估算用：带副标题的行更高）
+  final int subtitleCount;
   final Rect? anchor;
 
   @override
@@ -670,9 +674,17 @@ class _SubmenuRoute extends PopupRoute<void> with _MenuChainRoute<void> {
           double targetWidth = anchor?.width ?? minPanelWidth;
           targetWidth = targetWidth.clamp(minPanelWidth, maxPanelWidth);
 
-          // 估算最终高度（header + 子项 + 一点 padding）。
+          // 估算最终高度：header(48) + 分隔线(1) + 尾部 padding(4)。
+          // 行高按实际构成算：单行 tile = 10+20+10 ≈ 40（bodyMedium 文字
+          // ~20 + 上下 padding 10）,带 subtitle 的 tile ≈ 58。此前统一按
+          // 60/行过估,长列表(如 7 项排序)虚高 ~140px,底界避让把面板
+          // 从 anchor 大幅上抬,子菜单看起来"飘"到离入口很远的位置。
           final double estimatedHeight =
-              kMinInteractiveDimension + tiles.length * 60 + 12;
+              kMinInteractiveDimension +
+              1 +
+              (tiles.length - subtitleCount) * 40.0 +
+              subtitleCount * 58.0 +
+              4;
 
           double targetLeft = anchor?.left ?? (screen.width - targetWidth) / 2;
           // panel 顶部比 entry 顶部稍微高一点（向上凸出 8px）,其余部分往下铺。
@@ -1611,6 +1623,7 @@ Future<void> showAnchoredSubmenu({
         label: label,
         iconColor: iconColor,
         labelColor: labelColor,
+        subtitleCount: children.where((c) => c.subtitle != null).length,
         tiles: [
           for (final c in children)
             Builder(
