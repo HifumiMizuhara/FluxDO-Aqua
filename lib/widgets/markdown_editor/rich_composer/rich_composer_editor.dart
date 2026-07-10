@@ -20,7 +20,6 @@ import 'package:fluxdo_render/fluxdo_render.dart'
     show
         CodeBlockNode,
         EmojiRun,
-        ImageGridNode,
         ImageRun,
         InlineNode,
         LocalDateRun,
@@ -163,9 +162,7 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     _removeMentionOverlay();
     _removeSlashOverlay();
     _removeImageOverlay();
-    _removeGridOverlay();
     _altFocus.dispose();
-    _gridAltFocus.dispose();
     _slashScroll.dispose();
     _editor?.removeListener(_onDocChanged);
     _editor?.dispose();
@@ -900,229 +897,16 @@ class RichComposerEditorState extends State<RichComposerEditor> {
   }
 
   // -----------------------------------------------------------------
-  // grid 内图片子选中浮层(官方 isInGrid 工具条:[删除|移出网格] + alt,
-  // 无缩放按钮 —— grid 布局吃掉显示尺寸,官方同判定)
+  // grid 内图片(交互已内聚在子包 EditorImageGrid:删除/移出/alt/模式
+  // 全在网格容器里 —— 官方 composer 同构。宿主只管查看器。)
   // -----------------------------------------------------------------
-
-  GridImageSelection? _gridSel;
-  OverlayEntry? _gridOverlay;
-  bool _gridAltExpanded = false;
-  TextEditingController? _gridAltController;
-  final FocusNode _gridAltFocus = FocusNode(debugLabel: 'grid-image-alt');
-
-  void _onGridImageSelectionChanged(GridImageSelection? sel) {
-    _gridSel = sel;
-    if (sel == null) {
-      _removeGridOverlay();
-      return;
-    }
-    if (_gridOverlay == null) {
-      _showGridOverlay();
-    } else {
-      _gridOverlay!.markNeedsBuild();
-    }
-  }
-
-  void _removeGridOverlay() {
-    _gridOverlay?.remove();
-    _gridOverlay = null;
-    _gridAltExpanded = false;
-    _gridAltController?.dispose();
-    _gridAltController = null;
-  }
-
-  void _showGridOverlay() {
-    _gridAltExpanded = false;
-    _gridOverlay = OverlayEntry(builder: (context) {
-      final sel = _gridSel;
-      if (sel == null) return const SizedBox.shrink();
-      final rect = sel.globalRect;
-      final img = sel.image;
-      final screen = MediaQuery.sizeOf(context);
-      final scheme = Theme.of(context).colorScheme;
-
-      const barH = 40.0;
-      final barAbove = rect.top - barH - 6 >= 8;
-      final barLeft = rect.left.clamp(8.0, screen.width - 180.0);
-      final altTop = barAbove ? rect.bottom + 6 : rect.bottom + barH + 12;
-      final altWidth = rect.width.clamp(180.0, 320.0);
-
-      Widget iconBtn(IconData icon, String tooltip,
-          {VoidCallback? onTap, Color? color}) {
-        return Tooltip(
-          message: tooltip,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(6),
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: Icon(icon,
-                  size: 18, color: color ?? scheme.onSurfaceVariant),
-            ),
-          ),
-        );
-      }
-
-      return Stack(children: [
-        Positioned(
-          left: barLeft,
-          top: barAbove ? rect.top - barH - 6 : rect.bottom + 6,
-          child: _FloatingPanel(
-            maxHeight: barH,
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              iconBtn(Symbols.grid_off_rounded, '移出网格',
-                  onTap: _moveSelectedGridImageOut),
-              Container(
-                width: 1,
-                height: 20,
-                color: scheme.outlineVariant.withValues(alpha: 0.5),
-              ),
-              iconBtn(Symbols.delete_outline_rounded, '删除图片',
-                  onTap: _deleteSelectedGridImage, color: scheme.error),
-            ]),
-          ),
-        ),
-        // alt 条(图片原子同构:collapsed → 展开 3 行,Enter 保存/Esc 还原)
-        Positioned(
-          left: rect.left.clamp(8.0, screen.width - altWidth - 8),
-          top: altTop,
-          width: altWidth,
-          child: _FloatingPanel(
-            maxHeight: 108,
-            child: _gridAltExpanded
-                ? Focus(
-                    onKeyEvent: (node, event) {
-                      if (event is! KeyDownEvent) return KeyEventResult.ignored;
-                      if (event.logicalKey == LogicalKeyboardKey.escape) {
-                        _gridAltExpanded = false;
-                        _gridAltController?.text = img.alt;
-                        _gridOverlay?.markNeedsBuild();
-                        return KeyEventResult.handled;
-                      }
-                      if (event.logicalKey == LogicalKeyboardKey.enter &&
-                          !HardwareKeyboard.instance.isShiftPressed) {
-                        _saveGridAlt(_gridAltController?.text ?? '');
-                        return KeyEventResult.handled;
-                      }
-                      return KeyEventResult.ignored;
-                    },
-                    child: TextField(
-                      controller: _gridAltController ??=
-                          TextEditingController(text: img.alt),
-                      focusNode: _gridAltFocus,
-                      autofocus: true,
-                      minLines: 3,
-                      maxLines: 3,
-                      style: const TextStyle(fontSize: 13, height: 1.5),
-                      decoration: const InputDecoration(
-                        hintText: '替代文本',
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        border: InputBorder.none,
-                      ),
-                      onTapOutside: (_) =>
-                          _saveGridAlt(_gridAltController!.text),
-                    ),
-                  )
-                : InkWell(
-                    onTap: () {
-                      _gridAltExpanded = true;
-                      _gridAltController?.dispose();
-                      _gridAltController =
-                          TextEditingController(text: img.alt);
-                      _gridOverlay?.markNeedsBuild();
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (!_gridAltExpanded ||
-                            _gridAltController == null) {
-                          return;
-                        }
-                        _gridAltFocus.requestFocus();
-                        _gridAltController!.selection = TextSelection(
-                          baseOffset: 0,
-                          extentOffset: _gridAltController!.text.length,
-                        );
-                      });
-                    },
-                    borderRadius: BorderRadius.circular(8),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 8),
-                      child: Text(
-                        img.alt.isEmpty ? '替代文本' : img.alt,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: img.alt.isEmpty
-                              ? scheme.onSurfaceVariant.withValues(alpha: 0.6)
-                              : scheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                  ),
-          ),
-        ),
-      ]);
-    });
-    Overlay.of(context).insert(_gridOverlay!);
-  }
-
-  void _deleteSelectedGridImage() {
-    final editor = _editor;
-    final sel = _gridSel;
-    if (editor == null || sel == null) return;
-    removeImageFromGrid(editor, sel.islandId, sel.imageIndex);
-  }
-
-  void _moveSelectedGridImageOut() {
-    final editor = _editor;
-    final sel = _gridSel;
-    if (editor == null || sel == null) return;
-    moveImageOutsideGrid(editor, sel.islandId, sel.imageIndex);
-  }
-
-  void _saveGridAlt(String text) {
-    final editor = _editor;
-    final sel = _gridSel;
-    _gridAltExpanded = false;
-    if (editor == null || sel == null) {
-      _gridOverlay?.markNeedsBuild();
-      return;
-    }
-    final t = text.trim();
-    if (t == sel.image.alt) {
-      _gridOverlay?.markNeedsBuild();
-      return;
-    }
-    final i = editor.indexOfBlock(sel.islandId);
-    if (i < 0) return;
-    final block = editor.blocks[i];
-    if (block is! IslandBlock || block.node is! ImageGridNode) return;
-    final grid = block.node as ImageGridNode;
-    final images = [...grid.images];
-    if (sel.imageIndex >= images.length) return;
-    images[sel.imageIndex] = images[sel.imageIndex].copyWith(alt: t);
-    editor.updateIslandNode(
-      sel.islandId,
-      ImageGridNode(
-        id: grid.id,
-        images: images,
-        columns: grid.columns,
-        mode: grid.mode,
-      ),
-    );
-  }
 
   /// grid 内已子选中的图再点 → 查看器(图片原子同链路)。
   Future<void> _openGridImageViewer(GridImageSelection sel) async {
-    _removeGridOverlay();
     await _openImageRun(
       sel.image,
       heroTag: 'rich_composer_grid_${sel.islandId}_${sel.imageIndex}',
     );
-    if (mounted && _gridSel != null && _gridOverlay == null) {
-      _showGridOverlay();
-    }
   }
 
   /// 展开 alt 输入(官方 expandInput:展开后 select() 全选)。
@@ -1545,8 +1329,7 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                     onImageAtomSelectionChanged: _onImageAtomSelectionChanged,
                     // 已选中的图再点 → 打开查看器
                     onImageAtomOpenRequest: _openImageViewer,
-                    // grid 内图子选中 → 官方 isInGrid 工具条(删除/移出+alt)
-                    onGridImageSelectionChanged: _onGridImageSelectionChanged,
+                    // grid 内图交互内聚在子包;宿主只接查看器
                     onGridImageOpenRequest: _openGridImageViewer,
                     // 光标全局矩形上抛(斜杠/mention 浮层锚定用)。
                     // 矩形变化且浮层活跃 → 重建重锚定:浮层首建发生在
