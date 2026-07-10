@@ -46,6 +46,14 @@ class LazyImage extends StatefulWidget {
   /// 缓存 key（保留参数兼容旧调用方,当前未使用）
   final String? cacheKey;
 
+  /// 解码逻辑宽覆盖(默认 = [width])。
+  ///
+  /// 编辑器缩放档场景必传**原始宽**:解码宽若跟显示宽走,切 100→75→50
+  /// 档时 ResizeImage 的 cacheWidth 变 → ImageCache key 变 → **每次切档
+  /// 都全新解码 + 重新加载**(spinner 闪、切档卡顿的主因)。解码恒按
+  /// 原始宽,三档共享同一缓存条目,切档 = 纯布局变化零解码。
+  final double? decodeWidth;
+
   const LazyImage({
     super.key,
     required this.imageProvider,
@@ -57,6 +65,7 @@ class LazyImage extends StatefulWidget {
     this.onLongPress,
     this.onSecondaryTapUp,
     this.cacheKey,
+    this.decodeWidth,
   });
 
   @override
@@ -200,7 +209,13 @@ class _LazyImageState extends State<LazyImage> {
   /// 与 build 使用完全相同的 provider 参数,保证 ImageStream 同 key 共享
   ImageProvider _buildProvider(BuildContext context) {
     final dpr = MediaQuery.devicePixelRatioOf(context);
-    final logicalWidth = widget.width ?? MediaQuery.sizeOf(context).width;
+    final screenW = MediaQuery.sizeOf(context).width;
+    // 解码逻辑宽 cap 屏宽:无约束测量上下文(网格瓦片的 FittedBox)里
+    // 显示宽拿到的是**声明宽**(手机原图 3000px+),不 cap 就全尺寸
+    // 解码(×dpr = 6000px 位图,单张几十 MB,网格滚动/交互卡顿主因);
+    // 屏宽解码对任何在屏显示都足够,查看器高清走独立路径。
+    final logicalWidth =
+        (widget.decodeWidth ?? widget.width ?? screenW).clamp(1.0, screenW);
     final cacheWidth = (logicalWidth * dpr).round().clamp(1, 1 << 16);
     return ResizeImage(
       widget.imageProvider,

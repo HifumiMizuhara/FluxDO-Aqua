@@ -1172,6 +1172,12 @@ class FluxdoRenderCallbacks {
                 imageProvider: discourseImageProvider(resolvedUrl),
                 width: dispW,
                 height: dispH,
+                // 解码恒按**原始宽**(scale 乘之前的声明宽):缩放档切换
+                // 显示宽变但解码宽不变 → ImageCache 同 key,切档零重
+                // 解码零 spinner(此前解码宽跟显示宽走,每次切档全新
+                // 解码,卡顿主因)。无 scale 场景 origWidth 为 null,
+                // 行为不变。
+                decodeWidth: image.origWidth ?? dispW,
                 heroTag: heroTag,
                 cacheKey: resolvedUrl,
                 onTap: () {
