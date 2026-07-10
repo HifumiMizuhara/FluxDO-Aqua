@@ -671,9 +671,12 @@ class RichComposerEditorState extends State<RichComposerEditor> {
         );
         _editorFocus.requestFocus();
       } else {
-        // 切回键盘(编辑器自管 IME:重新聚焦 + 唤起)
+        // 切回键盘:显式 TextInput.show —— 编辑器自管连接一直挂着且
+        // 焦点从未离开,requestFocus 无事发生、syncFromState 判无变化
+        // 不调平台,键盘不会自己弹(与点编辑区切回同一根因)
         _panelController.updatePanelType(ChatBottomPanelType.keyboard);
         _editorFocus.requestFocus();
+        SystemChannels.textInput.invokeMethod('TextInput.show');
       }
       setState(() => _showEmojiPanel = false);
       widget.onEmojiPanelChanged?.call(false);
