@@ -448,7 +448,13 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       onRefresh: _refreshData,
       child: ListView(
         controller: _scrollController,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        // 底部让出 extendBody 注入的底栏高度
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 12,
+          bottom: 12 + MediaQuery.paddingOf(context).bottom,
+        ),
         children: [
           const _ProfileHeader(),
           const SizedBox(height: 24),

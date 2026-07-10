@@ -107,7 +107,11 @@ class _MasterDetailLayoutState extends State<MasterDetailLayout> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    // FAB 锚定在系统安全区基线（viewPadding，不含 extendBody 注入的
+    // 底栏槽高）：底栏是滑出式的，槽高恒定但可见性随滚动变化，锚在
+    // padding.bottom 会让 FAB 在底栏滑走后仍悬在半空。跟随底栏升降
+    // 由 FAB 自身按 barVisibility 平移（见 _TopicsFab）。
+    final bottomPadding = MediaQuery.viewPaddingOf(context).bottom;
 
     return LayoutBuilder(
       builder: (context, constraints) {

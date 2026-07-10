@@ -26,6 +26,10 @@ class DesktopRefreshIndicator extends StatefulWidget {
   /// 透传给 RefreshIndicator
   final bool Function(ScrollNotification)? notificationPredicate;
 
+  /// 透传给 RefreshIndicator：spinner 起始下移量
+  /// （overlay 式悬浮头部下方的列表用）
+  final double edgeOffset;
+
   const DesktopRefreshIndicator({
     super.key,
     required this.child,
@@ -34,6 +38,7 @@ class DesktopRefreshIndicator extends StatefulWidget {
     this.refreshIndicatorKey,
     this.shouldRefresh,
     this.notificationPredicate,
+    this.edgeOffset = 0.0,
   });
 
   @override
@@ -72,6 +77,7 @@ class _DesktopRefreshIndicatorState extends State<DesktopRefreshIndicator> {
     return RefreshIndicator(
       key: _key,
       onRefresh: widget.onRefresh,
+      edgeOffset: widget.edgeOffset,
       notificationPredicate:
           widget.notificationPredicate ?? defaultScrollNotificationPredicate,
       child: widget.child,

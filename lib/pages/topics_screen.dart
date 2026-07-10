@@ -445,36 +445,59 @@ class _TopicsFabState extends ConsumerState<_TopicsFab>
       _close();
     }
 
-    // 刷新模式：简单的单按钮
+    final Widget fab;
     if (showRefresh) {
-      return FloatingActionButton(
+      // 刷新模式：简单的单按钮
+      fab = FloatingActionButton(
         heroTag: 'createTopic',
         onPressed: _refreshTopics,
         child: const Icon(Symbols.refresh_rounded),
       );
-    }
+    } else {
+      // 主 FAB（作为锚点，子按钮在 Overlay 中定位到它上方）
+      // 模糊开启时，展开后隐藏真实 FAB（overlay 中有 sharp 副本）
+      final dialogBlur = ref.watch(
+        preferencesProvider.select((p) => p.dialogBlur),
+      );
+      final hideFab = _isExpanded && dialogBlur;
 
-    // 主 FAB（作为锚点，子按钮在 Overlay 中定位到它上方）
-    // 模糊开启时，展开后隐藏真实 FAB（overlay 中有 sharp 副本）
-    final dialogBlur = ref.watch(
-      preferencesProvider.select((p) => p.dialogBlur),
-    );
-    final hideFab = _isExpanded && dialogBlur;
-
-    return CompositedTransformTarget(
-      link: _layerLink,
-      child: Opacity(
-        opacity: hideFab ? 0 : 1,
-        child: FloatingActionButton(
-          heroTag: 'createTopic',
-          onPressed: _toggle,
-          child: AnimatedRotation(
-            turns: _isExpanded ? 0.125 : 0,
-            duration: const Duration(milliseconds: 200),
-            child: const Icon(Symbols.add_rounded),
+      fab = CompositedTransformTarget(
+        link: _layerLink,
+        child: Opacity(
+          opacity: hideFab ? 0 : 1,
+          child: FloatingActionButton(
+            heroTag: 'createTopic',
+            onPressed: _toggle,
+            child: AnimatedRotation(
+              turns: _isExpanded ? 0.125 : 0,
+              duration: const Duration(milliseconds: 200),
+              child: const Icon(Symbols.add_rounded),
+            ),
           ),
         ),
-      ),
+      );
+    }
+
+    // 跟随底栏升降：FAB 的 Positioned 锚在系统安全区基线
+    // （MasterDetailLayout 用 viewPadding），底栏可见时按可见度把
+    // FAB 抬高一个底栏槽高（padding.bottom 是 extendBody 注入的槽高，
+    // 与 viewPadding 的差即底栏本体；rail 模式无底栏时差为 0 自动
+    // 退化）。paint-only 平移，overlay 里的子按钮经
+    // CompositedTransformFollower 跟随主 FAB 一起动。
+    return Consumer(
+      builder: (context, ref, child) {
+        final visibility = ref.watch(barVisibilityProvider);
+        final mq = MediaQuery.of(context);
+        final barHeight = (mq.padding.bottom - mq.viewPadding.bottom).clamp(
+          0.0,
+          double.infinity,
+        );
+        return Transform.translate(
+          offset: Offset(0, -barHeight * visibility),
+          child: child,
+        );
+      },
+      child: fab,
     );
   }
 

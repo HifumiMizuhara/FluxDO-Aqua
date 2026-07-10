@@ -106,7 +106,13 @@ class BookmarksListContent extends ConsumerWidget {
       controller: scrollController,
       // 顶部 padding 由上方 summary bar（如有）接管，避免双重间距；非工作区模式
       // 下若不显示 summary bar，下方 swipeRegion 直接返回 listView，仍走全 12。
-      padding: EdgeInsets.fromLTRB(12, showSummaryBar ? 8 : 12, 12, 12),
+      // 底部让出 extendBody 注入的底栏高度。
+      padding: EdgeInsets.fromLTRB(
+        12,
+        showSummaryBar ? 8 : 12,
+        12,
+        12 + MediaQuery.paddingOf(context).bottom,
+      ),
       itemCount: filteredTopics.length + 1,
       itemBuilder: (context, index) {
         if (filteredTopics.isEmpty) {

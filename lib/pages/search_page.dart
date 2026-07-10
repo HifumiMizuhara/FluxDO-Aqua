@@ -24,13 +24,23 @@ import 'user_profile_page.dart';
 import '../utils/dialog_utils.dart';
 import '../utils/load_more_coordinator.dart';
 import '../utils/blocked_user_filter.dart';
+import '../widgets/common/search_capsule.dart';
 
 /// 搜索页面
 class SearchPage extends ConsumerStatefulWidget {
   final String? initialQuery;
   final SearchFilter? initialFilter;
 
-  const SearchPage({super.key, this.initialQuery, this.initialFilter});
+  /// 首页搜索胶囊入口：搜索框包同 tag Hero 做跨页 morph（一镜到底），
+  /// 键盘等 Hero 飞行结束再弹（飞行中弹出会顶起布局撕裂动画）
+  final bool heroCapsule;
+
+  const SearchPage({
+    super.key,
+    this.initialQuery,
+    this.initialFilter,
+    this.heroCapsule = false,
+  });
 
   @override
   ConsumerState<SearchPage> createState() => _SearchPageState();
@@ -93,11 +103,32 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       });
     } else {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _focusNode.requestFocus();
+        _requestFocusAfterTransition();
         _loadRecentSearches();
       });
     }
     _scrollController.addListener(_onScroll);
+  }
+
+  /// Hero 入场时等转场（含 Hero 飞行）结束再聚焦弹键盘；普通入场立即聚焦
+  void _requestFocusAfterTransition() {
+    final route = ModalRoute.of(context);
+    if (!widget.heroCapsule ||
+        route == null ||
+        route.animation == null ||
+        route.animation!.isCompleted) {
+      _focusNode.requestFocus();
+      return;
+    }
+    final animation = route.animation!;
+    void listener(AnimationStatus status) {
+      if (status == AnimationStatus.completed) {
+        animation.removeStatusListener(listener);
+        if (mounted) _focusNode.requestFocus();
+      }
+    }
+
+    animation.addStatusListener(listener);
   }
 
   @override
@@ -553,36 +584,60 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    final searchField = TextField(
+      controller: _searchController,
+      focusNode: _focusNode,
+      onSubmitted: _onSearch,
+      textInputAction: TextInputAction.search,
+      textAlignVertical: TextAlignVertical.center,
+      style: Theme.of(context).textTheme.bodyLarge,
+      decoration: InputDecoration(
+        hintText: context.l10n.search_hintText,
+        border: InputBorder.none,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        suffixIcon: _searchController.text.isNotEmpty
+            ? IconButton(
+                icon: const Icon(Symbols.close_rounded, size: 20),
+                onPressed: _clearSearch,
+              )
+            : null,
+      ),
+      onChanged: (value) {
+        setState(() {});
+      },
+    );
+
+    // Hero 入场：搜索框套胶囊容器（与首页胶囊同视觉），跨页 morph 的
+    // 落点;flight 用静态胶囊（TextField 不参与飞行，避免光标闪烁）
+    final Widget titleField = widget.heroCapsule
+        ? Hero(
+            tag: kSearchCapsuleHeroTag,
+            flightShuttleBuilder: searchCapsuleFlightShuttle,
+            child: Container(
+              height: 40,
+              margin: const EdgeInsets.only(right: 4),
+              padding: const EdgeInsets.only(left: 8),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.5,
+                ),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              // Hero child 需要 Material 语境（飞行时脱离原位）
+              child: Material(
+                type: MaterialType.transparency,
+                child: searchField,
+              ),
+            ),
+          )
+        : searchField;
+
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
         titleSpacing: 0,
-        title: TextField(
-          controller: _searchController,
-          focusNode: _focusNode,
-          onSubmitted: _onSearch,
-          textInputAction: TextInputAction.search,
-          textAlignVertical: TextAlignVertical.center,
-          style: Theme.of(context).textTheme.bodyLarge,
-          decoration: InputDecoration(
-            hintText: context.l10n.search_hintText,
-            border: InputBorder.none,
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 8,
-              vertical: 12,
-            ),
-            suffixIcon: _searchController.text.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Symbols.close_rounded, size: 20),
-                    onPressed: _clearSearch,
-                  )
-                : null,
-          ),
-          onChanged: (value) {
-            setState(() {});
-          },
-        ),
+        title: titleField,
         actions: [
           IconButton(
             icon: const Icon(Symbols.search_rounded),

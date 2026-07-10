@@ -282,19 +282,28 @@ class CategoryNotificationButton extends StatelessWidget {
 
   void _showSheet(BuildContext context) {
     if (onChanged == null) return;
-    showAppBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _CategoryNotificationLevelSheet(
-        currentLevel: level,
-        onSelected: (newLevel) {
-          Navigator.pop(context);
-          onChanged!(newLevel);
-        },
-      ),
-    );
+    showCategoryNotificationLevelSheet(context, level, onChanged!);
   }
+}
+
+/// 显示分类订阅级别选择面板（公开入口，供图标样式的自定义按钮复用）
+void showCategoryNotificationLevelSheet(
+  BuildContext context,
+  CategoryNotificationLevel currentLevel,
+  ValueChanged<CategoryNotificationLevel> onSelected,
+) {
+  showAppBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (context) => _CategoryNotificationLevelSheet(
+      currentLevel: currentLevel,
+      onSelected: (newLevel) {
+        Navigator.pop(context);
+        onSelected(newLevel);
+      },
+    ),
+  );
 }
 
 class _CategoryNotificationLevelSheet extends StatelessWidget {

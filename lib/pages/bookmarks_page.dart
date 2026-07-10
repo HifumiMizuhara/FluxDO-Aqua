@@ -590,31 +590,47 @@ class _BookmarksPageState extends ConsumerState<BookmarksPage> {
     final parentActive =
         widget.isActive && _workspaceState.activeTabId == tab.tabId;
     final customBuilder = widget.workspaceTopicPageBuilder;
-    if (customBuilder != null) {
-      return customBuilder(context, tab, parentActive);
-    }
-    return TopicDetailPage(
-      topicId: tab.topicId,
-      initialTitle: tab.title,
-      scrollToPostNumber: tab.scrollToPostNumber,
-      initialBookmarkId: tab.bookmarkId,
-      initialBookmarkName: tab.bookmarkName,
-      initialBookmarkReminderAt: tab.bookmarkReminderAt,
-      initialBookmarkableType: tab.bookmarkableType,
-      embeddedMode: true,
-      parentActive: parentActive,
-      instanceId: tab.instanceId,
-      onEmbeddedBack: showMobileWorkspaceChrome ? _activateBookmarksTab : null,
-      onEmbeddedClose: showMobileWorkspaceChrome
-          ? _closeActiveWorkspaceTab
-          : null,
-      embeddedTabCount: showMobileWorkspaceChrome
-          ? _workspaceState.topicTabs.length
-          : null,
-      onEmbeddedShowTabs: showMobileWorkspaceChrome
-          ? _showWorkspaceSwitcher
-          : null,
-      hideInlineHeaderTitle: showMobileWorkspaceChrome,
+    final Widget page = customBuilder != null
+        ? customBuilder(context, tab, parentActive)
+        : TopicDetailPage(
+            topicId: tab.topicId,
+            initialTitle: tab.title,
+            scrollToPostNumber: tab.scrollToPostNumber,
+            initialBookmarkId: tab.bookmarkId,
+            initialBookmarkName: tab.bookmarkName,
+            initialBookmarkReminderAt: tab.bookmarkReminderAt,
+            initialBookmarkableType: tab.bookmarkableType,
+            embeddedMode: true,
+            parentActive: parentActive,
+            instanceId: tab.instanceId,
+            onEmbeddedBack: showMobileWorkspaceChrome
+                ? _activateBookmarksTab
+                : null,
+            onEmbeddedClose: showMobileWorkspaceChrome
+                ? _closeActiveWorkspaceTab
+                : null,
+            embeddedTabCount: showMobileWorkspaceChrome
+                ? _workspaceState.topicTabs.length
+                : null,
+            onEmbeddedShowTabs: showMobileWorkspaceChrome
+                ? _showWorkspaceSwitcher
+                : null,
+            hideInlineHeaderTitle: showMobileWorkspaceChrome,
+          );
+
+    // 工作台激活话题页时底栏已强制隐藏（滑出屏外），但 extendBody 的
+    // 底栏槽位恒定，body MediaQuery 的 padding.bottom 仍是底栏槽高 ——
+    // 这里还原为系统真实安全区，让嵌入详情页（回复栏等）用足全屏
+    return Builder(
+      builder: (context) {
+        final mq = MediaQuery.of(context);
+        return MediaQuery(
+          data: mq.copyWith(
+            padding: mq.padding.copyWith(bottom: mq.viewPadding.bottom),
+          ),
+          child: page,
+        );
+      },
     );
   }
 

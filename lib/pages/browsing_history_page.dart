@@ -221,7 +221,13 @@ class _BrowsingHistoryPageState extends ConsumerState<BrowsingHistoryPage> {
 
           return ListView.builder(
             controller: _scrollController,
-            padding: const EdgeInsets.all(12),
+            // 底部让出 extendBody 注入的底栏高度
+            padding: EdgeInsets.fromLTRB(
+              12,
+              12,
+              12,
+              12 + MediaQuery.paddingOf(context).bottom,
+            ),
             itemCount: visibleTopics.length + 1,
             itemBuilder: (context, index) {
               if (index == visibleTopics.length) {
