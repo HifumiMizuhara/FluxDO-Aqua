@@ -77,6 +77,7 @@ class RichComposerEditor extends StatefulWidget {
     this.focusNode,
     this.hintText = '',
     this.header,
+    this.metaBar,
     this.emojiPanelHeight = 280.0,
     this.onEmojiPanelChanged,
     this.mentionDataSource,
@@ -94,6 +95,10 @@ class RichComposerEditor extends StatefulWidget {
   /// 一起滚 —— 手机上写正文时头部自然滚出屏,编辑区满格(零跳变:
   /// 头部高度恒定,离场回场全由滚动驱动)。null 时无头部。
   final Widget? header;
+
+  /// 底部属性条(编辑区与工具栏之间,如 ComposerMetaBar):
+  /// 分类/标签/字数等元数据常驻可见可改,不随滚动离场。null 时无。
+  final Widget? metaBar;
   final double emojiPanelHeight;
   final ValueChanged<bool>? onEmojiPanelChanged;
   final MentionDataSource? mentionDataSource;
@@ -1580,6 +1585,8 @@ class RichComposerEditorState extends State<RichComposerEditor> {
             ),
           ),
         ),
+        // 底部属性条(分类/标签/字数常驻,不随滚动离场)
+        if (widget.metaBar != null) widget.metaBar!,
         // 单一底部工具栏(与 MarkdownToolbar 同构:左表情胶囊 + 中部
         // 可滚工具 + 右胶囊;FaIcon 图标语言 + compact 密度)
         _RichToolbar(

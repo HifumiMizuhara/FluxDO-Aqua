@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -354,32 +356,26 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
       },
       child: Scaffold(
         resizeToAvoidBottomInset: false,
+        // 内容从半透明模糊 AppBar 下滚过透出(创建页同款);
+        // 分类/标签/字数在底部 ComposerMetaBar 常驻
+        extendBodyBehindAppBar: true,
         appBar: AppBar(
-          // 分类上收 AppBar(创建页同款):非私信时页面标题文字位换成
-          // 分类选择胶囊;私信无分类,保留文字标题。不可编元数据时
-          // 禁用态展示(与原行内分类一致的 IgnorePointer+Opacity)
-          centerTitle: false,
-          titleSpacing: 8,
-          title: _isPrivateMessage
-              ? Text(context.l10n.editTopic_editPm)
-              : categoriesAsync.maybeWhen(
-                  data: (categories) => Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: IgnorePointer(
-                      ignoring: !_canEditMetadata,
-                      child: Opacity(
-                        opacity: _canEditMetadata ? 1.0 : 0.6,
-                        child: CategoryTrigger(
-                          category: _selectedCategory,
-                          categories: categories,
-                          onSelected: _onCategorySelected,
-                        ),
-                      ),
-                    ),
-                  ),
-                  orElse: () => Text(context.l10n.editTopic_editTopic),
-                ),
+          title: Text(
+            _isPrivateMessage
+                ? context.l10n.editTopic_editPm
+                : context.l10n.editTopic_editTopic,
+          ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
           scrolledUnderElevation: 0,
+          flexibleSpace: ClipRect(
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Container(
+                color: theme.colorScheme.surface.withValues(alpha: 0.82),
+              ),
+            ),
+          ),
           actions: [
             Padding(
               padding: const EdgeInsets.only(right: 16),
@@ -437,82 +433,95 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
       return const Center(child: LoadingSpinner());
     }
 
-    // 构建元数据编辑区域（标题、分类、标签）
+    // 标题输入(编辑分支 header 与无权限分支共用)
+    Widget buildTitleField() {
+      return TextFormField(
+        controller: _titleController,
+        enabled: _canEditMetadata,
+        decoration: InputDecoration(
+          hintText: context.l10n.createTopic_titleHint,
+          hintStyle: TextStyle(
+            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+            fontWeight: FontWeight.normal,
+          ),
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.zero,
+          isDense: true,
+        ),
+        style: theme.textTheme.headlineSmall?.copyWith(
+          fontWeight: FontWeight.w900,
+          letterSpacing: -0.5,
+          color: _canEditMetadata ? null : theme.colorScheme.onSurfaceVariant,
+        ),
+        maxLines: null,
+        maxLength: 200,
+        buildCounter:
+            (
+              context, {
+              required currentLength,
+              required isFocused,
+              maxLength,
+            }) => null,
+        validator: _canEditMetadata
+            ? (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return context.l10n.createTopic_enterTitle;
+                }
+                if (value.trim().length < minTitleLength) {
+                  return context.l10n.createTopic_minTitleLength(
+                    minTitleLength,
+                  );
+                }
+                return null;
+              }
+            : null,
+        onTap: () {
+          _editorKey.currentState?.closeEmojiPanel();
+        },
+      );
+    }
+
+    // 完整元数据编辑区(标题+分类+标签)—— 仅无内容编辑权限的
+    // 纯表单分支用(该分支没有编辑器,没有底部属性条可放)
     Widget buildMetadataSection() {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 标题输入
-          TextFormField(
-            controller: _titleController,
-            enabled: _canEditMetadata,
-            decoration: InputDecoration(
-              hintText: context.l10n.createTopic_titleHint,
-              hintStyle: TextStyle(
-                color: theme.colorScheme.onSurfaceVariant.withValues(
-                  alpha: 0.5,
-                ),
-                fontWeight: FontWeight.normal,
-              ),
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.zero,
-              isDense: true,
-            ),
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.5,
-              color: _canEditMetadata
-                  ? null
-                  : theme.colorScheme.onSurfaceVariant,
-            ),
-            maxLines: null,
-            maxLength: 200,
-            buildCounter:
-                (
-                  context, {
-                  required currentLength,
-                  required isFocused,
-                  maxLength,
-                }) => null,
-            validator: _canEditMetadata
-                ? (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return context.l10n.createTopic_enterTitle;
-                    }
-                    if (value.trim().length < minTitleLength) {
-                      return context.l10n.createTopic_minTitleLength(
-                        minTitleLength,
-                      );
-                    }
-                    return null;
-                  }
-                : null,
-            onTap: () {
-              _editorKey.currentState?.closeEmojiPanel();
-            },
-          ),
+          buildTitleField(),
 
-          // 标签区 - 私信不显示(分类已上收 AppBar 胶囊)
-          if (!_isPrivateMessage && canTagTopics) ...[
-            const SizedBox(height: 16),
+          // 元数据区域 (分类 + 标签) - 私信不显示
+          if (!_isPrivateMessage)
             IgnorePointer(
               ignoring: !_canEditMetadata,
               child: Opacity(
                 opacity: _canEditMetadata ? 1.0 : 0.6,
-                child: tagsAsync.when(
-                  data: (tags) => TagsArea(
-                    selectedCategory: _selectedCategory,
-                    selectedTags: _selectedTags,
-                    allTags: tags,
-                    onTagsChanged: (newTags) =>
-                        setState(() => _selectedTags = newTags),
-                  ),
-                  loading: () => const SizedBox.shrink(),
-                  error: (e, s) => const SizedBox.shrink(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 16),
+                    CategoryTrigger(
+                      category: _selectedCategory,
+                      categories: categories,
+                      onSelected: _onCategorySelected,
+                    ),
+                    if (canTagTopics) ...[
+                      const SizedBox(height: 12),
+                      tagsAsync.when(
+                        data: (tags) => TagsArea(
+                          selectedCategory: _selectedCategory,
+                          selectedTags: _selectedTags,
+                          allTags: tags,
+                          onTagsChanged: (newTags) =>
+                              setState(() => _selectedTags = newTags),
+                        ),
+                        loading: () => const SizedBox.shrink(),
+                        error: (e, s) => const SizedBox.shrink(),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ),
-          ],
 
           const SizedBox(height: 20),
           Divider(
@@ -523,29 +532,29 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
       );
     }
 
-    // 滚动头部:元数据区 + 字符计数,注入编辑器滚动容器顶部与正文
-    // 同滚(创建页同款,手机写正文时头部自然滚出屏)
+    // 滚动头部(编辑分支):透明 AppBar 避让 + 标题。写作流只留
+    // 标题+正文,分类/标签/字数在底部 ComposerMetaBar 常驻
     Widget buildComposerHeader() {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-            child: buildMetadataSection(),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 20, top: 8),
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                context.l10n.createTopic_charCount(_contentLength),
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ),
-        ],
+      final topInset = MediaQuery.paddingOf(context).top + kToolbarHeight;
+      return Padding(
+        padding: EdgeInsets.fromLTRB(20, topInset + 12, 20, 0),
+        child: buildTitleField(),
+      );
+    }
+
+    // 底部属性条(私信无分类/标签,不显示)
+    Widget? buildMetaBar() {
+      if (_isPrivateMessage) return null;
+      return ComposerMetaBar(
+        category: _selectedCategory,
+        categories: categories,
+        onCategorySelected: _onCategorySelected,
+        showTags: canTagTopics,
+        selectedTags: _selectedTags,
+        allTags: tagsAsync.value ?? const [],
+        onTagsChanged: (newTags) => setState(() => _selectedTags = newTags),
+        charCount: _contentLength,
+        enabled: _canEditMetadata,
       );
     }
 
@@ -554,7 +563,13 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
       return Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            // 透明 AppBar 避让(extendBodyBehindAppBar)
+            MediaQuery.paddingOf(context).top + kToolbarHeight + 16,
+            20,
+            16,
+          ),
           children: [
             buildMetadataSection(),
             const SizedBox(height: 20),
@@ -599,6 +614,7 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
                                 : RichComposerEditor(
                                     key: _richKey,
                                     header: buildComposerHeader(),
+                                    metaBar: buildMetaBar(),
                                     controller: _contentController,
                                     focusNode: _contentFocusNode,
                                     hintText:
@@ -628,6 +644,7 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
                           : MarkdownEditor(
                               key: _editorKey,
                               header: buildComposerHeader(),
+                              metaBar: buildMetaBar(),
                               controller: _contentController,
                               focusNode: _contentFocusNode,
                               hintText: context.l10n.createTopic_contentHint,
@@ -661,7 +678,8 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
                   SingleChildScrollView(
                     padding: EdgeInsets.fromLTRB(
                       24,
-                      24,
+                      // 透明 AppBar 避让(extendBodyBehindAppBar)
+                      MediaQuery.paddingOf(context).top + kToolbarHeight + 16,
                       24,
                       MediaQuery.paddingOf(context).bottom + 80,
                     ),

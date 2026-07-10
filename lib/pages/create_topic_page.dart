@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -454,105 +456,71 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
     }
   }
 
-  /// 滚动头部:标题输入 + 标签区 + 分割线 + 字符计数(分类已上收
-  /// AppBar)。注入编辑器滚动容器顶部,与正文一起滚 —— 手机上写
-  /// 正文时自然滚出屏,编辑区满格;想改标题滚回顶部即可。
-  Widget _buildComposerHeader(
-    ThemeData theme,
+  /// 滚动头部:顶部透明 AppBar 避让 + 标题输入。写作流只留标题+正文
+  /// (分类/标签/字数在底部 ComposerMetaBar 常驻);标题与正文同滚,
+  /// 写正文时自然滚出屏,想改标题滚回顶部即可。
+  Widget _buildComposerHeader(ThemeData theme, int minTitleLength) {
+    // extendBodyBehindAppBar 后滚动内容从屏顶开始,首屏让出
+    // 状态栏 + AppBar 的高度(内容滚动时从其下透出)
+    final topInset = MediaQuery.paddingOf(context).top + kToolbarHeight;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, topInset + 12, 20, 0),
+      child: TextFormField(
+        controller: _titleController,
+        decoration: InputDecoration(
+          hintText: context.l10n.createTopic_titleHint,
+          hintStyle: TextStyle(
+            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+            fontWeight: FontWeight.normal,
+          ),
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.zero,
+          isDense: true,
+        ),
+        style: theme.textTheme.headlineSmall?.copyWith(
+          fontWeight: FontWeight.w900,
+          letterSpacing: -0.5,
+        ),
+        maxLines: null,
+        maxLength: 200,
+        buildCounter:
+            (
+              context, {
+              required currentLength,
+              required isFocused,
+              maxLength,
+            }) => null,
+        validator: (value) {
+          if (value == null || value.trim().isEmpty) {
+            return context.l10n.createTopic_enterTitle;
+          }
+          if (value.trim().length < minTitleLength) {
+            return context.l10n.createTopic_minTitleLength(minTitleLength);
+          }
+          return null;
+        },
+        onTap: () {
+          _editorKey.currentState?.closeEmojiPanel();
+        },
+      ),
+    );
+  }
+
+  /// 底部属性条:分类/标签/字数(编辑区与工具栏之间,常驻可改)
+  Widget _buildMetaBar(
+    List<Category> categories,
     bool canTagTopics,
     AsyncValue<List<String>> tagsAsync,
-    int minTitleLength,
   ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 标题输入
-              TextFormField(
-                controller: _titleController,
-                decoration: InputDecoration(
-                  hintText: context.l10n.createTopic_titleHint,
-                  hintStyle: TextStyle(
-                    color: theme.colorScheme.onSurfaceVariant.withValues(
-                      alpha: 0.5,
-                    ),
-                    fontWeight: FontWeight.normal,
-                  ),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
-                  isDense: true,
-                ),
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.5,
-                ),
-                maxLines: null,
-                maxLength: 200,
-                buildCounter:
-                    (
-                      context, {
-                      required currentLength,
-                      required isFocused,
-                      maxLength,
-                    }) => null,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return context.l10n.createTopic_enterTitle;
-                  }
-                  if (value.trim().length < minTitleLength) {
-                    return context.l10n.createTopic_minTitleLength(
-                      minTitleLength,
-                    );
-                  }
-                  return null;
-                },
-                onTap: () {
-                  _editorKey.currentState?.closeEmojiPanel();
-                },
-              ),
-
-              // 标签区(分类上收 AppBar 后与标题直接相邻)
-              if (canTagTopics) ...[
-                const SizedBox(height: 16),
-                tagsAsync.when(
-                  data: (tags) => TagsArea(
-                    selectedCategory: _selectedCategory,
-                    selectedTags: _selectedTags,
-                    allTags: tags,
-                    onTagsChanged: _onTagsChanged,
-                  ),
-                  loading: () => const SizedBox.shrink(),
-                  error: (e, s) => const SizedBox.shrink(),
-                ),
-              ],
-
-              const SizedBox(height: 20),
-              Divider(
-                height: 1,
-                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
-              ),
-            ],
-          ),
-        ),
-
-        // 字符计数
-        Padding(
-          padding: const EdgeInsets.only(right: 20, top: 8),
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              context.l10n.createTopic_charCount(_contentLength),
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-        ),
-      ],
+    return ComposerMetaBar(
+      category: _selectedCategory,
+      categories: categories,
+      onCategorySelected: _onCategorySelected,
+      showTags: canTagTopics,
+      selectedTags: _selectedTags,
+      allTags: tagsAsync.value ?? const [],
+      onTagsChanged: _onTagsChanged,
+      charCount: _contentLength,
     );
   }
 
@@ -604,23 +572,22 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
       },
       child: Scaffold(
         resizeToAvoidBottomInset: false,
+        // 内容从半透明模糊 AppBar 下滚过透出(MD3 tonal 语汇);
+        // 分类/标签/字数在底部 ComposerMetaBar 常驻
+        extendBodyBehindAppBar: true,
         appBar: AppBar(
-          // 分类上收 AppBar:页面标题文字位换成分类选择胶囊(头部
-          // 少一行 → 编辑区多一行;分类常驻可见可改,不随滚动离场)
-          centerTitle: false,
-          titleSpacing: 8,
-          title: Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: categoriesAsync.maybeWhen(
-              data: (categories) => CategoryTrigger(
-                category: _selectedCategory,
-                categories: categories,
-                onSelected: _onCategorySelected,
+          title: Text(context.l10n.createTopic_title),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          flexibleSpace: ClipRect(
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Container(
+                color: theme.colorScheme.surface.withValues(alpha: 0.82),
               ),
-              orElse: () => Text(context.l10n.createTopic_title),
             ),
           ),
-          scrolledUnderElevation: 0,
           actions: [
             // 草稿保存状态指示器
             ValueListenableBuilder<DraftSaveStatus>(
@@ -737,9 +704,12 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
                                             key: _richKey,
                                             header: _buildComposerHeader(
                                               theme,
+                                              minTitleLength,
+                                            ),
+                                            metaBar: _buildMetaBar(
+                                              categories,
                                               canTagTopics,
                                               tagsAsync,
-                                              minTitleLength,
                                             ),
                                             controller: _contentController,
                                             focusNode: _contentFocusNode,
@@ -781,9 +751,12 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
                                       key: _editorKey,
                                       header: _buildComposerHeader(
                                         theme,
+                                        minTitleLength,
+                                      ),
+                                      metaBar: _buildMetaBar(
+                                        categories,
                                         canTagTopics,
                                         tagsAsync,
-                                        minTitleLength,
                                       ),
                                       controller: _contentController,
                                       focusNode: _contentFocusNode,
@@ -825,7 +798,10 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
                           SingleChildScrollView(
                             padding: EdgeInsets.fromLTRB(
                               24,
-                              24,
+                              // 透明 AppBar 避让(extendBodyBehindAppBar)
+                              MediaQuery.paddingOf(context).top +
+                                  kToolbarHeight +
+                                  16,
                               24,
                               MediaQuery.paddingOf(context).bottom + 80,
                             ),

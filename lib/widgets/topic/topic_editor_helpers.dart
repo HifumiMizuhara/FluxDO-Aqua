@@ -63,7 +63,9 @@ class SmartListHandler {
     final prevLine = currentText.substring(prevLineStart, selection.start - 1);
 
     // 检测无序列表
-    final unorderedMatch = RegExp(r'^(\s*)([-*+])\s+(.*)$').firstMatch(prevLine);
+    final unorderedMatch = RegExp(
+      r'^(\s*)([-*+])\s+(.*)$',
+    ).firstMatch(prevLine);
     if (unorderedMatch != null) {
       final indent = unorderedMatch.group(1)!;
       final marker = unorderedMatch.group(2)!;
@@ -71,7 +73,11 @@ class SmartListHandler {
 
       if (content.isEmpty) {
         // 空列表项，移除列表标记
-        final newText = currentText.replaceRange(prevLineStart, selection.start, '\n');
+        final newText = currentText.replaceRange(
+          prevLineStart,
+          selection.start,
+          '\n',
+        );
         _previousText = newText;
         controller.value = TextEditingValue(
           text: newText,
@@ -80,11 +86,17 @@ class SmartListHandler {
       } else {
         // 非空列表项，添加新的列表标记
         final prefix = '$indent$marker ';
-        final newText = currentText.replaceRange(selection.start, selection.start, prefix);
+        final newText = currentText.replaceRange(
+          selection.start,
+          selection.start,
+          prefix,
+        );
         _previousText = newText;
         controller.value = TextEditingValue(
           text: newText,
-          selection: TextSelection.collapsed(offset: selection.start + prefix.length),
+          selection: TextSelection.collapsed(
+            offset: selection.start + prefix.length,
+          ),
         );
       }
       return true;
@@ -99,7 +111,11 @@ class SmartListHandler {
 
       if (content.isEmpty) {
         // 空列表项，移除列表标记
-        final newText = currentText.replaceRange(prevLineStart, selection.start, '\n');
+        final newText = currentText.replaceRange(
+          prevLineStart,
+          selection.start,
+          '\n',
+        );
         _previousText = newText;
         controller.value = TextEditingValue(
           text: newText,
@@ -108,11 +124,17 @@ class SmartListHandler {
       } else {
         // 非空列表项，添加新的列表标记（数字递增）
         final prefix = '$indent${number + 1}. ';
-        final newText = currentText.replaceRange(selection.start, selection.start, prefix);
+        final newText = currentText.replaceRange(
+          selection.start,
+          selection.start,
+          prefix,
+        );
         _previousText = newText;
         controller.value = TextEditingValue(
           text: newText,
-          selection: TextSelection.collapsed(offset: selection.start + prefix.length),
+          selection: TextSelection.collapsed(
+            offset: selection.start + prefix.length,
+          ),
         );
       }
       return true;
@@ -139,7 +161,10 @@ class PanguSpacingHandler {
 
   /// 自动应用 Pangu 空格（在文本变化时调用）
   /// 返回 true 如果已处理
-  bool autoApply(TextEditingController controller, void Function(String) updatePreviousText) {
+  bool autoApply(
+    TextEditingController controller,
+    void Function(String) updatePreviousText,
+  ) {
     if (_isApplying) return false;
 
     final currentText = controller.text;
@@ -148,7 +173,8 @@ class PanguSpacingHandler {
     if (currentText.isEmpty || !selection.isValid) return false;
 
     // 如果正在输入法组合中，不处理
-    if (controller.value.composing.isValid && !controller.value.composing.isCollapsed) {
+    if (controller.value.composing.isValid &&
+        !controller.value.composing.isCollapsed) {
       return false;
     }
 
@@ -171,14 +197,18 @@ class PanguSpacingHandler {
   }
 
   /// 手动应用 Pangu 空格
-  void manualApply(TextEditingController controller, void Function(String) updatePreviousText) {
+  void manualApply(
+    TextEditingController controller,
+    void Function(String) updatePreviousText,
+  ) {
     if (_isApplying) return;
 
     final currentText = controller.text;
     final selection = controller.selection;
 
     if (currentText.isEmpty || !selection.isValid) return;
-    if (controller.value.composing.isValid && !controller.value.composing.isCollapsed) {
+    if (controller.value.composing.isValid &&
+        !controller.value.composing.isCollapsed) {
       return;
     }
 
@@ -214,14 +244,11 @@ Color parseHexColor(String hex) {
 }
 
 /// 构建颜色点
-Widget buildColorDot(Color color) {
+Widget buildColorDot(Color color, {double size = 8}) {
   return Container(
-    width: 8,
-    height: 8,
-    decoration: BoxDecoration(
-      color: color,
-      shape: BoxShape.circle,
-    ),
+    width: size,
+    height: size,
+    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
   );
 }
 
@@ -275,7 +302,11 @@ class CategoryTrigger extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Symbols.category_rounded, size: 18, color: theme.colorScheme.onSurfaceVariant),
+                Icon(
+                  Symbols.category_rounded,
+                  size: 18,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
                 const SizedBox(width: 8),
                 // Flexible+ellipsis:进 AppBar title 等受限宽度场合时
                 // 长文案截断不溢出;常规场合 Row(min) 行为不变
@@ -291,7 +322,11 @@ class CategoryTrigger extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 4),
-                Icon(Symbols.arrow_drop_down_rounded, size: 18, color: theme.colorScheme.onSurfaceVariant),
+                Icon(
+                  Symbols.arrow_drop_down_rounded,
+                  size: 18,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ],
             ),
           ),
@@ -313,10 +348,7 @@ class CategoryTrigger extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: color.withValues(alpha: 0.3),
-              width: 1,
-            ),
+            border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -376,7 +408,10 @@ class TagsArea extends StatelessWidget {
     required this.onTagsChanged,
   });
 
-  Future<void> _showPicker(BuildContext context, List<String> availableTags) async {
+  Future<void> _showPicker(
+    BuildContext context,
+    List<String> availableTags,
+  ) async {
     final minTags = selectedCategory?.minimumRequiredTags ?? 0;
     final result = await showAppBottomSheet<List<String>>(
       context: context,
@@ -404,28 +439,24 @@ class TagsArea extends StatelessWidget {
     final minTags = selectedCategory?.minimumRequiredTags ?? 0;
     final currentCount = selectedTags.length;
 
-    // 根据选中的分类过滤可用标签
-    List<String> availableTags = allTags;
-    if (selectedCategory != null) {
-      final category = selectedCategory!;
-      if (category.allowedTags.isNotEmpty || category.allowedTagGroups.isNotEmpty) {
-        availableTags = allTags.where((tag) {
-          if (category.allowedTags.contains(tag)) return true;
-          if (category.allowGlobalTags) return true;
-          return false;
-        }).toList();
-      }
-    }
+    // 根据选中的分类过滤可用标签(与 ComposerMetaBar 共用)
+    final availableTags = filterAvailableTagsForCategory(
+      selectedCategory,
+      allTags,
+    );
 
     // 检查标签组要求
     final missingRequirements = <String>[];
     bool isGroupsSatisfied = true;
 
-    if (selectedCategory != null && selectedCategory!.requiredTagGroups.isNotEmpty) {
+    if (selectedCategory != null &&
+        selectedCategory!.requiredTagGroups.isNotEmpty) {
       if (selectedTags.isEmpty) {
         for (final req in selectedCategory!.requiredTagGroups) {
           isGroupsSatisfied = false;
-          missingRequirements.add(S.current.topic_tagGroupRequirement(req.name, req.minCount));
+          missingRequirements.add(
+            S.current.topic_tagGroupRequirement(req.name, req.minCount),
+          );
         }
       }
     }
@@ -437,35 +468,48 @@ class TagsArea extends StatelessWidget {
       runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        ...selectedTags.map((tag) => Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-              color: theme.colorScheme.outline.withValues(alpha: 0.1),
+        ...selectedTags.map(
+          (tag) => Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.3,
+              ),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: theme.colorScheme.outline.withValues(alpha: 0.1),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Symbols.tag_rounded,
+                  size: 14,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  tag,
+                  style: theme.textTheme.bodyMedium?.copyWith(fontSize: 13),
+                ),
+                const SizedBox(width: 4),
+                GestureDetector(
+                  onTap: () {
+                    final newTags = List<String>.from(selectedTags)
+                      ..remove(tag);
+                    onTagsChanged(newTags);
+                  },
+                  child: Icon(
+                    Symbols.close_rounded,
+                    size: 14,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Symbols.tag_rounded, size: 14, color: theme.colorScheme.onSurfaceVariant),
-              const SizedBox(width: 4),
-              Text(
-                tag,
-                style: theme.textTheme.bodyMedium?.copyWith(fontSize: 13),
-              ),
-              const SizedBox(width: 4),
-              GestureDetector(
-                onTap: () {
-                  final newTags = List<String>.from(selectedTags)..remove(tag);
-                  onTagsChanged(newTags);
-                },
-                child: Icon(Symbols.close_rounded, size: 14, color: theme.colorScheme.onSurfaceVariant),
-              ),
-            ],
-          ),
-        )),
+        ),
 
         // 添加/编辑标签按钮
         Material(
@@ -482,21 +526,31 @@ class TagsArea extends StatelessWidget {
                       : theme.colorScheme.error.withValues(alpha: 0.5),
                   style: BorderStyle.solid,
                 ),
-                color: isSatisfied ? null : theme.colorScheme.errorContainer.withValues(alpha: 0.1),
+                color: isSatisfied
+                    ? null
+                    : theme.colorScheme.errorContainer.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    selectedTags.isEmpty ? Symbols.add_rounded : Symbols.edit_rounded,
+                    selectedTags.isEmpty
+                        ? Symbols.add_rounded
+                        : Symbols.edit_rounded,
                     size: 16,
-                    color: isSatisfied ? theme.colorScheme.primary : theme.colorScheme.error,
+                    color: isSatisfied
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.error,
                   ),
                   if (selectedTags.isEmpty || !isSatisfied) ...[
                     const SizedBox(width: 4),
                     Text(
-                      _getButtonText(minTags, currentCount, missingRequirements),
+                      _getButtonText(
+                        minTags,
+                        currentCount,
+                        missingRequirements,
+                      ),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: isSatisfied
                             ? theme.colorScheme.primary
@@ -514,7 +568,11 @@ class TagsArea extends StatelessWidget {
     );
   }
 
-  String _getButtonText(int minTags, int currentCount, List<String> missingReqs) {
+  String _getButtonText(
+    int minTags,
+    int currentCount,
+    List<String> missingReqs,
+  ) {
     if (missingReqs.isNotEmpty) {
       return missingReqs.first;
     }
@@ -526,6 +584,261 @@ class TagsArea extends StatelessWidget {
     }
     return S.current.topic_addTags;
   }
+}
+
+// ============================================================================
+// composer 底部属性条
+// ============================================================================
+
+/// composer 底部属性条(编辑区与工具栏之间):分类 pill + 标签 pill +
+/// 字数。元数据常驻可见可改,写作滚动流只留标题+正文。
+/// MD3 assist-chip 语汇:细描边小 pill,高 28,全圆角。
+class ComposerMetaBar extends StatelessWidget {
+  final Category? category;
+  final List<Category> categories;
+  final ValueChanged<Category> onCategorySelected;
+
+  /// canTagTopics:false 时不显示标签 pill
+  final bool showTags;
+  final List<String> selectedTags;
+  final List<String> allTags;
+  final ValueChanged<List<String>> onTagsChanged;
+
+  final int charCount;
+
+  /// 元数据可编辑权限(编辑页 _canEditMetadata):false 时禁用态展示
+  final bool enabled;
+
+  const ComposerMetaBar({
+    super.key,
+    required this.category,
+    required this.categories,
+    required this.onCategorySelected,
+    this.showTags = true,
+    required this.selectedTags,
+    required this.allTags,
+    required this.onTagsChanged,
+    required this.charCount,
+    this.enabled = true,
+  });
+
+  Future<void> _pickCategory(BuildContext context) async {
+    final result = await showAppBottomSheet<Category>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => CategorySelectionSheet(
+        categories: categories,
+        selectedCategory: category,
+      ),
+    );
+    if (result != null) onCategorySelected(result);
+  }
+
+  Future<void> _pickTags(BuildContext context) async {
+    final minTags = category?.minimumRequiredTags ?? 0;
+    final result = await showAppBottomSheet<List<String>>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => TagSelectionSheet(
+        categoryId: category?.id,
+        availableTags: filterAvailableTagsForCategory(category, allTags),
+        selectedTags: selectedTags,
+        maxTags: 5,
+        minTags: minTags,
+        filterForInput: true,
+      ),
+    );
+    if (result != null) onTagsChanged(result);
+  }
+
+  Widget _pill(
+    ThemeData theme, {
+    required List<Widget> children,
+    required VoidCallback onTap,
+    Color? borderColor,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          height: 28,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color:
+                  borderColor ??
+                  theme.colorScheme.outlineVariant.withValues(alpha: 0.8),
+            ),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: children),
+        ),
+      ),
+    );
+  }
+
+  Widget _categoryPill(BuildContext context, ThemeData theme) {
+    if (category == null) {
+      // 未选:primary 引导色
+      return _pill(
+        theme,
+        onTap: () => _pickCategory(context),
+        borderColor: theme.colorScheme.primary.withValues(alpha: 0.5),
+        children: [
+          Flexible(
+            child: Text(
+              S.current.topic_selectCategory,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Icon(
+            Symbols.arrow_drop_down_rounded,
+            size: 16,
+            color: theme.colorScheme.primary,
+          ),
+        ],
+      );
+    }
+    final color = parseHexColor(category!.color);
+    return _pill(
+      theme,
+      onTap: () => _pickCategory(context),
+      children: [
+        buildColorDot(color, size: 7),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            category!.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const SizedBox(width: 2),
+        Icon(
+          Symbols.arrow_drop_down_rounded,
+          size: 16,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ],
+    );
+  }
+
+  Widget _tagsPill(BuildContext context, ThemeData theme) {
+    final minTags = category?.minimumRequiredTags ?? 0;
+    // 分类要求标签组且一个没选 → 不满足(与 TagsArea 同判据)
+    final groupsSatisfied =
+        !(category != null &&
+            category!.requiredTagGroups.isNotEmpty &&
+            selectedTags.isEmpty);
+    final satisfied = selectedTags.length >= minTags && groupsSatisfied;
+
+    final String label;
+    if (selectedTags.isEmpty) {
+      label = satisfied
+          ? S.current.topic_addTags
+          : S.current.topic_minTagsRequired(minTags > 0 ? minTags : 1);
+    } else {
+      final shown = selectedTags.take(2).map((t) => '#$t').join(' ');
+      final more = selectedTags.length - 2;
+      label = more > 0 ? '$shown +$more' : shown;
+    }
+    final color = satisfied
+        ? (selectedTags.isEmpty
+              ? theme.colorScheme.onSurfaceVariant
+              : theme.colorScheme.onSurface)
+        : theme.colorScheme.error;
+
+    return _pill(
+      theme,
+      onTap: () => _pickTags(context),
+      borderColor: satisfied
+          ? null
+          : theme.colorScheme.error.withValues(alpha: 0.5),
+      children: [
+        if (selectedTags.isEmpty) ...[
+          Icon(Symbols.add_rounded, size: 14, color: color),
+          const SizedBox(width: 2),
+        ],
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelMedium?.copyWith(color: color),
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bar = Container(
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Flexible(flex: 3, child: _categoryPill(context, theme)),
+          if (showTags) ...[
+            const SizedBox(width: 6),
+            Flexible(flex: 4, child: _tagsPill(context, theme)),
+          ],
+          const SizedBox(width: 8),
+          const Spacer(),
+          Text(
+            S.current.createTopic_charCount(charCount),
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+    if (!enabled) {
+      return IgnorePointer(child: Opacity(opacity: 0.6, child: bar));
+    }
+    return bar;
+  }
+}
+
+/// 按分类的标签白名单/全局标签开关过滤可用标签(TagsArea 与
+/// ComposerMetaBar 共用)
+List<String> filterAvailableTagsForCategory(
+  Category? category,
+  List<String> allTags,
+) {
+  if (category == null) return allTags;
+  if (category.allowedTags.isEmpty && category.allowedTagGroups.isEmpty) {
+    return allTags;
+  }
+  return allTags.where((tag) {
+    if (category.allowedTags.contains(tag)) return true;
+    if (category.allowGlobalTags) return true;
+    return false;
+  }).toList();
 }
 
 // ============================================================================
@@ -544,20 +857,25 @@ class PreviewTagsList extends StatelessWidget {
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: tags.map((t) => TagBadge(
-        name: t,
-        size: const BadgeSize(
-          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          radius: 6,
-          iconSize: 12,
-          fontSize: 13,
-        ),
-        backgroundColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-        textStyle: theme.textTheme.bodyMedium?.copyWith(
-          fontSize: 13,
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
-      )).toList(),
+      children: tags
+          .map(
+            (t) => TagBadge(
+              name: t,
+              size: const BadgeSize(
+                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                radius: 6,
+                iconSize: 12,
+                fontSize: 13,
+              ),
+              backgroundColor: theme.colorScheme.surfaceContainerHighest
+                  .withValues(alpha: 0.3),
+              textStyle: theme.textTheme.bodyMedium?.copyWith(
+                fontSize: 13,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          )
+          .toList(),
     );
   }
 }

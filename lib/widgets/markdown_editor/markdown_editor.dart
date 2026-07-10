@@ -73,6 +73,10 @@ class MarkdownEditor extends ConsumerStatefulWidget {
   /// 头部高度恒定,离场回场全由滚动驱动)。null 时无头部。
   final Widget? header;
 
+  /// 底部属性条(编辑区与工具栏之间,如 ComposerMetaBar):
+  /// 分类/标签/字数等元数据常驻可见可改,不随滚动离场。null 时无。
+  final Widget? metaBar;
+
   const MarkdownEditor({
     super.key,
     required this.controller,
@@ -88,6 +92,7 @@ class MarkdownEditor extends ConsumerStatefulWidget {
     this.isPreview,
     this.onSwitchToRich,
     this.header,
+    this.metaBar,
   });
 
   @override
@@ -798,6 +803,9 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
                   ],
                 ),
         ),
+
+        // 底部属性条(分类/标签/字数常驻,不随滚动离场)
+        if (widget.metaBar != null) widget.metaBar!,
 
         // 工具栏（纯按钮行，TextFieldTapRegion 防止点击时 TextField 失焦）
         TextFieldTapRegion(
