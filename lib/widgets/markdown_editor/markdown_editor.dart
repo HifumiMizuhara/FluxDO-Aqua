@@ -63,6 +63,11 @@ class MarkdownEditor extends ConsumerStatefulWidget {
   /// 外部预览状态（可选，配合 [onTogglePreview] 使用）
   final bool? isPreview;
 
+  /// 用户点"富文本模式"按钮(源码 → 富文本切换;宿主重挂
+  /// RichComposerEditor,内容经 controller 无缝衔接 + 导入门禁)。
+  /// null = 不显示切换按钮(富文本开关未开/已降级不可逆场景)。
+  final VoidCallback? onSwitchToRich;
+
   const MarkdownEditor({
     super.key,
     required this.controller,
@@ -76,6 +81,7 @@ class MarkdownEditor extends ConsumerStatefulWidget {
     this.showPreviewButton = true,
     this.onTogglePreview,
     this.isPreview,
+    this.onSwitchToRich,
   });
 
   @override
@@ -697,6 +703,7 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
           showPreviewButton: widget.showPreviewButton,
           isPreview: _isPreview,
           onTogglePreview: _togglePreview,
+          onSwitchToRich: widget.onSwitchToRich,
           onApplyPangu: _applyPanguSpacing,
           showPanguButton: !ref.watch(preferencesProvider).autoPanguSpacing,
           onToggleEmoji: () => _togglePanel(EditorPanelType.emoji),

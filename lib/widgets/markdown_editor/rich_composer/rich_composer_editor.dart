@@ -1604,6 +1604,7 @@ class _RichToolbarState extends State<_RichToolbar> {
                         _btn(FontAwesomeIcons.eyeSlash, '行内剧透',
                             active: _hasMark(MarkKind.spoilerInline),
                             onTap: _toggleInlineSpoiler),
+                        _divider(theme),
                         _headingBtn(theme),
                         _btn(FontAwesomeIcons.listUl, '无序列表',
                             active: isListItem && !_sig.ordered,
@@ -1613,6 +1614,7 @@ class _RichToolbarState extends State<_RichToolbar> {
                             onTap: () => state.toggleList(ordered: true)),
                         _btn(FontAwesomeIcons.quoteRight, '引用',
                             active: _sig.inQuote, onTap: state.toggleQuote),
+                        _divider(theme),
                         _btn(FontAwesomeIcons.link, '插入链接',
                             onTap: widget.onInsertLink),
                         widget.uploading
@@ -1641,19 +1643,39 @@ class _RichToolbarState extends State<_RichToolbar> {
                   ),
                 ),
               ),
-              // 右:源码模式(胶囊背景)
+              // 右:源码模式切换(胶囊背景;含当前模式徽标 —— 用户能
+              // 看出自己在富文本态、点击去向是源码)
               if (widget.onSwitchToSource != null)
                 _Pill(
                   color: pillColor,
-                  child: IconButton(
-                    visualDensity: VisualDensity.compact,
-                    icon: Icon(
-                      Symbols.code_rounded,
-                      size: 20,
-                      color: theme.colorScheme.onSurfaceVariant,
+                  child: Tooltip(
+                    message: '切换到源码模式',
+                    child: InkWell(
+                      onTap: widget.onSwitchToSource,
+                      borderRadius: BorderRadius.circular(18),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 7),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(
+                            Symbols.code_rounded,
+                            size: 18,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'MD',
+                            style: TextStyle(
+                              fontSize: 11,
+                              height: 1.0,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.3,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ]),
+                      ),
                     ),
-                    onPressed: widget.onSwitchToSource,
-                    tooltip: '源码模式',
                   ),
                 ),
             ],
@@ -1662,6 +1684,16 @@ class _RichToolbarState extends State<_RichToolbar> {
       ),
     );
   }
+
+  /// 工具组间竖分隔线(粗/斜/删/码 | 标题/列表/引用 | 链接/图/插入)。
+  Widget _divider(ThemeData theme) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Container(
+          width: 1,
+          height: 18,
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.45),
+        ),
+      );
 
   /// 标准工具按钮(MarkdownToolbar._ToolbarButton 同参:FaIcon 16 +
   /// compact + onSurfaceVariant;激活态 primary)。

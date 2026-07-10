@@ -42,6 +42,9 @@ class MarkdownToolbar extends StatefulWidget {
   /// 预览切换回调
   final VoidCallback? onTogglePreview;
 
+  /// 源码 → 富文本切换(null = 不显示按钮)。
+  final VoidCallback? onSwitchToRich;
+
   /// 混排优化按钮回调
   final VoidCallback? onApplyPangu;
 
@@ -72,6 +75,7 @@ class MarkdownToolbar extends StatefulWidget {
     this.showPreviewButton = true,
     this.isPreview = false,
     this.onTogglePreview,
+    this.onSwitchToRich,
     this.onApplyPangu,
     this.showPanguButton = false,
     this.onToggleEmoji,
@@ -1044,6 +1048,41 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
                         tooltip: widget.isPreview
                             ? S.current.common_edit
                             : S.current.common_preview,
+                      ),
+                    // 源码 → 富文本(与 RichComposer 的「MD」按钮互为
+                    // 往返;富文本开关未开时宿主不传,不显示)
+                    if (widget.onSwitchToRich != null)
+                      Tooltip(
+                        message: '切换到富文本模式',
+                        child: InkWell(
+                          onTap: widget.onSwitchToRich,
+                          borderRadius: BorderRadius.circular(18),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 7),
+                            child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Symbols.wysiwyg_rounded,
+                                    size: 18,
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    'Aa',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      height: 1.0,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.3,
+                                      color:
+                                          theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ]),
+                          ),
+                        ),
                       ),
                     if (isMobile)
                       IconButton(

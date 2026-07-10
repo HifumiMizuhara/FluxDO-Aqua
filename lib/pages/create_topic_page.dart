@@ -699,12 +699,15 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
                                 ),
                               ),
 
-                              // 内容编辑器(feature flag:富文本 / markdown)
+                              // 内容编辑器(feature flag:富文本 / markdown;
+                              // 双向切换 150ms 淡入过渡)
                               Expanded(
-                                child: (ref
-                                            .watch(preferencesProvider)
-                                            .useRichComposer &&
-                                        !_richFallback)
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 150),
+                                  child: (ref
+                                              .watch(preferencesProvider)
+                                              .useRichComposer &&
+                                          !_richFallback)
                                     // 草稿加载完成前不挂富 composer:初始导入
                                     // 一次性,提前挂会以空文档镜像覆盖草稿。
                                     // 占位留空 —— 加载视觉由页面级草稿遮罩
@@ -736,7 +739,8 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
                                                     _richFallback = true);
                                               }
                                             },
-                                            // 主动切源码(会话内单向)
+                                            // 主动切源码(可经工具栏
+                                            // 「富文本模式」切回)
                                             onSwitchToSource: () {
                                               if (mounted) {
                                                 setState(() =>
@@ -758,6 +762,18 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
                                           setState(
                                               () => _showEmojiPanel = show);
                                         },
+                                        // 源码 → 富文本(开关开着即可,
+                                        // 门禁降级后也允许重试)
+                                        onSwitchToRich: ref
+                                                .watch(preferencesProvider)
+                                                .useRichComposer
+                                            ? () {
+                                                if (mounted) {
+                                                  setState(() =>
+                                                      _richFallback = false);
+                                                }
+                                              }
+                                            : null,
                                         mentionDataSource: (term) => ref
                                             .read(discourseServiceProvider)
                                             .searchUsers(
@@ -767,6 +783,7 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
                                               includeGroups: true,
                                             ),
                                       ),
+                                ),
                               ),
                             ],
                           ),

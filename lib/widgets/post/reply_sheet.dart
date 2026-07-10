@@ -757,10 +757,15 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
                         ),
                       ],
 
-                      // 2. 编辑器区域(feature flag:富文本 / markdown)
+                      // 2. 编辑器区域(feature flag:富文本 / markdown;
+                      // 双向切换 150ms 淡入过渡)
                       Expanded(
-                        child: (ref.watch(preferencesProvider).useRichComposer &&
-                                !_richFallback)
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 150),
+                          child: (ref
+                                      .watch(preferencesProvider)
+                                      .useRichComposer &&
+                                  !_richFallback)
                             // 富文本的初始导入是一次性的(不监听 controller
                             // 后续变化)——编辑原帖 raw / 草稿加载完成前挂载
                             // 会用空 controller 建空文档,之后镜像回写覆盖
@@ -791,8 +796,8 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
                                         setState(() => _richFallback = true);
                                       }
                                     },
-                                    // 主动切源码:会话内单向(重开恢复
-                                    // 富文本并重跑导入门禁)
+                                    // 主动切源码(可经工具栏「富文本
+                                    // 模式」切回,导入门禁重跑)
                                     onSwitchToSource: () {
                                       if (mounted) {
                                         setState(() => _richFallback = true);
@@ -809,6 +814,19 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
                                 onEmojiPanelChanged: (show) {
                                   setState(() => _showEmojiPanel = show);
                                 },
+                                // 源码 → 富文本(仅富文本开关开着且当前
+                                // 处于主动切换态;门禁降级也允许重试 ——
+                                // 内容可能已改到可导入)
+                                onSwitchToRich: ref
+                                        .watch(preferencesProvider)
+                                        .useRichComposer
+                                    ? () {
+                                        if (mounted) {
+                                          setState(
+                                              () => _richFallback = false);
+                                        }
+                                      }
+                                    : null,
                                 mentionDataSource: (term) =>
                                     DiscourseService().searchUsers(
                                       term: term,
@@ -818,6 +836,7 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
                                           !_isInPrivateMessageContext, // 私信不允许提及群组
                                     ),
                               ),
+                        ),
                       ),
                     ],
                   ),
