@@ -10,7 +10,9 @@
 library;
 
 import 'dart:async';
+import 'dart:math' show max;
 
+import 'package:chat_bottom_container/chat_bottom_container.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -36,6 +38,7 @@ import '../../../services/discourse_cook_service.dart';
 import '../../../services/emoji_handler.dart';
 import '../../../utils/dialog_utils.dart';
 import '../../../utils/fluxdo_render_callbacks.dart';
+import '../../../utils/platform_utils.dart';
 import '../../../utils/url_helper.dart';
 import '../../common/fading_edge_scroll_view.dart';
 import '../../common/smart_avatar.dart';
@@ -110,6 +113,26 @@ class RichComposerEditorState extends State<RichComposerEditor> {
 
   bool _showEmojiPanel = false;
 
+  /// 编辑器焦点(注入 FluxdoEditor;键盘⇄表情面板联动的锚)。
+  late final FocusNode _editorFocus =
+      widget.focusNode ?? FocusNode(debugLabel: 'RichComposer');
+  bool get _ownsFocus => widget.focusNode == null;
+
+  /// 键盘/表情面板容器(MarkdownEditor 同款:键盘态占位、表情态等高
+  /// 面板、无键盘时底部安全区 —— 切换零跳变)。
+  final _panelController =
+      ChatBottomPanelContainerController<_RichPanelType>();
+  _RichPanelType _currentPanel = _RichPanelType.none;
+
+  /// 用户意图面板(防焦点竞争:表情面板打开期间焦点变化不得关面板)。
+  _RichPanelType _intendedPanel = _RichPanelType.none;
+
+  static final bool _isDesktop = PlatformUtils.isDesktop;
+
+  /// EmojiStickerPanel 实例缓存(MarkdownEditor 同款:防 setState 级联
+  /// 重建整个 emoji grid)。
+  Widget? _emojiPanelChild;
+
   // mention 补全状态
   final LayerLink _mentionLink = LayerLink();
   OverlayEntry? _mentionOverlay;
@@ -164,6 +187,7 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     _removeImageOverlay();
     _altFocus.dispose();
     _slashScroll.dispose();
+    if (_ownsFocus) _editorFocus.dispose();
     _editor?.removeListener(_onDocChanged);
     _editor?.dispose();
     super.dispose();
@@ -613,9 +637,71 @@ class RichComposerEditorState extends State<RichComposerEditor> {
   // emoji / sticker / 上传 / 插入
   // -----------------------------------------------------------------
 
+  /// 表情面板开关(MarkdownEditor._togglePanel 同构:移动端经
+  /// ChatBottomPanelContainer 与键盘等高互切零跳变;桌面无键盘直接切)。
   void _toggleEmojiPanel() {
-    setState(() => _showEmojiPanel = !_showEmojiPanel);
-    widget.onEmojiPanelChanged?.call(_showEmojiPanel);
+    if (_intendedPanel == _RichPanelType.emoji) {
+      _intendedPanel = _RichPanelType.none;
+      if (_isDesktop) {
+        _panelController.updatePanelType(
+          ChatBottomPanelType.none,
+          forceHandleFocus: ChatBottomHandleFocus.none,
+        );
+        _editorFocus.requestFocus();
+      } else {
+        // 切回键盘(编辑器自管 IME:重新聚焦 + 唤起)
+        _panelController.updatePanelType(ChatBottomPanelType.keyboard);
+        _editorFocus.requestFocus();
+      }
+      setState(() => _showEmojiPanel = false);
+      widget.onEmojiPanelChanged?.call(false);
+    } else {
+      _intendedPanel = _RichPanelType.emoji;
+      // 编辑器自管 IME(非 TextField):面板打开时显式收软键盘 ——
+      // 连接保持(硬件键盘仍可打),焦点/光标不丢;容器的
+      // forceHandleFocus 只管 TextField 场景,对自管连接不作为。
+      SystemChannels.textInput.invokeMethod('TextInput.hide');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _panelController.updatePanelType(
+          ChatBottomPanelType.other,
+          data: _RichPanelType.emoji,
+          forceHandleFocus: ChatBottomHandleFocus.requestFocus,
+        );
+      });
+      setState(() => _showEmojiPanel = true);
+      widget.onEmojiPanelChanged?.call(true);
+    }
+  }
+
+  /// 表情面板开着时点编辑区 → 切回键盘态(MarkdownEditor 的 readOnly
+  /// Listener 同构:面板意图保持逻辑会拦掉容器自动切换,必须显式收)。
+  /// 编辑器自身 tap 正常落光标 + syncFromState(show:true) 弹键盘。
+  void _onEditorAreaPointerDown() {
+    if (_intendedPanel == _RichPanelType.none) return;
+    _intendedPanel = _RichPanelType.none;
+    _panelController.updatePanelType(ChatBottomPanelType.keyboard);
+    setState(() => _showEmojiPanel = false);
+    widget.onEmojiPanelChanged?.call(false);
+  }
+
+  /// 面板高度:键盘高度已知用键盘高(等高切换),否则 emojiPanelHeight
+  /// 兜底;都含底部安全区。
+  double get _panelHeight {
+    final safeBottom = MediaQuery.viewPaddingOf(context).bottom;
+    final kb = _panelController.keyboardHeight;
+    return kb > 0
+        ? max(kb, safeBottom)
+        : max(widget.emojiPanelHeight, safeBottom);
+  }
+
+  Widget _buildEmojiPanel() {
+    _emojiPanelChild ??= EmojiStickerPanel(
+      onEmojiSelected: (emoji) => _insertEmoji(emoji.name),
+      // sticker markdown(含 ,30% 缩放后缀)走 cook 链路整段导入
+      onStickerSelected: insertMarkdownSnippet,
+    );
+    return SizedBox(height: _panelHeight, child: _emojiPanelChild);
   }
 
   void _insertEmoji(String name) {
@@ -1321,13 +1407,31 @@ class RichComposerEditorState extends State<RichComposerEditor> {
             link: _mentionLink,
             child: Stack(
               children: [
-                SingleChildScrollView(
-                  padding: const EdgeInsets.all(12),
-                  child: FluxdoEditor(
-                    state: editor,
-                    autofocus: true,
-                    nodeFactory: _nodeFactory ??=
-                        buildComposerNodeFactory(context),
+                // 编辑区空白点击兜底:内容短时编辑器只占滚动区顶部一条,
+                // 下方大片空白点了没反应(弹不出键盘)。LayoutBuilder +
+                // minHeight 把编辑器列撑满视口;FluxdoEditor 根手势
+                // opaque,点其内空白(段落之间/末段之后)命中兜底到
+                // 最近文本位置 —— 此前点不中纯粹因为区域没铺满。
+                // Listener:表情面板开着时点编辑区任意处 → 切回键盘态
+                // (原始 down,不进手势竞技场不干扰编辑器 tap)。
+                Listener(
+                  behavior: HitTestBehavior.translucent,
+                  onPointerDown: (_) => _onEditorAreaPointerDown(),
+                  child: LayoutBuilder(
+                    builder: (context, viewport) => SingleChildScrollView(
+                      padding: const EdgeInsets.all(12),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: viewport.maxHeight - 24,
+                        ),
+                        child: Align(
+                          alignment: Alignment.topLeft,
+                          child: FluxdoEditor(
+                          state: editor,
+                          autofocus: true,
+                          focusNode: _editorFocus,
+                          nodeFactory: _nodeFactory ??=
+                              buildComposerNodeFactory(context),
                     // 粘贴导入:剪贴板 markdown → cook 链路 → 编辑块
                     // (失败/不可用时 FluxdoEditor 内部降级纯文本粘贴)
                     markdownImporter: markdownToDoc,
@@ -1364,6 +1468,10 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                         .textTheme
                         .bodyLarge
                         ?.copyWith(height: 1.5),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
                 if (isEmpty)
@@ -1404,32 +1512,66 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                   widget.onSwitchToSource!();
                 },
         ),
-        if (_showEmojiPanel)
-          SizedBox(
-            height: widget.emojiPanelHeight,
-            child: EmojiStickerPanel(
-              onEmojiSelected: (emoji) => _insertEmoji(emoji.name),
-              // sticker 是 markdown 图片(`![name|WxH,30%](url)`,带
-              // 30% 缩放后缀):直接走 cook 链路整段导入 —— 此前用
-              // 手写正则解析,`WxH,30%` 段不匹配 → m=null 静默丢弃
-              // (表现:点表情包没反应)。cook 链路天然认全部语法,
-              // 缩放/外链/短链一视同仁。
-              onStickerSelected: insertMarkdownSnippet,
-            ),
-          )
-        else
-          // 软键盘占位(宿主页 resizeToAvoidBottomInset:false,Scaffold
-          // 不消费 inset):键盘弹出时工具栏浮到键盘上方,编辑区不被
-          // 盖住下半截。AnimatedPadding 跟随键盘弹收动画;表情面板打开
-          // 时面板自身即占位(互斥)。
-          AnimatedPadding(
-            duration: const Duration(milliseconds: 150),
-            curve: Curves.easeOut,
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.viewInsetsOf(context).bottom,
-            ),
-            child: const SizedBox.shrink(),
-          ),
+        // 键盘/表情面板容器(MarkdownEditor 同款 ChatBottomPanelContainer:
+        // 键盘态=原生键盘高占位、表情态=等高面板、无键盘=底部安全区;
+        // 键盘⇄表情切换零跳变,编辑器自管 IME 一样适用 —— 容器只看
+        // viewInsets/原生键盘监听,不关心输入连接归属)
+        ChatBottomPanelContainer<_RichPanelType>(
+          controller: _panelController,
+          inputFocusNode: _editorFocus,
+          otherPanelWidget: (type) => type == _RichPanelType.emoji
+              ? _buildEmojiPanel()
+              : const SizedBox.shrink(),
+          onPanelTypeChange: (panelType, data) {
+            _RichPanelType next;
+            switch (panelType) {
+              case ChatBottomPanelType.none:
+                next = _RichPanelType.none;
+              case ChatBottomPanelType.keyboard:
+                next = _RichPanelType.keyboard;
+              case ChatBottomPanelType.other:
+                next = data ?? _RichPanelType.none;
+            }
+            // 表情面板意图保持中,忽略焦点竞争引发的状态请求
+            if (_intendedPanel != _RichPanelType.none &&
+                next != _intendedPanel) {
+              return;
+            }
+            final wasEmoji = _currentPanel == _RichPanelType.emoji;
+            final isEmoji = next == _RichPanelType.emoji;
+            setState(() => _currentPanel = next);
+            if (wasEmoji != isEmoji) {
+              if (!isEmoji) _intendedPanel = _RichPanelType.none;
+              if (_showEmojiPanel != isEmoji) {
+                setState(() => _showEmojiPanel = isEmoji);
+                widget.onEmojiPanelChanged?.call(isEmoji);
+              }
+            }
+          },
+          customPanelContainer: (panelType, data) {
+            final surface = Theme.of(context).colorScheme.surface;
+            // 表情面板意图保持中,无论容器报什么态都续显面板
+            if (_intendedPanel == _RichPanelType.emoji &&
+                panelType != ChatBottomPanelType.other) {
+              return ColoredBox(color: surface, child: _buildEmojiPanel());
+            }
+            switch (panelType) {
+              case ChatBottomPanelType.keyboard:
+                return _KeyboardPlaceholder(
+                  color: surface,
+                  nativeKeyboardHeight: _panelController.keyboardHeight,
+                );
+              case ChatBottomPanelType.other:
+                if (data == _RichPanelType.emoji) {
+                  return ColoredBox(
+                      color: surface, child: _buildEmojiPanel());
+                }
+                return const SizedBox.shrink();
+              case ChatBottomPanelType.none:
+                return _SafeAreaPlaceholder(color: surface);
+            }
+          },
+        ),
       ],
     );
   }
@@ -1443,6 +1585,48 @@ class RichComposerEditorState extends State<RichComposerEditor> {
 /// 纯文本改 controller.text,这里调 EditorState 命令。
 ///
 /// 激活态签名驱动重建(EditorToolbar 同款):纯打字签名不变零重建。
+/// 富 composer 面板类型(ChatBottomPanelContainer 泛型)。
+enum _RichPanelType { none, keyboard, emoji }
+
+/// 键盘占位:原生键盘高(与表情面板同高度源,切换等高零跳变)。
+class _KeyboardPlaceholder extends StatelessWidget {
+  const _KeyboardPlaceholder({
+    required this.color,
+    required this.nativeKeyboardHeight,
+  });
+
+  final Color color;
+  final double nativeKeyboardHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final safeBottom = MediaQuery.viewPaddingOf(context).bottom;
+    return ColoredBox(
+      color: color,
+      child: SizedBox(
+        width: double.infinity,
+        height: max(nativeKeyboardHeight, safeBottom),
+      ),
+    );
+  }
+}
+
+/// 无键盘时的底部安全区占位(全面屏 home indicator 区,工具栏不贴底)。
+class _SafeAreaPlaceholder extends StatelessWidget {
+  const _SafeAreaPlaceholder({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final safeBottom = MediaQuery.viewPaddingOf(context).bottom;
+    return ColoredBox(
+      color: color,
+      child: SizedBox(width: double.infinity, height: safeBottom),
+    );
+  }
+}
+
 class _RichToolbar extends StatefulWidget {
   const _RichToolbar({
     required this.state,
