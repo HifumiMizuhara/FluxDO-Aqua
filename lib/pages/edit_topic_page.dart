@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluxdo/widgets/common/error_view.dart';
 import 'package:fluxdo/widgets/common/loading_spinner.dart';
 import 'package:fluxdo/widgets/markdown_editor/markdown_editor.dart';
+import 'package:fluxdo/widgets/markdown_editor/rich_composer/rich_composer_editor.dart';
 import 'package:fluxdo/models/category.dart';
 import 'package:fluxdo/models/topic.dart';
 
 import 'package:dio/dio.dart';
 import 'package:fluxdo/providers/discourse_providers.dart';
+import 'package:fluxdo/providers/preferences_provider.dart';
 import 'package:fluxdo/services/app_error_handler.dart';
 import 'package:fluxdo/services/toast_service.dart';
 import 'package:fluxdo/widgets/markdown_editor/markdown_renderer.dart';
@@ -56,6 +58,7 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
   final _contentController = TextEditingController();
   final _contentFocusNode = FocusNode();
   final _editorKey = GlobalKey<MarkdownEditorState>();
+  final _richKey = GlobalKey<RichComposerEditorState>();
 
   Category? _selectedCategory;
   List<String> _selectedTags = [];
@@ -63,6 +66,9 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
   bool _showPreview = false;
   bool _showEmojiPanel = false;
   bool _isLoadingContent = true;
+
+  /// 富文本降级态(导入门禁不过/用户主动切源码;可经工具栏切回)。
+  bool _richFallback = false;
 
   final PageController _pageController = PageController();
   int _contentLength = 0;
@@ -201,6 +207,8 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
   }
 
   Future<void> _submit() async {
+    // 富文本模式:镜像 debounce 窗口内提交也不丢内容,先强制序列化
+    _richKey.currentState?.flushToController();
     if (!_formKey.currentState!.validate()) {
       // 预览模式下验证错误不可见，切回编辑模式并提示
       if (_showPreview) {
@@ -568,27 +576,82 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
                         ),
                       ),
 
-                      // 内容编辑器
+                      // 内容编辑器(feature flag:富文本 / markdown;
+                      // 编辑已有帖 → 富文本走导入门禁,吃不下的内容
+                      // (poll/chat 等岛)自动降级源码,防毁帖;
+                      // 内容加载完成前不挂富 composer(初始导入一次性,
+                      // 提前挂会以空文档镜像覆盖真内容)
                       Expanded(
-                        child: MarkdownEditor(
-                          key: _editorKey,
-                          controller: _contentController,
-                          focusNode: _contentFocusNode,
-                          hintText: context.l10n.createTopic_contentHint,
-                          expands: true,
-                          emojiPanelHeight: 350,
-                          onTogglePreview: _togglePreview,
-                          isPreview: _showPreview,
-                          onEmojiPanelChanged: (show) {
-                            setState(() => _showEmojiPanel = show);
-                          },
-                          mentionDataSource: (term) => ref
-                              .read(discourseServiceProvider)
-                              .searchUsers(
-                                term: term,
-                                categoryId: _selectedCategory?.id,
-                                includeGroups: !_isPrivateMessage,
-                              ),
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 150),
+                          child: (ref
+                                      .watch(preferencesProvider)
+                                      .useRichComposer &&
+                                  !_richFallback)
+                              ? (_isLoadingContent
+                                  ? const SizedBox.shrink()
+                                  : RichComposerEditor(
+                                      key: _richKey,
+                                      controller: _contentController,
+                                      focusNode: _contentFocusNode,
+                                      hintText:
+                                          context.l10n.createTopic_contentHint,
+                                      emojiPanelHeight: 350,
+                                      onEmojiPanelChanged: (show) {
+                                        setState(
+                                            () => _showEmojiPanel = show);
+                                      },
+                                      mentionDataSource: (term) => ref
+                                          .read(discourseServiceProvider)
+                                          .searchUsers(
+                                            term: term,
+                                            categoryId: _selectedCategory?.id,
+                                            includeGroups: !_isPrivateMessage,
+                                          ),
+                                      onFallbackToPlain: () {
+                                        if (mounted) {
+                                          setState(
+                                              () => _richFallback = true);
+                                        }
+                                      },
+                                      onSwitchToSource: () {
+                                        if (mounted) {
+                                          setState(
+                                              () => _richFallback = true);
+                                        }
+                                      },
+                                    ))
+                              : MarkdownEditor(
+                                  key: _editorKey,
+                                  controller: _contentController,
+                                  focusNode: _contentFocusNode,
+                                  hintText:
+                                      context.l10n.createTopic_contentHint,
+                                  expands: true,
+                                  emojiPanelHeight: 350,
+                                  onTogglePreview: _togglePreview,
+                                  isPreview: _showPreview,
+                                  onEmojiPanelChanged: (show) {
+                                    setState(() => _showEmojiPanel = show);
+                                  },
+                                  onSwitchToRich: ref
+                                          .watch(preferencesProvider)
+                                          .useRichComposer
+                                      ? () {
+                                          if (mounted) {
+                                            setState(
+                                                () => _richFallback = false);
+                                          }
+                                        }
+                                      : null,
+                                  mentionDataSource: (term) => ref
+                                      .read(discourseServiceProvider)
+                                      .searchUsers(
+                                        term: term,
+                                        categoryId: _selectedCategory?.id,
+                                        includeGroups: !_isPrivateMessage,
+                                      ),
+                                ),
                         ),
                       ),
                     ],
