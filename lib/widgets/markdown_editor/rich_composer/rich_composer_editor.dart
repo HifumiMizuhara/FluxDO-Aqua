@@ -1800,9 +1800,15 @@ class _FloatingPanel extends StatelessWidget {
         ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: maxHeight),
-        child: child,
+      // Material 祖先:面板内容常含 InkWell/TextField(图片工具条按钮、
+      // alt 输入条),OverlayEntry 不在页面 Material 树下,缺它直接
+      // "No Material widget found" 红屏。transparency 不遮 Container 装饰。
+      child: Material(
+        type: MaterialType.transparency,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxHeight),
+          child: child,
+        ),
       ),
     );
   }
