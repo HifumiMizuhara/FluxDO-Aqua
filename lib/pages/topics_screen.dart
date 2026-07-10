@@ -154,10 +154,7 @@ class _TopicsScreenState extends ConsumerState<TopicsScreen> {
     // 手机/平板单栏：只显示 master
     // 平板双栏：显示 master + detail
     return MasterDetailLayout(
-      master: _wrapPaneTap(
-        ActivePane.master,
-        TopicsPage(isActive: widget.isActive),
-      ),
+      master: _wrapPaneTap(ActivePane.master, const TopicsPage()),
       detail: selectedTopic.hasSelection && canShowDetailPane
           ? _wrapPaneTap(ActivePane.detail, TopicDetailPane(
               key: ValueKey(selectedTopic.topicId),

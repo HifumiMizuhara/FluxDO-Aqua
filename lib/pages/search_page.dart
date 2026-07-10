@@ -590,13 +590,17 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       onSubmitted: _onSearch,
       textInputAction: TextInputAction.search,
       textAlignVertical: TextAlignVertical.center,
-      style: Theme.of(context).textTheme.bodyLarge,
+      // 胶囊模式对齐首页胶囊 hint 的 14px（SearchCapsule 同参）
+      style: widget.heroCapsule
+          ? theme.textTheme.bodyMedium
+          : theme.textTheme.bodyLarge,
       decoration: InputDecoration(
-        hintText: context.l10n.search_hintText,
+        // 胶囊模式 hint 自绘（下方 Stack 覆盖层）：InputDecorator 的
+        // hint 垂直对齐在定高容器里不可控（isDense 偏上 / isCollapsed
+        // 偏下，均已翻车），不再依赖
+        hintText: widget.heroCapsule ? null : context.l10n.search_hintText,
         border: InputBorder.none,
         isDense: true,
-        // 胶囊容器定高 40：竖向 padding 交给容器居中，写死 12 会在
-        // 大字体档下顶破容器（heroCapsule 外的裸 AppBar title 不受影响）
         contentPadding: EdgeInsets.symmetric(
           horizontal: 8,
           vertical: widget.heroCapsule ? 8 : 12,
@@ -632,10 +636,32 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   ),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                // Hero child 需要 Material 语境（飞行时脱离原位）
+                // Hero child 需要 Material 语境（飞行时脱离原位）。
+                // hint 自绘覆盖层：普通 Text + Stack 居中对齐（与首页
+                // 胶囊 hint 同布局方式），彻底绕开 InputDecorator 的
+                // hint 垂直对齐黑盒
                 child: Material(
                   type: MaterialType.transparency,
-                  child: searchField,
+                  child: Stack(
+                    alignment: Alignment.centerLeft,
+                    children: [
+                      if (_searchController.text.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: IgnorePointer(
+                            child: Text(
+                              context.l10n.search_hintText,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ),
+                      searchField,
+                    ],
+                  ),
                 ),
               ),
             ),

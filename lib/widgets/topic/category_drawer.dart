@@ -11,21 +11,35 @@ import '../../utils/url_helper.dart';
 import '../../services/discourse_cache_manager.dart';
 import '../../pages/category_topics_page.dart';
 import '../../l10n/s.dart';
-import 'topic_notification_button.dart' show getCategoryNotificationIcon;
+import 'topic_notification_button.dart'
+    show getCategoryNotificationIcon, showCategoryNotificationLevelSheet;
 import 'category_tab_manager_sheet.dart' show PinnedCategoryEditPage;
+
+/// 分类侧栏的全局开关（☰ / chips 行 ＋ / 任意处调用）。
+/// 宿主 DrawerController 挂在 AdaptiveScaffold 顶层（全局手势），
+/// 通过本静态 key 驱动。
+class CategoryDrawerHost {
+  CategoryDrawerHost._();
+
+  static final GlobalKey<DrawerControllerState> drawerKey =
+      GlobalKey<DrawerControllerState>();
+
+  static void open() => drawerKey.currentState?.open();
+
+  static void close() => drawerKey.currentState?.close();
+}
 
 /// 首页分类侧栏：分类的管理中枢。
 ///
-/// 宿主以 **DrawerController 常驻根 Overlay** 呈现（原生抽屉全套跟手
-/// 手势：左缘拖出/拖拽关闭/甩动 settle/遮罩渐变;挂根 Overlay 故盖得住
-/// 外层底栏与 FAB —— 嵌套 Scaffold.drawer 与透明路由两版的翻车点）。
-/// 本组件即抽屉面板;关闭走 [onRequestClose]（内容不在路由里，
-/// Navigator.pop 语义不可靠）。
+/// 宿主以 **DrawerController 挂在 AdaptiveScaffold 顶层**呈现（原生
+/// 抽屉全套跟手手势：左缘拖出/拖拽关闭/甩动 settle/遮罩渐变;左缘滑
+/// 是全局手势，任意底部 tab 可用）。本组件即抽屉面板;关闭走
+/// [onRequestClose]（内容不在路由里，Navigator.pop 语义不可靠）。
 ///
 /// 行上克制：常驻可点的只有「行本体」;收藏/订阅收进长按（桌面右键）
 /// 分类操作菜单;🔒 受限做成图标块右下角标。
 ///
-/// - 收藏区：已 pin 分类，点行 → 切到对应首页 tab
+/// - 收藏区：已 pin 分类，点行 → 切到首页对应分类 tab
 /// - 全部分类区：父子分组;带 chevron 的父分类点行=展开/收起，展开
 ///   首行「全部话题」进父分类聚合页;无子分类行点行=进页
 /// - 「编辑」→ 收藏排序页（拖拽调序，复用 PinnedCategoryEditPage）
@@ -33,15 +47,11 @@ class CategoryDrawer extends ConsumerStatefulWidget {
   const CategoryDrawer({
     super.key,
     required this.onPinnedSelected,
-    required this.onSubscriptionTap,
     required this.onRequestClose,
   });
 
-  /// 点收藏分类：切换首页 tab（index 为 pinned 列表内序号）
-  final ValueChanged<int> onPinnedSelected;
-
-  /// 分类操作菜单选「订阅设置」：弹级别面板（宿主处理乐观更新/回退）
-  final ValueChanged<Category> onSubscriptionTap;
+  /// 点收藏分类：宿主负责切到首页并选中该分类 tab
+  final ValueChanged<Category> onPinnedSelected;
 
   /// 请求关闭抽屉（宿主调 DrawerControllerState.close）
   final VoidCallback onRequestClose;
@@ -129,9 +139,46 @@ class _CategoryDrawerState extends ConsumerState<CategoryDrawer> {
         final notifier = ref.read(pinnedCategoriesProvider.notifier);
         pinned ? notifier.remove(category.id) : notifier.add(category.id);
       case #subscription:
-        widget.onSubscriptionTap(category);
+        _openSubscriptionSheet(category);
       default:
     }
+  }
+
+  /// 分类订阅设置：拉起级别面板（乐观更新 + 失败回退）。
+  /// 侧栏已全局化（宿主是 AdaptiveScaffold），订阅逻辑自持。
+  void _openSubscriptionSheet(Category category) {
+    final overrides = ref.read(categoryNotificationOverridesProvider);
+    final effectiveLevel = overrides[category.id] ?? category.notificationLevel;
+    final level = CategoryNotificationLevel.fromValue(effectiveLevel);
+    showCategoryNotificationLevelSheet(context, level, (newLevel) async {
+      final oldLevel = effectiveLevel;
+      // 乐观更新
+      ref.read(categoryNotificationOverridesProvider.notifier).state = {
+        ...ref.read(categoryNotificationOverridesProvider),
+        category.id: newLevel.value,
+      };
+      try {
+        final service = ref.read(discourseServiceProvider);
+        await service.setCategoryNotificationLevel(
+          category.id,
+          newLevel.value,
+        );
+      } catch (_) {
+        // 失败时回退
+        if (mounted) {
+          final current = ref.read(categoryNotificationOverridesProvider);
+          if (oldLevel != null) {
+            ref.read(categoryNotificationOverridesProvider.notifier).state = {
+              ...current,
+              category.id: oldLevel,
+            };
+          } else {
+            ref.read(categoryNotificationOverridesProvider.notifier).state =
+                Map.from(current)..remove(category.id);
+          }
+        }
+      }
+    });
   }
 
   @override
@@ -252,23 +299,23 @@ class _CategoryDrawerState extends ConsumerState<CategoryDrawer> {
                     ],
                   ),
                 ),
-                // —— 收藏区（点行切首页 tab，无展开语义）——
+                // —— 收藏区（点行切首页对应分类 tab，无展开语义）——
                 if (pinned.isNotEmpty) ...[
                   _SectionLabel(text: S.current.category_myCategories),
-                  for (var i = 0; i < pinned.length; i++)
+                  for (final category in pinned)
                     _CategoryRow(
-                      category: pinned[i],
+                      category: category,
                       pinned: true,
                       indent: false,
                       onTap: () {
                         widget.onRequestClose();
-                        widget.onPinnedSelected(i);
+                        widget.onPinnedSelected(category);
                       },
                       onLongPress: (rowContext) => _showCategoryMenu(
                         rowContext,
-                        pinned[i],
+                        category,
                         pinned: true,
-                        level: levelFor(pinned[i]),
+                        level: levelFor(category),
                       ),
                     ),
                   const SizedBox(height: 12),

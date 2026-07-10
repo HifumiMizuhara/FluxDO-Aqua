@@ -12,6 +12,7 @@ import '../notification/notification_quick_panel.dart';
 import 'adaptive_navigation.dart';
 import 'category_shortcuts.dart';
 import '../topic/category_tab_manager_sheet.dart';
+import '../topic/category_drawer.dart';
 
 /// 自适应 Scaffold
 ///
@@ -147,6 +148,27 @@ class AdaptiveScaffold extends ConsumerWidget {
         Positioned.fill(
           left: overlayLeftInset,
           child: const SidebarNotificationPanel(),
+        ),
+        // 分类侧栏：全局手势（左缘右滑在任意底部 tab 可用）。置于顶层
+        // Stack 末位 —— 盖得住底栏/FAB;随本路由被详情页压顶自动失效
+        // （无需路由感知）;返回键走 DrawerController 原生 LocalHistory。
+        // 桌面平台 DrawerController 自身禁用边缘手势，☰ 按钮仍可开。
+        DrawerController(
+          key: CategoryDrawerHost.drawerKey,
+          alignment: DrawerAlignment.start,
+          child: CategoryDrawer(
+            onRequestClose: CategoryDrawerHost.close,
+            onPinnedSelected: (category) {
+              // 与 rail 的 CategoryShortcuts 同通路：首页监听
+              // activeSidebarCategoryIdProvider 切分类 tab
+              sidebarCategoryController.state = category.id;
+              if (selectedIndex != 0) {
+                onDestinationSelected(0);
+              }
+              ref.read(currentTabCategoryIdProvider.notifier).state =
+                  category.id;
+            },
+          ),
         ),
       ],
     );
