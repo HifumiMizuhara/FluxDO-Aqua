@@ -1817,6 +1817,29 @@ class _CfChallengePageState extends State<CfChallengePage> {
           },
           onReceivedError: (controller, request, error) {
             if (_finishingFromVerifyResponse) return;
+
+            final uri = Uri.tryParse(request.url.toString());
+            final isMainFrame = request.isForMainFrame == true;
+            CfChallengeLogger.log(
+              '[VERIFY] WebView load error: '
+              'mainFrame=$isMainFrame '
+              'host=${uri?.host ?? '-'} path=${uri?.path ?? '-'} '
+              'type=${error.type} description=${error.description}',
+              level: isMainFrame ? 'warning' : 'info',
+              fields: {
+                'isMainFrame': isMainFrame,
+                'host': uri?.host,
+                'path': uri?.path,
+                'errorType': error.type.toString(),
+                'description': error.description,
+              },
+            );
+
+            // WebView 会把脚本、图片、CF challenge-platform 等子资源错误也
+            // 上报到这里。子资源连接被刷新流程关闭时，主验证页通常仍可正常
+            // 使用；不要因此结束加载态或向用户显示整页加载失败。
+            if (!isMainFrame) return;
+
             _pageReadyFallbackTimer?.cancel();
             if (mounted) {
               setState(() => _isLoading = false);
