@@ -1,9 +1,8 @@
-import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluxdo/widgets/common/error_view.dart';
+import 'package:fluxdo/widgets/common/progressive_top_blur.dart';
 import 'package:fluxdo/widgets/common/loading_spinner.dart';
 import 'package:fluxdo/widgets/markdown_editor/markdown_editor.dart';
 import 'package:fluxdo/widgets/markdown_editor/rich_composer/rich_composer_editor.dart';
@@ -356,8 +355,8 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
       },
       child: Scaffold(
         resizeToAvoidBottomInset: false,
-        // 内容从半透明模糊 AppBar 下滚过透出(创建页同款);
-        // 分类/标签/字数在底部 ComposerMetaBar 常驻
+        // 顶栏渐变模糊(创建页同款):AppBar 纯透明只承载功能件,
+        // 模糊/遮罩由 body Stack 顶部的 ProgressiveTopBlur 提供
         extendBodyBehindAppBar: true,
         appBar: AppBar(
           title: Text(
@@ -366,16 +365,9 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
                 : context.l10n.editTopic_editTopic,
           ),
           backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
           elevation: 0,
           scrolledUnderElevation: 0,
-          flexibleSpace: ClipRect(
-            child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-              child: Container(
-                color: theme.colorScheme.surface.withValues(alpha: 0.82),
-              ),
-            ),
-          ),
           actions: [
             Padding(
               padding: const EdgeInsets.only(right: 16),
@@ -401,23 +393,37 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
             ),
           ],
         ),
-        body: _isPrivateMessage
-            ? _buildBody(theme, [], canTagTopics, tagsAsync, minTitleLength)
-            : categoriesAsync.when(
-                data: (categories) => _buildBody(
-                  theme,
-                  categories,
-                  canTagTopics,
-                  tagsAsync,
-                  minTitleLength,
-                ),
-                loading: () => const Center(child: LoadingSpinner()),
-                error: (err, stack) => ErrorView(
-                  error: err,
-                  stackTrace: stack,
-                  onRetry: () => ref.invalidate(categoriesProvider),
-                ),
+        body: Stack(
+          children: [
+            _isPrivateMessage
+                ? _buildBody(theme, [], canTagTopics, tagsAsync, minTitleLength)
+                : categoriesAsync.when(
+                    data: (categories) => _buildBody(
+                      theme,
+                      categories,
+                      canTagTopics,
+                      tagsAsync,
+                      minTitleLength,
+                    ),
+                    loading: () => const Center(child: LoadingSpinner()),
+                    error: (err, stack) => ErrorView(
+                      error: err,
+                      stackTrace: stack,
+                      onRetry: () => ref.invalidate(categoriesProvider),
+                    ),
+                  ),
+            // 顶栏渐变模糊:内容从透明 AppBar 下滚过,模糊+遮罩自上
+            // 而下消散到全透明(尾巴伸出 AppBar 下缘 36pt)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: ProgressiveTopBlur(
+                height: MediaQuery.paddingOf(context).top + kToolbarHeight + 36,
               ),
+            ),
+          ],
+        ),
       ),
     );
   }
