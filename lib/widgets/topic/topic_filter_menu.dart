@@ -19,10 +19,12 @@ const _selectTagsValue = #topicFilterMenuSelectTags;
 /// 下拉 + 忽略按钮」四个分立控件，是首页头部三行瘦身为两行的支点。
 ///
 /// 菜单结构：筛选模式（带计数）/「新」子过滤（仅该模式下出现）/
-/// 排序级联子菜单（再选已选项切换升降序）/ 上下文动作（忽略）。
-/// 按钮本体是 normal chip：当前筛选文案 + ▾；非默认排序时加 primary
-/// 圆点标记（排序状态收进菜单后的最小可见性补救）。
-class TopicFilterMenuButton extends ConsumerWidget {
+/// 排序级联子菜单（再选已选项切换升降序）/ 标签入口 / 上下文动作。
+/// titleStyle 形态的下拉指示 = M3 Expressive 式**活指示器**：chevron
+/// 住在色调小圆里（icon-in-container），菜单开合时弹性翻转 + 着色 ——
+/// 可供性靠容器与运动表达（静态字形方案：细线/实心▾/同字重/角标
+/// 四版均被否，桌面隐喻在 MD3 语境过时）。
+class TopicFilterMenuButton extends ConsumerStatefulWidget {
   final TopicListFilter currentFilter;
   final bool isLoggedIn;
   final ValueChanged<TopicListFilter> onFilterChanged;
@@ -63,7 +65,21 @@ class TopicFilterMenuButton extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TopicFilterMenuButton> createState() =>
+      _TopicFilterMenuButtonState();
+}
+
+class _TopicFilterMenuButtonState extends ConsumerState<TopicFilterMenuButton> {
+  /// 菜单开合态：驱动活指示器的翻转与着色
+  bool _menuOpen = false;
+
+  void _setMenuOpen(bool open) {
+    if (_menuOpen == open || !mounted) return;
+    setState(() => _menuOpen = open);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
     // 读取追踪状态计数（与原 FilterDropdown 同源）
@@ -71,10 +87,10 @@ class TopicFilterMenuButton extends ConsumerWidget {
     final categoryId = ref.watch(currentTabCategoryIdProvider);
     // watch state 本身以触发 rebuild
     ref.watch(topicTrackingStateProvider);
-    final newCount = isLoggedIn
+    final newCount = widget.isLoggedIn
         ? trackingNotifier.countNew(categoryId: categoryId)
         : 0;
-    final unreadCount = isLoggedIn
+    final unreadCount = widget.isLoggedIn
         ? trackingNotifier.countUnread(categoryId: categoryId)
         : 0;
 
@@ -84,42 +100,50 @@ class TopicFilterMenuButton extends ConsumerWidget {
     }
 
     String buttonLabel() {
-      final base = filterLabel(currentFilter);
-      final count = _countForFilter(currentFilter, newCount, unreadCount);
+      final base = filterLabel(widget.currentFilter);
+      final count = _countForFilter(
+        widget.currentFilter,
+        newCount,
+        unreadCount,
+      );
       return count > 0 ? '$base ($count)' : base;
     }
 
-    final orderActive = currentOrder != TopicSortOrder.defaultOrder;
+    final orderActive = widget.currentOrder != TopicSortOrder.defaultOrder;
 
     return SwipeDismissiblePopupMenuButton<Object>(
+      onOpened: () => _setMenuOpen(true),
+      onCanceled: () => _setMenuOpen(false),
       onSelected: (value) {
+        _setMenuOpen(false);
         if (value is TopicListFilter) {
-          onFilterChanged(value);
+          widget.onFilterChanged(value);
         } else if (value is NewSubset) {
-          onSubsetChanged(value);
+          widget.onSubsetChanged(value);
         } else if (value is TopicSortOrder) {
           // 再选已选中的非默认排序 = 切换升降序（原 OrderDropdown 交互）
-          if (value == currentOrder && value != TopicSortOrder.defaultOrder) {
-            onToggleAscending();
+          if (value == widget.currentOrder &&
+              value != TopicSortOrder.defaultOrder) {
+            widget.onToggleAscending();
           } else {
-            onOrderChanged(value);
+            widget.onOrderChanged(value);
           }
         } else if (value == _dismissAllValue) {
-          onDismissAll?.call();
+          widget.onDismissAll?.call();
         } else if (value == _selectTagsValue) {
-          onSelectTags?.call();
+          widget.onSelectTags?.call();
         }
       },
       offset: const Offset(0, 36),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      tooltip: S.current.topic_filterTooltip(filterLabel(currentFilter)),
+      tooltip: S.current.topic_filterTooltip(filterLabel(widget.currentFilter)),
       itemBuilder: (context) {
         final items = <PopupMenuEntry<Object>>[];
 
         // —— 筛选模式 ——
         final visibleFilters = filterOptions.where(
           (option) =>
-              isLoggedIn ||
+              widget.isLoggedIn ||
               (option.$1 != TopicListFilter.newTopics &&
                   option.$1 != TopicListFilter.unread &&
                   option.$1 != TopicListFilter.unseen),
@@ -130,7 +154,7 @@ class TopicFilterMenuButton extends ConsumerWidget {
               value: option.$1,
               child: Row(
                 children: [
-                  if (option.$1 == currentFilter)
+                  if (option.$1 == widget.currentFilter)
                     Icon(
                       Symbols.check_rounded,
                       size: 16,
@@ -147,7 +171,7 @@ class TopicFilterMenuButton extends ConsumerWidget {
         }
 
         // ——「新」子过滤（仅该模式下展示，缩进呈现从属关系）——
-        if (currentFilter == TopicListFilter.newTopics) {
+        if (widget.currentFilter == TopicListFilter.newTopics) {
           items.add(const PopupMenuDivider());
           for (final subset in NewSubset.values) {
             items.add(
@@ -156,7 +180,7 @@ class TopicFilterMenuButton extends ConsumerWidget {
                 child: Row(
                   children: [
                     const SizedBox(width: 16),
-                    if (subset == currentSubset)
+                    if (subset == widget.currentSubset)
                       Icon(
                         Symbols.check_rounded,
                         size: 16,
@@ -181,7 +205,7 @@ class TopicFilterMenuButton extends ConsumerWidget {
         items.add(
           ExpandablePopupMenuEntry<Object>(
             icon: Symbols.sort_rounded,
-            label: S.current.topic_sortTooltip(currentOrder.label),
+            label: S.current.topic_sortTooltip(widget.currentOrder.label),
             iconColor: orderActive ? colorScheme.primary : null,
             labelColor: orderActive ? colorScheme.primary : null,
             children: [
@@ -190,18 +214,18 @@ class TopicFilterMenuButton extends ConsumerWidget {
                   value: order,
                   icon: _orderIcon(order),
                   label:
-                      order == currentOrder &&
+                      order == widget.currentOrder &&
                           order != TopicSortOrder.defaultOrder
-                      ? '${order.label} ${ascending ? '↑' : '↓'}'
+                      ? '${order.label} ${widget.ascending ? '↑' : '↓'}'
                       : order.label,
-                  selected: order == currentOrder,
+                  selected: order == widget.currentOrder,
                 ),
             ],
           ),
         );
 
         // —— 按标签筛选（拉起 TagSelectionSheet）——
-        if (onSelectTags != null) {
+        if (widget.onSelectTags != null) {
           items.add(const PopupMenuDivider());
           items.add(
             PopupMenuItem<Object>(
@@ -211,16 +235,16 @@ class TopicFilterMenuButton extends ConsumerWidget {
                   Icon(
                     Symbols.label_rounded,
                     size: 16,
-                    color: selectedTagCount > 0
+                    color: widget.selectedTagCount > 0
                         ? colorScheme.primary
                         : colorScheme.onSurfaceVariant,
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    selectedTagCount > 0
-                        ? '${S.current.topic_addTags} ($selectedTagCount)'
+                    widget.selectedTagCount > 0
+                        ? '${S.current.topic_addTags} (${widget.selectedTagCount})'
                         : S.current.topic_addTags,
-                    style: selectedTagCount > 0
+                    style: widget.selectedTagCount > 0
                         ? TextStyle(color: colorScheme.primary)
                         : null,
                   ),
@@ -231,7 +255,7 @@ class TopicFilterMenuButton extends ConsumerWidget {
         }
 
         // —— 上下文动作：忽略（全部已读）——
-        if (onDismissAll != null) {
+        if (widget.onDismissAll != null) {
           items.add(const PopupMenuDivider());
           items.add(
             PopupMenuItem<Object>(
@@ -253,7 +277,7 @@ class TopicFilterMenuButton extends ConsumerWidget {
 
         return items;
       },
-      child: titleStyle
+      child: widget.titleStyle
           ? Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               child: Row(
@@ -277,11 +301,36 @@ class TopicFilterMenuButton extends ConsumerWidget {
                         shape: BoxShape.circle,
                       ),
                     ),
-                  const SizedBox(width: 2),
-                  Icon(
-                    Symbols.keyboard_arrow_down_rounded,
-                    size: 20,
-                    color: colorScheme.onSurfaceVariant,
+                  const SizedBox(width: 6),
+                  // 活指示器：chevron 在 20px 色调小圆里，开合时弹性
+                  // 翻转 180° + 着色（自绘版被否——字体 glyph 的圆角
+                  // 收笔质感手绘描边给不了，回归 Icon 字形）
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOut,
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: _menuOpen
+                          ? colorScheme.secondaryContainer
+                          : colorScheme.surfaceContainerHighest.withValues(
+                              alpha: 0.6,
+                            ),
+                      shape: BoxShape.circle,
+                    ),
+                    child: AnimatedRotation(
+                      turns: _menuOpen ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 340),
+                      curve: Curves.easeOutBack,
+                      child: Icon(
+                        Symbols.keyboard_arrow_down_rounded,
+                        size: 15,
+                        weight: 600,
+                        color: _menuOpen
+                            ? colorScheme.onSecondaryContainer
+                            : colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -372,3 +421,4 @@ class TopicFilterMenuButton extends ConsumerWidget {
     }
   }
 }
+

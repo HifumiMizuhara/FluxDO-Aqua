@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // ignore: depend_on_referenced_packages
 import 'package:flutter_riverpod/legacy.dart';
 import '../models/category.dart';
+import '../models/tag_search_result.dart';
 import '../models/topic.dart';
 import '../services/preloaded_data_service.dart';
 import 'core_providers.dart';
@@ -67,6 +68,13 @@ final activeSidebarCategoryIdProvider = StateProvider<int?>((ref) => null);
 final tagsProvider = FutureProvider<List<String>>((ref) async {
   final service = ref.watch(discourseServiceProvider);
   return service.getTags();
+});
+
+/// 站点全量标签 Provider（/tags.json，保留标签组结构，组内按热度降
+/// 序）。侧栏标签区数据源；top_tags 只有名字，做不了分组和计数。
+final siteTagGroupsProvider = FutureProvider<List<SiteTagGroup>>((ref) async {
+  final service = ref.watch(discourseServiceProvider);
+  return service.getSiteTagGroups();
 });
 
 /// 站点是否支持标签功能

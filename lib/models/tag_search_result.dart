@@ -10,13 +10,15 @@ class TagSearchResult {
 
   factory TagSearchResult.fromJson(Map<String, dynamic> json) {
     return TagSearchResult(
-      results: (json['results'] as List?)
+      results:
+          (json['results'] as List?)
               ?.map((e) => TagInfo.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
       requiredTagGroup: json['required_tag_group'] != null
           ? RequiredTagGroup.fromJson(
-              json['required_tag_group'] as Map<String, dynamic>)
+              json['required_tag_group'] as Map<String, dynamic>,
+            )
           : null,
     );
   }
@@ -55,4 +57,13 @@ class RequiredTagGroup {
       minCount: json['min_count'] as int? ?? 1,
     );
   }
+}
+
+/// 站点标签分组（/tags.json 的 extras.tag_groups；name == null 表示
+/// 顶层未分组标签兜底组）
+class SiteTagGroup {
+  final String? name;
+  final List<TagInfo> tags;
+
+  SiteTagGroup({required this.name, required this.tags});
 }

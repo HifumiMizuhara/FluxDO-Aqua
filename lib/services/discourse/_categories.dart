@@ -33,14 +33,65 @@ mixin _CategoriesMixin on _DiscourseServiceBase {
       final topTags = data['top_tags'] as List?;
       if (topTags == null) return [];
 
-      return topTags.map((t) {
-        if (t is Map<String, dynamic>) {
-          return t['name'] as String? ?? '';
-        }
-        return t.toString();
-      }).where((name) => name.isNotEmpty).toList();
+      return topTags
+          .map((t) {
+            if (t is Map<String, dynamic>) {
+              return t['name'] as String? ?? '';
+            }
+            return t.toString();
+          })
+          .where((name) => name.isNotEmpty)
+          .toList();
     } catch (e) {
       debugPrint('[DiscourseService] getTags failed: $e');
+      return [];
+    }
+  }
+
+  /// 获取站点全量标签（/tags.json），保留服务端的标签组结构。
+  /// 顶层未分组标签归入 name == null 的兜底组;组内按话题数降序。
+  /// top_tags 只有名字且数量有限，侧栏标签区需要带 count 的完整数据。
+  Future<List<SiteTagGroup>> getSiteTagGroups() async {
+    try {
+      final response = await _dio.get('/tags.json');
+      final data = response.data as Map<String, dynamic>;
+
+      final seen = <String>{};
+      List<TagInfo> parse(List? list) {
+        if (list == null) return const [];
+        final tags = <TagInfo>[];
+        for (final item in list) {
+          if (item is! Map<String, dynamic>) continue;
+          final info = TagInfo.fromJson(item);
+          if (info.name.isNotEmpty && seen.add(info.name)) tags.add(info);
+        }
+        tags.sort((a, b) => b.count.compareTo(a.count));
+        return tags;
+      }
+
+      final groups = <SiteTagGroup>[];
+      // tag_groups（开启 tags_listed_by_group 的站点大头在分组里）
+      final rawGroups =
+          (data['extras'] as Map<String, dynamic>?)?['tag_groups'] as List?;
+      if (rawGroups != null) {
+        for (final group in rawGroups) {
+          if (group is! Map<String, dynamic>) continue;
+          final tags = parse(group['tags'] as List?);
+          if (tags.isNotEmpty) {
+            groups.add(
+              SiteTagGroup(name: group['name'] as String?, tags: tags),
+            );
+          }
+        }
+      }
+      // 顶层未分组标签 → 兜底组（排最后;未开分组的站点即全部）
+      final ungrouped = parse(data['tags'] as List?);
+      if (ungrouped.isNotEmpty) {
+        groups.add(SiteTagGroup(name: null, tags: ungrouped));
+      }
+      return groups;
+    } catch (e) {
+      debugPrint('[DiscourseService] getSiteTagGroups failed: $e');
       return [];
     }
   }
