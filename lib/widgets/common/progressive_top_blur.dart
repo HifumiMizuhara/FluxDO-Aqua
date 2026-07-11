@@ -133,15 +133,18 @@ class _ProgressiveTopBlurState extends State<ProgressiveTopBlur> {
     );
   }
 
-  /// 主路径:模糊 + 色罩全在 shader 内(连续曲线,零阶梯零折痕)
+  /// 主路径:单 pass 变力模糊(vogel 盘 48 tap + 每像素随机旋转,
+  /// 重影伪影噪声化为干净雾面);色罩同 shader 内(连续曲线,零阶梯
+  /// 零折痕)。⚠️ 不要改 compose 两 pass:第二 pass 输入纹理的坐标
+  /// 基准与原 backdrop 不一致,t 会错位(实测顶透/中糊/底硬切)
   Widget _buildShaderBlur(
     BuildContext context,
     ui.FragmentProgram program,
     Color surface,
   ) {
     final dpr = MediaQuery.devicePixelRatioOf(context);
-    // uniform 布局:0-1 = u_size(引擎自动填,是 backdrop 纹理尺寸,
-    // 可能为全屏 —— 纵向归一必须用显式的区域高度),2 = u_region_h,
+    // uniform 布局:0-1 = u_size(引擎自动填,是输入纹理尺寸,可能
+    // 为全屏 —— 纵向归一必须用显式的区域高度),2 = u_region_h,
     // 3 = u_max_sigma,4 = u_curve,5-8 = u_tint(rgb + 顶部最大
     // alpha);每 build 新建 shader 实例,避免渲染中改 uniform
     final shader = program.fragmentShader()
@@ -154,7 +157,16 @@ class _ProgressiveTopBlurState extends State<ProgressiveTopBlur> {
       ..setFloat(8, ProgressiveTopBlur._tintMaxAlpha);
     return ClipRect(
       child: BackdropFilter(
-        filter: ui.ImageFilter.shader(shader),
+        filter: ui.ImageFilter.compose(
+          // 轻均匀 blur 收口:IGN 每像素随机旋转把重影打散成高频
+          // 噪粒(单帧无 TAA 可平均,静态看是"颗粒/素描感"),
+          // σ1.2 恰好抹平噪粒成真雾,对内容只是极轻软化。
+          // blur 必须在 outer(无坐标语义,不踩中间纹理基准坑),
+          // shader 必须在 inner(输入=原 backdrop,fragCoord 基准
+          // 正确)—— 顺序反过来就是"顶透中糊底硬切"事故
+          outer: ui.ImageFilter.blur(sigmaX: 1.2, sigmaY: 1.2),
+          inner: ui.ImageFilter.shader(shader),
+        ),
         child: const SizedBox.expand(),
       ),
     );

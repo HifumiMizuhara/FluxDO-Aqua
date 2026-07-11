@@ -4,43 +4,58 @@
 precision highp float;
 
 // ImageFilter.shader 约定:第一个 vec2 uniform 由引擎填入绑定纹理
-// 尺寸(物理像素);第一个 sampler 由引擎绑定 backdrop 输入。
+// 尺寸(物理像素);第一个 sampler 由引擎绑定 filter 输入。
+//
+// 单 pass 变力模糊。⚠️ 不要改成 ImageFilter.compose 两 pass:
+// 第二个 pass 的输入是第一 pass 的输出纹理,其尺寸/原点/outset 与
+// 原 backdrop 不一致(无文档约定),t 的坐标基准会错位 —— 实测
+// 表现为"顶部裸透、中段更糊、底边硬切"。重影伪影由每像素随机
+// 旋转采样盘解决,不靠可分离两 pass。
 
 uniform vec2 u_size;
 // 滤镜区域高度(物理像素)。⚠️ 不能用 u_size 做纵向归一:u_size 是
-// backdrop 纹理尺寸,Impeller 下可能是**全屏**而非裁剪区 —— 那样
-// uv.y 只走到 0~0.15,t 恒近 1,整块满糊满罩、ClipRect 底边硬切一条
-// 分层线,渐变根本没展开。
+// filter 输入纹理尺寸,可能是**全屏**而非裁剪区。
 uniform float u_region_h;
 // 顶部最大模糊 sigma(物理像素,Dart 侧 = 逻辑值 × devicePixelRatio)
 uniform float u_max_sigma;
-// 消散曲线指数:sigma = max_sigma * pow(1 - y/h, curve),越大越集中在顶部
+// 消散曲线指数:sigma = max_sigma * pow(t, curve),越大越集中在顶部
 uniform float u_curve;
 // 色罩:rgb = surface 色,a = 顶部最大 alpha。
-// 色罩在 shader 内与模糊一起做 —— Dart 侧折线 LinearGradient 的
-// stop 转折点是可见"折痕"(马赫带),smoothstep 全程 C1 连续无折。
+// smoothstep 全程 C1 连续,无折线渐变的马赫带折痕。
 uniform vec4 u_tint;
 
 uniform sampler2D u_texture;
 
 out vec4 frag_color;
 
-// vogel 盘采样:黄金角螺旋均匀铺盘,伪影远小于环状/网格 tap
-const float TAPS = 36.0;
+// vogel 盘采样:黄金角螺旋均匀铺盘
+const float TAPS = 48.0;
 const float GOLDEN_ANGLE = 2.39996323;
 // 色罩平台区:顶部 (1-TINT_KNEE) 比例保持满 alpha,其下 smoothstep 滑到 0
 const float TINT_KNEE = 0.75;
 
+// interleaved gradient noise:每像素伪随机 —— 用于旋转采样盘,把
+// 固定盘的规律性重影/带状伪影打散成细颗粒噪(雾面观感,罩下不可见)
+float ign(vec2 p) {
+  return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715))));
+}
+
 void main() {
   vec2 frag = FlutterFragCoord().xy;
-  vec2 uv = frag / u_size;
+
+  // 距区域顶部的距离(物理)。GLES 的 gl_FragCoord 原点在底部:
+  // 不反转的话渐变整个上下颠倒(底糊顶清)
+  float yTop = frag.y;
+#ifdef IMPELLER_TARGET_OPENGLES
+  yTop = u_size.y - frag.y;
+#endif
   // 视觉纵向位置 t:1=区域顶部,0=区域底部(按滤镜区域高度归一,
-  // 与 backdrop 纹理尺寸无关)—— 模糊与色罩都随之连续变化
-  float t = clamp(1.0 - frag.y / u_region_h, 0.0, 1.0);
+  // 与输入纹理尺寸无关)—— 模糊与色罩都随之连续变化
+  float t = clamp(1.0 - yTop / u_region_h, 0.0, 1.0);
   float sigma = u_max_sigma * pow(t, u_curve);
 
-  vec2 suv = uv;
-  // GLES 后端纹理 y 轴反转(仅影响采样坐标,不影响视觉位置 t)
+  vec2 suv = frag / u_size;
+  // GLES 纹理 y 轴反转(采样坐标)
 #ifdef IMPELLER_TARGET_OPENGLES
   suv.y = 1.0 - suv.y;
 #endif
@@ -51,11 +66,12 @@ void main() {
   } else {
     float radius = sigma * 2.5;
     vec2 texel = vec2(radius) / u_size;
+    float rot = ign(frag) * 6.2831853;
     vec4 acc = vec4(0.0);
     float wsum = 0.0;
     for (float i = 0.0; i < TAPS; i++) {
       float r = sqrt((i + 0.5) / TAPS);
-      float a = i * GOLDEN_ANGLE;
+      float a = i * GOLDEN_ANGLE + rot;
       vec2 p = vec2(cos(a), sin(a)) * r;
       float d = r * radius;
       float w = exp(-(d * d) / (2.0 * sigma * sigma));
