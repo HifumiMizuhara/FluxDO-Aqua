@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluxdo/widgets/common/error_view.dart';
@@ -586,6 +587,11 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
           surfaceTintColor: Colors.transparent,
           elevation: 0,
           scrolledUnderElevation: 0,
+          // 透明背景下 Material 推导不出状态栏图标亮暗(会给成浅色
+          // 图标,浅色主题下隐形),按主题显式指定
+          systemOverlayStyle: theme.brightness == Brightness.dark
+              ? SystemUiOverlayStyle.light
+              : SystemUiOverlayStyle.dark,
           actions: [
             // 草稿保存状态(瞬态:保存中转圈/失败警示;已保存不常驻
             // —— 成功无需一直宣告,失败才需要喊)
