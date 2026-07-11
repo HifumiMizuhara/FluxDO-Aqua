@@ -525,13 +525,17 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
   }
 
   /// 构建草稿保存状态指示器
+  /// 草稿保存状态指示器(瞬态):保存中转圈、失败红色警示;
+  /// 已保存/空闲不显示 —— 成功无需常驻宣告,失败才需要被看见。
   Widget _buildDraftStatusIndicator(DraftSaveStatus status, ThemeData theme) {
+    final Widget child;
     switch (status) {
       case DraftSaveStatus.idle:
       case DraftSaveStatus.pending:
+      case DraftSaveStatus.saved:
         return const SizedBox.shrink();
       case DraftSaveStatus.saving:
-        return SizedBox(
+        child = SizedBox(
           width: 14,
           height: 14,
           child: CircularProgressIndicator(
@@ -539,19 +543,19 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
             color: theme.colorScheme.outline,
           ),
         );
-      case DraftSaveStatus.saved:
-        return Icon(
-          Symbols.cloud_done_rounded,
-          size: 18,
-          color: theme.colorScheme.outline,
-        );
       case DraftSaveStatus.error:
-        return Icon(
+        child = Icon(
           Symbols.cloud_off_rounded,
           size: 18,
           color: theme.colorScheme.error,
         );
     }
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.only(left: 4, right: 4),
+        child: child,
+      ),
+    );
   }
 
   @override
@@ -583,16 +587,23 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
           elevation: 0,
           scrolledUnderElevation: 0,
           actions: [
-            // 草稿保存状态指示器
+            // 草稿保存状态(瞬态:保存中转圈/失败警示;已保存不常驻
+            // —— 成功无需一直宣告,失败才需要喊)
             ValueListenableBuilder<DraftSaveStatus>(
               valueListenable: _draftController.statusNotifier,
               builder: (context, status, _) {
                 return _buildDraftStatusIndicator(status, theme);
               },
             ),
-            // 舍弃/AI 审核收进 ⋯ 溢出菜单(给分类胶囊腾 AppBar 宽度)。
-            // AiPostReviewButton builder 形态:⋯ 按钮即审核结果 popover
-            // 的锚,菜单关闭后弹层仍有落点。
+            // 功能按钮全部图标直出不折叠(⋯ 菜单藏舍弃太难用):
+            // 舍弃 🗑 / AI 审核 ✨,tooltip 兜底语义
+            IconButton(
+              onPressed: _isSubmitting ? null : _discardDraft,
+              tooltip: context.l10n.common_discard,
+              icon: const Icon(Symbols.delete_rounded, size: 22),
+            ),
+            // AiPostReviewButton builder 形态:图标按钮即审核结果
+            // popover 的锚
             AiPostReviewButton(
               titleBuilder: () => _titleController.text,
               contentBuilder: () => _contentController.text,
@@ -601,36 +612,28 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
               categoryNameBuilder: () => _selectedCategory?.name,
               categoryDescriptionBuilder: () => _selectedCategory?.description,
               tagsBuilder: () => _selectedTags,
-              builder: (anchorContext, isReviewing, trigger) =>
-                  PopupMenuButton<String>(
-                    enabled: !_isSubmitting,
-                    onSelected: (value) {
-                      switch (value) {
-                        case 'discard':
-                          _discardDraft();
-                        case 'ai':
-                          trigger?.call();
-                      }
-                    },
-                    itemBuilder: (menuContext) => [
-                      PopupMenuItem(
-                        value: 'discard',
-                        child: Text(context.l10n.common_discard),
-                      ),
-                      // 功能关闭(trigger null 且非审核中)时不显示 AI 项
-                      if (trigger != null || isReviewing)
-                        PopupMenuItem(
-                          value: 'ai',
-                          enabled: trigger != null,
-                          child: Text(
-                            isReviewing
-                                ? context.l10n.aiPostReview_reviewing
-                                : context.l10n.aiPostReview_button,
+              builder: (anchorContext, isReviewing, trigger) {
+                // 功能关闭(trigger null 且非审核中)时不占位
+                if (trigger == null && !isReviewing) {
+                  return const SizedBox.shrink();
+                }
+                return IconButton(
+                  onPressed: trigger,
+                  tooltip: context.l10n.aiPostReview_button,
+                  icon: isReviewing
+                      ? SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: theme.colorScheme.primary,
                           ),
-                        ),
-                    ],
-                  ),
+                        )
+                      : const Icon(Symbols.auto_awesome_rounded, size: 22),
+                );
+              },
             ),
+            const SizedBox(width: 2),
             Padding(
               padding: const EdgeInsets.only(right: 16),
               child: FilledButton(
