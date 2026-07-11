@@ -419,7 +419,7 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
               left: 0,
               right: 0,
               child: ProgressiveTopBlur(
-                height: MediaQuery.paddingOf(context).top + kToolbarHeight + 36,
+                height: ProgressiveTopBlur.heightFor(context),
               ),
             ),
           ],
@@ -541,9 +541,10 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
     // 滚动头部(编辑分支):透明 AppBar 避让 + 标题。写作流只留
     // 标题+正文,分类/标签/字数在底部 ComposerMetaBar 常驻
     Widget buildComposerHeader() {
-      final topInset = MediaQuery.paddingOf(context).top + kToolbarHeight;
+      // 含消散尾巴:初始态标题不被渐变层遮,滚动时才进消散区
+      final topInset = ProgressiveTopBlur.heightFor(context);
       return Padding(
-        padding: EdgeInsets.fromLTRB(20, topInset + 12, 20, 0),
+        padding: EdgeInsets.fromLTRB(20, topInset + 10, 20, 0),
         child: buildTitleField(),
       );
     }
@@ -571,8 +572,8 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
         child: ListView(
           padding: EdgeInsets.fromLTRB(
             20,
-            // 透明 AppBar 避让(extendBodyBehindAppBar)
-            MediaQuery.paddingOf(context).top + kToolbarHeight + 16,
+            // 透明 AppBar+消散尾巴避让
+            ProgressiveTopBlur.heightFor(context) + 16,
             20,
             16,
           ),
@@ -684,8 +685,8 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
                   SingleChildScrollView(
                     padding: EdgeInsets.fromLTRB(
                       24,
-                      // 透明 AppBar 避让(extendBodyBehindAppBar)
-                      MediaQuery.paddingOf(context).top + kToolbarHeight + 16,
+                      // 透明 AppBar+消散尾巴避让
+                      ProgressiveTopBlur.heightFor(context) + 16,
                       24,
                       MediaQuery.paddingOf(context).bottom + 80,
                     ),

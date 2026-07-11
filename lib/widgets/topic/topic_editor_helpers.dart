@@ -801,13 +801,22 @@ class ComposerMetaBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Flexible(flex: 3, child: _categoryPill(context, theme)),
-          if (showTags) ...[
-            const SizedBox(width: 6),
-            Flexible(flex: 4, child: _tagsPill(context, theme)),
-          ],
+          // 左侧 pills 容器占掉全部中间空间(pills 靠左、内部各自
+          // Flexible 截断),字数固定贴最右 —— 不能用 Spacer:
+          // Flexible pills 未用完的 flex 份额会变成行尾空白,把
+          // 字数顶离右缘
+          Expanded(
+            child: Row(
+              children: [
+                Flexible(child: _categoryPill(context, theme)),
+                if (showTags) ...[
+                  const SizedBox(width: 6),
+                  Flexible(child: _tagsPill(context, theme)),
+                ],
+              ],
+            ),
+          ),
           const SizedBox(width: 8),
-          const Spacer(),
           Text(
             S.current.createTopic_charCount(charCount),
             style: theme.textTheme.labelSmall?.copyWith(

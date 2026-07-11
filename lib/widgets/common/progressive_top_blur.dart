@@ -17,8 +17,18 @@ import 'package:flutter/material.dart';
 class ProgressiveTopBlur extends StatelessWidget {
   const ProgressiveTopBlur({super.key, required this.height});
 
-  /// 总高(通常 = MediaQuery.padding.top + kToolbarHeight + 尾巴 ~36)
+  /// 总高(通常 = MediaQuery.padding.top + kToolbarHeight + [tail])
   final double height;
+
+  /// 消散尾巴:伸出 AppBar 下缘的渐变归零区。
+  /// 初始态内容应从 [heightFor] 之下开始(否则未滚动就被尾巴盖住),
+  /// 滚动上移时才进入消散区被渐次溶解。
+  static const double tail = 28;
+
+  /// 页面接线用:渐变层总高 = 状态栏 + AppBar + 尾巴。
+  /// 滚动内容的顶部避让也应基于此值(再加自身间距)。
+  static double heightFor(BuildContext context) =>
+      MediaQuery.paddingOf(context).top + kToolbarHeight + tail;
 
   /// (占总高比例, 模糊 sigma):自下而上层高递减、模糊递增
   static const List<(double, double)> _layers = [
@@ -46,10 +56,7 @@ class ProgressiveTopBlur extends StatelessWidget {
                   height: height * fraction,
                   child: ClipRect(
                     child: BackdropFilter.grouped(
-                      filter: ui.ImageFilter.blur(
-                        sigmaX: sigma,
-                        sigmaY: sigma,
-                      ),
+                      filter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
                       child: const SizedBox.expand(),
                     ),
                   ),

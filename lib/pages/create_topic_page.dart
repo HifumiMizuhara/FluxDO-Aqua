@@ -459,11 +459,12 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
   /// (分类/标签/字数在底部 ComposerMetaBar 常驻);标题与正文同滚,
   /// 写正文时自然滚出屏,想改标题滚回顶部即可。
   Widget _buildComposerHeader(ThemeData theme, int minTitleLength) {
-    // extendBodyBehindAppBar 后滚动内容从屏顶开始,首屏让出
-    // 状态栏 + AppBar 的高度(内容滚动时从其下透出)
-    final topInset = MediaQuery.paddingOf(context).top + kToolbarHeight;
+    // extendBodyBehindAppBar 后滚动内容从屏顶开始,首屏让出渐变模糊层
+    // 全高(含消散尾巴 —— 初始态标题不被尾巴遮,滚动上移时才进入
+    // 消散区被渐次溶解)
+    final topInset = ProgressiveTopBlur.heightFor(context);
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, topInset + 12, 20, 0),
+      padding: EdgeInsets.fromLTRB(20, topInset + 10, 20, 0),
       child: TextFormField(
         controller: _titleController,
         decoration: InputDecoration(
@@ -803,10 +804,8 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
                               SingleChildScrollView(
                                 padding: EdgeInsets.fromLTRB(
                                   24,
-                                  // 透明 AppBar 避让(extendBodyBehindAppBar)
-                                  MediaQuery.paddingOf(context).top +
-                                      kToolbarHeight +
-                                      16,
+                                  // 透明 AppBar+消散尾巴避让
+                                  ProgressiveTopBlur.heightFor(context) + 16,
                                   24,
                                   MediaQuery.paddingOf(context).bottom + 80,
                                 ),
@@ -913,7 +912,7 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
               left: 0,
               right: 0,
               child: ProgressiveTopBlur(
-                height: MediaQuery.paddingOf(context).top + kToolbarHeight + 36,
+                height: ProgressiveTopBlur.heightFor(context),
               ),
             ),
           ],
