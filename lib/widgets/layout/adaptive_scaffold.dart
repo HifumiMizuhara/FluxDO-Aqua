@@ -149,26 +149,23 @@ class AdaptiveScaffold extends ConsumerWidget {
           left: overlayLeftInset,
           child: const SidebarNotificationPanel(),
         ),
-        // 分类侧栏：全局手势（左缘右滑在任意底部 tab 可用）。置于顶层
-        // Stack 末位 —— 盖得住底栏/FAB;随本路由被详情页压顶自动失效
-        // （无需路由感知）;返回键走 DrawerController 原生 LocalHistory。
-        // 桌面平台 DrawerController 自身禁用边缘手势，☰ 按钮仍可开。
-        DrawerController(
+        // 分类侧栏：宿主挂本层 Stack 末位（盖得住底栏/FAB，被详情页
+        // 路由天然遮挡）。打开方式：☰ / chips ＋ / 首页"全部"tab 整页
+        // 右滑跟手拖出（TabBarView 首缘 overscroll 逐帧喂 dragBy，见
+        // TopicsPage）。受控实现（非 DrawerController：其拖拽驱动是
+        // 私有 API，做不了外部逐帧喂增量的跟手拖出）。
+        ControlledCategoryDrawer(
           key: CategoryDrawerHost.drawerKey,
-          alignment: DrawerAlignment.start,
-          child: CategoryDrawer(
-            onRequestClose: CategoryDrawerHost.close,
-            onPinnedSelected: (category) {
-              // 与 rail 的 CategoryShortcuts 同通路：首页监听
-              // activeSidebarCategoryIdProvider 切分类 tab
-              sidebarCategoryController.state = category.id;
-              if (selectedIndex != 0) {
-                onDestinationSelected(0);
-              }
-              ref.read(currentTabCategoryIdProvider.notifier).state =
-                  category.id;
-            },
-          ),
+          onPinnedSelected: (category) {
+            // 与 rail 的 CategoryShortcuts 同通路：首页监听
+            // activeSidebarCategoryIdProvider 切分类 tab
+            sidebarCategoryController.state = category.id;
+            if (selectedIndex != 0) {
+              onDestinationSelected(0);
+            }
+            ref.read(currentTabCategoryIdProvider.notifier).state =
+                category.id;
+          },
         ),
       ],
     );

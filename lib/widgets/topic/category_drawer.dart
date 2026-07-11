@@ -15,18 +15,164 @@ import 'topic_notification_button.dart'
     show getCategoryNotificationIcon, showCategoryNotificationLevelSheet;
 import 'category_tab_manager_sheet.dart' show PinnedCategoryEditPage;
 
-/// 分类侧栏的全局开关（☰ / chips 行 ＋ / 任意处调用）。
-/// 宿主 DrawerController 挂在 AdaptiveScaffold 顶层（全局手势），
-/// 通过本静态 key 驱动。
+/// 分类侧栏的全局开关与拖拽入口。
+/// 宿主 [ControlledCategoryDrawer] 挂在 AdaptiveScaffold 顶层，通过本
+/// 静态 key 驱动;首页 TabBarView 首缘 overscroll 桥逐帧调 [dragBy]
+/// 实现整块区域右滑跟手拖出。
 class CategoryDrawerHost {
   CategoryDrawerHost._();
 
-  static final GlobalKey<DrawerControllerState> drawerKey =
-      GlobalKey<DrawerControllerState>();
+  static final GlobalKey<ControlledCategoryDrawerState> drawerKey =
+      GlobalKey<ControlledCategoryDrawerState>();
 
   static void open() => drawerKey.currentState?.open();
 
   static void close() => drawerKey.currentState?.close();
+
+  /// 跟手拖拽：水平位移增量（px，向右为正）
+  static void dragBy(double dx) => drawerKey.currentState?.dragBy(dx);
+
+  /// 松手收尾：按速度/位置就近开或关
+  static void settle(double velocityDx) =>
+      drawerKey.currentState?.settle(velocityDx);
+}
+
+/// 受控分类抽屉：自持 AnimationController(0..1) 驱动遮罩与面板。
+///
+/// 不用 DrawerController：它的拖拽驱动（_move/_settle）是私有 API，
+/// 外部只能 open/close —— 做不了"TabBarView 首缘 overscroll 逐帧
+/// 喂增量"的跟手拖出（用户点名：右滑慢慢打开，不是触发即弹）。
+/// 开着时面板/遮罩上水平拖拽关闭、点遮罩关闭、返回键（LocalHistory）
+/// 关闭，语义与系统抽屉一致。
+class ControlledCategoryDrawer extends StatefulWidget {
+  const ControlledCategoryDrawer({super.key, required this.onPinnedSelected});
+
+  /// 点收藏分类：宿主负责切到首页并选中该分类 tab
+  final ValueChanged<Category> onPinnedSelected;
+
+  @override
+  State<ControlledCategoryDrawer> createState() =>
+      ControlledCategoryDrawerState();
+}
+
+class ControlledCategoryDrawerState extends State<ControlledCategoryDrawer>
+    with SingleTickerProviderStateMixin {
+  /// Drawer 默认面板宽（拖拽增量归一化用）
+  static const double _panelWidth = 304.0;
+
+  late final AnimationController _anim = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 250),
+  )..addListener(_syncHistory);
+
+  LocalHistoryEntry? _history;
+  bool _removingHistory = false;
+
+  void open() => _animateTo(1.0);
+
+  void close() => _animateTo(0.0);
+
+  void dragBy(double dx) {
+    _anim.stop();
+    _anim.value = (_anim.value + dx / _panelWidth).clamp(0.0, 1.0);
+  }
+
+  void settle(double velocityDx) {
+    if (velocityDx.abs() >= 365) {
+      velocityDx > 0 ? open() : close();
+      return;
+    }
+    _anim.value >= 0.5 ? open() : close();
+  }
+
+  void _animateTo(double target) {
+    final distance = (target - _anim.value).abs();
+    if (distance == 0) return;
+    _anim.animateTo(
+      target,
+      duration: Duration(
+        milliseconds: (250 * distance.clamp(0.2, 1.0)).round(),
+      ),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  /// 返回键联动：抽屉可见即挂 LocalHistoryEntry（返回=关抽屉）
+  void _syncHistory() {
+    final visible = _anim.value > 0;
+    if (visible && _history == null) {
+      final route = ModalRoute.of(context);
+      if (route != null) {
+        _history = LocalHistoryEntry(
+          onRemove: () {
+            _history = null;
+            if (!_removingHistory) close();
+          },
+        );
+        route.addLocalHistoryEntry(_history!);
+      }
+    } else if (!visible && _history != null) {
+      final entry = _history;
+      _history = null;
+      _removingHistory = true;
+      entry?.remove();
+      _removingHistory = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _history?.remove();
+    _anim.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (context, child) {
+        final v = _anim.value;
+        if (v == 0) return const SizedBox.shrink();
+        return SizedBox.expand(
+          child: Stack(
+            children: [
+              // 遮罩：跟手渐变;点击/拖拽关闭
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: close,
+                  onHorizontalDragUpdate: (d) => dragBy(d.primaryDelta ?? 0),
+                  onHorizontalDragEnd: (d) =>
+                      settle(d.velocity.pixelsPerSecond.dx),
+                  child: ColoredBox(
+                    color: Colors.black.withValues(alpha: 0.54 * v),
+                  ),
+                ),
+              ),
+              // 面板：paint 平移跟手滑入;面板上水平拖拽关闭
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FractionalTranslation(
+                  translation: Offset(v - 1.0, 0),
+                  child: GestureDetector(
+                    onHorizontalDragUpdate: (d) => dragBy(d.primaryDelta ?? 0),
+                    onHorizontalDragEnd: (d) =>
+                        settle(d.velocity.pixelsPerSecond.dx),
+                    child: child,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+      child: CategoryDrawer(
+        onRequestClose: close,
+        onPinnedSelected: widget.onPinnedSelected,
+      ),
+    );
+  }
 }
 
 /// 首页分类侧栏：分类的管理中枢。

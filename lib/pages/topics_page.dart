@@ -347,6 +347,92 @@ class _HeaderCollapseController extends ChangeNotifier {
 
 // ─── TopicsPage ───
 
+/// 抽屉拖拽桥：TabBarView 的 physics（随 build 重建、不可变）与
+/// State 间的可变状态通道。
+class _DrawerPullBridge {
+  /// 手指按下的拖拽会话中（ScrollStart.dragDetails != null 维护;
+  /// 挡住 ballistic 越界误触发抽屉）
+  bool dragging = false;
+
+  /// 本次手势已进入"拉抽屉"模式（首缘越界触发，手势结束前锁存：
+  /// 期间全部水平位移归抽屉，含往回滑 —— 否则回滑会被 PageView
+  /// 接手直接切 tab）
+  bool pulling = false;
+}
+
+/// 首页 TabBarView 常驻 physics：首缘（"全部"页再向右拖）把越界量
+/// 转交抽屉跟手拖出，PageView 自身**永不越界**（首缘表现为 clamping，
+/// iOS 无橡皮筋残留）;进入拉抽屉模式后本次手势位移全量归抽屉。
+/// 其余方向/页面完全走平台默认物理。
+class _DrawerPullPagerPhysics extends ScrollPhysics {
+  const _DrawerPullPagerPhysics({
+    required this.bridge,
+    required this.onPull,
+    required this.onPullEnd,
+    super.parent,
+  });
+
+  final _DrawerPullBridge bridge;
+
+  /// 位移增量（正 = 手指向右 = 抽屉拉出方向）
+  final ValueChanged<double> onPull;
+
+  /// 手势结束（velocityDx 正 = 向右甩）
+  final ValueChanged<double> onPullEnd;
+
+  @override
+  _DrawerPullPagerPhysics applyTo(ScrollPhysics? ancestor) {
+    return _DrawerPullPagerPhysics(
+      bridge: bridge,
+      onPull: onPull,
+      onPullEnd: onPullEnd,
+      parent: buildParent(ancestor),
+    );
+  }
+
+  @override
+  double applyPhysicsToUserOffset(ScrollMetrics position, double offset) {
+    // 拉抽屉模式：手势位移全量转交（offset 正 = 手指向右）
+    if (bridge.pulling) {
+      onPull(offset);
+      return 0;
+    }
+    return super.applyPhysicsToUserOffset(position, offset);
+  }
+
+  @override
+  double applyBoundaryConditions(ScrollMetrics position, double value) {
+    // 首缘越界（已在第一页仍向右拖）→ 进入拉抽屉模式：越界量转交
+    // 抽屉，PageView 钉在 minScrollExtent（不产生 iOS 橡皮筋）
+    if (bridge.dragging &&
+        value < position.minScrollExtent &&
+        position.pixels <= position.minScrollExtent + precisionErrorTolerance) {
+      if (!bridge.pulling) bridge.pulling = true;
+      onPull(position.minScrollExtent - value);
+      return value - position.minScrollExtent;
+    }
+    if (bridge.pulling) {
+      // 模式中冻结页面（含往回滑）
+      return value - position.pixels;
+    }
+    return super.applyBoundaryConditions(position, value);
+  }
+
+  @override
+  Simulation? createBallisticSimulation(
+    ScrollMetrics position,
+    double velocity,
+  ) {
+    if (bridge.pulling) {
+      bridge.pulling = false;
+      // scroll velocity 正 = pixels 增大 = 手指向左;抽屉口径取反
+      onPullEnd(-velocity);
+      return null;
+    }
+    return super.createBallisticSimulation(position, velocity);
+  }
+}
+
 /// tab 列表滚动控制器：初始滚动位置动态跟随胶囊折叠态。
 ///
 /// 骨架屏 ↔ 数据列表切换会销毁/重建 Scrollable（position detach 后
@@ -401,6 +487,16 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
   /// TabBarView 横滑进行中（ScrollStart..ScrollEnd）：期间冻结垂直
   /// 滚动对收放的驱动（两个 tab 列表同时在场，事件源混杂）
   bool _pageTransitioning = false;
+
+  /// 首页整块区域右滑拖出侧栏：物理层桥（见 _DrawerPullPagerPhysics）
+  final _DrawerPullBridge _drawerPullBridge = _DrawerPullBridge();
+  late final _DrawerPullPagerPhysics _pagerPhysics = _DrawerPullPagerPhysics(
+    bridge: _drawerPullBridge,
+    onPull: CategoryDrawerHost.dragBy,
+    onPullEnd: CategoryDrawerHost.settle,
+    // 与 TabBarView 无 physics 时的默认对齐（clamping 边界）
+    parent: const ClampingScrollPhysics(),
+  );
 
   /// 各 tab 列表的滚动控制器。页面持有：snap 通过驱动当前列表实现
   /// 头部+内容一体回弹。
@@ -844,6 +940,9 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
                 top: topPadding + _toolbarRowHeight,
                 child: TabBarView(
                   controller: _tabController,
+                  // 首缘越界转交抽屉跟手拖出（拉抽屉模式中 PageView
+                  // 冻结，回滑不切 tab）;其余走 clamping 默认
+                  physics: _pagerPhysics,
                   children: [
                     _buildTabPage(null),
                     for (final id in pinnedIds) _buildTabPage(id),
@@ -1095,12 +1194,26 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
       if (notification.metrics is PageMetrics) {
         if (notification is ScrollStartNotification) {
           _pageTransitioning = true;
+          // 抽屉首缘桥只认真手势（dragDetails 非空;挡 ballistic 越界）
+          _drawerPullBridge.dragging = notification.dragDetails != null;
           if (_headerController.barOffset > 0) {
             _headerController.snapBar(0.0);
           }
         }
         if (notification is ScrollEndNotification) {
           _pageTransitioning = false;
+          _drawerPullBridge.dragging = false;
+          // settle 兜底：向右甩/静止松手走 physics 弹道路径（Page
+          // ScrollPhysics 在 velocity≤0 且贴 minScrollExtent 时委派
+          // parent），拉抽屉中**向左甩**它不委派、自跑 spring——被
+          // 冻结物理第一帧掐死后到达这里，按指针速度收尾（dx 负 =
+          // 向左 = 关）。两路经 pulling 标志互斥不重复。
+          if (_drawerPullBridge.pulling) {
+            _drawerPullBridge.pulling = false;
+            CategoryDrawerHost.settle(
+              notification.dragDetails?.velocity.pixelsPerSecond.dx ?? 0,
+            );
+          }
           // 折叠状态跨 tab 粘滞：胶囊纹丝不动，**列表适配胶囊** ——
           // 胶囊已折叠而新列表比它"浅"（pixels < capsuleOffset）时，
           // 把新列表 jump 到 capsuleOffset（顶部区任何位置视觉相同：
