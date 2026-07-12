@@ -575,6 +575,9 @@ class _TopicPostListState extends State<TopicPostList> {
     final oldIndexMap = _postIndexToScrollIndex;
     _segmentsSourcePosts = posts;
     _segmentsSourceGaps = gaps;
+    // 计时归因:分页落地帧的「build 33ms 无构建记录」嫌疑之一(全量
+    // O(N) 分段与建表)。>4ms 才上报,常态零输出;下份日志定其清白/有罪
+    final segmentsStopwatch = Stopwatch()..start();
 
     final segments = <_PostRenderSegment>[];
     final postIndexToScrollIndex = <int, int>{};
@@ -707,6 +710,14 @@ class _TopicPostListState extends State<TopicPostList> {
     _postIndexToScrollIndex = postIndexToScrollIndex;
     _scrollIndexToPostNumber = scrollIndexToPostNumber;
     _postNumberToIndex = postNumberToIndex;
+    segmentsStopwatch.stop();
+    if (segmentsStopwatch.elapsedMilliseconds >= 4) {
+      FrameJankMonitor.logEvent(
+        'SEGMENTS',
+        '重算 ${posts.length}帖→${segments.length}段 '
+        '${segmentsStopwatch.elapsedMilliseconds}ms',
+      );
+    }
     widget.onScrollIndexMappingChanged?.call(postIndexToScrollIndex);
     widget.onScrollIndexToPostNumberChanged?.call(scrollIndexToPostNumber);
     widget.onPostSegmentRangesChanged?.call(postSegmentRanges);
