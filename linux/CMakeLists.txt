@@ -84,6 +84,17 @@ set_target_properties(${BINARY_NAME}
 # them to the application.
 include(flutter/generated_plugins.cmake)
 
+# quickjs_engine 0.1.1 的 linux 头用了 FLUTTER_PLUGIN_EXPORT 却没带
+# 标准的 #ifdef FLUTTER_PLUGIN_IMPL 宏定义块(上游漏抄插件模板),
+# 其插件库自身(定义了 IMPL,预期 visibility 宏)与 runner 的
+# registrant(预期空宏)编译都会 unknown type name。为两个消费端
+# 分别补上与官方模板 else/if 分支等价的定义;上游修正后可删。
+if(TARGET quickjs_engine_plugin)
+  target_compile_definitions(quickjs_engine_plugin PRIVATE
+    "FLUTTER_PLUGIN_EXPORT=__attribute__((visibility(\"default\")))")
+endif()
+target_compile_definitions(${BINARY_NAME} PRIVATE "FLUTTER_PLUGIN_EXPORT=")
+
 
 # === Installation ===
 # By default, "installing" just makes a relocatable bundle in the build
