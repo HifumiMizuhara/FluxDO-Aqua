@@ -38,6 +38,7 @@ import '../providers/app_state_refresher.dart';
 import '../providers/preferences_provider.dart';
 import '../utils/load_more_coordinator.dart';
 import '../utils/topic_keyword_filter.dart';
+import '../utils/frame_jank_monitor.dart';
 import '../utils/responsive.dart';
 import '../widgets/layout/master_detail_layout.dart';
 import '../widgets/common/error_view.dart';
@@ -1041,6 +1042,8 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
 
   @override
   Widget build(BuildContext context) {
+    // 帧内构建归因:首页整页 rebuild 直接现形(监控关闭零开销)
+    FrameJankMonitor.noteBuild('home:page');
     // 桌面端：注册分类 Tab 切换快捷键（在 build 中确保每次重建都刷新）
     if (PlatformUtils.isDesktop) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1771,6 +1774,8 @@ class _CollapsibleHeader extends StatelessWidget {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
+        // 收放/回弹期间每帧重组 —— 埋点验证它是否落在 jank 帧
+        FrameJankMonitor.noteBuild('home:headerFrame');
         // 三路进度（语义分治）：
         // - 胶囊飞行 p1 = 低通平滑的 morph（rect 插值，快甩不瞬移）
         // - 胶囊行占位 pRow = 收起 1:1/展开平滑（布局与内容严格同
@@ -2914,6 +2919,10 @@ class _TopicListState extends ConsumerState<_TopicList>
                         ),
                         sliver: SliverList.builder(
                           itemCount: topics.length + headerOffset + 1,
+                          // 卡片无 keepalive 需求(无视频/表单/KeepAliveNotification
+                          // 使用者),默认的 AutomaticKeepAlive+_SelectionKeepAlive
+                          // 两层 State 对快滚单卡首建是纯税,关掉
+                          addAutomaticKeepAlives: false,
                           // keyed reconcile:pill 出现/新话题插入/全量替换导致
                           // index 平移时,已有行的 Element/RenderObject 按 key
                           // 迁移,而不是按 index 复用"换脸"(无 key 时视口内
@@ -2944,6 +2953,7 @@ class _TopicListState extends ConsumerState<_TopicList>
                           },
                           itemBuilder: (context, index) {
                             if (hasNewTopics && index == 0) {
+                              FrameJankMonitor.noteBuild('home:pill');
                               return KeyedSubtree(
                                 key: const ValueKey(_pillKeyValue),
                                 child: _buildNewTopicIndicator(
@@ -2980,9 +2990,13 @@ class _TopicListState extends ConsumerState<_TopicList>
 
                             final topic = topics[topicIndex];
                             final rowKey = ValueKey('topic-${topic.id}');
-                            final enableLongPress = ref
-                                .watch(preferencesProvider)
-                                .longPressPreview;
+                            // 用 select:此前每张卡 watch 整个 preferences,
+                            // 任一偏好变化整列表重建,且每卡付依赖注册成本
+                            final enableLongPress = ref.watch(
+                              preferencesProvider.select(
+                                (p) => p.longPressPreview,
+                              ),
+                            );
                             final shouldHighlight = _highlightedTopicIds
                                 .contains(topic.id);
 
