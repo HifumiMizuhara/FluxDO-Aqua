@@ -10,8 +10,8 @@ import '../../../utils/blocked_user_filter.dart';
 import '../../../utils/code_selection_context.dart';
 import '../../../utils/fluxdo_render_callbacks.dart';
 import '../../../utils/frame_jank_monitor.dart';
-import '../../content/collapsed_html_content.dart';
 import '../post_boost/boost_danmaku.dart';
+import '../post_signature_block.dart';
 import '../small_action_item.dart';
 import 'quote_selection_helper.dart';
 import 'render_parse_cache.dart';
@@ -23,6 +23,9 @@ import 'widgets/post_segment_frame.dart';
 class PostItem extends ConsumerStatefulWidget {
   final Post post;
   final int topicId;
+
+  /// 话题分类 id,用于签名的 signatures_show_in_categories 门禁。
+  final int? categoryId;
   final void Function({String? initialContent})? onReply;
 
   /// 头像长按菜单「@用户」回调（null = 不可回复，菜单不显示该项）
@@ -58,6 +61,7 @@ class PostItem extends ConsumerStatefulWidget {
     super.key,
     required this.post,
     required this.topicId,
+    this.categoryId,
     this.onReply,
     this.onMentionUser,
     this.onLike,
@@ -306,38 +310,12 @@ class _PostItemState extends ConsumerState<PostItem> {
               ),
             ),
             // 用户签名
-            if (ref.watch(preferencesProvider).showSignatures &&
-                post.signatureCooked != null &&
-                post.signatureCooked!.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: SelectionContainer.disabled(
-                  child: Container(
-                    padding: const EdgeInsets.only(top: 8),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        top: BorderSide(
-                          color: theme.colorScheme.outlineVariant.withValues(
-                            alpha: 0.3,
-                          ),
-                          width: 0.5,
-                        ),
-                      ),
-                    ),
-                    child: CollapsedHtmlContent(
-                      html: post.signatureCooked!,
-                      textStyle: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant.withValues(
-                          alpha: 0.6,
-                        ),
-                        fontSize: 12,
-                        height: 1.4,
-                      ),
-                      maxLines: 2,
-                    ),
-                  ),
-                ),
-              ),
+            if (PostSignatureBlock.shouldRender(
+              ref,
+              post,
+              categoryId: widget.categoryId,
+            ))
+              PostSignatureBlock(post: post, categoryId: widget.categoryId),
             // 举报隐藏帖子：显示展开按钮
             if (post.cookedHidden &&
                 post.canSeeHiddenPost &&

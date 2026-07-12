@@ -62,6 +62,79 @@ class SvgUtils {
     return result;
   }
 
+  /// 移除不可信 SVG 中的主动内容（防注入）。
+  ///
+  /// full_svg_flutter 会真实执行 `<script>`（QuickJS），包括拉取并执行
+  /// src 指向的外部脚本；`<image href="file://...">` 会读本地文件。
+  /// 论坛签名/帖子里的 SVG 是不可信输入，进动画渲染管线前必须剥除：
+  /// - `<script>` 元素（含外链 src 变体）
+  /// - `on*` 事件属性（onload/onclick/...，会接进 JS 事件注册表）
+  /// - `file:` / `javascript:` 协议的 href/xlink:href
+  ///
+  /// 有意保留 `<style>`/filter/动画（这正是走 full_svg_flutter 的原因）。
+  static String stripActiveContent(String svg) {
+    var result = svg.replaceAll(_scriptPattern, '');
+    result = result.replaceAll(_eventAttrPattern, '');
+    result = result.replaceAll(_dangerousHrefPattern, '');
+    return result;
+  }
+
+  static final RegExp _scriptPattern = RegExp(
+    r'<script\b[^>]*>.*?</script>|<script\b[^>]*/>',
+    caseSensitive: false,
+    dotAll: true,
+  );
+
+  static final RegExp _eventAttrPattern = RegExp(
+    '''\\son[a-z]+\\s*=\\s*("[^"]*"|'[^']*')''',
+    caseSensitive: false,
+  );
+
+  static final RegExp _dangerousHrefPattern = RegExp(
+    '''\\s(?:xlink:)?href\\s*=\\s*("\\s*(?:file|javascript)\\s*:[^"]*"'''
+    """|'\\s*(?:file|javascript)\\s*:[^']*')""",
+    caseSensitive: false,
+  );
+
+  /// 按目标主题求值 `@media (prefers-color-scheme: ...)` 块。
+  ///
+  /// 渲染引擎(jovial / full_svg_flutter)都不求值媒询——暗色规则整块
+  /// 被丢,SVG 永远渲染成亮色。此变换在喂给引擎前做浏览器同款求值:
+  /// 命中当前主题的块**展开**为普通规则(参与正常级联),不命中的块
+  /// **删除**。花括号配平扫描,块内嵌套规则安全。
+  static String resolveColorSchemeMedia(String svg, {required bool dark}) {
+    final mediaOpen = RegExp(r'@media\s*([^{]*)\{', caseSensitive: false);
+    final scheme = RegExp(r'prefers-color-scheme\s*:\s*(dark|light)');
+    StringBuffer? buf;
+    var pos = 0;
+    for (final m in mediaOpen.allMatches(svg)) {
+      if (m.start < pos) continue; // 已被前一个块消费
+      final schemeMatch = scheme.firstMatch(m.group(1)!.toLowerCase());
+      if (schemeMatch == null) continue; // 非主题媒询,原样保留
+      // 花括号配平找块尾
+      var depth = 1;
+      var i = m.end;
+      while (i < svg.length && depth > 0) {
+        final c = svg.codeUnitAt(i);
+        if (c == 0x7B) {
+          depth++;
+        } else if (c == 0x7D) {
+          depth--;
+        }
+        i++;
+      }
+      buf ??= StringBuffer();
+      buf.write(svg.substring(pos, m.start));
+      if ((schemeMatch.group(1) == 'dark') == dark) {
+        buf.write(svg.substring(m.end, i - 1)); // 展开块内规则
+      }
+      pos = i;
+    }
+    if (buf == null) return svg;
+    buf.write(svg.substring(pos));
+    return buf.toString();
+  }
+
   /// 移除 `<filter>` 元素和相关属性引用
   static String _removeFilters(String content) {
     String result = content;

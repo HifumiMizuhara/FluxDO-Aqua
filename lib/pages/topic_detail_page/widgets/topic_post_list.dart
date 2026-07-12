@@ -1161,6 +1161,7 @@ class _TopicPostListState extends State<TopicPostList> {
         Widget buildShortPost() => PostItem(
           post: post,
           topicId: detail.id,
+          categoryId: detail.categoryId,
           selected: isSelectedPost,
           highlight: highlight,
           highlightBoostUsername: boostUsername,
@@ -1289,6 +1290,7 @@ class _TopicPostListState extends State<TopicPostList> {
         child = LongPostFooterSegment(
           post: post,
           topicId: detail.id,
+          categoryId: detail.categoryId,
           selected: isSelectedPost,
           highlight: highlight,
           highlightBoostUsername: boostUsername,

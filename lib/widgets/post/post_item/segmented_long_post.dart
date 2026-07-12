@@ -5,11 +5,10 @@ import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html_parser;
 import '../../../l10n/s.dart';
 import '../../../models/topic.dart';
-import '../../../providers/preferences_provider.dart';
 import '../../../utils/frame_jank_monitor.dart';
 import '../../../services/toast_service.dart';
 import '../../../utils/fluxdo_render_callbacks.dart';
-import '../../content/collapsed_html_content.dart';
+import '../post_signature_block.dart';
 import 'quote_selection_helper.dart';
 import 'render_parse_cache.dart';
 import 'widgets/post_footer_section/post_footer_section.dart';
@@ -337,6 +336,9 @@ class LongPostHeaderSegment extends StatelessWidget {
 class LongPostFooterSegment extends ConsumerWidget {
   final Post post;
   final int topicId;
+
+  /// 话题分类 id,用于签名的 signatures_show_in_categories 门禁。
+  final int? categoryId;
   final bool selected;
   final bool highlight;
   final bool topicHasAcceptedAnswer;
@@ -362,6 +364,7 @@ class LongPostFooterSegment extends ConsumerWidget {
     super.key,
     required this.post,
     required this.topicId,
+    this.categoryId,
     required this.selected,
     required this.highlight,
     this.highlightBoostUsername,
@@ -385,8 +388,6 @@ class LongPostFooterSegment extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     FrameJankMonitor.noteBuild('ftr#${post.postNumber}');
-    final theme = Theme.of(context);
-    final showSignatures = ref.watch(preferencesProvider).showSignatures;
     return PostSegmentFrame(
       post: post,
       selected: selected,
@@ -396,35 +397,14 @@ class LongPostFooterSegment extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (showSignatures &&
-              post.signatureCooked != null &&
-              post.signatureCooked!.isNotEmpty)
+          if (PostSignatureBlock.shouldRender(
+            ref,
+            post,
+            categoryId: categoryId,
+          ))
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: Container(
-                padding: const EdgeInsets.only(top: 8),
-                decoration: BoxDecoration(
-                  border: Border(
-                    top: BorderSide(
-                      color: theme.colorScheme.outlineVariant.withValues(
-                        alpha: 0.3,
-                      ),
-                      width: 0.5,
-                    ),
-                  ),
-                ),
-                child: CollapsedHtmlContent(
-                  html: post.signatureCooked!,
-                  textStyle: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant.withValues(
-                      alpha: 0.6,
-                    ),
-                    fontSize: 12,
-                    height: 1.4,
-                  ),
-                  maxLines: 2,
-                ),
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: PostSignatureBlock(post: post, categoryId: categoryId),
             ),
           SelectionContainer.disabled(
             child: PostFooterSection(

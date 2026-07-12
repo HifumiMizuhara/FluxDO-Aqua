@@ -10,6 +10,7 @@ import '../utils/double_tap_zoom_controller.dart';
 import '../utils/hero_visibility_controller.dart';
 import '../utils/screenshot_utils.dart';
 import '../utils/svg_utils.dart';
+import '../widgets/content/animated_svg_view.dart';
 import 'package:cross_file/cross_file.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1151,6 +1152,7 @@ class _ImageDecodeFallback extends StatefulWidget {
 
 class _ImageDecodeFallbackState extends State<_ImageDecodeFallback> {
   ScalableImage? _svgSi;
+  String? _animatedSvgSource;
   bool _checked = false;
   bool _isSvg = false;
   bool _isAvif = false;
@@ -1170,7 +1172,19 @@ class _ImageDecodeFallbackState extends State<_ImageDecodeFallback> {
 
       // 1. 先检测 SVG
       if (_isSvgContent(bytes)) {
-        final svgString = SvgUtils.sanitize(String.fromCharCodes(bytes));
+        final raw = SvgUtils.decodeSvgBytes(bytes);
+        // 动画 SVG 走 full_svg_flutter;查看器是用户主动打开的单图,直接播
+        if (AnimatedSvgView.hasAnimations(raw)) {
+          if (mounted) {
+            setState(() {
+              _animatedSvgSource = raw;
+              _isSvg = true;
+              _checked = true;
+            });
+          }
+          return;
+        }
+        final svgString = SvgUtils.sanitize(raw);
         final si = ScalableImage.fromSvgString(svgString, warnF: (_) {});
         if (mounted) {
           setState(() {
@@ -1237,6 +1251,16 @@ class _ImageDecodeFallbackState extends State<_ImageDecodeFallback> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isSvg && _animatedSvgSource != null) {
+      return Center(
+        child: AnimatedSvgView(
+          svgSource: _animatedSvgSource!,
+          alignment: Alignment.center,
+          autoPlay: true,
+        ),
+      );
+    }
+
     if (_isSvg && _svgSi != null) {
       return Center(
         child: ScalableImageWidget(si: _svgSi!, fit: BoxFit.contain),

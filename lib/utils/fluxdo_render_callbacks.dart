@@ -32,10 +32,13 @@ import '../services/media_compat_service.dart';
 import '../services/toast_service.dart';
 import '../utils/discourse_url_parser.dart';
 import '../utils/link_launcher.dart';
+import '../utils/svg_utils.dart';
 import '../utils/url_helper.dart';
 import '../widgets/common/image_context_menu.dart';
 import '../widgets/common/smart_avatar.dart';
+import '../widgets/content/animated_svg_view.dart';
 import '../widgets/content/audio/discourse_audio_player.dart';
+import '../widgets/content/svg_view.dart';
 import '../widgets/content/discourse_html_content/builders/iframe_builder.dart'
     show IframeWidget, IframeAttributes;
 import '../widgets/content/discourse_html_content/builders/image_carousel_builder.dart'
@@ -1107,8 +1110,9 @@ class FluxdoRenderCallbacks {
           dispW = lbc.maxWidth;
         }
         if (isSvg) {
-          // SVG 走 jovial_svg;外包 GestureDetector 支持长按/右键菜单
-          // (对齐 legacy discourse_widget_factory buildGalleryImage 的 SVG 分支)。
+          // SVG 统一走 DiscourseSvgView(内容嗅探动画:静态 jovial_svg,
+          // 动画 full_svg_flutter 首帧快照+点击播放);外包 GestureDetector
+          // 支持长按/右键菜单(对齐 legacy buildGalleryImage 的 SVG 分支)。
           return Builder(
             builder: (svgCtx) => GestureDetector(
               onLongPress: () => _showImageContextMenu(
@@ -1131,21 +1135,15 @@ class FluxdoRenderCallbacks {
               child: SizedBox(
                 width: dispW,
                 height: dispH,
-                child: ScalableImageWidget.fromSISource(
-                  si: ScalableImageSource.fromSvgHttpUrl(Uri.parse(resolvedUrl)),
-                  fit: BoxFit.contain,
-                  onLoading: (ctx) => const SizedBox(
+                child: DiscourseSvgView(
+                  url: resolvedUrl,
+                  width: dispW,
+                  height: dispH,
+                  placeholderBuilder: (_) => const SizedBox(
                     width: 24,
                     height: 24,
-                    child:
-                        Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                  ),
-                  onError: (ctx) => Builder(
-                    builder: (ctx) => Icon(
-                      Symbols.broken_image_rounded,
-                      size: 24,
-                      color: Theme.of(ctx).colorScheme.outline,
-                    ),
+                    child: Center(
+                        child: CircularProgressIndicator(strokeWidth: 2)),
                   ),
                 ),
               ),
@@ -1300,30 +1298,50 @@ class FluxdoRenderCallbacks {
   /// 逐字对齐 legacy `_buildInlineSvg`(discourse_html_content_widget.dart):
   /// 解析失败 / viewport 非法 → SizedBox.shrink();否则 LayoutBuilder 取可用宽,
   /// 按 viewport 宽高比算高,SizedBox + ScalableImageWidget(fit: contain)。
+  ///
+  /// 含动画的 SVG(CSS @keyframes/SMIL,jovial 渲染会所有帧叠加糊成一团)
+  /// 路由到 AnimatedSvgView(full_svg_flutter,首帧快照 + 点击播放,
+  /// 组件自持 viewBox 宽高比)。
+  ///
+  /// prefers-color-scheme 媒询按当前主题预求值(引擎不认媒询,
+  /// 不求值则暗色规则整块丢失,永远渲染亮色)。
   static Widget _buildInlineSvgFromSource(String svgSource) {
     if (svgSource.trim().isEmpty) return const SizedBox.shrink();
-    final ScalableImage si;
-    try {
-      si = ScalableImage.fromSvgString(svgSource, warnF: (_) {});
-    } catch (_) {
-      return const SizedBox.shrink();
-    }
-    final viewport = si.viewport;
-    if (viewport.width <= 0 || viewport.height <= 0) {
-      return const SizedBox.shrink();
-    }
-    final aspectRatio = viewport.width / viewport.height;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final availableWidth = constraints.maxWidth.isFinite
-            ? constraints.maxWidth
-            : MediaQuery.of(context).size.width - 32;
-        final displayWidth = availableWidth;
-        final displayHeight = displayWidth / aspectRatio;
-        return SizedBox(
-          width: displayWidth,
-          height: displayHeight,
-          child: ScalableImageWidget(si: si, fit: BoxFit.contain),
+
+    return Builder(
+      builder: (context) {
+        final dark = Theme.of(context).brightness == Brightness.dark;
+        final resolved =
+            SvgUtils.resolveColorSchemeMedia(svgSource, dark: dark);
+
+        if (AnimatedSvgView.hasAnimations(resolved)) {
+          return AnimatedSvgView(svgSource: resolved);
+        }
+
+        final ScalableImage si;
+        try {
+          si = ScalableImage.fromSvgString(resolved, warnF: (_) {});
+        } catch (_) {
+          return const SizedBox.shrink();
+        }
+        final viewport = si.viewport;
+        if (viewport.width <= 0 || viewport.height <= 0) {
+          return const SizedBox.shrink();
+        }
+        final aspectRatio = viewport.width / viewport.height;
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final availableWidth = constraints.maxWidth.isFinite
+                ? constraints.maxWidth
+                : MediaQuery.of(context).size.width - 32;
+            final displayWidth = availableWidth;
+            final displayHeight = displayWidth / aspectRatio;
+            return SizedBox(
+              width: displayWidth,
+              height: displayHeight,
+              child: ScalableImageWidget(si: si, fit: BoxFit.contain),
+            );
+          },
         );
       },
     );

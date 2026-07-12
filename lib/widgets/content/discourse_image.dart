@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:jovial_svg/jovial_svg.dart';
 import '../../services/discourse/discourse_service.dart';
 import '../../services/discourse_cache_manager.dart';
 import '../../pages/image_viewer_page.dart';
-import '../../utils/svg_utils.dart';
+import 'svg_view.dart';
 
 /// Discourse 图片组件
 ///
@@ -25,6 +24,13 @@ class DiscourseImage extends StatefulWidget {
   final List<String> galleryImages;
   final int initialIndex;
 
+  /// 加载/解码失败时的替代 UI;不传用默认破图占位。
+  final WidgetBuilder? errorBuilder;
+
+  /// 加载中的占位 UI;不传用默认 spinner 块。
+  /// 浏览器语义场景(无尺寸 img 加载中零占位)传 SizedBox.shrink。
+  final WidgetBuilder? placeholderBuilder;
+
   const DiscourseImage({
     super.key,
     required this.url,
@@ -35,6 +41,8 @@ class DiscourseImage extends StatefulWidget {
     this.heroTag,
     this.galleryImages = const [],
     this.initialIndex = 0,
+    this.errorBuilder,
+    this.placeholderBuilder,
   });
 
   @override
@@ -45,9 +53,6 @@ class _DiscourseImageState extends State<DiscourseImage> {
   String? _resolvedUrl;
   bool _isLoading = true;
   bool _hasError = false;
-
-  /// 缓存解析后的 ScalableImage，避免每次 build 都重新执行 getSingleFile() SQLite 查询
-  ScalableImage? _svgSi;
 
   static final DiscourseCacheManager _cacheManager = DiscourseCacheManager();
 
@@ -61,7 +66,6 @@ class _DiscourseImageState extends State<DiscourseImage> {
   void didUpdateWidget(DiscourseImage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.url != widget.url) {
-      _svgSi = null;
       _resolveUrl();
     }
   }
@@ -188,7 +192,16 @@ class _DiscourseImageState extends State<DiscourseImage> {
       fadeInDuration: const Duration(milliseconds: 200),
       fadeOutDuration: const Duration(milliseconds: 200),
       placeholder: (context, url) => _buildPlaceholder(theme),
-      errorWidget: (context, url, error) => _buildErrorWidget(theme),
+      // 解码失败兜底:无 .svg 扩展名的 SVG(动态徽章服务等)按字节
+      // 嗅探转入统一 SVG 管线;非 SVG 才显示破图。
+      errorWidget: (context, url, error) => SvgSniffFallback(
+        url: url,
+        width: widget.width,
+        height: widget.height,
+        fit: widget.fit,
+        placeholderBuilder: widget.placeholderBuilder,
+        brokenBuilder: (_) => _buildErrorWidget(theme),
+      ),
       memCacheWidth: memCacheWidth,
       memCacheHeight: widget.height != null
           ? (widget.height! * dpr).toInt()
@@ -197,42 +210,21 @@ class _DiscourseImageState extends State<DiscourseImage> {
   }
 
   Widget _buildSvgImage(ThemeData theme) {
-    // 已缓存 ScalableImage 则直接渲染
-    if (_svgSi != null) {
-      final siWidth = widget.width ?? _svgSi!.viewport.width;
-      final siHeight = widget.height ?? _svgSi!.viewport.height;
-      return SizedBox(
-        width: siWidth,
-        height: siHeight,
-        child: ScalableImageWidget(si: _svgSi!, fit: widget.fit),
-      );
-    }
-
-    // 首次加载：异步获取文件并缓存结果
-    _loadSvgContent();
-    return _buildPlaceholder(theme);
-  }
-
-  Future<void> _loadSvgContent() async {
-    try {
-      final file = await _cacheManager.getSingleFile(_resolvedUrl!);
-      var content = await file.readAsString();
-      content = SvgUtils.sanitize(content);
-      final si = ScalableImage.fromSvgString(content, warnF: (_) {});
-
-      if (mounted) {
-        setState(() {
-          _svgSi = si;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _hasError = true);
-      }
-    }
+    // 统一走 DiscourseSvgView:内容嗅探动画,静态 jovial_svg /
+    // 动画 full_svg_flutter(首帧快照 + 点击播放 + 防注入)。
+    return DiscourseSvgView(
+      url: _resolvedUrl!,
+      width: widget.width,
+      height: widget.height,
+      fit: widget.fit,
+      placeholderBuilder: (_) => _buildPlaceholder(theme),
+      errorBuilder: (_) => _buildErrorWidget(theme),
+    );
   }
 
   Widget _buildPlaceholder(ThemeData theme) {
+    final custom = widget.placeholderBuilder;
+    if (custom != null) return custom(context);
     return Container(
       width: widget.width,
       height: widget.height ?? 100,
@@ -254,6 +246,8 @@ class _DiscourseImageState extends State<DiscourseImage> {
   }
 
   Widget _buildErrorWidget(ThemeData theme) {
+    final custom = widget.errorBuilder;
+    if (custom != null) return custom(context);
     return Container(
       width: widget.width,
       height: widget.height ?? 60,

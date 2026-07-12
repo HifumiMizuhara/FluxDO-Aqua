@@ -269,6 +269,32 @@ class PreloadedDataService {
     return _siteSettings?['ai_embeddings_semantic_search_enabled'] == true;
   }
 
+  // ---- discourse-signatures 插件开关（均为 client:true，preload 可读）----
+  // 同步读取：签名渲染在 build 中门禁，preload 未就绪时按插件未启用处理。
+
+  /// 服务端签名总开关（signatures_enabled）。未加载/无插件时为 false。
+  bool get signaturesEnabled => _siteSettings?['signatures_enabled'] == true;
+
+  /// advanced 模式：user_signature 为 cooked HTML；否则为图片 URL。
+  bool get signaturesAdvancedMode =>
+      _siteSettings?['signatures_advanced_mode'] == true;
+
+  /// 图片签名（URL 模式）的最大显示高度，默认 150。
+  double get signaturesMaxImageHeight =>
+      (_siteSettings?['signatures_max_image_height'] as num?)?.toDouble() ??
+      150;
+
+  /// 仅在每层主楼（post_number == 1）显示签名。
+  bool get signaturesFirstPostOnly =>
+      _siteSettings?['signatures_first_post_only'] == true;
+
+  /// 限定显示签名的分类 id 列表；空列表 = 不限分类。
+  List<int> get signaturesShowInCategories {
+    final raw = _siteSettings?['signatures_show_in_categories'] as String?;
+    if (raw == null || raw.isEmpty) return const [];
+    return raw.split('|').map(int.tryParse).whereType<int>().toList();
+  }
+
   /// 获取可用的回应表情列表
   Future<List<String>> getEnabledReactions() async {
     await _ensureLoaded();

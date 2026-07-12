@@ -80,6 +80,33 @@ subprojects {
                 dependsOn(patchTask)
             }
         }
+
+        // 5. quickjs_engine 0.1.1 的 CMake 漏链 NDK liblog,bridge 源码却用
+        //    __android_log_print → arm64 release 链接 undefined symbol。
+        //    经 gradle 给 CMake 注入链接参数补 -llog,不改 pub 缓存内容。
+        if (project.name == "quickjs_engine") {
+            extensions.findByName("android")?.let { androidExt ->
+                try {
+                    val defaultConfig = androidExt.javaClass
+                        .getMethod("getDefaultConfig")
+                        .invoke(androidExt)
+                    val externalNativeBuild = defaultConfig.javaClass
+                        .getMethod("getExternalNativeBuild")
+                        .invoke(defaultConfig)
+                    val cmake = externalNativeBuild.javaClass
+                        .getMethod("getCmake")
+                        .invoke(externalNativeBuild)
+                    @Suppress("UNCHECKED_CAST")
+                    val arguments = cmake.javaClass
+                        .getMethod("getArguments")
+                        .invoke(cmake) as MutableList<String>
+                    arguments.add("-DCMAKE_SHARED_LINKER_FLAGS=-llog")
+                    logger.lifecycle("Patched quickjs_engine: link NDK liblog")
+                } catch (e: Exception) {
+                    logger.warn("quickjs_engine liblog patch failed: $e")
+                }
+            }
+        }
     }
 }
 subprojects {

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
+import '../../../services/media_geometry_memo.dart';
 import '../../../utils/image_paint_gate.dart';
 import '../../common/anchor_guard_sliver.dart';
 import '../../common/hero_image.dart';
+import '../svg_view.dart';
 
 /// 帖子正文内容图组件:固定占位尺寸 + 解码分辨率约束 + 重绘隔离 + Hero。
 ///
@@ -148,14 +150,16 @@ class _LazyImageState extends State<LazyImage> {
       createLocalImageConfiguration(context),
     );
     void onImage(ImageInfo info, bool synchronousCall) {
-      final ratio = info.image.height == 0
-          ? null
-          : info.image.width / info.image.height;
+      final imgW = info.image.width.toDouble();
+      final imgH = info.image.height.toDouble();
       info.dispose();
+      final ratio = imgH == 0 ? null : imgW / imgH;
       if (ratio == null) return;
       final key = widget.cacheKey;
       if (key != null && key.isNotEmpty) {
         _knownAspectRatios[key] = ratio;
+        // 持久备忘:冷启动后首次挂载也能加载前预留精确高度
+        MediaGeometryMemo.remember(key, imgW, imgH);
       }
       // 首帧已到,后续动图帧不再需要
       _stopRatioResolve();
@@ -309,7 +313,7 @@ class _LazyImageState extends State<LazyImage> {
         );
       },
       errorBuilder: (context, error, stackTrace) {
-        return Container(
+        Widget broken(BuildContext ctx) => Container(
           width: width,
           height: height ?? 200,
           alignment: Alignment.center,
@@ -325,6 +329,19 @@ class _LazyImageState extends State<LazyImage> {
             size: 32,
           ),
         );
+        // 解码失败兜底:无 .svg 扩展名的 SVG(动态徽章服务等)会流到
+        // 这里,按字节嗅探转入统一 SVG 管线;非 SVG 才显示破图。
+        final url = widget.cacheKey;
+        if (url != null && url.startsWith('http')) {
+          return SvgSniffFallback(
+            url: url,
+            width: width,
+            height: height,
+            fit: widget.fit,
+            brokenBuilder: broken,
+          );
+        }
+        return broken(context);
       },
     );
 
@@ -348,11 +365,20 @@ class _LazyImageState extends State<LazyImage> {
     }
 
     // 无声明尺寸:有实测/记忆比例就以其占位 —— 重访(回收后重建)首帧
-    // 即终态高度,SliverList 记账一致,不再触发回滚时的 correction 回跳
-    final knownRatio = _resolvedRatio ??
-        ((widget.cacheKey != null && widget.cacheKey!.isNotEmpty)
-            ? _knownAspectRatios[widget.cacheKey!]
-            : null);
+    // 即终态高度,SliverList 记账一致,不再触发回滚时的 correction 回跳。
+    // 会话记忆 → 持久备忘(冷启动后首次挂载也命中)依次回退。
+    var knownRatio = _resolvedRatio;
+    final memoKey = widget.cacheKey;
+    if (knownRatio == null && memoKey != null && memoKey.isNotEmpty) {
+      knownRatio = _knownAspectRatios[memoKey];
+      if (knownRatio == null) {
+        final memo = MediaGeometryMemo.peek(memoKey);
+        if (memo != null && memo.$2 > 0) {
+          knownRatio = memo.$1 / memo.$2;
+          _knownAspectRatios[memoKey] = knownRatio;
+        }
+      }
+    }
     if (knownRatio != null && knownRatio > 0) {
       return AspectRatio(aspectRatio: knownRatio, child: imageWidget);
     }

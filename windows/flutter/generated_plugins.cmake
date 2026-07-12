@@ -15,6 +15,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   flutter_timezone
   gal
   irondash_engine_context
+  quickjs_engine
   screen_retriever_windows
   share_plus
   super_native_extensions

@@ -9,6 +9,7 @@ import '../../l10n/s.dart';
 import '../../pages/topic_detail_page/widgets/progress_gesture_action_meta.dart';
 import '../../pages/topic_detail_page/widgets/progress_gesture_menu_settings_page.dart';
 import '../../providers/preferences_provider.dart';
+import '../../services/preloaded_data_service.dart';
 import '../settings_model.dart';
 
 /// 阅读设置数据声明
@@ -95,15 +96,17 @@ List<SettingsGroup> buildReadingGroups(BuildContext context) {
           onChanged: (ref, v) =>
               ref.read(preferencesProvider.notifier).setExpandRelatedLinks(v),
         ),
-        SwitchModel(
-          id: 'showSignatures',
-          title: l10n.reading_showSignatures,
-          subtitle: l10n.reading_showSignaturesDesc,
-          icon: Symbols.draw_rounded,
-          getValue: (ref) => ref.watch(preferencesProvider).showSignatures,
-          onChanged: (ref, v) =>
-              ref.read(preferencesProvider.notifier).setShowSignatures(v),
-        ),
+        // 服务端未启用签名插件时隐藏该开关
+        if (PreloadedDataService().signaturesEnabled)
+          SwitchModel(
+            id: 'showSignatures',
+            title: l10n.reading_showSignatures,
+            subtitle: l10n.reading_showSignaturesDesc,
+            icon: Symbols.draw_rounded,
+            getValue: (ref) => ref.watch(preferencesProvider).showSignatures,
+            onChanged: (ref, v) =>
+                ref.read(preferencesProvider.notifier).setShowSignatures(v),
+          ),
         CustomModel(
           id: 'bookmarksOpenMode',
           title: l10n.reading_bookmarksOpenMode,

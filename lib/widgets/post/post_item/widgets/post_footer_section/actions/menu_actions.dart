@@ -295,6 +295,33 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
                     );
                   },
                 ),
+                // 复制签名(user_signature:advanced 模式为 HTML,否则为图片 URL)
+                if (widget.post.effectiveSignature != null)
+                  ListTile(
+                    leading: Icon(
+                      Symbols.bug_report_rounded,
+                      color: theme.colorScheme.tertiary,
+                    ),
+                    title: Text(
+                      'Copy signature',
+                      style: TextStyle(color: theme.colorScheme.tertiary),
+                    ),
+                    subtitle: Text(
+                      'debug: ${widget.post.effectiveSignature!.length} chars',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      final signature = widget.post.effectiveSignature!;
+                      await Clipboard.setData(ClipboardData(text: signature));
+                      ToastService.showSuccess(
+                        '签名已复制 (${signature.length} chars)',
+                      );
+                    },
+                  ),
               ],
               const Divider(height: 1, indent: 16, endIndent: 16),
               ListTile(

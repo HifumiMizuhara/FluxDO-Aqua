@@ -12,8 +12,8 @@ import '../../utils/blocked_user_filter.dart';
 import '../../utils/fluxdo_render_callbacks.dart';
 import '../../utils/responsive.dart';
 import '../../utils/time_utils.dart';
-import '../content/collapsed_html_content.dart';
 import '../post/post_item/widgets/post_footer_section/post_footer_section.dart';
+import '../post/post_signature_block.dart';
 import '../common/radial_long_press_menu.dart';
 import '../common/smart_avatar.dart';
 import '../user/avatar_action_menu.dart';
@@ -551,35 +551,16 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
           selectionEnabled: false,
         ),
         // 用户签名
-        if (ref.watch(preferencesProvider).showSignatures &&
-            post.signatureCooked != null &&
-            post.signatureCooked!.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Container(
-              padding: const EdgeInsets.only(top: 6),
-              decoration: BoxDecoration(
-                border: Border(
-                  top: BorderSide(
-                    color: theme.colorScheme.outlineVariant.withValues(
-                      alpha: 0.3,
-                    ),
-                    width: 0.5,
-                  ),
-                ),
-              ),
-              child: CollapsedHtmlContent(
-                html: post.signatureCooked!,
-                textStyle: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant.withValues(
-                    alpha: 0.6,
-                  ),
-                  fontSize: 11,
-                  height: 1.4,
-                ),
-                maxLines: 2,
-              ),
-            ),
+        if (PostSignatureBlock.shouldRender(
+          ref,
+          post,
+          categoryId: widget.detail.categoryId,
+        ))
+          PostSignatureBlock(
+            post: post,
+            categoryId: widget.detail.categoryId,
+            fontSize: 11,
+            spacing: 6,
           ),
         // 完整操作栏（复用 PostFooterSection，隐藏回复展开按钮）
         PostFooterSection(

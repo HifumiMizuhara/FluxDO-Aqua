@@ -152,6 +152,7 @@ class _NestedPostListState extends ConsumerState<NestedPostList> {
               child: PostItem(
                 post: opPost,
                 topicId: widget.topicId,
+                categoryId: widget.detail.categoryId,
                 isTopicOwner: true,
                 topicHasAcceptedAnswer: widget.detail.hasAcceptedAnswer,
                 acceptedAnswers: widget.detail.acceptedAnswers,
