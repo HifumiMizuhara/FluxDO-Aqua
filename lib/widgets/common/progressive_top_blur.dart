@@ -163,8 +163,14 @@ class _ProgressiveTopBlurState extends State<ProgressiveTopBlur> {
           // σ1.2 恰好抹平噪粒成真雾,对内容只是极轻软化。
           // blur 必须在 outer(无坐标语义,不踩中间纹理基准坑),
           // shader 必须在 inner(输入=原 backdrop,fragCoord 基准
-          // 正确)—— 顺序反过来就是"顶透中糊底硬切"事故
-          outer: ui.ImageFilter.blur(sigmaX: 1.2, sigmaY: 1.2),
+          // 正确)—— 顺序反过来就是"顶透中糊底硬切"事故。
+          // TileMode.clamp:顶边模糊核越界默认混透明(decal),
+          // 暗色下屏幕最顶会有一条"没模糊的线"
+          outer: ui.ImageFilter.blur(
+            sigmaX: 1.2,
+            sigmaY: 1.2,
+            tileMode: ui.TileMode.clamp,
+          ),
           inner: ui.ImageFilter.shader(shader),
         ),
         child: const SizedBox.expand(),
