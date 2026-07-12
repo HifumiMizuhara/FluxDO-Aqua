@@ -8,6 +8,7 @@ import '../../../../providers/preferences_provider.dart';
 import 'package:dio/dio.dart';
 import '../../../../services/app_error_handler.dart';
 import '../../../../services/discourse/discourse_service.dart';
+import '../../../../utils/frame_jank_monitor.dart';
 import '../../../common/relative_time_text.dart';
 import '../../post_revision/edits_indicator.dart';
 import '../../post_revision/revision_modal.dart';
@@ -165,6 +166,9 @@ class _PostHeaderSectionState extends ConsumerState<PostHeaderSection> {
 
   @override
   Widget build(BuildContext context) {
+    // 帖内构成归因:单帖首建 6~20ms 的大头在 header/footer/正文哪块,
+    // 由本帧清单直接点名(监控关闭零开销)
+    FrameJankMonitor.noteBuild('pHdr#${widget.post.postNumber}');
     final theme = Theme.of(context);
     final post = widget.post;
     final currentUser = ref.read(currentUserProvider).value;

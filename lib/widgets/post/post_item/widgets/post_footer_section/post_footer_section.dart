@@ -12,6 +12,7 @@ import '../../../../../modules/ldc_reward/ldc_reward.dart';
 import '../../../../../providers/discourse_providers.dart';
 import '../../../../../providers/preferences_provider.dart';
 import '../../../../../utils/blocked_user_filter.dart';
+import '../../../../../utils/frame_jank_monitor.dart';
 import 'package:dio/dio.dart';
 import '../../../../../services/app_error_handler.dart';
 import '../../../../../services/discourse/discourse_service.dart';
@@ -494,6 +495,9 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
 
   @override
   Widget build(BuildContext context) {
+    // 帖内构成归因:与 pHdr 配对,点名单帖固定成本的大头(操作栏/boost
+    // 列表在 footer;监控关闭零开销)
+    FrameJankMonitor.noteBuild('pFtr#${widget.post.postNumber}');
     final theme = Theme.of(context);
     final currentUser = ref.read(currentUserProvider).value;
     final isOwnPost =
