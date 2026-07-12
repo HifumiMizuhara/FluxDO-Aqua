@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io' show Platform;
+import 'dart:ui' as ui show lerpDouble;
 
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/gestures.dart';
@@ -130,6 +131,18 @@ class _HeaderCollapseController extends ChangeNotifier {
   bool _locked;
   double _lastReportedVisibility = 1.0;
 
+  /// 本次手势/滚轮会话起点的列表位置与工具段收起量（ScrollStart
+  /// (drag)/滚轮会话首事件写入）。顶带吸附按起点分治迟滞;工具段
+  /// 回滚判定需要起点收起量（区分"收起态被蹭开"与"展开态收到一半"，
+  /// 见 _settleBarAfterScroll）。
+  double gestureStartPixels = 0.0;
+  double gestureStartBarOffset = 0.0;
+
+  void noteGestureStart(double pixels) {
+    gestureStartPixels = pixels;
+    gestureStartBarOffset = _barOffset;
+  }
+
   // —— 胶囊 morph 弹簧跟随器 ——
   // morph 若被滚动 1:1 擦洗，整段飞行只映射在头 48px 滚动距离里：快甩
   // 两三帧滚完 = 胶囊瞬移进角落;方向微抖 = 整段横飞反复。跟随器让
@@ -141,8 +154,20 @@ class _HeaderCollapseController extends ChangeNotifier {
   Duration? _lastMorphTick;
 
   /// 平滑后的胶囊 morph 进度（0=整行胶囊，1=落位图标）。
-  /// 胶囊 rect/落位 spacer/胶囊行占位高度统一以此驱动。
+  /// **只驱动胶囊 rect 飞行与落位 spacer**（快甩不瞬移）;布局占位
+  /// 用 [rowProgress]。
   double get morphProgress => _morph;
+
+  /// 胶囊行**布局**进度：收起方向跟随滚动位置 1:1（raw），展开方向
+  /// 跟随 morph 弹簧（平滑）。收起时行高与内容严格同步 —— 内容顶边
+  /// 全程贴着头部下缘 8px 呼吸位滑行，首卡圆角"顶上去"清晰可见
+  /// （行高若吃 morph 平滑值，快收时行还没让开、内容已到，被下缘
+  /// 直线拦腰斩 = "动画开始就是直角线"）;展开时内容在远离下缘，
+  /// 平滑无副作用。
+  double get rowProgress {
+    final raw = (_capsuleOffset / _capsuleRowHeight).clamp(0.0, 1.0);
+    return raw > _morph ? raw : _morph;
+  }
 
   double get _morphTarget =>
       (_capsuleOffset / _capsuleRowHeight).clamp(0.0, 1.0);
@@ -193,6 +218,10 @@ class _HeaderCollapseController extends ChangeNotifier {
   /// 工具段收起进度 0..1（chips 行 heightFactor 与底栏可见性共用）
   double get barProgress =>
       _barExtent <= 0 ? 0.0 : (_barOffset / _barExtent).clamp(0.0, 1.0);
+
+  /// chip→标题飞行进度（barProgress 的语义别名：单列出来方便日后
+  /// 独立调曲线而不牵动布局口径）
+  double get chipFlightProgress => barProgress;
 
   /// 可折叠总高（胶囊 48 + chips/标签行;列表 topInset 同源）
   double get extent => _extent;
@@ -277,18 +306,18 @@ class _HeaderCollapseController extends ChangeNotifier {
         });
   }
 
-  /// 工具段就近吸附（松手半开时;方向优先，无方向走过半规则）。
-  /// [velocity] = 松手纵向速度换算的 barOffset 方向分量（px/s）。
-  void snapBarToNearest(ScrollDirection? direction, {double velocity = 0}) {
+  /// 工具段兜底吸附（正常路径下物理层耦合收尾已把工具段送到边，
+  /// 这里恒 no-op;只兜 extent 突变/短列表滚不动等物理层覆盖不到的
+  /// 残余半开）。规则从简：过半收、不过半开;[listPixels] 提供收起
+  /// 可达性门禁——内容没滚过锚位时强收会在头部下缘与内容顶边间
+  /// 凭空造出空白带，一律反转为回开。
+  void snapBarToNearest({double velocity = 0, double? listPixels}) {
     if (_locked) return;
     if (_barOffset <= 0 || _barOffset >= _barExtent) return;
-    final double target;
-    if (direction == ScrollDirection.reverse) {
-      target = _barExtent;
-    } else if (direction == ScrollDirection.forward) {
-      target = 0.0;
-    } else {
-      target = _barOffset > _barExtent / 2 ? _barExtent : 0.0;
+    double target = _barOffset > _barExtent / 2 ? _barExtent : 0.0;
+    if (target >= _barExtent && listPixels != null) {
+      final cap = (listPixels - _capsuleRowHeight).clamp(0.0, _barExtent);
+      if (cap < _barExtent) target = 0.0;
     }
     snapBar(target, velocity: velocity);
   }
@@ -296,10 +325,11 @@ class _HeaderCollapseController extends ChangeNotifier {
   /// 可折叠段当前**可见高度**（tab 自己的折叠总量 [tabExtent] 口径）：
   /// 骨架屏/错误页等非滚动态的顶部让位用 —— 它们没有滚动位置可与
   /// 头部互动，让位必须实时贴着头部下缘（胶囊折叠时少让 48px，
-  /// 否则头部与内容之间露空洞）。与头部同源：胶囊段吃 morph 平滑值、
-  /// 工具段吃 barProgress，收放/吸附全程贴合。
+  /// 否则头部与内容之间露空洞）。与头部布局同源：胶囊段吃
+  /// rowProgress（收起 1:1/展开平滑，与胶囊行占位一致）、工具段吃
+  /// barProgress，收放/吸附全程贴合。
   double visibleExtentFor(double tabExtent) {
-    final capsuleVisible = _capsuleRowHeight * (1.0 - _morph);
+    final capsuleVisible = _capsuleRowHeight * (1.0 - rowProgress);
     final rest = tabExtent - _capsuleRowHeight;
     final barVisible = rest > 0 ? rest * (1.0 - barProgress) : 0.0;
     return capsuleVisible + barVisible;
@@ -385,23 +415,36 @@ class _HeaderCollapseController extends ChangeNotifier {
 
 // ─── TopicsPage ───
 
-/// 顶区吸附物理：列表停进 (0, 48) 开区间（胶囊半开带）时，弹道换成
-/// **继承惯性速度的弹簧**滑到最近边缘（0 或 48）—— PageScrollPhysics
-/// 翻页吸附同构。胶囊是滚动位置的纯函数，列表吸附即胶囊吸附、内容
-/// 与胶囊一体回弹（Telegram 观感）。
+/// 顶带 + 深区工具段的吸附物理（**耦合收尾**定案）。
 ///
-/// 相比旧链路（ScrollEnd 通知 → postFrame → animateTo）：速度连续
-/// （快甩快吸、慢松缓归，不再是零初速罐头曲线）、零死帧、与弹道
-/// 天然互斥（本身就是弹道），beginActivity dispose 坑整条消失。
+/// 两个战场，一个原则：**settle 期间栏与内容一体移动**——位移要么
+/// 顺着手势方向补完（≤剩余行程），要么整段撤销（净位移归零），
+/// 永不出现"栏自己动、内容留在原地"的错位。
 ///
-/// 只拦"落点在带内"的收尾：正常滚动/惯性穿越顶区不受影响;0 以下
-/// （下拉刷新越界）与 48 以上全部走平台默认物理。
+/// 1. **胶囊带**：弹道落点停进 (0, 48) 时按手势起点分治迟滞——
+///    顶部起手落点 > 36 才 commit 收起，否则回滚展开;深处起手落点
+///    < 12 才 assist 全开，否则回滚收起锚位。胶囊是位置纯函数，
+///    驱动列表即一体。
+/// 2. **深区工具段**：chips/底栏 half-open 且弹道自己送不到边时，
+///    弹簧把**列表**滚到"工具段恰好到边"的位置——增量经 enterAlways
+///    记账自然驱动工具段同步，栏沿与内容行相对静止（此前 ScrollEnd
+///    → snapBar 是 overlay-only：栏收回去、列表下滑位移留在原地，
+///    每次短滑内容凭空多出栏漏出的高度 —— 本次翻车实锤）。同一套
+///    起手锚定迟滞（75% 行程才换状态，不足全撤）。
+///
+/// 越界（下拉刷新）走平台物理。
 class _TopSnapScrollPhysics extends ScrollPhysics {
-  const _TopSnapScrollPhysics({super.parent});
+  const _TopSnapScrollPhysics({required this.controller, super.parent});
+
+  /// 读手势起点快照与工具段状态（noteGestureStart 维护）
+  final _HeaderCollapseController controller;
 
   @override
   _TopSnapScrollPhysics applyTo(ScrollPhysics? ancestor) {
-    return _TopSnapScrollPhysics(parent: buildParent(ancestor));
+    return _TopSnapScrollPhysics(
+      controller: controller,
+      parent: buildParent(ancestor),
+    );
   }
 
   @override
@@ -416,33 +459,80 @@ class _TopSnapScrollPhysics extends ScrollPhysics {
     // 弹道落点（取大有限时刻：所有模拟均已收敛;不用 infinity ——
     // spring 解析解含 t·e^{-ωt} 项，无穷时刻是 inf·0 = NaN）
     final endPixels = base?.x(100.0) ?? position.pixels;
+    if (!endPixels.isFinite) return base;
     const band = _capsuleRowHeight;
-    if (!endPixels.isFinite || endPixels <= 0 || endPixels >= band) {
-      return base;
+
+    // —— 胶囊带：落点停进 (0, 48) ——
+    if (endPixels > 0 && endPixels < band) {
+      final fromDeep = controller.gestureStartPixels >= band;
+      double target;
+      if (fromDeep) {
+        target = endPixels < band / 4 ? 0.0 : band;
+      } else {
+        target = endPixels > band * 3 / 4 ? band : 0.0;
+      }
+      if (target > position.maxScrollExtent) target = 0.0;
+      if (target == position.pixels &&
+          velocity.abs() < toleranceFor(position).velocity) {
+        return null;
+      }
+      return ScrollSpringSimulation(
+        _kHeaderSpring,
+        position.pixels,
+        target,
+        velocity,
+        tolerance: toleranceFor(position),
+      );
     }
 
-    // 落点在胶囊半开带内：就近吸附（速度方向优先，静止过半规则），
-    // 目标夹进滚动范围（短列表滚不到 48 则退回 0）
-    double target;
-    if (velocity > 60) {
-      target = band;
-    } else if (velocity < -60) {
-      target = 0.0;
-    } else {
-      target = endPixels > band / 2 ? band : 0.0;
+    // —— 深区工具段耦合收尾 ——
+    final barExtent = controller.barExtent;
+    final barOffset = controller.barOffset;
+    if (position.pixels >= band &&
+        barExtent > 0 &&
+        barOffset > 0.5 &&
+        barOffset < barExtent - 0.5) {
+      // 弹道行程足以把工具段送到边（记账器吃满 delta）则不干预
+      final predicted = (barOffset + (endPixels - position.pixels)).clamp(
+        0.0,
+        barExtent,
+      );
+      if (predicted <= 0.5 || predicted >= barExtent - 0.5) return base;
+
+      // 起手锚定迟滞：从收起态起手要拉出 75% 才 commit 展开;从
+      // 展开态起手要推进 75% 才 commit 收起;不足一律原路撤销
+      final startBar = controller.gestureStartBarOffset;
+      double targetBar;
+      if (startBar >= barExtent - 0.5) {
+        targetBar = barOffset <= barExtent * 0.25 ? 0.0 : barExtent;
+      } else if (startBar <= 0.5) {
+        targetBar = barOffset >= barExtent * 0.75 ? barExtent : 0.0;
+      } else {
+        targetBar = barOffset > barExtent / 2 ? barExtent : 0.0;
+      }
+      var listTarget = position.pixels + (targetBar - barOffset);
+      // 收起可达性：滚动余量不足则反转为展开（防底部强收露空白）
+      if (targetBar > barOffset && listTarget > position.maxScrollExtent) {
+        listTarget = position.pixels - barOffset;
+      }
+      // 不越入胶囊带：expand-commit 压到 48 为止（缺口由近顶钳制
+      // cap = pixels-48 收编，工具段照样到边），否则弹簧停进带内
+      // 会触发二次 goBallistic 的反向修正 = 可感的二段抖
+      listTarget = listTarget.clamp(band, position.maxScrollExtent);
+      if (listTarget == position.pixels &&
+          velocity.abs() < toleranceFor(position).velocity) {
+        return null;
+      }
+      return ScrollSpringSimulation(
+        _kHeaderSpring,
+        position.pixels,
+        listTarget,
+        velocity,
+        tolerance: toleranceFor(position),
+      );
     }
-    if (target > position.maxScrollExtent) target = 0.0;
-    if (target == position.pixels &&
-        velocity.abs() < toleranceFor(position).velocity) {
-      return null;
-    }
-    return ScrollSpringSimulation(
-      _kHeaderSpring,
-      position.pixels,
-      target,
-      velocity,
-      tolerance: toleranceFor(position),
-    );
+
+    return base;
   }
 }
 
@@ -577,6 +667,12 @@ class TopicsPage extends ConsumerStatefulWidget {
 class _TopicsPageState extends ConsumerState<TopicsPage>
     with TickerProviderStateMixin {
   late TabController _tabController;
+
+  // chip→标题一镜到底的三个测位 key：选中 chip 文字（起点）、标题
+  // 前缀零尺寸锚（终点）、头部根（参考系）
+  final GlobalKey _selectedChipKey = GlobalKey();
+  final GlobalKey _titlePrefixAnchorKey = GlobalKey();
+  final GlobalKey _headerRootKey = GlobalKey();
   late final ShortcutScopeBinding _tabShortcutBinding = ShortcutScopeBinding(
     ref: ref,
     scope: ShortcutScope.master,
@@ -584,7 +680,6 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
   int _tabLength = 1; // 初始只有"全部"
   int _currentTabIndex = 0;
   List<int> _visiblePinnedIds = []; // 过滤后的可见分类 ID
-  ScrollDirection? _lastScrollDirection;
 
   late final _HeaderCollapseController _headerController;
   bool _invalidateScheduled = false;
@@ -1027,13 +1122,16 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
 
     // 聚合筛选菜单（筛选/子过滤/排序/标签/忽略五合一）;折叠态标题
     // 前缀承接 chips 收起后的"你在哪"信息（「水源 · 最新」）
+    String? tabNameOf(int index) {
+      if (index <= 0 || index - 1 >= pinnedIds.length) return null;
+      return categoryMap?[pinnedIds[index - 1]]?.name;
+    }
+
     final titlePrefix = _TitleTabPrefix(
       headerController: _headerController,
       tabController: _tabController,
-      nameResolver: (index) {
-        if (index <= 0 || index - 1 >= pinnedIds.length) return null;
-        return categoryMap?[pinnedIds[index - 1]]?.name;
-      },
+      nameResolver: tabNameOf,
+      anchorKey: _titlePrefixAnchorKey,
     );
     final filterMenu = _buildFilterMenu(isLoggedIn, currentFilter, titlePrefix);
 
@@ -1075,12 +1173,21 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
                 left: 0,
                 right: 0,
                 child: _CollapsibleHeader(
+                  key: _headerRootKey,
                   controller: _headerController,
                   statusBarHeight: topPadding,
                   toolbarChild: _buildToolbar(isLoggedIn, filterMenu),
                   onSearchTap: _openSearch,
                   bellVisible:
                       isLoggedIn && !Responsive.showNavigationRail(context),
+                  flightLabel: _ChipFlightLabel(
+                    headerController: _headerController,
+                    tabController: _tabController,
+                    nameResolver: tabNameOf,
+                    chipKey: _selectedChipKey,
+                    anchorKey: _titlePrefixAnchorKey,
+                    headerKey: _headerRootKey,
+                  ),
                   collapsibleChild: Column(
                     children: [
                       // 无收藏分类时不显示 chips 行（只有"全部"+"＋"
@@ -1189,6 +1296,8 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
           categoryMap: categoryMap,
           onReselect: () => ref.read(scrollToTopProvider.notifier).trigger(),
           onManageCategories: _openCategoryDrawer,
+          headerController: _headerController,
+          selectedChipKey: _selectedChipKey,
         ),
       ),
     );
@@ -1397,16 +1506,15 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
       }
     }
 
-    // 用 UserScrollNotification 追踪用户主动滚动方向，避免回弹/惯性误触发
+    // 用 UserScrollNotification 追踪用户主动滚动方向（FAB 刷新/创建
+    // 模式切换;回弹/惯性不误触发）
     if (notification is UserScrollNotification) {
       if (notification.direction == ScrollDirection.forward) {
-        _lastScrollDirection = ScrollDirection.forward;
         // 向上滚动（朝顶部方向）→ 刷新模式
         if (!ref.read(fabRefreshModeProvider)) {
           ref.read(fabRefreshModeProvider.notifier).state = true;
         }
       } else if (notification.direction == ScrollDirection.reverse) {
-        _lastScrollDirection = ScrollDirection.reverse;
         // 向下滚动（深入列表）→ 创建模式
         if (ref.read(fabRefreshModeProvider)) {
           ref.read(fabRefreshModeProvider.notifier).state = false;
@@ -1414,21 +1522,26 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
       }
     }
 
-    // 拖拽滚动开始时，清理 pointer scroll 的状态，避免影响松手吸附
+    // 拖拽滚动开始时，清理 pointer scroll 的状态，避免影响松手吸附;
+    // 并快照手势起点（列表位置 + 工具段收起量：顶带/工具段吸附的
+    // 起手锚定迟滞判据）
     if (notification is ScrollStartNotification &&
         notification.dragDetails != null) {
       _pointerScrollIdleTimer?.cancel();
       _pointerScrolling = false;
+      _headerController.noteGestureStart(notification.metrics.pixels);
     }
 
     if (notification is ScrollEndNotification) {
-      // 顶区吸附已下沉到列表 _TopSnapScrollPhysics（弹道级、继承惯性
-      // 速度）;这里只兜工具段（深区 chips/底栏半开）。macOS 滚轮的
-      // 离散 ScrollEnd 仍由 idle 定时器统一收口。
+      // 顶带与深区工具段的吸附都已下沉到 _TopSnapScrollPhysics
+      // （弹道级耦合收尾：驱动列表、栏随记账复位，栏与内容一体）。
+      // 这里只剩兜底：物理层覆盖不到的残余半开（如 extent 突变、
+      // 短列表滚不动）——guard 在 snapBarToNearest 内，正常路径下
+      // 恒 no-op。macOS 滚轮的离散 ScrollEnd 由 idle 定时器收口。
       if (_pointerScrolling) return false;
       _headerController.snapBarToNearest(
-        null,
         velocity: -(notification.dragDetails?.velocity.pixelsPerSecond.dy ?? 0),
+        listPixels: notification.metrics.pixels,
       );
     }
 
@@ -1437,6 +1550,14 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
 
   void _onPointerScroll(PointerScrollEvent event) {
     _headerController.stopSnap();
+    // 滚轮会话（一串离散事件）首帧快照起点：与触摸手势同一套起手
+    // 锚定迟滞判据
+    if (!_pointerScrolling) {
+      final c = _listControllers[_currentCategoryId()];
+      if (c != null && c.hasClients && c.positions.length == 1) {
+        _headerController.noteGestureStart(c.position.pixels);
+      }
+    }
     _pointerScrolling = true;
     _pointerScrollIdleTimer?.cancel();
     final delay = event.kind == PointerDeviceKind.mouse
@@ -1482,8 +1603,9 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
   }
 
   /// macOS 滚轮/触控板的 idle 收口：滚轮驱动没有弹道（每个事件都是
-  /// 离散 jump），_TopSnapScrollPhysics 拦不到 —— 顶区停在半开带时
-  /// 由这里驱动列表吸附;深区兜工具段。方向按最近滚动方向优先。
+  /// 离散 jump），_TopSnapScrollPhysics 拦不到 —— 顶带停在半开时由
+  /// 这里驱动列表吸附;深区兜工具段。带内规则与触摸路径同一套起手
+  /// 分治迟滞（gestureStartPixels 由滚轮会话首事件写入）。
   void _snapAfterPointerScroll() {
     if (_headerController.isSnapping) return;
 
@@ -1494,21 +1616,21 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
         controller.positions.length == 1;
 
     if (hasList) {
-      final pixels = controller.position.pixels;
+      final position = controller.position;
+      final pixels = position.pixels;
       if (pixels > 0 && pixels < _capsuleRowHeight) {
+        // 胶囊带：起手分治迟滞（与触摸物理层同规则）
+        final fromDeep =
+            _headerController.gestureStartPixels >= _capsuleRowHeight;
         double target;
-        if (_lastScrollDirection == ScrollDirection.reverse) {
-          target = _capsuleRowHeight;
-        } else if (_lastScrollDirection == ScrollDirection.forward) {
-          target = 0.0;
+        if (fromDeep) {
+          target = pixels < _capsuleRowHeight / 4 ? 0.0 : _capsuleRowHeight;
         } else {
-          target = pixels > _capsuleRowHeight / 2 ? _capsuleRowHeight : 0.0;
+          target = pixels > _capsuleRowHeight * 3 / 4 ? _capsuleRowHeight : 0.0;
         }
-        if (target > pixels && controller.position.maxScrollExtent < target) {
-          target = 0.0;
-        }
+        if (target > position.maxScrollExtent) target = 0.0;
         if (target != pixels) {
-          controller.position.animateTo(
+          position.animateTo(
             target,
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeOutCubic,
@@ -1516,9 +1638,46 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
         }
         return;
       }
+      // 深区工具段半开：耦合收尾——滚列表送工具段到边（增量经
+      // enterAlways 记账驱动栏同步，栏与内容一体;overlay-only 的
+      // snapBar 会让内容留在原地 = 净位移凭空多出栏高）
+      final barExtent = _headerController.barExtent;
+      final barOffset = _headerController.barOffset;
+      if (pixels >= _capsuleRowHeight &&
+          barExtent > 0 &&
+          barOffset > 0.5 &&
+          barOffset < barExtent - 0.5) {
+        final startBar = _headerController.gestureStartBarOffset;
+        double targetBar;
+        if (startBar >= barExtent - 0.5) {
+          targetBar = barOffset <= barExtent * 0.25 ? 0.0 : barExtent;
+        } else if (startBar <= 0.5) {
+          targetBar = barOffset >= barExtent * 0.75 ? barExtent : 0.0;
+        } else {
+          targetBar = barOffset > barExtent / 2 ? barExtent : 0.0;
+        }
+        var listTarget = pixels + (targetBar - barOffset);
+        if (targetBar > barOffset && listTarget > position.maxScrollExtent) {
+          listTarget = pixels - barOffset;
+        }
+        listTarget = listTarget.clamp(
+          _capsuleRowHeight,
+          position.maxScrollExtent,
+        );
+        if (listTarget != pixels) {
+          position.animateTo(
+            listTarget,
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+          );
+          return;
+        }
+      }
     }
 
-    _headerController.snapBarToNearest(_lastScrollDirection);
+    _headerController.snapBarToNearest(
+      listPixels: hasList ? controller.position.pixels : null,
+    );
   }
 
   void _publishHomeScrollProgress(double pixels) {
@@ -1578,12 +1737,14 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
 /// identical 短路。
 class _CollapsibleHeader extends StatelessWidget {
   const _CollapsibleHeader({
+    super.key,
     required this.controller,
     required this.statusBarHeight,
     required this.toolbarChild,
     required this.collapsibleChild,
     required this.onSearchTap,
     required this.bellVisible,
+    this.flightLabel,
   });
 
   final _HeaderCollapseController controller;
@@ -1600,6 +1761,9 @@ class _CollapsibleHeader extends StatelessWidget {
   /// 工具栏右簇是否有 🔔（决定落位格的横向位置）
   final bool bellVisible;
 
+  /// chip→标题的飞行标签层（覆盖整头部，见 _ChipFlightLabel）
+  final Widget? flightLabel;
+
   @override
   Widget build(BuildContext context) {
     final bgColor = Theme.of(context).scaffoldBackgroundColor;
@@ -1607,11 +1771,13 @@ class _CollapsibleHeader extends StatelessWidget {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
-        // 两段独立进度（语义分治）：
-        // - 胶囊 p1 = 低通平滑的 morph（位置驱动：只在列表顶部 48px
-        //   内擦洗，深处恒为图标态）
-        // - chips/标签段 pRest = enterAlways 工具段进度（深处上滑即回）
+        // 三路进度（语义分治）：
+        // - 胶囊飞行 p1 = 低通平滑的 morph（rect 插值，快甩不瞬移）
+        // - 胶囊行占位 pRow = 收起 1:1/展开平滑（布局与内容严格同
+        //   步，快收时行先让开，内容顶边贴下缘滑行不被斩）
+        // - chips/标签段 pRest = enterAlways 工具段进度
         final p1 = controller.morphProgress;
+        final pRow = controller.rowProgress;
         final pRest = controller.barProgress;
 
         return LayoutBuilder(
@@ -1652,13 +1818,21 @@ class _CollapsibleHeader extends StatelessWidget {
                           SizedBox(height: statusBarHeight),
                           // 常驻工具栏（搜索落位格在其右簇内空置）
                           toolbarChild,
-                          // 胶囊行占位：高度随 p1 收缩（胶囊本体在 overlay 层）
-                          SizedBox(height: _capsuleRowHeight * (1.0 - p1)),
-                          // chips/标签段（完全折叠后跳过子树构建）
+                          // 胶囊行占位：高度随 pRow 收缩（胶囊本体在
+                          // overlay 层随 p1 飞行）
+                          SizedBox(height: _capsuleRowHeight * (1.0 - pRow)),
+                          // chips/标签段（完全折叠后跳过子树构建）：
+                          // **滑入式折叠**——窗口收缩时内容锚定底部，
+                          // 顶端被上方 bar 覆盖裁掉，读作"chips 滑入
+                          // bar 下方"（原 topCenter+Opacity = 原地压扁
+                          // 淡出，与谁都不衔接）。实色滑入不做透明度：
+                          // 被不透明 bar 覆盖本身就是消失语义;chips
+                          // 的上行与标题前缀的升入连成一条运动线
+                          // （分类名"迁入 bar"一镜到底）
                           if (pRest < 1.0)
                             ClipRect(
                               child: Align(
-                                alignment: Alignment.topCenter,
+                                alignment: Alignment.bottomCenter,
                                 heightFactor: 1.0 - pRest,
                                 child: Opacity(
                                   opacity: 1.0 - pRest,
@@ -1671,12 +1845,6 @@ class _CollapsibleHeader extends StatelessWidget {
                         ],
                       ),
                     ),
-                    // 列表圆角窗檐：头部下缘的内凹圆角遮罩。列表自身的
-                    // ClipRRect 固定在 viewport 顶（工具栏下缘），展开态
-                    // 被可折叠段盖住 —— 内容滑入头部下方时上缘露直角。
-                    // 此层跟随头部下缘裁出顶部圆角（收起态与列表
-                    // ClipRRect 重合，无副作用）
-                    const _ListCornerShim(),
                   ],
                 ),
                 // 胶囊 morph 层（Hero 起点：跨页一镜到底的另一段）
@@ -1701,6 +1869,8 @@ class _CollapsibleHeader extends StatelessWidget {
                     ),
                   ),
                 ),
+                // chip→标题飞行标签（最上层，覆盖 chips 行与工具栏）
+                if (flightLabel != null) Positioned.fill(child: flightLabel!),
               ],
             );
           },
@@ -1710,53 +1880,205 @@ class _CollapsibleHeader extends StatelessWidget {
   }
 }
 
-/// 头部下缘的"列表圆角窗檐"：12px 高，画背景色 + 左右上角 12 圆角的
-/// 内凹镂空。列表内容滑到头部下方时，从镂空里露出来的部分天然带
-/// 顶部圆角 —— 等效于列表 ClipRRect 的圆角跟着头部下缘走。
-class _ListCornerShim extends StatelessWidget {
-  const _ListCornerShim();
+/// chip→标题的飞行标签：折叠时选中分类名从 chip 文字位**实测 rect**
+/// 连续插值到标题前缀落位（搜索胶囊 morph 同构的第二条一镜到底）。
+///
+/// 两端 GlobalKey 逐帧测位（chips 行横向可滚、标题宽度随筛选名变化，
+/// 静态推算必错位）;字号 13→17、字重 w500→w700、颜色 chip 前景→
+/// onSurface 全程 lerp。起点 rect 随 chips 行滑入 bar 同步上移（测
+/// 位天然带上），终点由 _TitleTabPrefix 的零尺寸锚提供。落位窗口
+/// [0.86, 0.98] 与前缀真名字交叉淡入交棒（rect 已重合，交接不可见）。
+/// 「全部」tab（index 0）无前缀不飞。
+class _ChipFlightLabel extends StatelessWidget {
+  const _ChipFlightLabel({
+    required this.headerController,
+    required this.tabController,
+    required this.nameResolver,
+    required this.chipKey,
+    required this.anchorKey,
+    required this.headerKey,
+  });
+
+  final _HeaderCollapseController headerController;
+  final TabController tabController;
+  final String? Function(int index) nameResolver;
+
+  /// 起点：选中 chip 的文字
+  final GlobalKey chipKey;
+
+  /// 终点：标题前缀的零尺寸锚
+  final GlobalKey anchorKey;
+
+  /// 参考系：头部根 RenderBox（飞行层与其重合，全局坐标转局部）
+  final GlobalKey headerKey;
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      size: const Size(double.infinity, 12),
-      painter: _ListCornerShimPainter(
-        Theme.of(context).scaffoldBackgroundColor,
-      ),
+    final colorScheme = Theme.of(context).colorScheme;
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        headerController,
+        tabController.animation ?? tabController,
+      ]),
+      builder: (context, _) {
+        final p = headerController.chipFlightProgress;
+        if (p <= 0.001 || p >= 0.98) return const SizedBox.shrink();
+
+        final index =
+            (tabController.animation?.value ?? tabController.index.toDouble())
+                .round()
+                .clamp(0, tabController.length - 1);
+        final name = nameResolver(index);
+        if (name == null) return const SizedBox.shrink();
+
+        // 逐帧实测两端（任一端未挂载/不可见则本帧不画，下一帧自愈）
+        final headerBox =
+            headerKey.currentContext?.findRenderObject() as RenderBox?;
+        final chipBox =
+            chipKey.currentContext?.findRenderObject() as RenderBox?;
+        final anchorBox =
+            anchorKey.currentContext?.findRenderObject() as RenderBox?;
+        if (headerBox == null ||
+            !headerBox.attached ||
+            chipBox == null ||
+            !chipBox.attached ||
+            anchorBox == null ||
+            !anchorBox.attached) {
+          return const SizedBox.shrink();
+        }
+        final chipTopLeft = chipBox.localToGlobal(
+          Offset.zero,
+          ancestor: headerBox,
+        );
+        final anchorTopLeft = anchorBox.localToGlobal(
+          Offset.zero,
+          ancestor: headerBox,
+        );
+
+        final t = Curves.easeInOutCubic.transform(p);
+        // 透明度包络：起飞段 [0,0.10] 淡入（与 chip 文字渐隐交叉，
+        // 避免两份文字瞬时叠亮）→ 飞行段全显 → 落位段 [0.86,0.98]
+        // 淡出（与前缀真名字淡入互补交棒）
+        final appear = (p / 0.10).clamp(0.0, 1.0);
+        final handoff = 1.0 - ((p - 0.86) / 0.12).clamp(0.0, 1.0);
+        final opacity = appear * handoff;
+        // 字排版两端参数（与 chip 文字/前缀文字样式严格同参）——
+        // 字号/字重/颜色随行程连续变深（13→17、w500→w700、chip
+        // 前景→onSurface）
+        final fontSize = ui.lerpDouble(13.0, 17.0, t)!;
+        final weight = FontWeight.lerp(FontWeight.w500, FontWeight.w700, t)!;
+        final color = Color.lerp(
+          colorScheme.onSecondaryContainer,
+          colorScheme.onSurface,
+          t,
+        )!;
+        // 终点基线对齐：锚是零尺寸点（挂在前缀 Row 的 centerLeft
+        // 侧），飞行文字以自身高度对 center 对齐;起点直接用 chip
+        // 文字 topLeft（同为文字框原点）
+        final endTop = anchorTopLeft.dy - fontSize * 1.2 / 2;
+        final pos = Offset(
+          ui.lerpDouble(chipTopLeft.dx, anchorTopLeft.dx, t)!,
+          ui.lerpDouble(chipTopLeft.dy, endTop, t)!,
+        );
+
+        return IgnorePointer(
+          child: Stack(
+            children: [
+              Positioned(
+                left: pos.dx,
+                top: pos.dy,
+                child: Opacity(
+                  opacity: opacity,
+                  child: Text(
+                    name,
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontSize: fontSize,
+                      height: 1.2,
+                      fontWeight: weight,
+                      color: color,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
 
-class _ListCornerShimPainter extends CustomPainter {
-  _ListCornerShimPainter(this.color);
+/// 列表顶部消隐纱：画在每个 tab 列表自身的 ClipRRect 内 —— 随横滑
+/// 一起移动（header 固定层版本在收起态罩住列表顶端 = 横滑"冻结带"
+/// + 糊掉包裹圆角，已废）。
+///
+/// 位置钉在头部下缘（seam = visibleExtentFor，逐帧跟随收放），
+/// 强度 = 本列表内容顶边越过 seam 的深度（8px 呼吸位内 0→1）：
+/// - 展开态静止在顶：内容顶边在 seam 下方呼吸位里，强度 0，首卡
+///   无纱（"顶部不应该有羽化"）
+/// - 收放 1:1 擦洗：内容顶边贴呼吸位滑行不被裁，强度 0，首卡圆角
+///   "顶上去"全程清晰;窗檐已删，chips 半高时不再有独立圆角弧在
+///   卡片上咬出豁口（"缺一块"）
+/// - 正常浏览（任意态深滚，内容真被 seam 裁切）：满强度 bg→透明
+///   消散，无硬切直角 —— composer 顶栏同款消散语言
+class _TopEdgeFade extends StatelessWidget {
+  const _TopEdgeFade({
+    required this.headerController,
+    required this.scrollController,
+    required this.topInset,
+  });
 
-  final Color color;
+  final _HeaderCollapseController headerController;
+  final ScrollController scrollController;
+  final double topInset;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    // 整条背景减去"左右 12 边距 + 上圆角 12 的圆角矩形"，得到窗檐形
-    // （列表水平内边距 12 与 _topBorderRadius 12 同参）
-    final outer = Path()..addRect(Offset.zero & size);
-    final inner = Path()
-      ..addRRect(
-        RRect.fromRectAndCorners(
-          Rect.fromLTWH(12, 0, size.width - 24, size.height),
-          topLeft: const Radius.circular(12),
-          topRight: const Radius.circular(12),
-        ),
-      );
-    final shim = Path.combine(PathOperation.difference, outer, inner);
-    canvas.drawPath(shim, Paint()..color = color);
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).scaffoldBackgroundColor;
+    return ListenableBuilder(
+      listenable: Listenable.merge([headerController, scrollController]),
+      builder: (context, _) {
+        final seam = headerController.visibleExtentFor(topInset);
+        final collapsed = topInset - seam;
+        final pixels =
+            scrollController.hasClients &&
+                scrollController.positions.length == 1
+            ? scrollController.position.pixels
+            : 0.0;
+        final cut = ((pixels - collapsed) / 8.0).clamp(0.0, 1.0);
+        if (cut <= 0.004) return const SizedBox.shrink();
+        return Positioned(
+          top: seam,
+          left: 0,
+          right: 0,
+          height: 24,
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  // 多停靠点近似 smoothstep（线性两点在梯度尾部有
+                  // 可感的"边"），整体强度随 cut
+                  colors: [
+                    color.withValues(alpha: cut),
+                    color.withValues(alpha: 0.85 * cut),
+                    color.withValues(alpha: 0.5 * cut),
+                    color.withValues(alpha: 0.15 * cut),
+                    color.withValues(alpha: 0.0),
+                  ],
+                  stops: const [0.0, 0.25, 0.5, 0.75, 1.0],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
-
-  @override
-  bool shouldRepaint(_ListCornerShimPainter oldDelegate) =>
-      oldDelegate.color != color;
 }
 
-/// 工具栏搜索落位 spacer：展开态零宽（右簇紧凑无空洞），随折叠进度
-/// 张开到 44px（40 图标格 + 4 间隔），与胶囊 morph 同曲线 —— 🔔 等
-/// 右侧成员不动（Spacer 吸收），左侧的分类铃铛被自然推开。
 /// 折叠态标题前缀：chips 收起后「你在哪个分类」迁入标题——
 /// 「水源 · 最新 ▾」。与 chips 淡出共用同一进度源（barProgress），
 /// 宽度 ClipRect+widthFactor 连续显隐，读作信息在两处间"交接"，
@@ -1769,6 +2091,7 @@ class _TitleTabPrefix extends StatelessWidget {
     required this.headerController,
     required this.tabController,
     required this.nameResolver,
+    required this.anchorKey,
   });
 
   final _HeaderCollapseController headerController;
@@ -1777,18 +2100,27 @@ class _TitleTabPrefix extends StatelessWidget {
   /// tab index → 分类名（0/越界 = null，无前缀）
   final String? Function(int index) nameResolver;
 
+  /// 落位锚（零尺寸，常驻挂载）：chip→标题的飞行标签以此为终点
+  /// 测位（见 _CollapsibleHeader 飞行层）
+  final GlobalKey anchorKey;
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    // 锚点必须常驻（p=0 时飞行层也可能在测终点——展开方向起飞点）
+    final anchor = SizedBox(key: anchorKey, width: 0, height: 0);
     return ListenableBuilder(
       listenable: Listenable.merge([
         headerController,
         tabController.animation ?? tabController,
       ]),
       builder: (context, _) {
-        final p = Curves.easeInOutCubic.transform(headerController.barProgress);
+        final pRaw = headerController.barProgress;
+        final p = Curves.easeInOutCubic.transform(pRaw);
         // 展开态（chips 在场）标题只管筛选，前缀零存在
-        if (p <= 0.001) return const SizedBox.shrink();
+        if (p <= 0.001) {
+          return Row(mainAxisSize: MainAxisSize.min, children: [anchor]);
+        }
 
         final index =
             (tabController.animation?.value ?? tabController.index.toDouble())
@@ -1796,6 +2128,10 @@ class _TitleTabPrefix extends StatelessWidget {
                 .clamp(0, tabController.length - 1);
         final name = nameResolver(index);
 
+        // 名字交棒：飞行标签（_CollapsibleHeader 层）承担 0.86 之前
+        // 的呈现，真名字在落位窗口 [0.86, 0.98] 淡入接棒 —— 两者
+        // rect 已重合，交接不可见
+        final nameOpacity = ((pRaw - 0.86) / 0.12).clamp(0.0, 1.0);
         final label = name == null
             ? const SizedBox.shrink(key: ValueKey('none'))
             : Row(
@@ -1807,14 +2143,17 @@ class _TitleTabPrefix extends StatelessWidget {
                       // 长分类名截断：上限 110，窄面板下随外层 Flexible
                       // 进一步收缩（省略号），空间永远先由前缀让出
                       constraints: const BoxConstraints(maxWidth: 110),
-                      child: Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                          color: colorScheme.onSurface,
+                      child: Opacity(
+                        opacity: nameOpacity,
+                        child: Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            color: colorScheme.onSurface,
+                          ),
                         ),
                       ),
                     ),
@@ -1835,36 +2174,52 @@ class _TitleTabPrefix extends StatelessWidget {
                 ],
               );
 
-        return ClipRect(
-          child: Align(
-            alignment: Alignment.centerLeft,
-            widthFactor: p,
-            child: Opacity(
-              opacity: p,
-              child: AnimatedSize(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOutCubic,
-                alignment: Alignment.centerLeft,
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 160),
-                  switchInCurve: Curves.easeOut,
-                  switchOutCurve: Curves.easeIn,
-                  // 默认 layout 居中叠放，名字宽差时会左右晃;钉左缘
-                  layoutBuilder: (currentChild, previousChildren) => Stack(
-                    alignment: Alignment.centerLeft,
-                    children: [...previousChildren, ?currentChild],
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            anchor,
+            Transform.translate(
+              // 「·」等余部轻微升入（12px）;名字本体的运动由飞行
+              // 标签承担（translate 在 ClipRect 外，途中不被裁）
+              offset: Offset(0, (1.0 - p) * 12),
+              child: ClipRect(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: p,
+                  child: Opacity(
+                    opacity: p,
+                    child: AnimatedSize(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.centerLeft,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 160),
+                        switchInCurve: Curves.easeOut,
+                        switchOutCurve: Curves.easeIn,
+                        // 默认 layout 居中叠放，名字宽差时会左右晃;
+                        // 钉左缘
+                        layoutBuilder: (currentChild, previousChildren) =>
+                            Stack(
+                              alignment: Alignment.centerLeft,
+                              children: [...previousChildren, ?currentChild],
+                            ),
+                        child: label,
+                      ),
+                    ),
                   ),
-                  child: label,
                 ),
               ),
             ),
-          ),
+          ],
         );
       },
     );
   }
 }
 
+/// 工具栏搜索落位 spacer：展开态零宽（右簇紧凑无空洞），随折叠进度
+/// 张开到 44px（40 图标格 + 4 间隔），与胶囊 morph 同曲线 —— 🔔 等
+/// 右侧成员不动（Spacer 吸收），左侧的分类铃铛被自然推开。
 class _SearchSlotSpacer extends StatelessWidget {
   const _SearchSlotSpacer({required this.controller});
 
@@ -1899,6 +2254,8 @@ class _CategoryChipsRow extends StatelessWidget {
     required this.categoryMap,
     required this.onReselect,
     required this.onManageCategories,
+    required this.headerController,
+    required this.selectedChipKey,
   });
 
   final TabController tabController;
@@ -1906,6 +2263,10 @@ class _CategoryChipsRow extends StatelessWidget {
   final Map<int, Category>? categoryMap;
   final VoidCallback onReselect;
   final VoidCallback onManageCategories;
+  final _HeaderCollapseController headerController;
+
+  /// 选中 chip 的文字测位 key：chip→标题飞行标签的起点
+  final GlobalKey selectedChipKey;
 
   @override
   Widget build(BuildContext context) {
@@ -1915,12 +2276,19 @@ class _CategoryChipsRow extends StatelessWidget {
     ];
 
     return AnimatedBuilder(
-      animation: tabController.animation ?? tabController,
+      animation: Listenable.merge([
+        tabController.animation ?? tabController,
+        headerController,
+      ]),
       builder: (context, _) {
         final selected = (tabController.animation?.value ?? 0).round().clamp(
           0,
           labels.length - 1,
         );
+        // 折叠中选中 chip 的名字交给飞行标签代言（本体文字渐隐，
+        // 药丸底随行滑入 bar 下）;「全部」tab 无前缀不飞，本体保留
+        final flying =
+            selected > 0 && headerController.chipFlightProgress > 0.001;
         return ListView(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1931,6 +2299,15 @@ class _CategoryChipsRow extends StatelessWidget {
                 child: _CategoryChip(
                   label: labels[i],
                   selected: i == selected,
+                  labelKey: i == selected ? selectedChipKey : null,
+                  // 前 40% 行程线性渐隐把呈现让给飞行标签（两者起点
+                  // rect 重合，交叉淡化不可见）
+                  labelOpacity: i == selected && flying
+                      ? (1.0 - headerController.chipFlightProgress / 0.4).clamp(
+                          0.0,
+                          1.0,
+                        )
+                      : 1.0,
                   onTap: () {
                     if (i == tabController.index) {
                       onReselect();
@@ -1965,6 +2342,8 @@ class _CategoryChip extends StatelessWidget {
     required this.onTap,
     this.isAction = false,
     this.tooltip,
+    this.labelKey,
+    this.labelOpacity = 1.0,
   });
 
   final String label;
@@ -1972,6 +2351,12 @@ class _CategoryChip extends StatelessWidget {
   final VoidCallback onTap;
   final bool isAction;
   final String? tooltip;
+
+  /// 文字测位 key（选中 chip：飞行标签起点）
+  final Key? labelKey;
+
+  /// 文字透明度（折叠中选中 chip 的名字交飞行标签代言时渐隐）
+  final double labelOpacity;
 
   @override
   Widget build(BuildContext context) {
@@ -1999,13 +2384,17 @@ class _CategoryChip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14),
           alignment: Alignment.center,
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              height: 1.0,
-              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-              color: fg,
+          child: Opacity(
+            opacity: labelOpacity,
+            child: Text(
+              label,
+              key: labelKey,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.0,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                color: fg,
+              ),
             ),
           ),
         ),
@@ -2491,188 +2880,206 @@ class _TopicListState extends ConsumerState<_TopicList>
           },
           child: ClipRRect(
             borderRadius: _topBorderRadius,
-            child: NotificationListener<ScrollUpdateNotification>(
-              onNotification: (notification) {
-                if (notification.depth == 0) {
-                  final distance =
-                      notification.metrics.maxScrollExtent -
-                      notification.metrics.pixels;
-                  if (_loadMoreCoordinator.shouldTriggerForDistance(distance)) {
-                    _triggerLoadMore(providerKey);
-                  }
-                }
-                return false;
-              },
-              child: CustomScrollView(
-                controller: _scrollController,
-                // 顶区吸附下沉在弹道层（继承惯性速度的弹簧，见
-                // _TopSnapScrollPhysics）
-                physics: const _TopSnapScrollPhysics(
-                  parent: AlwaysScrollableScrollPhysics(),
-                ),
-                slivers: [
-                  SliverPadding(
-                    // 底部让出 extendBody 注入的底栏高度（底栏滑出式后
-                    // 内容延伸到底栏后面）
-                    padding: EdgeInsets.only(
-                      top: _headerInset + 8,
-                      bottom: 12 + MediaQuery.paddingOf(context).bottom,
+            child: Stack(
+              children: [
+                NotificationListener<ScrollUpdateNotification>(
+                  onNotification: (notification) {
+                    if (notification.depth == 0) {
+                      final distance =
+                          notification.metrics.maxScrollExtent -
+                          notification.metrics.pixels;
+                      if (_loadMoreCoordinator.shouldTriggerForDistance(
+                        distance,
+                      )) {
+                        _triggerLoadMore(providerKey);
+                      }
+                    }
+                    return false;
+                  },
+                  child: CustomScrollView(
+                    controller: _scrollController,
+                    // 顶带吸附下沉在弹道层（继承惯性速度的弹簧 + 起手
+                    // 分治迟滞，见 _TopSnapScrollPhysics）
+                    physics: _TopSnapScrollPhysics(
+                      controller: widget.headerController,
+                      parent: const AlwaysScrollableScrollPhysics(),
                     ),
-                    sliver: SliverList.builder(
-                      itemCount: topics.length + headerOffset + 1,
-                      // keyed reconcile:pill 出现/新话题插入/全量替换导致
-                      // index 平移时,已有行的 Element/RenderObject 按 key
-                      // 迁移,而不是按 index 复用"换脸"(无 key 时视口内
-                      // 每行会瞬间变成相邻一条的内容)。迁移残留的布局
-                      // 位移由列表尾部的 AnchorGuardSliver 同帧修正。
-                      findChildIndexCallback: (key) {
-                        if (key is! ValueKey<String>) return null;
-                        final value = key.value;
-                        if (value == _pillKeyValue) {
-                          return hasNewTopics ? 0 : null;
-                        }
-                        if (value == _filterHintKeyValue) {
-                          return hintOffset > 0 ? newTopicOffset : null;
-                        }
-                        if (value == _footerKeyValue) {
-                          return topics.length + headerOffset;
-                        }
-                        if (value.startsWith('topic-')) {
-                          final id = int.tryParse(value.substring(6));
-                          final topicIndex = id == null ? null : idToIndex[id];
-                          if (topicIndex != null) {
-                            return topicIndex + headerOffset;
-                          }
-                        }
-                        return null;
-                      },
-                      itemBuilder: (context, index) {
-                        if (hasNewTopics && index == 0) {
-                          return KeyedSubtree(
-                            key: const ValueKey(_pillKeyValue),
-                            child: _buildNewTopicIndicator(
-                              context,
-                              newTopicCount,
-                              providerKey,
-                            ),
-                          );
-                        }
-                        if (hintOffset > 0 && index == newTopicOffset) {
-                          return KeyedSubtree(
-                            key: const ValueKey(_filterHintKeyValue),
-                            child: KeywordFilterHintBar(
-                              hiddenCount: hiddenCount,
-                              hiddenByBlocked: hiddenByBlocked,
-                            ),
-                          );
-                        }
-                        final topicIndex = index - headerOffset;
-                        if (topicIndex >= topics.length) {
-                          final notifier = ref.watch(
-                            topicListProvider(providerKey).notifier,
-                          );
-                          return KeyedSubtree(
-                            key: const ValueKey(_footerKeyValue),
-                            child: PagedListFooter(
-                              hasMore: notifier.hasMore,
-                              isLoadingMore: notifier.isLoadingMore,
-                              isLoadMoreFailed: notifier.isLoadMoreFailed,
-                              onRetry: notifier.retryLoadMore,
-                            ),
-                          );
-                        }
-
-                        final topic = topics[topicIndex];
-                        final rowKey = ValueKey('topic-${topic.id}');
-                        final enableLongPress = ref
-                            .watch(preferencesProvider)
-                            .longPressPreview;
-                        final shouldHighlight = _highlightedTopicIds.contains(
-                          topic.id,
-                        );
-
-                        if (shouldHighlight) {
-                          final theme = Theme.of(context);
-                          // 卡片正常背景色（需与 TopicCard / CompactTopicCard 的默认 color 一致）
-                          final normalColor = topic.pinned
-                              ? theme.colorScheme.surfaceContainerLow
-                                    .withValues(alpha: 0.5)
-                              : theme.cardTheme.color ??
-                                    theme.colorScheme.surfaceContainerHighest;
-                          final highlightColor = theme
-                              .colorScheme
-                              .primaryContainer
-                              .withValues(alpha: 0.3);
-                          return KeyedSubtree(
-                            key: rowKey,
-                            child: TweenAnimationBuilder<Color?>(
-                              tween: ColorTween(
-                                begin: highlightColor,
-                                end: normalColor,
-                              ),
-                              duration: const Duration(milliseconds: 2000),
-                              curve: const Interval(
-                                0.2,
-                                1.0,
-                                curve: Curves.easeOut,
-                              ),
-                              onEnd: () =>
-                                  _highlightedTopicIds.remove(topic.id),
-                              builder: (context, color, _) {
-                                return buildTopicItem(
-                                  context: context,
-                                  topic: topic,
-                                  isSelected: topic.id == selectedTopicId,
-                                  onTap: () {
-                                    _syncKeyboardFocusToIndex(topicIndex);
-                                    _openTopic(topic);
-                                  },
-                                  enableLongPress: enableLongPress,
-                                  highlightColor: color,
-                                );
-                              },
-                            ),
-                          );
-                        }
-
-                        final signature = (
-                          topic: topic,
-                          isSelected: topic.id == selectedTopicId,
-                          enableLongPress: enableLongPress,
-                          index: topicIndex,
-                        );
-                        final cached = _topicItemCache[topic.id];
-                        if (cached != null && cached.signature == signature) {
-                          return KeyedSubtree(
-                            key: rowKey,
-                            child: cached.widget,
-                          );
-                        }
-                        final item = buildTopicItem(
-                          context: context,
-                          topic: topic,
-                          isSelected: topic.id == selectedTopicId,
-                          onTap: () {
-                            _syncKeyboardFocusToIndex(topicIndex);
-                            _openTopic(topic);
+                    slivers: [
+                      SliverPadding(
+                        // 底部让出 extendBody 注入的底栏高度（底栏滑出式后
+                        // 内容延伸到底栏后面）
+                        padding: EdgeInsets.only(
+                          top: _headerInset + 8,
+                          bottom: 12 + MediaQuery.paddingOf(context).bottom,
+                        ),
+                        sliver: SliverList.builder(
+                          itemCount: topics.length + headerOffset + 1,
+                          // keyed reconcile:pill 出现/新话题插入/全量替换导致
+                          // index 平移时,已有行的 Element/RenderObject 按 key
+                          // 迁移,而不是按 index 复用"换脸"(无 key 时视口内
+                          // 每行会瞬间变成相邻一条的内容)。迁移残留的布局
+                          // 位移由列表尾部的 AnchorGuardSliver 同帧修正。
+                          findChildIndexCallback: (key) {
+                            if (key is! ValueKey<String>) return null;
+                            final value = key.value;
+                            if (value == _pillKeyValue) {
+                              return hasNewTopics ? 0 : null;
+                            }
+                            if (value == _filterHintKeyValue) {
+                              return hintOffset > 0 ? newTopicOffset : null;
+                            }
+                            if (value == _footerKeyValue) {
+                              return topics.length + headerOffset;
+                            }
+                            if (value.startsWith('topic-')) {
+                              final id = int.tryParse(value.substring(6));
+                              final topicIndex = id == null
+                                  ? null
+                                  : idToIndex[id];
+                              if (topicIndex != null) {
+                                return topicIndex + headerOffset;
+                              }
+                            }
+                            return null;
                           },
-                          enableLongPress: enableLongPress,
-                        );
-                        _topicItemCache[topic.id] = (
-                          signature: signature,
-                          widget: item,
-                        );
-                        return KeyedSubtree(key: rowKey, child: item);
-                      },
-                    ),
+                          itemBuilder: (context, index) {
+                            if (hasNewTopics && index == 0) {
+                              return KeyedSubtree(
+                                key: const ValueKey(_pillKeyValue),
+                                child: _buildNewTopicIndicator(
+                                  context,
+                                  newTopicCount,
+                                  providerKey,
+                                ),
+                              );
+                            }
+                            if (hintOffset > 0 && index == newTopicOffset) {
+                              return KeyedSubtree(
+                                key: const ValueKey(_filterHintKeyValue),
+                                child: KeywordFilterHintBar(
+                                  hiddenCount: hiddenCount,
+                                  hiddenByBlocked: hiddenByBlocked,
+                                ),
+                              );
+                            }
+                            final topicIndex = index - headerOffset;
+                            if (topicIndex >= topics.length) {
+                              final notifier = ref.watch(
+                                topicListProvider(providerKey).notifier,
+                              );
+                              return KeyedSubtree(
+                                key: const ValueKey(_footerKeyValue),
+                                child: PagedListFooter(
+                                  hasMore: notifier.hasMore,
+                                  isLoadingMore: notifier.isLoadingMore,
+                                  isLoadMoreFailed: notifier.isLoadMoreFailed,
+                                  onRetry: notifier.retryLoadMore,
+                                ),
+                              );
+                            }
+
+                            final topic = topics[topicIndex];
+                            final rowKey = ValueKey('topic-${topic.id}');
+                            final enableLongPress = ref
+                                .watch(preferencesProvider)
+                                .longPressPreview;
+                            final shouldHighlight = _highlightedTopicIds
+                                .contains(topic.id);
+
+                            if (shouldHighlight) {
+                              final theme = Theme.of(context);
+                              // 卡片正常背景色（需与 TopicCard / CompactTopicCard 的默认 color 一致）
+                              final normalColor = topic.pinned
+                                  ? theme.colorScheme.surfaceContainerLow
+                                        .withValues(alpha: 0.5)
+                                  : theme.cardTheme.color ??
+                                        theme
+                                            .colorScheme
+                                            .surfaceContainerHighest;
+                              final highlightColor = theme
+                                  .colorScheme
+                                  .primaryContainer
+                                  .withValues(alpha: 0.3);
+                              return KeyedSubtree(
+                                key: rowKey,
+                                child: TweenAnimationBuilder<Color?>(
+                                  tween: ColorTween(
+                                    begin: highlightColor,
+                                    end: normalColor,
+                                  ),
+                                  duration: const Duration(milliseconds: 2000),
+                                  curve: const Interval(
+                                    0.2,
+                                    1.0,
+                                    curve: Curves.easeOut,
+                                  ),
+                                  onEnd: () =>
+                                      _highlightedTopicIds.remove(topic.id),
+                                  builder: (context, color, _) {
+                                    return buildTopicItem(
+                                      context: context,
+                                      topic: topic,
+                                      isSelected: topic.id == selectedTopicId,
+                                      onTap: () {
+                                        _syncKeyboardFocusToIndex(topicIndex);
+                                        _openTopic(topic);
+                                      },
+                                      enableLongPress: enableLongPress,
+                                      highlightColor: color,
+                                    );
+                                  },
+                                ),
+                              );
+                            }
+
+                            final signature = (
+                              topic: topic,
+                              isSelected: topic.id == selectedTopicId,
+                              enableLongPress: enableLongPress,
+                              index: topicIndex,
+                            );
+                            final cached = _topicItemCache[topic.id];
+                            if (cached != null &&
+                                cached.signature == signature) {
+                              return KeyedSubtree(
+                                key: rowKey,
+                                child: cached.widget,
+                              );
+                            }
+                            final item = buildTopicItem(
+                              context: context,
+                              topic: topic,
+                              isSelected: topic.id == selectedTopicId,
+                              onTap: () {
+                                _syncKeyboardFocusToIndex(topicIndex);
+                                _openTopic(topic);
+                              },
+                              enableLongPress: enableLongPress,
+                            );
+                            _topicItemCache[topic.id] = (
+                              signature: signature,
+                              widget: item,
+                            );
+                            return KeyedSubtree(key: rowKey, child: item);
+                          },
+                        ),
+                      ),
+                      // 滚动锚定哨兵:keyed 迁移会把"index 格子的旧账"分给新
+                      // 住户(framework 按 index 搬 layoutOffset),整窗因此
+                      // 平移约一行高 —— 在这里被同帧修正;贴顶时哨兵自带
+                      // 顶部抑制,pill/新话题自然推入视野(浏览器同款语义)。
+                      const AnchorGuardSliver(),
+                    ],
                   ),
-                  // 滚动锚定哨兵:keyed 迁移会把"index 格子的旧账"分给新
-                  // 住户(framework 按 index 搬 layoutOffset),整窗因此
-                  // 平移约一行高 —— 在这里被同帧修正;贴顶时哨兵自带
-                  // 顶部抑制,pill/新话题自然推入视野(浏览器同款语义)。
-                  const AnchorGuardSliver(),
-                ],
-              ),
+                ),
+                // 顶部消隐纱：钉在头部下缘，内容被裁切时 bg→透明
+                // 消散（在 ClipRRect 内 = 随本 tab 横滑一起走）
+                _TopEdgeFade(
+                  headerController: widget.headerController,
+                  scrollController: _scrollController,
+                  topInset: widget.topInset,
+                ),
+              ],
             ),
           ),
         );
