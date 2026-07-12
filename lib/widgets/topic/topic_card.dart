@@ -89,25 +89,35 @@ class TopicCard extends ConsumerWidget {
     final categoryId = int.tryParse(topic.categoryId);
     final category = categoryMap?[categoryId];
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      clipBehavior: Clip.antiAlias,
-      color: isSelected
-          ? theme.colorScheme.primaryContainer.withValues(alpha: 0.4)
-          : highlightColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: isSelected
-            ? BorderSide(
-                color: theme.colorScheme.primary.withValues(alpha: 0.5),
-              )
-            : BorderSide.none,
-      ),
-      child: GestureDetector(
-        onTertiaryTapUp: PlatformUtils.isDesktop && onMiddleClick != null
-            ? (_) => onMiddleClick!.call()
-            : null,
-        child: InkWell(
+    // Card 壳换轻装(视觉逐项等价):cardTheme elevation=0 无阴影无 tint,
+    // 而 Card→Material 每卡挂一套 AnimatedPhysicalModel 隐式动画基建
+    // (AnimationController/Ticker/PhysicalShape),对列表滚动物化是纯税
+    // (生产 PROF 点名)。DecoratedBox 复刻色/圆角/选中描边,ClipRRect
+    // 复刻 antiAlias 裁剪,Material(transparency) 只做 InkWell 的 ink 载体。
+    final cardRadius = BorderRadius.circular(10);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: ClipRRect(
+        borderRadius: cardRadius,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: isSelected
+                ? theme.colorScheme.primaryContainer.withValues(alpha: 0.4)
+                : (highlightColor ?? theme.cardTheme.color),
+            borderRadius: cardRadius,
+            border: isSelected
+                ? Border.all(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                  )
+                : null,
+          ),
+          child: Material(
+            type: MaterialType.transparency,
+            child: GestureDetector(
+              onTertiaryTapUp: PlatformUtils.isDesktop && onMiddleClick != null
+                  ? (_) => onMiddleClick!.call()
+                  : null,
+              child: InkWell(
           onTap: onTap,
           onLongPress: onLongPress,
           onSecondaryTap: PlatformUtils.isDesktop ? onLongPress : null,
@@ -282,6 +292,9 @@ class TopicCard extends ConsumerWidget {
                       ),
               ),
             ],
+          ),
+        ),
+            ),
           ),
         ),
       ),
@@ -661,26 +674,35 @@ class CompactTopicCard extends ConsumerWidget {
       logoUrl = parent?.uploadedLogo;
     }
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 6),
-      clipBehavior: Clip.antiAlias,
-      color: isSelected
-          ? theme.colorScheme.primaryContainer.withValues(alpha: 0.4)
-          : highlightColor ??
-                theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.5),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: isSelected
-            ? BorderSide(
-                color: theme.colorScheme.primary.withValues(alpha: 0.5),
-              )
-            : BorderSide.none,
-      ),
-      child: GestureDetector(
-        onTertiaryTapUp: PlatformUtils.isDesktop && onMiddleClick != null
-            ? (_) => onMiddleClick!.call()
-            : null,
-        child: InkWell(
+    // 同 TopicCard:Card 壳换轻装(elevation=0 主题下视觉逐项等价),
+    // 砍每卡一套 AnimatedPhysicalModel 隐式动画基建。
+    final cardRadius = BorderRadius.circular(10);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: ClipRRect(
+        borderRadius: cardRadius,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: isSelected
+                ? theme.colorScheme.primaryContainer.withValues(alpha: 0.4)
+                : highlightColor ??
+                      theme.colorScheme.surfaceContainerLow.withValues(
+                        alpha: 0.5,
+                      ),
+            borderRadius: cardRadius,
+            border: isSelected
+                ? Border.all(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                  )
+                : null,
+          ),
+          child: Material(
+            type: MaterialType.transparency,
+            child: GestureDetector(
+              onTertiaryTapUp: PlatformUtils.isDesktop && onMiddleClick != null
+                  ? (_) => onMiddleClick!.call()
+                  : null,
+              child: InkWell(
           onTap: onTap,
           onLongPress: onLongPress,
           onSecondaryTap: PlatformUtils.isDesktop ? onLongPress : null,
@@ -832,6 +854,9 @@ class CompactTopicCard extends ConsumerWidget {
                     ],
                   ),
               ],
+            ),
+          ),
+        ),
             ),
           ),
         ),
