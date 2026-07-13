@@ -73,6 +73,7 @@ import 'constants.dart';
 import 'providers/connectivity_provider.dart';
 import 'utils/dialog_utils.dart';
 import 'utils/frame_jank_monitor.dart';
+import 'utils/image_decode_gate.dart';
 import 'utils/scroll_busy_signal.dart';
 import 'utils/time_utils.dart';
 
@@ -134,7 +135,10 @@ Future<void> _applyAndroidDisplayMode(SharedPreferences prefs) async {
 }
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  // 自定义 binding:接管标准图片解码入口,全局限制解码并发(= 限制
+  // Impeller 纹理上传并发,图密话题快滚 raster 尖峰的对症闸门,
+  // 见 image_decode_gate.dart)。
+  FluxdoWidgetsBinding.ensureInitialized();
 
   // 触摸重采样:把 pointer 事件重采样到与 vsync 对齐。触摸采样率与
   // 显示刷新率不同步(如 120Hz 触摸 × 60Hz 显示)时,滚动速度会微观
