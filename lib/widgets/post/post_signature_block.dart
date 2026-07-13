@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/topic.dart';
 import '../../providers/preferences_provider.dart';
+import '../../services/coep_gate_service.dart';
 import '../../services/preloaded_data_service.dart';
 import '../../utils/fluxdo_render_callbacks.dart';
 import '../content/discourse_image.dart';
@@ -170,9 +171,12 @@ class _PostSignatureBlockState extends ConsumerState<PostSignatureBlock> {
 
 /// 加载失败时静默折叠为零尺寸的签名图。
 ///
-/// 对齐浏览器行为:签名 img 加载失败(第三方签名服务离线、域名解析
-/// 失败等)时不占任何空间——分隔线仍在(与网页一致,网页的 <hr> 也
-/// 不随图片失败消失),但不出现裂图占位块。
+/// 对齐浏览器两层行为:
+/// 1. **COEP 准入**(CoepGateService):linux.do 网页带 require-corp,
+///    无 CORP/CORS 头的第三方签名服务被浏览器整类拒载——app 同判,
+///    否则用户在网页上永远发现不了自己的签名是坏的;
+/// 2. 加载失败(服务离线、域名失效等)不占任何空间——分隔线仍在
+///    (与网页一致,<hr> 不随图片失败消失),不出现裂图占位块。
 class _SilentlyCollapsingImage extends StatefulWidget {
   final String url;
 
@@ -187,8 +191,38 @@ class _SilentlyCollapsingImageState extends State<_SilentlyCollapsingImage> {
   /// url → 已知失败(会话级;失败的签名服务不反复重试拉起占位)。
   static final Set<String> _knownBroken = <String>{};
 
+  bool? _coepAllowed;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveGate();
+  }
+
+  @override
+  void didUpdateWidget(covariant _SilentlyCollapsingImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.url != widget.url) {
+      _coepAllowed = null;
+      _resolveGate();
+    }
+  }
+
+  void _resolveGate() {
+    final url = widget.url;
+    final verdict = CoepGateService.allows(url);
+    // 同站是 SynchronousFuture,then 同帧回调,不闪占位
+    verdict.then((ok) {
+      if (mounted && widget.url == url && _coepAllowed != ok) {
+        setState(() => _coepAllowed = ok);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    // 判定中 / COEP 拒载:零占位(网页此时同样什么都不显示)
+    if (_coepAllowed != true) return const SizedBox.shrink();
     if (_knownBroken.contains(widget.url)) return const SizedBox.shrink();
     return DiscourseImage(
       url: widget.url,
