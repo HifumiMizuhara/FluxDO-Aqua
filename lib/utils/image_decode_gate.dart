@@ -85,6 +85,7 @@ class GatedImageCodec implements ui.Codec {
 
   final ui.Codec _inner;
   bool _firstFrameGated = false;
+  bool _disposed = false;
 
   @override
   int get frameCount => _inner.frameCount;
@@ -93,13 +94,28 @@ class GatedImageCodec implements ui.Codec {
   int get repetitionCount => _inner.repetitionCount;
 
   @override
-  void dispose() => _inner.dispose();
+  void dispose() {
+    _disposed = true;
+    _inner.dispose();
+  }
 
   @override
   Future<ui.FrameInfo> getNextFrame() {
     if (_firstFrameGated) return _inner.getNextFrame();
     _firstFrameGated = true;
-    return ImageDecodeGate.run(_inner.getNextFrame);
+    return ImageDecodeGate.run(() {
+      // 排队期间可能被 dispose(图滚出视口、监听者清空、cache 驱逐 →
+      // MultiFrameImageStreamCompleter._maybeDispose 释放 codec)。
+      // dart:ui 的 getNextFrame 对已 dispose 的 native peer 没有防护,
+      // 出队后再调用是未定义行为;这里改抛异常 —— 框架侧本就有
+      // "codec was disposed during getNextFrame" 的静默兜底路径
+      // (catch → reportError(silent))。副产品是队列级取消:已死的
+      // 解码请求不再白白占名额解码 + 上传。
+      if (_disposed) {
+        throw StateError('GatedImageCodec: codec disposed while queued');
+      }
+      return _inner.getNextFrame();
+    });
   }
 }
 
