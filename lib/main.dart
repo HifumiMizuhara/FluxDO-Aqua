@@ -10,6 +10,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:native_animated_image/native_animated_image.dart'
+    show NativeAnimatedImageProvider;
 import 'package:window_manager/window_manager.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart' as acrylic;
@@ -139,6 +141,10 @@ Future<void> main() async {
   // Impeller 纹理上传并发,图密话题快滚 raster 尖峰的对症闸门,
   // 见 image_decode_gate.dart)。
   FluxdoWidgetsBinding.ensureInitialized();
+
+  // Rust 动图管线的首帧(挂载瞬态的裸 RGBA 上传,不经 binding)注入
+  // 同一个闸门,与标准路径统一错峰;播放中的后续帧不过闸。
+  NativeAnimatedImageProvider.firstFrameGate = ImageDecodeGate.run;
 
   // 触摸重采样:把 pointer 事件重采样到与 vsync 对齐。触摸采样率与
   // 显示刷新率不同步(如 120Hz 触摸 × 60Hz 显示)时,滚动速度会微观

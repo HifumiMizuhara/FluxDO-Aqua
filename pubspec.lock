@@ -1416,10 +1416,10 @@ packages:
     dependency: "direct main"
     description:
       name: native_animated_image
-      sha256: "7d613ac68015426d3056bd62d0df0aa3c6fd0332dbbc8bfe61a9dfe5ad970295"
+      sha256: d9c806cee4c157bb000fdad7d46a9929cdec1949532f084fa8d2da92670b3923
       url: "https://pub.dev"
     source: hosted
-    version: "0.3.3"
+    version: "0.3.4"
   native_animated_image_android:
     dependency: transitive
     description:
