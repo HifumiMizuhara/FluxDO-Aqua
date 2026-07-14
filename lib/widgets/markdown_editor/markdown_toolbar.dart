@@ -18,7 +18,6 @@ import '../../services/toast_service.dart';
 import '../common/fading_edge_scroll_view.dart';
 import '../content/discourse_html_content/image_utils.dart';
 import 'editor_tools.dart';
-import 'cursor_swipe_control.dart';
 import 'media_upload_helper.dart';
 import 'voice_recorder_sheet.dart';
 import 'image_upload_dialog.dart';
@@ -36,11 +35,6 @@ class MarkdownToolbar extends StatefulWidget {
   /// 内容焦点节点（可选，用于恢复焦点）
   final FocusNode? focusNode;
 
-  /// 手势光标(虚拟指针)三回调:宿主实现悬浮幽灵 + 命中吸附 +
-  /// 增量边缘滚动;[onPointerStart] null 时不显示滑钮。
-  final bool Function({required bool extend})? onPointerStart;
-  final ValueChanged<Offset>? onPointerMove;
-  final VoidCallback? onPointerEnd;
 
   /// 是否显示预览按钮
   final bool showPreviewButton;
@@ -81,9 +75,6 @@ class MarkdownToolbar extends StatefulWidget {
     super.key,
     required this.controller,
     this.focusNode,
-    this.onPointerStart,
-    this.onPointerMove,
-    this.onPointerEnd,
     this.showPreviewButton = true,
     this.isPreview = false,
     this.onTogglePreview,
@@ -1085,14 +1076,6 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // 手势光标(虚拟指针):滑动驱动悬浮光标,
-                    // 移动端才有意义
-                    if (isMobile && widget.onPointerStart != null)
-                      CursorSwipeControl(
-                        onPointerStart: widget.onPointerStart,
-                        onPointerMove: widget.onPointerMove,
-                        onPointerEnd: widget.onPointerEnd,
-                      ),
                     if (!isMobile && widget.showPanguButton)
                       IconButton(
                         visualDensity: VisualDensity.compact,
