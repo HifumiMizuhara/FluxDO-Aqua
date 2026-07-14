@@ -20,20 +20,22 @@ void main() {
       expect(long.every((t) => t.audioBitrate == 12000), isTrue);
     });
 
-    test('视频:5 分钟文件 → 音频档随预算走,视频码率递降', () {
+    test('视频:5 分钟文件 → 码率递降,分辨率随码率落低档', () {
       final tiers = videoProfilesFor(const Duration(minutes: 5));
-      // budget ≈ 109k → audio 24k;video = (109k-24k)*factor
+      // budget ≈ 109k → audio 24k;video = (109k-24k)*factor ≈ 78k/56k/36k
       expect(tiers[0].audioBitrate, 24000);
       expect(tiers[0].videoBitrate, greaterThan(tiers[1].videoBitrate));
       expect(tiers[1].videoBitrate, greaterThan(tiers[2].videoBitrate));
-      expect(tiers[0].height, 480);
-      expect(tiers[2].height, 240);
+      expect(tiers[0].height, 240, reason: '低码率下高分辨率只会更糊');
       expect(tiers[2].videoBitrate, greaterThanOrEqualTo(12000));
     });
 
-    test('短视频预算高 → 音频 32k 档', () {
+    test('短视频预算高 → 720p 起步 + 音频 32k 档(不再写死 480p)', () {
       final tiers = videoProfilesFor(const Duration(seconds: 30));
       expect(tiers[0].audioBitrate, 32000);
+      // budget ≈ 1.09M → 第一档 video ≈ 0.97M > 900k → 720p30
+      expect(tiers[0].height, 720);
+      expect(tiers[0].fps, 30);
     });
   });
 
@@ -75,7 +77,7 @@ void main() {
         maxHeight: 360,
         fps: 18,
       ));
-      expect(args, containsAllInOrder(['-c:v', 'libx264', '-preset', 'ultrafast']));
+      expect(args, containsAllInOrder(['-c:v', 'libx264', '-preset', 'veryfast']));
       expect(args, containsAllInOrder(['-vf', 'scale=-2:360', '-r', '18']));
       expect(
         args,

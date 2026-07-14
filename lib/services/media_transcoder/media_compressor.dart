@@ -53,22 +53,34 @@ List<AudioProfile> audioProfilesFor(Duration duration) {
   ];
 }
 
-/// 视频三档(脚本 ffmpegProfileArgs video 分支)。
+/// 视频三档:码率预算递降,分辨率/帧率**按每档实际码率动态选**
+/// (短视频预算高 → 720p,不再写死 480p 起步白白降清晰度)。
+/// 折扣系数 0.92/0.66/0.42(原脚本 0.74 起步的 safety margin 过大,
+/// 第一档直接丢 26% 码率;硬编/x264 的码率控制没那么不准,超了还有
+/// 下一档兜底)。
 List<VideoProfile> videoProfilesFor(Duration duration) {
   final seconds = math.max(1, duration.inMilliseconds / 1000);
   final budget = math.max(24000, (kTargetMediaBytes * 8 / seconds).floor());
   final audio = budget > 180000 ? 32000 : (budget > 80000 ? 24000 : 16000);
-  VideoProfile p(String label, double factor, int h, int fps) => VideoProfile(
-        label,
-        math.max(12000, ((budget - audio) * factor).floor()),
-        audio,
-        h,
-        fps,
-      );
+
+  // 码率 → 该码率下观感最优的分辨率/帧率档(bpp 经验值)
+  (int, int) tierFor(int videoBps) {
+    if (videoBps > 900000) return (720, 30);
+    if (videoBps > 350000) return (480, 24);
+    if (videoBps > 140000) return (360, 18);
+    return (240, 12);
+  }
+
+  VideoProfile p(String label, double factor) {
+    final v = math.max(12000, ((budget - audio) * factor).floor());
+    final (h, fps) = tierFor(v);
+    return VideoProfile(label, v, audio, h, fps);
+  }
+
   return [
-    p('快速压缩', 0.74, 480, 24),
-    p('二次压缩', 0.52, 360, 18),
-    p('极限压缩', 0.34, 240, 12),
+    p('快速压缩', 0.92),
+    p('二次压缩', 0.66),
+    p('极限压缩', 0.42),
   ];
 }
 

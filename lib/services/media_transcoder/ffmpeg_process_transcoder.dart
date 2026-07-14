@@ -97,7 +97,9 @@ class FfmpegProcessTranscoder extends MediaTranscoder {
       args.addAll(['-ar', '${spec.audioSampleRate}']);
     } else {
       args.addAll(['-map', '0:v:0', '-map', '0:a:0?']);
-      args.addAll(['-c:v', 'libx264', '-preset', 'ultrafast']);
+      // veryfast:x264 速度/质量甜点(ultrafast 率失真最差,同码率
+      // 明显更糊;桌面 CPU 扛得住)
+      args.addAll(['-c:v', 'libx264', '-preset', 'veryfast']);
       if (spec.maxHeight != null) {
         args.addAll(['-vf', 'scale=-2:${spec.maxHeight}']);
       }
