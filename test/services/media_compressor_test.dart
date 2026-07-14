@@ -20,22 +20,27 @@ void main() {
       expect(long.every((t) => t.audioBitrate == 12000), isTrue);
     });
 
-    test('视频:5 分钟文件 → 码率递降,分辨率随码率落低档', () {
+    test('视频四档:HEVC 优先两档 + H264 兜底两档,码率递降', () {
       final tiers = videoProfilesFor(const Duration(minutes: 5));
-      // budget ≈ 109k → audio 24k;video = (109k-24k)*factor ≈ 78k/56k/36k
+      expect(tiers.map((t) => t.codec).toList(),
+          ['hevc', 'hevc', 'h264', 'h264']);
       expect(tiers[0].audioBitrate, 24000);
       expect(tiers[0].videoBitrate, greaterThan(tiers[1].videoBitrate));
-      expect(tiers[1].videoBitrate, greaterThan(tiers[2].videoBitrate));
-      expect(tiers[0].height, 240, reason: '低码率下高分辨率只会更糊');
-      expect(tiers[2].videoBitrate, greaterThanOrEqualTo(12000));
+      expect(tiers[1].videoBitrate, tiers[2].videoBitrate,
+          reason: '同 0.66 折扣,仅 codec 不同');
+      expect(tiers[3].videoBitrate, greaterThanOrEqualTo(12000));
     });
 
-    test('短视频预算高 → 720p 起步 + 音频 32k 档(不再写死 480p)', () {
+    test('短视频预算高 → HEVC 720p 起步;HEVC 分辨率阈值放宽', () {
       final tiers = videoProfilesFor(const Duration(seconds: 30));
       expect(tiers[0].audioBitrate, 32000);
-      // budget ≈ 1.09M → 第一档 video ≈ 0.97M > 900k → 720p30
+      expect(tiers[0].codec, 'hevc');
       expect(tiers[0].height, 720);
       expect(tiers[0].fps, 30);
+      // 第二档 hevc ≈ 0.66*1.06M ≈ 700k:除 0.65 折算 >900k → 仍 720p;
+      // 同码率的 h264 档(第三档)只到 480p —— 阈值放宽生效
+      expect(tiers[1].height, 720);
+      expect(tiers[2].height, 480);
     });
   });
 
@@ -66,6 +71,20 @@ void main() {
       expect(args, containsAllInOrder(['-movflags', '+faststart']));
       expect(args.last, 'out.m4a');
       expect(args, isNot(contains('-c:v')));
+    });
+
+    test('HEVC 参数:libx265 + hvc1 tag(Safari 兼容关键)', () {
+      final args = FfmpegProcessTranscoder.buildArgs(const TranscodeSpec(
+        input: 'in.mov',
+        output: 'out.mp4',
+        audioBitrate: 24000,
+        videoBitrate: 80000,
+        videoCodec: 'hevc',
+        maxHeight: 360,
+      ));
+      expect(args, containsAllInOrder(['-c:v', 'libx265', '-preset', 'veryfast']));
+      expect(args, containsAllInOrder(['-tag:v', 'hvc1']));
+      expect(args, isNot(contains('libx264')));
     });
 
     test('视频参数(x264 + 缩放 + 帧率 + maxrate)', () {

@@ -40,6 +40,7 @@ class TranscodeSpec {
     required this.audioBitrate,
     this.audioOnly = false,
     this.videoBitrate,
+    this.videoCodec = 'h264',
     this.maxHeight,
     this.fps,
     this.audioSampleRate = 44100,
@@ -58,6 +59,11 @@ class TranscodeSpec {
   final int audioBitrate;
   final int? videoBitrate;
 
+  /// 视频编码器:'h264'(默认,兼容面最大)/ 'hevc'(同码率画质
+  /// +30~50%;Safari/Chrome 新版可播,Firefox 部分平台不行 —— 编码
+  /// 失败由策略层回退 H264)。
+  final String videoCodec;
+
   /// 视频缩放目标高(宽按比例,偶数对齐);null 保持原尺寸。
   final int? maxHeight;
 
@@ -73,6 +79,7 @@ class TranscodeSpec {
         'audioOnly': audioOnly,
         'audioBitrate': audioBitrate,
         'videoBitrate': videoBitrate,
+        'videoCodec': videoCodec,
         'maxHeight': maxHeight,
         'fps': fps,
         'audioSampleRate': audioSampleRate,

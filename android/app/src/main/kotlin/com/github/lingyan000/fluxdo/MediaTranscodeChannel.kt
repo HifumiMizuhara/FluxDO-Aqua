@@ -137,6 +137,7 @@ object MediaTranscodeChannel {
         val audioOnly = args["audioOnly"] as? Boolean ?: false
         val audioBitrate = (args["audioBitrate"] as? Number)?.toInt() ?: 64000
         val videoBitrate = (args["videoBitrate"] as? Number)?.toInt()
+        val videoCodec = args["videoCodec"] as? String ?: "h264"
         val maxHeight = (args["maxHeight"] as? Number)?.toInt()
 
         lastProgress = 0.0
@@ -168,7 +169,16 @@ object MediaTranscodeChannel {
 
         val t = Transformer.Builder(context)
             .setAudioMimeType(MimeTypes.AUDIO_AAC)
-            .apply { if (!audioOnly) setVideoMimeType(MimeTypes.VIDEO_H264) }
+            .apply {
+                if (!audioOnly) {
+                    // HEVC 优先档;设备无硬编时 Transformer onError,
+                    // 策略层回退 H264 档
+                    setVideoMimeType(
+                        if (videoCodec == "hevc") MimeTypes.VIDEO_H265
+                        else MimeTypes.VIDEO_H264
+                    )
+                }
+            }
             .setEncoderFactory(encoderFactory)
             .addListener(object : Transformer.Listener {
                 override fun onCompleted(

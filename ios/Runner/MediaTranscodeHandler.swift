@@ -124,6 +124,7 @@ class MediaTranscodeHandler: NSObject {
     let audioOnly = args["audioOnly"] as? Bool ?? false
     let audioBitrate = args["audioBitrate"] as? Int ?? 64000
     let videoBitrate = args["videoBitrate"] as? Int
+    let videoCodec = args["videoCodec"] as? String ?? "h264"
     let maxHeight = args["maxHeight"] as? Int
     let fps = args["fps"] as? Int
     let sampleRate = args["audioSampleRate"] as? Int ?? 44100
@@ -200,14 +201,21 @@ class MediaTranscodeHandler: NSObject {
       }
       reader.add(vOut)
 
+      // HEVC:AVAssetWriter 产物即 Safari 要求的 hvc1 tag;profile
+      // 留系统默认(Main 自动)。老设备(无 HEVC 硬编)writer 会在
+      // startWriting/append 阶段失败 → 上层策略回退 H264 档。
+      let useHevc = videoCodec == "hevc"
+      var compression: [String: Any] = [
+        AVVideoAverageBitRateKey: videoBitrate ?? 500_000
+      ]
+      if !useHevc {
+        compression[AVVideoProfileLevelKey] = AVVideoProfileLevelH264MainAutoLevel
+      }
       let vSettings: [String: Any] = [
-        AVVideoCodecKey: AVVideoCodecType.h264,
+        AVVideoCodecKey: useHevc ? AVVideoCodecType.hevc : AVVideoCodecType.h264,
         AVVideoWidthKey: dstWi,
         AVVideoHeightKey: dstHi,
-        AVVideoCompressionPropertiesKey: [
-          AVVideoAverageBitRateKey: videoBitrate ?? 500_000,
-          AVVideoProfileLevelKey: AVVideoProfileLevelH264MainAutoLevel,
-        ],
+        AVVideoCompressionPropertiesKey: compression,
       ]
       let vIn = AVAssetWriterInput(mediaType: .video, outputSettings: vSettings)
       vIn.expectsMediaDataInRealTime = false

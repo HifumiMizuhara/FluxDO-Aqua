@@ -97,9 +97,15 @@ class FfmpegProcessTranscoder extends MediaTranscoder {
       args.addAll(['-ar', '${spec.audioSampleRate}']);
     } else {
       args.addAll(['-map', '0:v:0', '-map', '0:a:0?']);
-      // veryfast:x264 速度/质量甜点(ultrafast 率失真最差,同码率
-      // 明显更糊;桌面 CPU 扛得住)
-      args.addAll(['-c:v', 'libx264', '-preset', 'veryfast']);
+      // veryfast:x26x 速度/质量甜点(ultrafast 率失真最差,同码率
+      // 明显更糊;桌面 CPU 扛得住)。HEVC 必须 -tag:v hvc1 ——
+      // ffmpeg 默认写 hev1,Safari/AVFoundation 不认。
+      if (spec.videoCodec == 'hevc') {
+        args.addAll(['-c:v', 'libx265', '-preset', 'veryfast']);
+        args.addAll(['-tag:v', 'hvc1']);
+      } else {
+        args.addAll(['-c:v', 'libx264', '-preset', 'veryfast']);
+      }
       if (spec.maxHeight != null) {
         args.addAll(['-vf', 'scale=-2:${spec.maxHeight}']);
       }

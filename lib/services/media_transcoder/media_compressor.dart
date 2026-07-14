@@ -29,13 +29,16 @@ class AudioProfile {
 
 /// 视频压缩档。
 class VideoProfile {
-  const VideoProfile(
-      this.label, this.videoBitrate, this.audioBitrate, this.height, this.fps);
+  const VideoProfile(this.label, this.videoBitrate, this.audioBitrate,
+      this.height, this.fps, this.codec);
   final String label;
   final int videoBitrate;
   final int audioBitrate;
   final int height;
   final int fps;
+
+  /// 'hevc' / 'h264'。
+  final String codec;
 }
 
 /// 音频三档(脚本 profiles factor 0.72/0.45/0.28,b:a 钳 12k..96k)。
@@ -63,24 +66,29 @@ List<VideoProfile> videoProfilesFor(Duration duration) {
   final budget = math.max(24000, (kTargetMediaBytes * 8 / seconds).floor());
   final audio = budget > 180000 ? 32000 : (budget > 80000 ? 24000 : 16000);
 
-  // 码率 → 该码率下观感最优的分辨率/帧率档(bpp 经验值)
-  (int, int) tierFor(int videoBps) {
-    if (videoBps > 900000) return (720, 30);
-    if (videoBps > 350000) return (480, 24);
-    if (videoBps > 140000) return (360, 18);
+  // 码率 → 该码率下观感最优的分辨率/帧率档(bpp 经验值)。
+  // HEVC 同码率效率高 ~40%,阈值放宽 35%(600k 即可上 720p)。
+  (int, int) tierFor(int videoBps, {required bool hevc}) {
+    final bps = hevc ? (videoBps / 0.65).round() : videoBps;
+    if (bps > 900000) return (720, 30);
+    if (bps > 350000) return (480, 24);
+    if (bps > 140000) return (360, 18);
     return (240, 12);
   }
 
-  VideoProfile p(String label, double factor) {
+  VideoProfile p(String label, double factor, String codec) {
     final v = math.max(12000, ((budget - audio) * factor).floor());
-    final (h, fps) = tierFor(v);
-    return VideoProfile(label, v, audio, h, fps);
+    final (h, fps) = tierFor(v, hevc: codec == 'hevc');
+    return VideoProfile(label, v, audio, h, fps, codec);
   }
 
+  // HEVC 优先(画质档),编码器不可用由 compressMediaToFit 整体跳到
+  // H264 档(不逐档重试浪费时间)
   return [
-    p('快速压缩', 0.92),
-    p('二次压缩', 0.66),
-    p('极限压缩', 0.42),
+    p('快速压缩', 0.92, 'hevc'),
+    p('二次压缩', 0.66, 'hevc'),
+    p('兼容压缩', 0.66, 'h264'),
+    p('极限压缩', 0.42, 'h264'),
   ];
 }
 
@@ -130,6 +138,7 @@ Future<CompressResult> compressMediaToFit(
           for (final p in audioProfilesFor(info.duration))
             (
               label: p.label,
+              codec: 'aac',
               spec: (String out) => TranscodeSpec(
                     input: inputPath,
                     output: out,
@@ -145,11 +154,13 @@ Future<CompressResult> compressMediaToFit(
           for (final p in videoProfilesFor(info.duration))
             (
               label: p.label,
+              codec: p.codec,
               spec: (String out) => TranscodeSpec(
                     input: inputPath,
                     output: out,
                     audioBitrate: p.audioBitrate,
                     videoBitrate: p.videoBitrate,
+                    videoCodec: p.codec,
                     maxHeight: p.height,
                     fps: p.fps,
                   ),
@@ -158,8 +169,10 @@ Future<CompressResult> compressMediaToFit(
         ];
 
   Object? lastError;
+  var hevcBroken = false; // 编码器不可用:跳过所有剩余 HEVC 档
   for (var i = 0; i < profiles.length; i++) {
     final tier = profiles[i];
+    if (hevcBroken && tier.codec == 'hevc') continue;
     final out =
         '$outputDir${Platform.pathSeparator}compress_${stamp}_$i.${tier.ext}';
     onStatus?.call('${tier.label}…');
@@ -178,6 +191,7 @@ Future<CompressResult> compressMediaToFit(
       unawaited(File(out).delete().catchError((_) => File(out)));
     } catch (e) {
       lastError = e;
+      if (tier.codec == 'hevc') hevcBroken = true;
       unawaited(File(out).delete().catchError((_) => File(out)));
     }
   }
