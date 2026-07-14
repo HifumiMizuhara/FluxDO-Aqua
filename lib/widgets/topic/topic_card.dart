@@ -31,8 +31,12 @@ Widget _clipCardIfNeeded({
   return ClipRRect(borderRadius: borderRadius, child: child);
 }
 
-class _TopicCardInteractiveSurface extends StatelessWidget {
-  const _TopicCardInteractiveSurface({
+/// 话题卡交互面(公共):桌面 = Material + InkWell(hover/水波纹/右键/
+/// 中键),移动 = 灰底按压面。widget 卡与自绘卡(painted_bookmark_card)
+/// 共用同一实现,保证两种卡的交互观感逐像素一致。
+class TopicCardInteractiveSurface extends StatelessWidget {
+  const TopicCardInteractiveSurface({
+    super.key,
     required this.borderRadius,
     required this.child,
     this.onTap,
@@ -261,7 +265,7 @@ class TopicCard extends ConsumerWidget {
                   )
                 : null,
           ),
-          child: _TopicCardInteractiveSurface(
+          child: TopicCardInteractiveSurface(
             borderRadius: cardRadius,
             onTap: onTap,
             onLongPress: onLongPress,
@@ -920,7 +924,7 @@ class CompactTopicCard extends ConsumerWidget {
                   )
                 : null,
           ),
-          child: _TopicCardInteractiveSurface(
+          child: TopicCardInteractiveSurface(
             borderRadius: cardRadius,
             onTap: onTap,
             onLongPress: onLongPress,

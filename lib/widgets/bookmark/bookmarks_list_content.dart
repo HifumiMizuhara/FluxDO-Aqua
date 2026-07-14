@@ -9,6 +9,8 @@ import '../../models/topic.dart';
 import '../../pages/bookmarks/bookmarks_models.dart';
 import '../../providers/category_provider.dart';
 import '../../providers/preferences_provider.dart';
+import '../topic/topic_card_layout.dart';
+import '../topic/painted_topic_card.dart';
 import '../../utils/blocked_user_filter.dart';
 import '../../utils/platform_utils.dart';
 import '../../utils/time_utils.dart';
@@ -208,12 +210,78 @@ class BookmarksListContent extends ConsumerWidget {
         }
 
         final topic = filteredTopics[index];
-        // 提醒过期态进签名:色带颜色依赖 now,跨过提醒时刻要重建。
-        // 主题恒等也进签名:色带/摘要的颜色在构造参数里烤死(不同于
-        // 卡内 build 时现读),深浅色切换必须换代。
         final reminderAt = topic.bookmarkReminderAt;
         final reminderExpired =
             reminderAt != null && reminderAt.isBefore(DateTime.now());
+
+        // ── 自绘卡路径(默认):整卡 1 个 RenderObject,排版在
+        // TopicCardLayout 全局缓存里一次算死,挂载帧纯绘制 1~2ms。
+        // widget 版路径保留在 else 分支(kUsePaintedCard=false 一键回退)
+        if (kUsePaintedTopicCard && !topic.pinned) {
+          final theme = Theme.of(context);
+          final categoryId = int.tryParse(topic.categoryId);
+          // 桌面端对齐 widget 版 buildTopicItem 的列宽约束:内容居中、
+          // 卡宽 ≤ maxContentWidth;排版宽随之
+          final viewportWidth = MediaQuery.sizeOf(context).width - 24;
+          final isMobile = Responsive.isMobile(context);
+          final cardWidth = isMobile
+              ? viewportWidth
+              : (viewportWidth > Breakpoints.maxContentWidth
+                  ? Breakpoints.maxContentWidth
+                  : viewportWidth);
+          final layout = TopicCardLayout.obtain(
+            identity: bookmarkTopicIdentity(topic),
+            topic: topic,
+            width: cardWidth,
+            theme: theme,
+            category: categoryMap?[categoryId],
+            excerptText: _cleanedExcerptOf(topic),
+            bandName: normalizeBookmarkName(topic.bookmarkName),
+            bandReminder: reminderAt == null
+                ? null
+                : (reminderExpired
+                    ? context.l10n.bookmarks_expired
+                    : ' ${TimeUtils.formatDetailTime(reminderAt)}'),
+            bandExpired: reminderExpired,
+            statsAvailableWidth: statsAvailableWidth ?? 460,
+            emojiUrlOf: topicCardEmojiUrlResolver,
+          );
+          Widget card = PaintedTopicCard(
+            key: ValueKey(bookmarkTopicIdentity(topic)),
+            layout: layout,
+            onTap: () => onTap(topic),
+            onMiddleClick: () => onMiddleClick(topic),
+            onLongPress: enableLongPress
+                ? () => TopicPreviewDialog.show(
+                      context,
+                      topic: topic,
+                      onOpen: () => onTap(topic),
+                      actions: topic.bookmarkId != null
+                          ? _buildPreviewActions(context, topic)
+                          : null,
+                      customActionPanelBuilder: topic.bookmarkId != null
+                          ? (_) => BookmarkPreviewQuickEditor(
+                                initialName: topic.bookmarkName,
+                                suggestions: bookmarkNameSuggestions,
+                                suggestionsLoader: bookmarkNameSuggestionsLoader,
+                                onSave: (value) =>
+                                    onQuickRenameBookmark(topic, value),
+                              )
+                          : null,
+                    )
+                : null,
+          );
+          if (!isMobile) {
+            card = Center(
+              child: SizedBox(width: cardWidth, child: card),
+            );
+          }
+          return card;
+        }
+
+        // 提醒过期态进签名:色带颜色依赖 now,跨过提醒时刻要重建。
+        // 主题恒等也进签名:色带/摘要的颜色在构造参数里烤死(不同于
+        // 卡内 build 时现读),深浅色切换必须换代。
         final sig = (
           topic: topic,
           enableLongPress: enableLongPress,
@@ -391,11 +459,10 @@ class BookmarksListContent extends ConsumerWidget {
   /// (刷新拉到新数据 = 新字符串实例,自动重算)。
   static final Map<int, (String, String)> _excerptCleanCache = {};
 
-  Widget? _buildBookmarkExcerpt(BuildContext context, Topic topic) {
-    if (topic.excerpt == null) {
-      return null;
-    }
-    final raw = topic.excerpt!;
+  /// 清洗后的摘要文本(自绘卡路径直接用字符串;空串归 null)
+  String? _cleanedExcerptOf(Topic topic) {
+    final raw = topic.excerpt;
+    if (raw == null) return null;
     final hit = _excerptCleanCache[topic.id];
     final String cleaned;
     if (hit != null && identical(hit.$1, raw)) {
@@ -405,7 +472,12 @@ class BookmarksListContent extends ConsumerWidget {
       if (_excerptCleanCache.length > 500) _excerptCleanCache.clear();
       _excerptCleanCache[topic.id] = (raw, cleaned);
     }
-    if (cleaned.isEmpty) {
+    return cleaned.isEmpty ? null : cleaned;
+  }
+
+  Widget? _buildBookmarkExcerpt(BuildContext context, Topic topic) {
+    final cleaned = _cleanedExcerptOf(topic);
+    if (cleaned == null) {
       return null;
     }
 
