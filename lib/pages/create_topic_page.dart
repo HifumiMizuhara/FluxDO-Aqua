@@ -687,13 +687,19 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
                               // Page 0: 编辑模式 —— 标题/标签/字数打包为
                               // header 注入编辑器滚动流,与正文同滚(手机
                               // 写正文时头部随内容滚出屏,编辑区满格;分类
-                              // 已上收 AppBar)。Form 上提包住 AnimatedSwitcher:
-                              // 双模切换过渡期两个编辑器短暂同挂 header,
-                              // Form 若在 header 里会 _formKey 双挂崩溃。
+                              // 已上收 AppBar)。
+                              // 双模切换 = KeyedSubtree 直切**无过渡**:
+                              // AnimatedSwitcher 会让富/源两编辑器并存
+                              // 150ms —— 两者共享 focusNode 且输入模型
+                              // 异构(自管 IME vs TextField),并存窗口
+                              // 里全局 TextInput 连接交接必然竞态(切后
+                              // 无法删除/快捷键失灵反复复发)。直切让旧
+                              // 编辑器同帧 dispose(自管 IME 必然 detach),
+                              // 新 TextField attach 时世界里只有它。
                               Form(
                                 key: _formKey,
-                                child: AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 150),
+                                child: KeyedSubtree(
+                                  key: const ValueKey('composer-switch'),
                                   child:
                                       (ref
                                               .watch(preferencesProvider)

@@ -613,12 +613,13 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
                 },
                 children: [
                   // Page 0: 编辑模式 —— 标题/标签/字数打包为 header
-                  // 注入编辑器滚动流,与正文同滚(创建页同款);
-                  // Form 上提防双模切换过渡期 _formKey 双挂
+                  // 注入编辑器滚动流,与正文同滚(创建页同款)。
+                  // KeyedSubtree 直切无过渡:防双模并存 IME 交接竞态
+                  // (说明见 create_topic_page 同位注释)
                   Form(
                     key: _formKey,
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 150),
+                    child: KeyedSubtree(
+                      key: const ValueKey('composer-switch'),
                       child:
                           (ref.watch(preferencesProvider).useRichComposer &&
                               !_richFallback)

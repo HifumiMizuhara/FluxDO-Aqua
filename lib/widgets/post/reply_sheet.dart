@@ -758,10 +758,11 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
                       ],
 
                       // 2. 编辑器区域(feature flag:富文本 / markdown;
-                      // 双向切换 150ms 淡入过渡)
+                      // KeyedSubtree 直切无过渡 —— 防双模并存 IME 交接
+                      // 竞态,说明见 create_topic_page 同位注释)
                       Expanded(
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 150),
+                        child: KeyedSubtree(
+                          key: const ValueKey('composer-switch'),
                           child: (ref
                                       .watch(preferencesProvider)
                                       .useRichComposer &&

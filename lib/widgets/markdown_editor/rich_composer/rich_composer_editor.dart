@@ -1358,15 +1358,34 @@ class RichComposerEditorState extends State<RichComposerEditor> {
       return false;
     }
     final t = block.content.text;
+    // info 可能是上一帧的(onLinkCaret 帧后上抛):删除中 end 会大于
+    // 已变短的文本,substring 直接 RangeError 红屏刷屏 —— 陈旧即 false
+    if (info.start < 0 || info.end > t.length || info.start > info.end) {
+      return false;
+    }
     return t.substring(0, info.start).trim().isEmpty &&
         t.substring(info.end).trim().isEmpty;
+  }
+
+  /// 浮层重建帧的陈旧 info 防御:块还在、区间仍在文本内才算活着
+  /// (编辑/删除进行中先隐藏,帧后新 info 到达再现)。
+  bool _linkCaretAlive(LinkCaretInfo info) {
+    final editor = _editor;
+    if (editor == null) return false;
+    final block = editor.textBlockById(info.blockId);
+    if (block == null) return false;
+    return info.start >= 0 &&
+        info.end <= block.content.length &&
+        info.start <= info.end;
   }
 
   void _showLinkToolbar() {
     _linkToolbarOverlay = OverlayEntry(
       builder: (context) {
         final info = _linkCaret;
-        if (info == null) return const SizedBox.shrink();
+        if (info == null || !_linkCaretAlive(info)) {
+          return const SizedBox.shrink();
+        }
         final scheme = Theme.of(context).colorScheme;
         final screen = MediaQuery.sizeOf(context);
         final href = info.href ?? '';
@@ -1510,7 +1529,9 @@ class RichComposerEditorState extends State<RichComposerEditor> {
   Future<void> _editLinkAtCaret() async {
     final info = _linkCaret;
     final editor = _editor;
-    if (info == null || editor == null) return;
+    if (info == null || editor == null || !_linkCaretAlive(info)) {
+      return;
+    }
     final result = await showLinkInsertDialog(
       context,
       initialText: info.text,
@@ -1534,7 +1555,9 @@ class RichComposerEditorState extends State<RichComposerEditor> {
   void _unlinkAtCaret() {
     final info = _linkCaret;
     final editor = _editor;
-    if (info == null || editor == null) return;
+    if (info == null || editor == null || !_linkCaretAlive(info)) {
+      return;
+    }
     editor.updateSelection(
       EditorSelection(
         base: EditorPosition(blockId: info.blockId, offset: info.start),
@@ -1556,7 +1579,9 @@ class RichComposerEditorState extends State<RichComposerEditor> {
   Future<void> _convertLinkToPreview() async {
     final info = _linkCaret;
     final editor = _editor;
-    if (info == null || editor == null) return;
+    if (info == null || editor == null || !_linkCaretAlive(info)) {
+      return;
+    }
     final href = info.href;
     if (href == null || href.isEmpty) return;
     if (!_linkIsWholeParagraph(info)) return;
@@ -2373,7 +2398,9 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                   if (!_ownsFocus) {
                     final node = _editorFocus;
                     final controller = widget.controller;
-                    Timer(const Duration(milliseconds: 220), () {
+                    // 宿主已换 KeyedSubtree 直切(无 150ms 并存窗口),
+                    // 80ms 只等本帧 dispose 落定
+                    Timer(const Duration(milliseconds: 80), () {
                       // 本 State 已 dispose,不查 mounted;node/controller
                       // 归宿主所有。220ms 内页面整体退场会撞已 dispose
                       // 对象 —— fire-and-forget 场景,吞掉即可。
