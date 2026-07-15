@@ -7,6 +7,9 @@ import '../markdown_editor/rich_composer/rich_composer_editor.dart';
 import '../../providers/preferences_provider.dart';
 import '../../models/topic.dart';
 import '../../models/draft.dart';
+import '../../models/pending_post.dart';
+import '../../pages/pending_posts_page.dart';
+import '../../services/local_notification_service.dart' show navigatorKey;
 import '../../services/discourse/discourse_service.dart';
 import '../../services/ai_post_review_service.dart';
 import '../../services/presence_service.dart';
@@ -33,6 +36,8 @@ import '../common/loading_spinner.dart';
 /// [preloadedDraftFuture] 预加载的草稿 Future（在点击回复按钮时就发起请求）
 /// [initialContent] 可选，预填内容（划词引用时使用）
 /// [initialTitle] 可选，预填标题（私信模式时使用）
+/// [onEnqueued] 可选，帖子被送审时回调(携带待审内容摘要);
+/// 不传时降级为 toast 提示 + 「查看」跳转待审列表页
 /// 返回创建的 Post 对象，取消或失败返回 null
 Future<Post?> showReplySheet({
   required BuildContext context,
@@ -48,6 +53,7 @@ Future<Post?> showReplySheet({
   bool isPrivateMessageTopic = false,
   bool isPmWithNonHumanUser = false,
   ShortcutSurfaceConfig? shortcutSurface,
+  ValueChanged<PendingPost>? onEnqueued,
 }) async {
   final result = await showAppBottomSheet<Post?>(
     context: context,
@@ -67,6 +73,7 @@ Future<Post?> showReplySheet({
       topicTitle: topicTitle,
       isPrivateMessageTopic: isPrivateMessageTopic,
       isPmWithNonHumanUser: isPmWithNonHumanUser,
+      onEnqueued: onEnqueued,
     ),
   );
   return result;
@@ -116,6 +123,7 @@ class ReplySheet extends ConsumerStatefulWidget {
   final String? topicTitle; // 普通回帖审核时带上的话题标题
   final bool isPrivateMessageTopic; // 当前话题是否为私信话题
   final bool isPmWithNonHumanUser; // 当前私信话题是否包含非真人用户
+  final ValueChanged<PendingPost>? onEnqueued; // 帖子被送审时回调
 
   const ReplySheet({
     super.key,
@@ -131,6 +139,7 @@ class ReplySheet extends ConsumerStatefulWidget {
     this.topicTitle,
     this.isPrivateMessageTopic = false,
     this.isPmWithNonHumanUser = false,
+    this.onEnqueued,
   });
 
   @override
@@ -490,12 +499,29 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
         if (!mounted) return;
         Navigator.of(context).pop(newPost);
       }
-    } on PostEnqueuedException {
+    } on PostEnqueuedException catch (e) {
       // 审核场景：删除草稿，提示用户，关闭编辑器
       await _draftController?.deleteDraft();
       _submitted = true;
       if (!mounted) return;
-      ToastService.showInfo(S.current.post_pendingReview);
+      final pending = e.pendingPost;
+      if (widget.onEnqueued != null && pending != null) {
+        // 宿主接管展示(如主题页底部待审块),轻提示即可
+        widget.onEnqueued!(pending);
+        ToastService.showInfo(S.current.post_pendingReview);
+      } else {
+        // 无宿主接管:toast 带「查看」入口跳待审列表页
+        ToastService.show(
+          S.current.post_pendingReview,
+          type: ToastType.info,
+          actionLabel: S.current.review_viewAction,
+          onAction: () {
+            navigatorKey.currentState?.push(
+              MaterialPageRoute(builder: (_) => const PendingPostsPage()),
+            );
+          },
+        );
+      }
       Navigator.of(context).pop();
     } on DioException catch (_) {
       // 网络错误已由 ErrorInterceptor 处理:发送失败,恢复草稿保存

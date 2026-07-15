@@ -24,18 +24,28 @@ import 'package:fluxdo/services/draft_controller.dart';
 import 'package:fluxdo/services/preloaded_data_service.dart';
 import 'package:fluxdo/providers/shortcut_provider.dart';
 import 'package:fluxdo/widgets/topic/topic_editor_helpers.dart';
+import 'package:fluxdo/services/local_notification_service.dart'
+    show navigatorKey;
 import '../l10n/s.dart';
 import '../utils/dialog_utils.dart';
+import 'pending_posts_page.dart';
 
 class CreateTopicPage extends ConsumerStatefulWidget {
   final int? initialCategoryId;
   final List<String>? initialTags;
+
+  /// 预填标题/内容(待审内容撤回重编辑等场景);
+  /// 传入任一时跳过草稿恢复弹窗,避免覆盖预填
+  final String? initialTitle;
+  final String? initialContent;
   final String draftKey;
 
   const CreateTopicPage({
     super.key,
     this.initialCategoryId,
     this.initialTags,
+    this.initialTitle,
+    this.initialContent,
     this.draftKey = Draft.newTopicKey,
   });
 
@@ -92,8 +102,21 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
     _titleController.addListener(_onDraftContentChanged);
     _contentController.addListener(_onDraftContentChanged);
 
-    // 加载现有草稿
-    _loadExistingDraft();
+    // 预填标题/内容(待审内容撤回重编辑等场景):直接落 controller,
+    // 并跳过草稿恢复弹窗,避免旧草稿覆盖预填内容
+    final hasInitialPrefill = (widget.initialTitle?.isNotEmpty ?? false) ||
+        (widget.initialContent?.isNotEmpty ?? false);
+    if (hasInitialPrefill) {
+      if (widget.initialTitle != null) {
+        _titleController.text = widget.initialTitle!;
+      }
+      if (widget.initialContent != null) {
+        _contentController.text = widget.initialContent!;
+      }
+    } else {
+      // 加载现有草稿
+      _loadExistingDraft();
+    }
 
     // 从当前筛选条件自动填入分类和标签
     WidgetsBinding.instance.addPostFrameCallback((_) => _applyCurrentFilter());
@@ -441,11 +464,20 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
       if (!mounted) return;
       Navigator.of(context).pop(topicId);
     } on PostEnqueuedException {
-      // 审核场景：删除草稿，提示用户，关闭编辑器
+      // 审核场景：删除草稿，提示用户（带「查看」入口），关闭编辑器
       await _draftController.deleteDraft();
       _submitted = true;
       if (!mounted) return;
-      ToastService.showInfo(S.current.createTopic_pendingReview);
+      ToastService.show(
+        S.current.createTopic_pendingReview,
+        type: ToastType.info,
+        actionLabel: S.current.review_viewAction,
+        onAction: () {
+          navigatorKey.currentState?.push(
+            MaterialPageRoute(builder: (_) => const PendingPostsPage()),
+          );
+        },
+      );
       Navigator.of(context).pop();
     } on DioException catch (_) {
       // 网络错误已由 ErrorInterceptor 处理

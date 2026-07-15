@@ -23,6 +23,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import '../../models/draft.dart';
 import '../../models/topic.dart';
+import '../../models/pending_post.dart';
 import '../../utils/blocked_user_filter.dart';
 import '../../utils/responsive.dart';
 import '../../utils/share_utils.dart';
@@ -2373,6 +2374,9 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
                 isPmWithNonHumanUser: detail.pmWithNonHumanUser,
                 onJumpToPost: _scrollToPost,
               ),
+              onWithdrawPendingPost: isLoggedIn ? _handleWithdrawPending : null,
+              onWithdrawAndEditPendingPost:
+                  isLoggedIn ? _handleWithdrawAndEditPending : null,
             );
           },
         );

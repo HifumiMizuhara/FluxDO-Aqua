@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 import '../../../l10n/s.dart';
 import '../../../models/topic.dart';
+import '../../../models/pending_post.dart';
 import '../../../providers/message_bus_providers.dart';
 import '../../../services/toast_service.dart';
 import '../../../utils/frame_jank_monitor.dart';
@@ -25,6 +26,7 @@ import '../../../widgets/post/post_item/segmented_long_post.dart';
 import 'topic_detail_header.dart';
 import 'shared_issue_button.dart';
 import 'typing_indicator.dart';
+import 'pending_posts_section.dart';
 
 /// 话题帖子列表
 /// 负责构建 CustomScrollView 及其 Slivers
@@ -94,6 +96,10 @@ class TopicPostList extends StatefulWidget {
   /// 查看帖子详情回调
   final void Function(Post post)? onShowPostDetail;
 
+  /// 待审核回复操作回调(撤回 / 撤回并重新编辑);任一为 null 则不显示待审块
+  final void Function(PendingPost pending)? onWithdrawPendingPost;
+  final void Function(PendingPost pending)? onWithdrawAndEditPendingPost;
+
   /// 高亮指定用户的 boost（从 boost 通知跳转时使用）
   final String? highlightBoostUsername;
   final bool hideHeaderTitle;
@@ -143,6 +149,8 @@ class TopicPostList extends StatefulWidget {
     this.onExpandHiddenPost,
     this.useReplyDialog = false,
     this.onShowPostDetail,
+    this.onWithdrawPendingPost,
+    this.onWithdrawAndEditPendingPost,
   });
 
   @override
@@ -1050,6 +1058,27 @@ class _TopicPostListState extends State<TopicPostList> {
                       _renderSegments[segmentIndex],
                     );
                   },
+                ),
+
+              // 当前用户的待审核回复(帖子流末尾,仅本人可见;对齐官方
+              // topic 模板的 pending-posts 块)。位于分页边界内侧:还有
+              // 更多帖子未加载时不显示,避免"待审"出现在中间位置。
+              if (!hasMoreAfter &&
+                  detail.pendingPosts.isNotEmpty &&
+                  widget.onWithdrawPendingPost != null &&
+                  widget.onWithdrawAndEditPendingPost != null)
+                SliverToBoxAdapter(
+                  child: _wrapContent(
+                    context,
+                    SelectionContainer.disabled(
+                      child: PendingPostsSection(
+                        pendingPosts: detail.pendingPosts,
+                        onWithdraw: widget.onWithdrawPendingPost!,
+                        onWithdrawAndEdit:
+                            widget.onWithdrawAndEditPendingPost!,
+                      ),
+                    ),
+                  ),
                 ),
 
               // 正在输入指示器（始终占位，通过 AnimatedSize 平滑过渡避免列表抖动）

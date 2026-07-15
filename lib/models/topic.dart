@@ -4,6 +4,7 @@ import '../l10n/s.dart';
 import '../utils/time_utils.dart';
 import '../utils/url_helper.dart';
 import '../utils/bookmark_name_utils.dart';
+import 'pending_post.dart';
 import 'user.dart';
 
 /// 标签模型
@@ -1541,6 +1542,9 @@ class TopicDetail {
   // 多解决方案场景下长度可 > 1,对齐 Discourse 的 accepted_answers 数组)
   final List<AcceptedAnswer> acceptedAnswers;
 
+  // 当前用户在本主题下的待审核回复(仅认证 + 站点启用审核队列时返回)
+  final List<PendingPost> pendingPosts;
+
   bool get hasAcceptedAnswer => acceptedAnswers.isNotEmpty;
   int? get acceptedAnswerPostNumber =>
       acceptedAnswers.isEmpty ? null : acceptedAnswers.first.postNumber;
@@ -1585,6 +1589,7 @@ class TopicDetail {
     this.bookmarkName,
     this.bookmarkReminderAt,
     this.acceptedAnswers = const [],
+    this.pendingPosts = const [],
   });
 
   factory TopicDetail.fromJson(Map<String, dynamic> json) {
@@ -1760,6 +1765,10 @@ class TopicDetail {
       bookmarkName: topicBookmarkName,
       bookmarkReminderAt: topicBookmarkReminderAt,
       acceptedAnswers: acceptedAnswers,
+      pendingPosts: (json['pending_posts'] as List<dynamic>? ?? const [])
+          .whereType<Map>()
+          .map((e) => PendingPost.fromJson(Map<String, dynamic>.from(e)))
+          .toList(),
     );
   }
 
@@ -1802,6 +1811,7 @@ class TopicDetail {
     bool clearBookmarkName = false,
     bool clearBookmarkReminderAt = false,
     List<AcceptedAnswer>? acceptedAnswers,
+    List<PendingPost>? pendingPosts,
   }) {
     return TopicDetail(
       id: id ?? this.id,
@@ -1843,6 +1853,7 @@ class TopicDetail {
           ? null
           : (bookmarkReminderAt ?? this.bookmarkReminderAt),
       acceptedAnswers: acceptedAnswers ?? this.acceptedAnswers,
+      pendingPosts: pendingPosts ?? this.pendingPosts,
     );
   }
 }
