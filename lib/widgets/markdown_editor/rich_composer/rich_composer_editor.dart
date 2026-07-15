@@ -2180,9 +2180,10 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                             ),
                             if (isEmpty)
                               Positioned(
-                                left: 12,
-                                // 12(编辑区 padding) + 4(块 vertical
-                                // padding) 与首行文字同源
+                                // 与编辑区 padding 同源:水平 20(对齐
+                                // header 标题),垂直 12 + 4(块 vertical
+                                // padding)= 首行文字基线
+                                left: 20,
                                 top: 16,
                                 child: IgnorePointer(
                                   child: Text(
