@@ -102,6 +102,8 @@
   "settings_shortcuts": "Keyboard Shortcuts",
   "settings_title": "App Settings",
   "shortcuts_closeOverlay": "Close Overlay",
+  "shortcuts_composer": "Composer",
+  "shortcuts_composerSubmit": "Submit (send/publish)",
   "shortcuts_conflict": "Conflicts with \"{action}\"",
   "@shortcuts_conflict": {
     "placeholders": {

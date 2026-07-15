@@ -14,7 +14,8 @@ import 'dart:io' show File;
 import 'dart:math' show max;
 
 import 'package:chat_bottom_container/chat_bottom_container.dart';
-import 'package:flutter/foundation.dart' show Uint8List, kDebugMode;
+import 'package:flutter/foundation.dart'
+    show Uint8List, defaultTargetPlatform, kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:app_icons/app_icons.dart';
@@ -57,6 +58,7 @@ import '../emoji_sticker_panel.dart';
 import '../image_upload_dialog.dart';
 import '../link_insert_dialog.dart';
 import '../template_insert_dialog.dart';
+import '../composer_shortcuts.dart' show composerShortcutHint;
 import '../markdown_toolbar.dart' show MarkdownToolbarState;
 import 'callout_edit_dialog.dart';
 import 'composer_doc_codec.dart';
@@ -331,8 +333,18 @@ class RichComposerEditorState extends State<RichComposerEditor> {
   /// 浮层按键拦截(编辑器 onKeyEvent 首先调):斜杠菜单激活时接管
   /// 上下/回车/Tab/Esc。
   bool _interceptKeyEvent(KeyEvent event) {
-    if (_slashOverlay == null) return false;
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) return false;
+    // Cmd/Ctrl+K 插入链接(对齐 Discourse composer;内核不处理 keyK,
+    // 弹窗动作属宿主层 —— 与剪贴板三键同理不进纯状态层)
+    if (_slashOverlay == null &&
+        event.logicalKey == LogicalKeyboardKey.keyK &&
+        (defaultTargetPlatform == TargetPlatform.macOS
+            ? HardwareKeyboard.instance.isMetaPressed
+            : HardwareKeyboard.instance.isControlPressed)) {
+      _insertLink();
+      return true;
+    }
+    if (_slashOverlay == null) return false;
     final items = _slashFiltered;
     switch (event.logicalKey) {
       case LogicalKeyboardKey.arrowDown:
@@ -2621,6 +2633,13 @@ class _RichToolbarState extends State<_RichToolbar> {
 
   bool _hasMark(MarkKind kind) => (_sig.marksBits & (1 << kind.index)) != 0;
 
+  /// tooltip 快捷键后缀:桌面端按平台标注(⌘B / Ctrl+B,事实源
+  /// composer_shortcuts.dart);移动端无物理键盘不标。
+  static String _tip(String label, String toolId) {
+    if (!PlatformUtils.isDesktop) return label;
+    return '$label${composerShortcutHint(toolId) ?? ''}';
+  }
+
   /// 行内剧透:有选区 → toggle mark;折叠光标 → 插占位文字并整选
   /// (官方 rich editor inputRule 同款:立即可打字覆盖占位)。
   void _toggleInlineSpoiler() {
@@ -2697,25 +2716,25 @@ class _RichToolbarState extends State<_RichToolbar> {
                         children: [
                           _btn(
                             FontAwesomeIcons.bold,
-                            '粗体 (Cmd+B)',
+                            _tip('粗体', 'bold'),
                             active: _hasMark(MarkKind.strong),
                             onTap: () => state.toggleMark(MarkKind.strong),
                           ),
                           _btn(
                             FontAwesomeIcons.italic,
-                            '斜体 (Cmd+I)',
+                            _tip('斜体', 'italic'),
                             active: _hasMark(MarkKind.em),
                             onTap: () => state.toggleMark(MarkKind.em),
                           ),
                           _btn(
                             FontAwesomeIcons.strikethrough,
-                            '删除线 (Cmd+Shift+X)',
+                            _tip('删除线', 'strikethrough'),
                             active: _hasMark(MarkKind.lineThrough),
                             onTap: () => state.toggleMark(MarkKind.lineThrough),
                           ),
                           _btn(
                             FontAwesomeIcons.code,
-                            '行内代码 (Cmd+E)',
+                            _tip('行内代码', 'inlineCode'),
                             active: _hasMark(MarkKind.inlineCode),
                             onTap: () => state.toggleMark(MarkKind.inlineCode),
                           ),
@@ -2729,26 +2748,26 @@ class _RichToolbarState extends State<_RichToolbar> {
                           _headingBtn(theme),
                           _btn(
                             FontAwesomeIcons.listUl,
-                            '无序列表',
+                            _tip('无序列表', 'bulletList'),
                             active: isListItem && !_sig.ordered,
                             onTap: () => state.toggleList(ordered: false),
                           ),
                           _btn(
                             FontAwesomeIcons.listOl,
-                            '有序列表',
+                            _tip('有序列表', 'numberedList'),
                             active: isListItem && _sig.ordered,
                             onTap: () => state.toggleList(ordered: true),
                           ),
                           _btn(
                             FontAwesomeIcons.quoteRight,
-                            '引用',
+                            _tip('引用', 'quote'),
                             active: _sig.inQuote,
                             onTap: state.toggleQuote,
                           ),
                           _divider(theme),
                           _btn(
                             FontAwesomeIcons.link,
-                            '插入链接',
+                            _tip('插入链接', 'link'),
                             onTap: widget.onInsertLink,
                           ),
                           widget.uploading
@@ -2894,12 +2913,27 @@ class _RichToolbarState extends State<_RichToolbar> {
         for (final level in [1, 2, 3])
           PopupMenuItem(
             value: level,
-            child: Text(
-              '标题 $level',
-              style: TextStyle(
-                fontSize: 18.0 - level * 1.5,
-                fontWeight: FontWeight.w600,
-              ),
+            child: Row(
+              children: [
+                Text(
+                  '标题 $level',
+                  style: TextStyle(
+                    fontSize: 18.0 - level * 1.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                // 快捷键标注(桌面端;⌘⌥1.. / Ctrl+Alt+1..)
+                if (PlatformUtils.isDesktop) ...[
+                  const SizedBox(width: 12),
+                  Text(
+                    (composerShortcutHint('heading$level') ?? '').trim(),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         const PopupMenuItem(value: 0, child: Text('正文')),

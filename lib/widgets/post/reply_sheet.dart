@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../markdown_editor/composer_shortcuts.dart';
+import '../markdown_editor/composer_switch_fade.dart';
 import '../markdown_editor/markdown_editor.dart';
 import '../markdown_editor/rich_composer/rich_composer_editor.dart';
 import '../../providers/preferences_provider.dart';
@@ -572,7 +574,9 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
     // 使用 FractionallySizedBox 固定 0.95 高度
     // SafeArea(bottom: false)：顶部安全区域由 SafeArea 处理，
     // 底部安全区域由 ChatBottomPanelContainer 内部管理，避免双重底部间距
-    return SafeArea(
+    // CallbackShortcuts 包整个弹层:Cmd/Ctrl+Enter 提交(对齐 Discourse
+    // composer),焦点在标题输入框时同样生效;守卫与发送按钮一致。
+    final sheet = SafeArea(
       bottom: false,
       child: FractionallySizedBox(
         heightFactor: 0.95,
@@ -784,11 +788,10 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
                       ],
 
                       // 2. 编辑器区域(feature flag:富文本 / markdown;
-                      // KeyedSubtree 直切无过渡 —— 防双模并存 IME 交接
-                      // 竞态,说明见 create_topic_page 同位注释)
+                      // ComposerSwitchFade 无并存直切+淡入 —— 防双模
+                      // 并存 IME 交接竞态,说明见 create_topic_page)
                       Expanded(
-                        child: KeyedSubtree(
-                          key: const ValueKey('composer-switch'),
+                        child: ComposerSwitchFade(
                           child: (ref
                                       .watch(preferencesProvider)
                                       .useRichComposer &&
@@ -886,6 +889,16 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
           ),
         ),
       ),
+    );
+
+    return CallbackShortcuts(
+      bindings: {
+        for (final activator in composerSubmitActivators())
+          activator: () {
+            if (!_isSubmitting && !_isLoadingRaw) _submit();
+          },
+      },
+      child: sheet,
     );
   }
 }

@@ -119,6 +119,8 @@
   "settings_shortcuts": "快捷键",
   "settings_title": "应用设置",
   "shortcuts_closeOverlay": "关闭浮层",
+  "shortcuts_composer": "撰写",
+  "shortcuts_composerSubmit": "提交（发送/发布）",
   "shortcuts_conflict": "与「{action}」冲突",
   "@shortcuts_conflict": {
     "placeholders": {

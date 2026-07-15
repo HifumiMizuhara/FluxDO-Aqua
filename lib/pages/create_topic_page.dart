@@ -6,6 +6,8 @@ import 'package:fluxdo/widgets/common/error_view.dart';
 import 'package:fluxdo/widgets/common/progressive_top_blur.dart';
 import 'package:fluxdo/widgets/common/loading_spinner.dart';
 import 'package:fluxdo/providers/preferences_provider.dart';
+import 'package:fluxdo/widgets/markdown_editor/composer_shortcuts.dart';
+import 'package:fluxdo/widgets/markdown_editor/composer_switch_fade.dart';
 import 'package:fluxdo/widgets/markdown_editor/markdown_editor.dart';
 import 'package:fluxdo/widgets/markdown_editor/rich_composer/rich_composer_editor.dart';
 import 'package:fluxdo/models/category.dart';
@@ -601,7 +603,7 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
     // 获取站点配置的最小长度
     final minTitleLength = ref.watch(minTopicTitleLengthProvider).value ?? 15;
 
-    return PopScope(
+    final page = PopScope(
       canPop: !_showEmojiPanel,
       onPopInvokedWithResult: (bool didPop, dynamic result) async {
         if (didPop) return;
@@ -720,18 +722,16 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
                               // header 注入编辑器滚动流,与正文同滚(手机
                               // 写正文时头部随内容滚出屏,编辑区满格;分类
                               // 已上收 AppBar)。
-                              // 双模切换 = KeyedSubtree 直切**无过渡**:
-                              // AnimatedSwitcher 会让富/源两编辑器并存
-                              // 150ms —— 两者共享 focusNode 且输入模型
-                              // 异构(自管 IME vs TextField),并存窗口
-                              // 里全局 TextInput 连接交接必然竞态(切后
-                              // 无法删除/快捷键失灵反复复发)。直切让旧
-                              // 编辑器同帧 dispose(自管 IME 必然 detach),
-                              // 新 TextField attach 时世界里只有它。
+                              // 双模切换 = 无并存直切 + 新编辑器淡入:
+                              // AnimatedSwitcher 会让富/源并存 150ms ——
+                              // 共享 focusNode + 输入模型异构(自管 IME
+                              // vs TextField),并存窗口里 TextInput 交接
+                              // 必然竞态(切后无法删除/快捷键失灵反复
+                              // 复发)。ComposerSwitchFade 旧编辑器同帧
+                              // dispose,新的从透明淡入(丝滑不并存)。
                               Form(
                                 key: _formKey,
-                                child: KeyedSubtree(
-                                  key: const ValueKey('composer-switch'),
+                                child: ComposerSwitchFade(
                                   child:
                                       (ref
                                               .watch(preferencesProvider)
@@ -965,6 +965,18 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
           ],
         ),
       ),
+    );
+
+    // Cmd/Ctrl+Enter 发布(对齐 Discourse composer):包整页,焦点在
+    // 标题/标签输入框时同样生效;守卫与发布按钮一致。
+    return CallbackShortcuts(
+      bindings: {
+        for (final activator in composerSubmitActivators())
+          activator: () {
+            if (!_isSubmitting) _submit();
+          },
+      },
+      child: page,
     );
   }
 }

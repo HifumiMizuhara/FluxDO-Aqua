@@ -15,8 +15,10 @@ import 'package:dio/dio.dart';
 import '../../services/app_error_handler.dart';
 import '../../services/discourse/discourse_service.dart';
 import '../../services/toast_service.dart';
+import '../../utils/platform_utils.dart';
 import '../common/fading_edge_scroll_view.dart';
 import '../content/discourse_html_content/image_utils.dart';
+import 'composer_shortcuts.dart';
 import 'editor_tools.dart';
 import 'media_upload_helper.dart';
 import 'voice_recorder_sheet.dart';
@@ -993,6 +995,10 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
 
   Widget _buildToolButton(EditorTool tool) {
     final s = S.current;
+    // 桌面端 tooltip 标注快捷键(如「粗体 (⌘B)」;移动端无物理键盘不标)
+    final hint =
+        PlatformUtils.isDesktop ? composerShortcutHint(tool.id) : null;
+    final tooltip = '${tool.label(s)}${hint ?? ''}';
 
     if (tool.hasMenu) {
       final theme = Theme.of(context);
@@ -1004,7 +1010,7 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
           ),
           child: tool.icon,
         ),
-        tooltip: tool.label(s),
+        tooltip: tooltip,
         itemBuilder: (context) => tool.menuItems!(s),
         onSelected: (value) => tool.onMenuSelected!(this, value),
         padding: EdgeInsets.zero,
@@ -1020,7 +1026,7 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
       onPressed: _isUploading && isUpload ? null : () => tool.action!(this),
       isLoading: isImage && _isUploading,
       label: isImage ? _uploadProgress : null,
-      tooltip: tool.label(s),
+      tooltip: tooltip,
     );
   }
 
