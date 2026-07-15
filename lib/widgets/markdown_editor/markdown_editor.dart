@@ -737,7 +737,8 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
                     children: [
                       if (widget.header != null) widget.header!,
                       Padding(
-                        padding: const EdgeInsets.all(16),
+                        padding:
+                            const EdgeInsets.fromLTRB(20, 16, 20, 16),
                         child: widget.controller.text.isEmpty
                             ? Text(
                                 S.current.editor_noContent,
@@ -779,8 +780,9 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Padding(
+                            // 水平 20 = 与 header 标题对齐(富文本同值)
                             padding:
-                                const EdgeInsets.symmetric(horizontal: 16),
+                                const EdgeInsets.symmetric(horizontal: 20),
                             child: _buildTextEditor(),
                           ),
                           // 空白填充区:点击等价"点在正文末尾"。包

@@ -2110,13 +2110,15 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                         child: Stack(
                           children: [
                             ConstrainedBox(
-                              // padding 在内,故 min = 全视口高(编辑器裸高
-                              // = 视口 - 24,与旧结构等价)
+                              // padding 在内,故 min = 全视口高
                               constraints: BoxConstraints(
                                 minHeight: viewport.maxHeight,
                               ),
                               child: Padding(
-                                padding: const EdgeInsets.all(12),
+                                // 水平 20 = 与 header 标题对齐(源码模式
+                                // 同值);垂直 12 兼吸收表格悬挂柄溢出
+                                padding: const EdgeInsets.fromLTRB(
+                                    20, 12, 20, 12),
                                 child: FluxdoEditor(
                                   state: editor,
                                   autofocus: true,
