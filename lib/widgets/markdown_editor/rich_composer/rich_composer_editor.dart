@@ -2009,10 +2009,19 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                   // 停在同一 focusNode(hasFocus 不变)→ 富文本 _ime.detach
                   // (只在失焦时触发)不会跑 → 源码 TextField 抢不到有效
                   // 连接 = 切过去无法输入/删除。unfocus 主动让富文本失焦
-                  // 放开连接;切后不自动聚焦(键盘收起),用户点正文即
-                  // 干净重连(此时富文本已 dispose,无争抢)。
+                  // 放开连接,再延迟交棒回同一 node —— 彼时富文本已
+                  // 退场,挂着它的源码 TextField attach 即干净重连,
+                  // 切完立刻能打能删(不用点一下正文)。
                   _editorFocus.unfocus();
                   widget.onSwitchToSource!();
+                  if (!_ownsFocus) {
+                    final node = _editorFocus;
+                    Timer(const Duration(milliseconds: 220), () {
+                      // 本 State 已 dispose,不查 mounted;node 归宿主所有
+                      // (canRequestFocus 检查防宿主页已整体退场)
+                      if (node.canRequestFocus) node.requestFocus();
+                    });
+                  }
                 },
         ),
         // 键盘/表情面板容器(MarkdownEditor 同款 ChatBottomPanelContainer:
