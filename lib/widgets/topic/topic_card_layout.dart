@@ -8,6 +8,7 @@ import '../../models/search_result.dart';
 import '../../models/topic.dart';
 import '../../utils/color_utils.dart';
 import '../../utils/number_utils.dart';
+import '../../utils/relative_time_clock.dart';
 import '../../utils/time_utils.dart';
 
 /// 话题自绘卡的排版产物:一张卡全部文本的 [ui.Paragraph] 成品 + 几何。
@@ -96,6 +97,10 @@ class TopicCardLayout {
   double layoutWidth = -1;
   void Function(double width)? _doLayout;
 
+  /// 原地重排代数:每次 [refreshTime] 原地重排 +1。渲染对象据此感知
+  /// "同一 layout 实例内容变了"(identical 判不出),触发重布局。
+  int revision = 0;
+
   /// 布局期宽度纠正:与当前排版宽差 >0.5px 才重排(重排 ≈1.5~2.5ms,
   /// 只发生在首次拿到真实宽/窗口改宽的那一帧)。
   void ensureWidth(double width) {
@@ -105,8 +110,33 @@ class TopicCardLayout {
     relayout(width);
   }
 
+  /// 分钟心跳的在屏原地刷新:重跑排版闭包(闭包体内重新求值
+  /// formatRelativeTime,时间串随之更新)。仅由在屏卡的心跳订阅调用
+  /// —— 离屏缓存不动,靠 stamp 里的分钟代在下次 obtain 时惰性换新。
+  void refreshTime() {
+    final relayout = _doLayout;
+    if (relayout == null || layoutWidth <= 0) return;
+    relayout(layoutWidth);
+    revision++;
+  }
+
   static final Map<String, TopicCardLayout> _cache = {};
   static const int cacheCap = 500;
+
+  /// 相对时间的分钟代:全局心跳每跳一次 +1,进 stamp —— 含时间的
+  /// 排版跨分钟自动失效,下次 build 惰性重排(消灭"自绘卡时间是
+  /// 排版快照不自刷"与 widget 路径的行为差异)。渲染对象侧由
+  /// PaintedTopicCard 订阅心跳触发 rebuild,失效与重建同源同帧。
+  static int _minuteEpoch = 0;
+  static bool _clockHooked = false;
+
+  static int _currentMinuteEpoch() {
+    if (!_clockHooked) {
+      _clockHooked = true;
+      RelativeTimeClock.instance.addListener(() => _minuteEpoch++);
+    }
+    return _minuteEpoch;
+  }
 
   /// 存入缓存(替换旧实例)并按需 LRU。**内容变化必产出新实例**:
   /// PaintedTopicCard 的渲染对象用 identical 判断是否重绘,若复用同一
@@ -150,6 +180,7 @@ class TopicCardLayout {
       messageStyle,
       bandExpired,
       identityHashCode(category),
+      _currentMinuteEpoch(),
     );
     final cached = _cache[identity];
     if (cached != null && cached._stamp == stamp) return cached;
@@ -232,6 +263,7 @@ class TopicCardLayout {
       identityHashCode(theme),
       statsAvailableWidth,
       identityHashCode(category),
+      _currentMinuteEpoch(),
     );
     final cached = _cache[identity];
     if (cached != null && cached._stamp == stamp) return cached;

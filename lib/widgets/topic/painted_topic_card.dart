@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 
 import '../../services/discourse_cache_manager.dart';
 import '../../services/emoji_handler.dart';
+import '../../utils/relative_time_clock.dart';
 import 'topic_card.dart' show TopicCardInteractiveSurface;
 import 'topic_card_layout.dart';
 
@@ -104,10 +105,34 @@ class _RenderTopicCard extends RenderBox {
   _RenderTopicCard({required TopicCardLayout layout}) : _layout = layout;
 
   TopicCardLayout _layout;
+  int _seenRevision = 0;
   set layoutData(TopicCardLayout v) {
-    if (identical(_layout, v)) return;
+    if (identical(_layout, v) && _seenRevision == v.revision) return;
     _layout = v;
+    _seenRevision = v.revision;
     markNeedsLayout();
+  }
+
+  /// 在屏订阅分钟心跳:跳一次即原地重排本卡(时间串换新)并重绘。
+  /// attach/detach 管理生命周期 —— 滚出 cacheExtent 即退订,离屏卡
+  /// 靠 obtain 的分钟代惰性换新,全 app 每分钟只有在屏的十几张卡
+  /// 各付一次 ~1ms 重排,发生在无滚动的静止帧
+  void _onClockTick() {
+    _layout.refreshTime();
+    _seenRevision = _layout.revision;
+    markNeedsLayout();
+  }
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    RelativeTimeClock.instance.addListener(_onClockTick);
+  }
+
+  @override
+  void detach() {
+    RelativeTimeClock.instance.removeListener(_onClockTick);
+    super.detach();
   }
 
   // 命中不拦截:点按/长按/hover 全部由外层共用交互面(InkWell /
