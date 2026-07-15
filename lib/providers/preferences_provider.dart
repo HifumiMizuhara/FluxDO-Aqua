@@ -161,7 +161,9 @@ class AppPreferences {
   /// 对话框背景高斯模糊
   final bool dialogBlur;
 
-  /// 显示用户签名
+  /// 显示用户签名。默认关闭:签名在网页本就是 opt-in 功能
+  /// (signatures_visible_by_default 默认 false,需用户主动开启),
+  /// 且第三方签名图成本高、良莠不齐,默认关对齐网页更稳妥。
   final bool showSignatures;
 
   /// Boost 弹幕化（默认关闭）
@@ -243,7 +245,7 @@ class AppPreferences {
     this.aiPostReviewModelKey,
     this.hcaptchaCreateEndpoint,
     required this.dialogBlur,
-    this.showSignatures = true,
+    this.showSignatures = false,
     this.boostDanmaku = false,
     this.defaultNestedView = false,
     this.nestedLineStyle = NestedLineStyle.auto,
@@ -466,7 +468,7 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
           aiPostReviewModelKey: _prefs.getString(_aiPostReviewModelPrefKey),
           hcaptchaCreateEndpoint: _prefs.getString(_hcaptchaCreateEndpointKey),
           dialogBlur: _prefs.getBool(_dialogBlurKey) ?? true,
-          showSignatures: _prefs.getBool(_showSignaturesKey) ?? true,
+          showSignatures: _prefs.getBool(_showSignaturesKey) ?? false,
           boostDanmaku: _prefs.getBool(_boostDanmakuKey) ?? false,
           defaultNestedView: _prefs.getBool(_defaultNestedViewKey) ?? false,
           nestedLineStyle: NestedLineStyle.fromString(
