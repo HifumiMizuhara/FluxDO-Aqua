@@ -299,7 +299,17 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     if (editor == null) return;
     final raw = docToRaw(editor.blocks);
     if (raw != widget.controller.text) {
-      widget.controller.text = raw;
+      // 原子赋值 + 合法末尾选区。text setter 会把 selection 置
+      // collapsed(-1);切到源码模式时 TextField attach 的**首帧**
+      // setEditingState 就带着 -1 发给平台(EditableText 的聚焦纠偏
+      // 发生在 _openInputConnection 之后)——Android restartInput /
+      // macOS 输入模型以"无光标态"初始化,Gboard 等 IME 的退格基于
+      // 其光标缓存,从此对既有文本失效 = 真机"切过去旧文字删不掉、
+      // 新输入正常"。选区必须在这里就合法。
+      widget.controller.value = TextEditingValue(
+        text: raw,
+        selection: TextSelection.collapsed(offset: raw.length),
+      );
     }
   }
 
@@ -2027,10 +2037,19 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                   widget.onSwitchToSource!();
                   if (!_ownsFocus) {
                     final node = _editorFocus;
+                    final controller = widget.controller;
                     Timer(const Duration(milliseconds: 220), () {
-                      // 本 State 已 dispose,不查 mounted;node 归宿主所有
-                      // (canRequestFocus 检查防宿主页已整体退场)
-                      if (node.canRequestFocus) node.requestFocus();
+                      // 本 State 已 dispose,不查 mounted;node/controller
+                      // 归宿主所有。220ms 内页面整体退场会撞已 dispose
+                      // 对象 —— fire-and-forget 场景,吞掉即可。
+                      try {
+                        if (!controller.selection.isValid) {
+                          controller.selection = TextSelection.collapsed(
+                            offset: controller.text.length,
+                          );
+                        }
+                        if (node.canRequestFocus) node.requestFocus();
+                      } catch (_) {}
                     });
                   }
                 },

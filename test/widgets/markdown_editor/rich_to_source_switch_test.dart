@@ -132,7 +132,9 @@ void main() {
       ),
     ));
 
-    // flush 语义:text setter → selection = collapsed(-1)
+    // 旧 flush 缺陷路径:text setter → selection = collapsed(-1)。
+    // 真实 flushToController 已改原子赋值(选区合法),这里故意保留
+    // -1 制造最坏情况,验证平台侧最终看到的选区仍必须合法。
     controller.text = 'hello world';
     expect(controller.selection.isValid, isFalse);
 
