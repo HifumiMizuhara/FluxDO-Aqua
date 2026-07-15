@@ -577,6 +577,7 @@ class _AnimatedSvgViewState extends State<AnimatedSvgView> {
     }
     timeline.seek(_playClock.elapsed);
     _syncHiddenLayers(doc.root);
+    _unwrapCssPathValues(doc.root); // CSS d:path("...") 帧值解包(上游缺陷)
     _frameBump.bump(); // 直达 CustomPaint.repaint,不走 build
   }
 
@@ -888,7 +889,7 @@ class _AnimatedSvgViewState extends State<AnimatedSvgView> {
 /// 顶层函数以便 compute() 派发大字符串;'v1' 为快照格式版本盐,
 /// 截帧/剥离逻辑变更时递增使旧盘缓存自然失效。
 String _contentDigestTask(String s) {
-  const salt = 0x76312e; // 'v1.'
+  const salt = 0x76322e; // 'v2.'(v1→v2:采样时刻改周期中点+path()解包,旧盘快照失效)
   var h1 = 0x811c9dc5 ^ salt;
   var h2 = 0x01935c1f ^ salt;
   for (var i = 0; i < s.length; i++) {
@@ -909,11 +910,49 @@ String _contentDigestTask(String s) {
   applySvgTheme(doc);
   final anims = SmilParser.parseAnimations(doc);
   if (anims.isNotEmpty) {
-    // seek(0) 把 CSS/SMIL 首帧值写进 DOM 属性,painter 直接照画
-    SvgTimeline(animations: anims, rootNode: doc.root).seek(Duration.zero);
+    // seek 到能代表画面的时刻(手写体 path 动画 t=0 是空白起笔,
+    // 取周期中点让首帧有内容;非周期/未知时长回退 0)
+    SvgTimeline(animations: anims, rootNode: doc.root)
+        .seek(_representativeTime(anims));
     _pruneInvisible(doc.root);
+    _unwrapCssPathValues(doc.root);
   }
   return (doc, anims.isNotEmpty);
+}
+
+/// 选取首帧快照的采样时刻:所有动画共同短周期的中点。
+/// 轮播类(互斥 opacity)在任意时刻都只亮一层,中点无损;
+/// 手写类(d:path 逐帧)中点=写到一半,比 t=0 的空白有信息量。
+Duration _representativeTime(List<SmilAnimation> anims) {
+  Duration shortest = Duration.zero;
+  for (final a in anims) {
+    if (a.dur > Duration.zero && (shortest == Duration.zero || a.dur < shortest)) {
+      shortest = a.dur;
+    }
+  }
+  return shortest == Duration.zero
+      ? Duration.zero
+      : Duration(microseconds: shortest.inMicroseconds ~/ 2);
+}
+
+final RegExp _cssPathFnRe =
+    RegExp(r'''^path\(\s*["']([\s\S]*)["']\s*\)$''');
+
+/// 解包 CSS `d: path("...")` 动画值(上游缺陷):
+/// CSS @keyframes 对 d 属性的动画帧值是 `path("M ...")` 函数包装,
+/// timeline seek 后原样写回 DOM,包 painter 的路径解析不认该前缀
+/// → 整条 path 静默不画(手写签名类 SVG 整图空白)。seek 后把
+/// 包装拆掉还原为裸 path data。
+void _unwrapCssPathValues(SvgNode node) {
+  final attr = node.getAttribute('d');
+  final v = attr?.effectiveValue;
+  if (v is String) {
+    final m = _cssPathFnRe.firstMatch(v.trim());
+    if (m != null) attr!.setAnimatedValue(m.group(1)!);
+  }
+  for (final c in node.children) {
+    _unwrapCssPathValues(c);
+  }
 }
 
 /// 剪除 seek(0) 后有效 opacity≈0 的节点。
