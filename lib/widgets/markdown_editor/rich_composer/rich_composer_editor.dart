@@ -1373,8 +1373,9 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     ));
   }
 
-  /// 加载预览(官方 show-preview):链接独占段 → 整段替换为裸 URL 经
-  /// cook → onebox 岛。
+  /// 加载预览(官方 show-preview):链接独占段 → 先取 onebox 数据种进
+  /// cook 引擎(不种的话裸 URL 再 cook 仍是 loading 态链接,出不了
+  /// 卡片),再整段替换为裸 URL 经 cook → onebox 岛。
   Future<void> _convertLinkToPreview() async {
     final info = _linkCaret;
     final editor = _editor;
@@ -1384,6 +1385,16 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     if (!_linkIsWholeParagraph(info)) return;
     final block = editor.textBlockById(info.blockId);
     if (block == null) return;
+
+    final cookService = DiscourseCookService();
+    final cooked = await cookService.cook(href);
+    if (cooked != null) {
+      // 取回 onebox HTML 种进引擎(内部去重,失败静默 —— 拿不到数据
+      // 时下面的插入产物仍是可编辑裸链接,无损)
+      await cookService.resolveOneboxes(cooked);
+    }
+    if (!mounted) return;
+
     // 选中整段内容(含链接前后空白)→ 粘贴语义替换为 onebox 岛
     editor.updateSelection(EditorSelection(
       base: EditorPosition(blockId: info.blockId, offset: 0),
