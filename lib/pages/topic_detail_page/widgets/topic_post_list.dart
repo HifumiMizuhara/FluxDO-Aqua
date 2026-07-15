@@ -1,3 +1,5 @@
+import 'dart:async' show Timer;
+
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +14,7 @@ import '../../../providers/message_bus_providers.dart';
 import '../../../services/toast_service.dart';
 import '../../../utils/frame_jank_monitor.dart';
 import '../../../utils/responsive.dart';
+import '../../../utils/scroll_busy_signal.dart';
 import '../../../utils/time_utils.dart';
 import '../../../widgets/common/anchor_guard_sliver.dart';
 import '../../../widgets/common/loading_spinner.dart';
@@ -323,6 +326,7 @@ class _TopicPostListState extends State<TopicPostList> {
   @override
   void dispose() {
     widget.scrollController.removeListener(_scrollJumpProbe);
+    _parseWarmUpRetry?.cancel();
     super.dispose();
   }
 
@@ -792,7 +796,14 @@ class _TopicPostListState extends State<TopicPostList> {
   /// 纯 widget 构建。长帖跳过(chunk 懒解析 + 滚动停止后的
   /// [_scheduleChunkWarmUp] 已覆盖)。新一轮落地推进 generation,旧队列
   /// 自动作废;LRU 命中即免费,与物化竞争不会重复付费。
+  ///
+  /// 滚动让路:Priority.idle 只保证"排在帧任务后",帧间隙仍会执行 ——
+  /// 单帖解析是原子长任务(debug 30~44ms),快滚中挤占事件循环就是
+  /// 诊断时间轴上 STALL/HandleMessage 型 ov 掉帧的税源之一。滚动中
+  /// (含惯性)暂停,静默后继续;正在滚动时进屏的未预热帖由物化帧
+  /// 现场解析兜底(与预热是同一份工作,只是没抢到提前量)。
   int _parseWarmUpGeneration = 0;
+  Timer? _parseWarmUpRetry;
 
   void _schedulePostParseWarmUp(List<Post> posts) {
     if (posts.isEmpty) return;
@@ -801,6 +812,13 @@ class _TopicPostListState extends State<TopicPostList> {
     void step() {
       SchedulerBinding.instance.scheduleTask(() {
         if (!mounted || generation != _parseWarmUpGeneration) return;
+        if (ScrollBusySignal.isBusy) {
+          _parseWarmUpRetry?.cancel();
+          _parseWarmUpRetry = Timer(const Duration(milliseconds: 400), () {
+            if (mounted && generation == _parseWarmUpGeneration) step();
+          });
+          return;
+        }
         while (index < posts.length) {
           final post = posts[index++];
           // segments 构建已对每帖做过长短判定并落缓存,据此跳过长帖
