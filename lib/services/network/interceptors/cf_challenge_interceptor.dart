@@ -8,6 +8,7 @@ import '../../cf_clearance_refresh_service.dart';
 import '../../app_logger.dart';
 import '../cookie/boundary_sync_service.dart';
 import '../cookie/cookie_jar_service.dart';
+import '../webview/webview_adapter_settings_service.dart';
 import '../../../l10n/s.dart';
 import '../exceptions/api_exception.dart';
 
@@ -238,6 +239,55 @@ class CfChallengeInterceptor extends Interceptor {
           cfService.clearanceResolvedAt.value = DateTime.now();
           return handler.resolve(response);
         } catch (e) {
+          final retryStillBlockedByCf =
+              e is DioException &&
+              (e.response?.statusCode == 403 ||
+                  e.response?.statusCode == 429) &&
+              CfChallengeService.isCfChallengeResponse(e.response);
+
+          // 验证拿到新 clearance 后，原生链路仍被 CF 拒绝，说明问题不只是
+          // Cookie，而是当前原生网络身份未被信任。仅对用户可见请求询问一次，
+          // 用户确认后本次会话改用浏览器网络栈，并立即重放原请求。
+          if (retryStillBlockedByCf && !isSilent) {
+            final webViewSettings = WebViewAdapterSettingsService.instance;
+            final shouldFallback =
+                webViewSettings.effectiveEnabled ||
+                await cfService.confirmSessionCompatibilityMode();
+            if (shouldFallback) {
+              webViewSettings.enableSessionFallback();
+              retryOptions.extra['_cfSessionCompatRetry'] = true;
+              retryOptions.extra.remove('skipWebViewAdapter');
+              try {
+                final fallbackResponse = await dio.fetch(retryOptions);
+                CfChallengeService.showGlobalMessage(
+                  S.current.cf_sessionCompatEnabled,
+                  isError: false,
+                );
+                CfChallengeLogger.log(
+                  '[INTERCEPTOR] Native retry still blocked; '
+                  'session WebView fallback succeeded',
+                );
+                return handler.resolve(fallbackResponse);
+              } catch (fallbackError) {
+                CfChallengeLogger.log(
+                  '[INTERCEPTOR] Session WebView fallback failed: '
+                  '$fallbackError',
+                  level: 'warning',
+                );
+                if (fallbackError is DioException) {
+                  return handler.reject(fallbackError);
+                }
+                return handler.reject(
+                  DioException(
+                    requestOptions: retryOptions,
+                    error: fallbackError,
+                    type: DioExceptionType.unknown,
+                  ),
+                );
+              }
+            }
+          }
+
           // 诊断：记录完整的重试失败信息
           if (e is DioException) {
             debugPrint(

@@ -46,6 +46,7 @@ class _EngineCardState extends State<EngineCard> {
         NetworkSettingsService.instance.isApplying,
         ProxySettingsService.instance.notifier,
         webview.notifier,
+        webview.effectiveNotifier,
         fallbackService,
       ]),
       builder: (context, _) {
@@ -58,8 +59,7 @@ class _EngineCardState extends State<EngineCard> {
           rhttpSettings.mode,
           webviewEnabled,
         );
-        final isCustom =
-            _customExpanded || autoPreset == _EnginePreset.custom;
+        final isCustom = _customExpanded || autoPreset == _EnginePreset.custom;
         final shownPreset = isCustom ? _EnginePreset.custom : autoPreset;
 
         return Card(
@@ -153,15 +153,18 @@ class _EngineCardState extends State<EngineCard> {
     switch (preset) {
       case _EnginePreset.standard:
         setState(() => _customExpanded = false);
+        webview.disableSessionFallback();
         rhttp.setEnabled(false);
         webview.setEnabled(false);
       case _EnginePreset.performance:
         setState(() => _customExpanded = false);
+        webview.disableSessionFallback();
         rhttp.setMode(RhttpMode.always);
         rhttp.setEnabled(true);
         webview.setEnabled(false);
       case _EnginePreset.compat:
         setState(() => _customExpanded = false);
+        webview.disableSessionFallback();
         rhttp.setEnabled(false);
         webview.setEnabled(true);
       case _EnginePreset.custom:
@@ -197,8 +200,10 @@ class _EngineCardState extends State<EngineCard> {
     final effective = resolveEffectiveAdapter();
     final engineName = getAdapterDisplayName(effective.type);
     final isFallback = effective.reason == AdapterReason.fallback;
-    final webviewEnabled = WebViewAdapterSettingsService.instance.enabled;
-    final showReset = isFallback && Platform.isAndroid;
+    final webviewSettings = WebViewAdapterSettingsService.instance;
+    final webviewEnabled = webviewSettings.effectiveEnabled;
+    final sessionFallback = webviewSettings.sessionFallbackEnabled;
+    final showReset = isFallback && Platform.isAndroid && !sessionFallback;
 
     // WebView 在最外层分流：主站 API 走 WebView，其余走推算出的引擎。
     // 它不参与 resolveEffectiveAdapter()，所以开启时要单独显示分流，
@@ -217,8 +222,9 @@ class _EngineCardState extends State<EngineCard> {
       );
     } else {
       icon = _engineIcon(effective.type);
-      iconColor =
-          isFallback ? theme.colorScheme.error : theme.colorScheme.primary;
+      iconColor = isFallback
+          ? theme.colorScheme.error
+          : theme.colorScheme.primary;
       span = TextSpan(
         children: [
           TextSpan(
@@ -266,6 +272,13 @@ class _EngineCardState extends State<EngineCard> {
               visualDensity: VisualDensity.compact,
               onPressed: () => _resetFallbackState(fallbackService),
             ),
+          if (sessionFallback)
+            IconButton(
+              tooltip: S.current.cf_sessionCompatDisable,
+              icon: const Icon(Symbols.close_rounded, size: 20),
+              visualDensity: VisualDensity.compact,
+              onPressed: webviewSettings.disableSessionFallback,
+            ),
         ],
       ),
     );
@@ -294,7 +307,9 @@ class _EngineCardState extends State<EngineCard> {
         // rhttp 引擎
         SwitchListTile(
           dense: true,
-          secondary: Icon(Symbols.rocket_launch_rounded, fill: rhttpEnabled ? 1 : 0,
+          secondary: Icon(
+            Symbols.rocket_launch_rounded,
+            fill: rhttpEnabled ? 1 : 0,
             color: rhttpEnabled ? theme.colorScheme.primary : null,
           ),
           title: Text(l10n.rhttpEngine_title),
@@ -344,7 +359,9 @@ class _EngineCardState extends State<EngineCard> {
         // WebView 适配器
         SwitchListTile(
           dense: true,
-          secondary: Icon(Symbols.language_rounded, fill: webviewEnabled ? 1 : 0,
+          secondary: Icon(
+            Symbols.language_rounded,
+            fill: webviewEnabled ? 1 : 0,
             color: webviewEnabled ? theme.colorScheme.primary : null,
           ),
           title: Text(l10n.webviewAdapter_title),
@@ -408,7 +425,10 @@ class _EngineCardState extends State<EngineCard> {
       ],
       if (kDebugMode && !hasFallenBack)
         ListTile(
-          leading: Icon(Symbols.science_rounded, color: theme.colorScheme.tertiary),
+          leading: Icon(
+            Symbols.science_rounded,
+            color: theme.colorScheme.tertiary,
+          ),
           title: Text(l10n.networkAdapter_simulateError),
           subtitle: Text(l10n.networkAdapter_simulateErrorDesc),
           trailing: const Icon(Symbols.chevron_right_rounded, size: 20),
@@ -428,7 +448,9 @@ class _EngineCardState extends State<EngineCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
-            color != null ? Symbols.warning_amber_rounded : Symbols.info_rounded,
+            color != null
+                ? Symbols.warning_amber_rounded
+                : Symbols.info_rounded,
             size: 13,
             color: c,
           ),

@@ -291,7 +291,7 @@ final bool _macOSNeedsNativeFallback = () {
 /// 重试拦截器拿到被改写的 localhost URL 等。
 class _GatewayAdapterWrapper implements HttpClientAdapter {
   _GatewayAdapterWrapper(this._inner) {
-    WebViewAdapterSettingsService.instance.notifier.addListener(
+    WebViewAdapterSettingsService.instance.effectiveNotifier.addListener(
       _handleWebViewSettingChanged,
     );
   }
@@ -366,7 +366,7 @@ class _GatewayAdapterWrapper implements HttpClientAdapter {
 
   @override
   void close({bool force = false}) {
-    WebViewAdapterSettingsService.instance.notifier.removeListener(
+    WebViewAdapterSettingsService.instance.effectiveNotifier.removeListener(
       _handleWebViewSettingChanged,
     );
     _webViewAdapter?.close(force: force);
@@ -375,7 +375,7 @@ class _GatewayAdapterWrapper implements HttpClientAdapter {
   }
 
   void _handleWebViewSettingChanged() {
-    if (WebViewAdapterSettingsService.instance.enabled) {
+    if (WebViewAdapterSettingsService.instance.effectiveEnabled) {
       return;
     }
     _webViewAdapter?.disposeWhenIdle();
@@ -386,7 +386,7 @@ class _GatewayAdapterWrapper implements HttpClientAdapter {
     if (options.extra['skipWebViewAdapter'] == true) {
       return false;
     }
-    if (!WebViewAdapterSettingsService.instance.enabled) {
+    if (!WebViewAdapterSettingsService.instance.effectiveEnabled) {
       return false;
     }
     if (options.extra['isCfChallengePlatform'] == true ||
