@@ -108,19 +108,20 @@ class TopicCardLayout {
   static final Map<String, TopicCardLayout> _cache = {};
   static const int cacheCap = 500;
 
-  static TopicCardLayout _slot(String identity) {
-    final hit = _cache[identity];
-    if (hit != null) return hit;
-    if (_cache.length >= cacheCap) {
+  /// 存入缓存(替换旧实例)并按需 LRU。**内容变化必产出新实例**:
+  /// PaintedTopicCard 的渲染对象用 identical 判断是否重绘,若复用同一
+  /// 实例做原地重排,identical 恒 true → 已读等状态更新画不出来
+  /// (需滑出销毁再滑回新建才生效)。让实例 identity == 内容 identity,
+  /// 命中缓存=真没变(同实例,不重绘),stamp 变=新实例(重绘)。
+  static void _put(String identity, TopicCardLayout layout) {
+    if (!_cache.containsKey(identity) && _cache.length >= cacheCap) {
       // 简易 LRU:满了清一半(重排成本低,不值得维护链表)
       final keys = _cache.keys.take(_cache.length ~/ 2).toList();
       for (final k in keys) {
         _cache.remove(k);
       }
     }
-    final layout = TopicCardLayout._(identity);
     _cache[identity] = layout;
-    return layout;
   }
 
   /// 环境级失效(主题/字号变化时可由页面调用;逐卡 stamp 也会兜住)
@@ -150,9 +151,10 @@ class TopicCardLayout {
       bandExpired,
       identityHashCode(category),
     );
-    final layout = _slot(identity);
-    if (layout._stamp == stamp) return layout;
-    layout._stamp = stamp;
+    final cached = _cache[identity];
+    if (cached != null && cached._stamp == stamp) return cached;
+    final layout = TopicCardLayout._(identity).._stamp = stamp;
+    _put(identity, layout);
 
     final scheme = theme.colorScheme;
     final isUnread = topic.unseen || topic.unread > 0;
@@ -227,14 +229,14 @@ class TopicCardLayout {
   }) {
     final stamp = (
       identityHashCode(post),
-      width,
       identityHashCode(theme),
       statsAvailableWidth,
       identityHashCode(category),
     );
-    final layout = _slot(identity);
-    if (layout._stamp == stamp) return layout;
-    layout._stamp = stamp;
+    final cached = _cache[identity];
+    if (cached != null && cached._stamp == stamp) return cached;
+    final layout = TopicCardLayout._(identity).._stamp = stamp;
+    _put(identity, layout);
 
     final scheme = theme.colorScheme;
     final topic = post.topic;
