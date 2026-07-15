@@ -1793,6 +1793,15 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                   // 先落盘再切换:controller.text 即最新 markdown,
                   // 宿主换 MarkdownEditor 后内容无缝衔接
                   flushToController();
+                  // 关键:两编辑器共用同一 focusNode,富文本用自管 IME
+                  // (EditorImeClient 持全局 TextInput 连接)。切换是
+                  // AnimatedSwitcher 150ms 动画,期间富↔源并存;焦点始终
+                  // 停在同一 focusNode(hasFocus 不变)→ 富文本 _ime.detach
+                  // (只在失焦时触发)不会跑 → 源码 TextField 抢不到有效
+                  // 连接 = 切过去无法输入/删除。unfocus 主动让富文本失焦
+                  // 放开连接;切后不自动聚焦(键盘收起),用户点正文即
+                  // 干净重连(此时富文本已 dispose,无争抢)。
+                  _editorFocus.unfocus();
                   widget.onSwitchToSource!();
                 },
         ),
