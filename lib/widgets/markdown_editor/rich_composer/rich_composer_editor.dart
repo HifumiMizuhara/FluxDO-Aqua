@@ -23,6 +23,8 @@ import 'package:fluxdo_render/fluxdo_render.dart'
     show
         CalloutKind,
         CodeBlockNode,
+        OneboxNode,
+        QuoteCardNode,
         EmojiRun,
         ImageRun,
         InlineNode,
@@ -224,6 +226,7 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     _mentionDebounce?.cancel();
     _removeMentionOverlay();
     _linkToolbarOverlay?.remove();
+    _oneboxToolbarOverlay?.remove();
     _removeSlashOverlay();
     _removeImageOverlay();
     _altFocus.dispose();
@@ -1582,6 +1585,126 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     await insertMarkdownSnippet(href);
   }
 
+  // -----------------------------------------------------------------
+  // onebox 工具条(官方 onebox-toolbar:复制 | 移除预览 | 访问)
+  // -----------------------------------------------------------------
+
+  IslandSelection? _islandSel;
+  OverlayEntry? _oneboxToolbarOverlay;
+
+  /// 岛的 onebox 身份:OneboxNode(外链卡)恒有 url;QuoteCardNode 仅
+  /// oneboxUrl 标记非空(站内话题 onebox 展开物)时算 —— 真引用卡不出。
+  String? _oneboxUrlOf(IslandBlock island) => switch (island.node) {
+        OneboxNode(:final url) => (url == null || url.isEmpty) ? null : url,
+        QuoteCardNode(:final oneboxUrl) =>
+          (oneboxUrl == null || oneboxUrl.isEmpty) ? null : oneboxUrl,
+        _ => null,
+      };
+
+  void _onIslandSelected(IslandSelection? sel) {
+    _islandSel = sel;
+    final url = sel == null ? null : _oneboxUrlOf(sel.island);
+    if (url == null) {
+      _oneboxToolbarOverlay?.remove();
+      _oneboxToolbarOverlay = null;
+      return;
+    }
+    if (_oneboxToolbarOverlay == null) {
+      _showOneboxToolbar();
+    } else {
+      _oneboxToolbarOverlay!.markNeedsBuild();
+    }
+  }
+
+  void _showOneboxToolbar() {
+    _oneboxToolbarOverlay = OverlayEntry(builder: (context) {
+      final sel = _islandSel;
+      final url = sel == null ? null : _oneboxUrlOf(sel.island);
+      if (sel == null || url == null) return const SizedBox.shrink();
+      final scheme = Theme.of(context).colorScheme;
+      final screen = MediaQuery.sizeOf(context);
+
+      Widget btn(IconData icon, String tooltip, VoidCallback onTap) =>
+          Tooltip(
+            message: tooltip,
+            waitDuration: const Duration(milliseconds: 600),
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Icon(icon, size: 17, color: scheme.onSurfaceVariant),
+              ),
+            ),
+          );
+
+      const barH = 40.0;
+      final rect = sel.globalRect;
+      final top = rect.top - barH - 6 < kToolbarHeight
+          ? rect.bottom + 6
+          : rect.top - barH - 6;
+      final availW = screen.width - 24;
+      final anchorX = rect.center.dx.clamp(12.0, screen.width - 12.0);
+      final alignX =
+          availW <= 0 ? 0.0 : (((anchorX - 12) / availW) * 2 - 1);
+
+      return Positioned(
+        left: 12,
+        right: 12,
+        top: top.clamp(8.0, screen.height - barH - 8),
+        child: Align(
+          alignment: Alignment(alignX.clamp(-1.0, 1.0), 0),
+          child: TapRegion(
+            groupId: 'rich-composer-onebox-toolbar',
+            child: _FloatingPanel(
+              maxHeight: barH + 4,
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                btn(Icons.copy_rounded, '复制链接', () {
+                  Clipboard.setData(ClipboardData(text: url));
+                  ScaffoldMessenger.maybeOf(this.context)?.showSnackBar(
+                    const SnackBar(
+                      content: Text('链接已复制'),
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
+                }),
+                btn(Icons.close_fullscreen_rounded, '移除预览',
+                    _removeOneboxPreview),
+                Container(
+                  width: 1,
+                  height: 20,
+                  color: scheme.outlineVariant.withValues(alpha: 0.5),
+                ),
+                btn(Icons.open_in_new_rounded, '访问链接',
+                    () => launchContentLink(this.context, url)),
+              ]),
+            ),
+          ),
+        ),
+      );
+    });
+    Overlay.of(context).insert(_oneboxToolbarOverlay!);
+  }
+
+  /// 移除预览(官方 removePreview):onebox 岛 → 可编辑链接文字段
+  /// (文本=href 的 link mark;裸 URL 序列化规则保 raw 不变)。
+  void _removeOneboxPreview() {
+    final sel = _islandSel;
+    final editor = _editor;
+    if (sel == null || editor == null) return;
+    final url = _oneboxUrlOf(sel.island);
+    if (url == null) return;
+    final content = EditableTextContent(
+      text: url,
+      marks: [
+        MarkSpan(start: 0, end: url.length, kind: MarkKind.link, attr: url),
+      ],
+    );
+    editor.replaceIsland(sel.island.id, [
+      TextBlock(id: editor.nextBlockId(), content: content),
+    ]);
+  }
+
   OverlayEntry? _imageOverlay;
 
   /// alt 输入条展开态与草稿(浮层重建间保持)。
@@ -2163,6 +2286,9 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                                   // collapsed 光标进出链接 → 链接工具条
                                   // (编辑/复制/取消链接/预览/访问)
                                   onLinkCaret: _onLinkCaret,
+                                  // 岛整选 → onebox 工具条(复制/移除
+                                  // 预览/访问)
+                                  onIslandSelected: _onIslandSelected,
                                   onCaretRectChanged: (r) {
                                     if (r == _caretGlobalRect) return;
                                     _caretGlobalRect = r;
