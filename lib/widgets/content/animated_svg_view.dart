@@ -219,6 +219,10 @@ class _AnimatedSvgViewState extends State<AnimatedSvgView> {
   /// 全局单播放注册表:同屏最多一个实例在播。
   static _AnimatedSvgViewState? _playing;
 
+  /// cacheKey → 快照是否有可见像素:画面空白时不显示播放角标
+  /// (悬浮在空白区的控件脱离画面语境,读者无从判断其归属)。
+  static final Map<int, bool> _snapshotVisibleByKey = <int, bool>{};
+
   /// 大字符串门槛:超过则 hash/剥离等全量扫描挪 isolate。
   static const int _bigSourceBytes = 256 << 10;
 
@@ -306,8 +310,38 @@ class _AnimatedSvgViewState extends State<AnimatedSvgView> {
       img.dispose();
       return;
     }
+    unawaited(_probeSnapshotVisible(key, img.clone()));
     // 入内存缓存(唤醒同 key 等待者,含本实例的 listener)
     _SvgFirstFrameCache.put(key, img);
+  }
+
+  /// 快照可见性探测:抽样扫 alpha,全透明 = 画面空白,不显示播放
+  /// 角标(空白区悬浮的控件脱离画面语境,易被误解)。接管 [img] 所有权。
+  Future<void> _probeSnapshotVisible(int key, ui.Image img) async {
+    try {
+      final data =
+          await img.toByteData(format: ui.ImageByteFormat.rawStraightRgba);
+      if (data == null) return;
+      final bytes = data.buffer.asUint8List();
+      var visible = false;
+      // 抽样步长:最多查 ~4096 个像素,alpha > 8 即视为有内容
+      final pixelCount = bytes.length ~/ 4;
+      final step = (pixelCount / 4096).ceil().clamp(1, 1 << 20);
+      for (var i = 3; i < bytes.length; i += 4 * step) {
+        if (bytes[i] > 8) {
+          visible = true;
+          break;
+        }
+      }
+      _snapshotVisibleByKey[key] = visible;
+      if (mounted && key == _cacheKey && !visible) {
+        setState(() {}); // 已经出快照的实例收掉角标
+      }
+    } catch (_) {
+      // 探测失败按可见处理(不误伤正常图)
+    } finally {
+      img.dispose();
+    }
   }
 
   Future<String> _computeDigest() async {
@@ -449,6 +483,7 @@ class _AnimatedSvgViewState extends State<AnimatedSvgView> {
           return;
         }
         // put 会 bump notifier,本实例经 _onCacheBump clone 出 _snapshot
+        unawaited(_probeSnapshotVisible(key, master.clone()));
         _SvgFirstFrameCache.put(key, master);
         unawaited(_persistSnapshot(master.clone()));
       } finally {
@@ -500,6 +535,7 @@ class _AnimatedSvgViewState extends State<AnimatedSvgView> {
         master.dispose();
         return;
       }
+      unawaited(_probeSnapshotVisible(_cacheKey, master.clone()));
       _SvgFirstFrameCache.put(_cacheKey, master);
       unawaited(_persistSnapshot(master.clone()));
       if (!_liveMounted) {
@@ -737,6 +773,8 @@ class _AnimatedSvgViewState extends State<AnimatedSvgView> {
         fit: _stretchContent ? BoxFit.fill : BoxFit.contain,
         filterQuality: FilterQuality.medium,
       );
+      // 快照全透明(画面空白)时不显示播放角标
+      if (_snapshotVisibleByKey[_cacheKey] == false) showBadge = false;
     } else if (_electArmed &&
         _offscreenFailed &&
         _SvgFirstFrameCache.tryElect(_cacheKey, _token)) {
