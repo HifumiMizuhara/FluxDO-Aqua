@@ -199,16 +199,20 @@ class _TopicPostListState extends State<TopicPostList> {
   ///
   /// 生产归因日志:数据到达帧一次物化 viewport+cacheExtent 内的 8~10 帖,
   /// build 25~29ms(120Hz 预算 8.3ms)。两个时机启用:
-  /// - 挂载初期:首帧 4 段起步,每帧 +4,追平即置 null —— 铺满全程
-  ///   2~3 帧(120Hz 下 ~25ms)不可感知,列表只向外增长,已布局项
-  ///   不动、零跳变。
-  /// - 翻页落地:尾部追加/头部插入大量新段时对新增侧重启(旧段数 +4
-  ///   起步,cap ≥ 旧 childCount,已物化段绝不被卸载),见
+  /// - 挂载初期:首帧 2 段起步;滚动繁忙时每帧 +1,空闲时 +2,
+  ///   追平即置 null。列表只向外增长,已布局项不动、零跳变。
+  /// - 翻页落地:尾部追加/头部插入大量新段时对新增侧重启(旧段数 +
+  ///   当前步长起步,cap ≥ 旧 childCount,已物化段绝不被卸载),见
   ///   [_maybeStartPagingMaterialize];gap 填充/整页替换不启用。
   int? _materializeCapBefore;
   int? _materializeCapAfter;
   bool _materializeTicking = false;
-  static const int _materializeStep = 4;
+  static const int _materializeBusyStep = 1;
+  static const int _materializeIdleStep = 2;
+  static const int _materializeMinPagingSegments = 8;
+
+  int get _currentMaterializeStep =>
+      ScrollBusySignal.isBusy ? _materializeBusyStep : _materializeIdleStep;
 
   void _scheduleMaterializeStep() {
     if (_materializeTicking) return;
@@ -218,6 +222,7 @@ class _TopicPostListState extends State<TopicPostList> {
       if (!mounted) return;
       final centerScrollIndex =
           _postIndexToScrollIndex[widget.centerPostIndex] ?? 0;
+      final step = _currentMaterializeStep;
       var advanced = false;
 
       final capBefore = _materializeCapBefore;
@@ -226,7 +231,7 @@ class _TopicPostListState extends State<TopicPostList> {
           // childCount 已是全量(min 取总数),置 null 无需重建
           _materializeCapBefore = null;
         } else {
-          _materializeCapBefore = capBefore + _materializeStep;
+          _materializeCapBefore = capBefore + step;
           advanced = true;
         }
       }
@@ -237,7 +242,7 @@ class _TopicPostListState extends State<TopicPostList> {
         if (capAfter >= afterTotal) {
           _materializeCapAfter = null;
         } else {
-          _materializeCapAfter = capAfter + _materializeStep;
+          _materializeCapAfter = capAfter + step;
           advanced = true;
         }
       }
@@ -255,8 +260,8 @@ class _TopicPostListState extends State<TopicPostList> {
     // 首屏渐进物化:顶部/跳转进入都启用。跳转进入时 center 在 after
     // 列表 index 0、before 列表 index 0 离 center 最近 —— cap 截断的
     // 都是两侧**远端**,center 及近邻首帧即物化,定位不受影响。
-    _materializeCapBefore = _materializeStep;
-    _materializeCapAfter = _materializeStep;
+    _materializeCapBefore = _materializeIdleStep;
+    _materializeCapAfter = _materializeIdleStep;
     _scheduleMaterializeStep();
     // 首帧渲染后触发一次可见性检测，确保进入页面时即上报阅读状态
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -288,13 +293,16 @@ class _TopicPostListState extends State<TopicPostList> {
     final direction = delta > 0 ? 1 : -1;
     // 与最近滚动方向相反且单次跳变 >8px:用户反向拖动一般达不到,
     // 惯性/动画中出现即为程序性修正
-    if (_probeDirection != 0 && direction != _probeDirection && delta.abs() > 8) {
+    if (_probeDirection != 0 &&
+        direction != _probeDirection &&
+        delta.abs() > 8) {
       // overscroll 回弹(位置在边界外)是 BouncingScrollPhysics 常态,
       // 方向必然反转,不是布局跳变 —— 过滤,只记内容区内的程序性修正
       // (生产样本:一轮 13 次 jump 里大半是边界回弹噪音)
       final minExtent = position.minScrollExtent;
       final maxExtent = position.maxScrollExtent;
-      final inBounds = pixels >= minExtent &&
+      final inBounds =
+          pixels >= minExtent &&
           pixels <= maxExtent &&
           last >= minExtent &&
           last <= maxExtent;
@@ -702,12 +710,8 @@ class _TopicPostListState extends State<TopicPostList> {
     );
     // widget 实例缓存同步淘汰:离开 posts 的帖子(整流刷新/过滤模式)
     // 不再持有 widget 配置树;翻页只增不减,不受影响
-    _shortPostCache.removeWhere(
-      (postId, _) => !activePostIds.contains(postId),
-    );
-    _chunkWidgetCache.removeWhere(
-      (key, _) => !activePostIds.contains(key.$1),
-    );
+    _shortPostCache.removeWhere((postId, _) => !activePostIds.contains(postId));
+    _chunkWidgetCache.removeWhere((key, _) => !activePostIds.contains(key.$1));
     var structureHash = 0;
     for (final s in segments) {
       structureHash = Object.hash(
@@ -727,7 +731,7 @@ class _TopicPostListState extends State<TopicPostList> {
       FrameJankMonitor.logEvent(
         'SEGMENTS',
         '重算 ${posts.length}帖→${segments.length}段 '
-        '${segmentsStopwatch.elapsedMilliseconds}ms',
+            '${segmentsStopwatch.elapsedMilliseconds}ms',
       );
     }
     widget.onScrollIndexMappingChanged?.call(postIndexToScrollIndex);
@@ -746,9 +750,9 @@ class _TopicPostListState extends State<TopicPostList> {
   /// loadMore/loadPrevious 一次落地十几帖时,落在 cacheExtent 内的新段
   /// 会被同帧全部物化(单帖 build 6~20ms,叠加即 UI 大帧/STALL 的组成
   /// 部分)。检测"尾部追加/头部插入"型结构变化,对新增侧重启渐进
-  /// cap:旧段数 +4 起步(≥ 旧 childCount,已物化段绝不被卸载),每帧
-  /// +4 追平。中间 gap 填充(首尾都不变)与整页替换(首尾都变)不
-  /// 启用,维持旧行为。
+  /// cap:旧段数 + 当前步长起步(≥ 旧 childCount,已物化段绝不被卸载),
+  /// 滚动繁忙时每帧 +1、空闲时 +2 追平。中间 gap 填充(首尾都不变)
+  /// 与整页替换(首尾都变)不启用,维持旧行为。
   void _maybeStartPagingMaterialize(
     List<Post>? oldPosts,
     List<Post> newPosts,
@@ -762,7 +766,7 @@ class _TopicPostListState extends State<TopicPostList> {
     if (sameFirst == sameLast) return; // gap 填充(都同)/整页替换(都变)
 
     final addedSegments = _renderSegments.length - oldSegmentsLength;
-    final fewAdded = addedSegments < _materializeStep * 2; // 少量新增不值得分帧
+    final fewAdded = addedSegments < _materializeMinPagingSegments;
 
     if (sameFirst) {
       // 尾部追加:append 不改 center 的 postIndex 与 scrollIndex
@@ -770,7 +774,7 @@ class _TopicPostListState extends State<TopicPostList> {
         final oldCenter = oldIndexMap[widget.centerPostIndex] ?? 0;
         final oldAfterCount = oldSegmentsLength - oldCenter;
         if (oldAfterCount >= 0) {
-          _materializeCapAfter = oldAfterCount + _materializeStep;
+          _materializeCapAfter = oldAfterCount + _currentMaterializeStep;
           _scheduleMaterializeStep();
           // 汇入诊断时间轴:对照 SCROLL-PROBE,定案"内容区回跳是否
           // 与 cap 渐进窗口(extent 逐帧长全)重合"
@@ -787,7 +791,7 @@ class _TopicPostListState extends State<TopicPostList> {
       if (!fewAdded && _materializeCapBefore == null) {
         final oldCenter = oldIndexMap[widget.centerPostIndex - shift];
         if (oldCenter != null) {
-          _materializeCapBefore = oldCenter + _materializeStep;
+          _materializeCapBefore = oldCenter + _currentMaterializeStep;
           _scheduleMaterializeStep();
           FrameJankMonitor.logEvent(
             'MATERIALIZE',
@@ -885,21 +889,29 @@ class _TopicPostListState extends State<TopicPostList> {
       post.cooked.hashCode,
       mentionedUsers == null
           ? 0
-          : Object.hashAll(mentionedUsers.map((u) => Object.hash(
-                u.id,
-                u.username,
-                u.statusEmoji,
-                u.statusDescription,
-              ))),
+          : Object.hashAll(
+              mentionedUsers.map(
+                (u) => Object.hash(
+                  u.id,
+                  u.username,
+                  u.statusEmoji,
+                  u.statusDescription,
+                ),
+              ),
+            ),
       linkCounts == null
           ? 0
-          : Object.hashAll(linkCounts.map((l) => Object.hash(
-                l.url,
-                l.clicks,
-                l.title,
-                l.internal,
-                l.reflection,
-              ))),
+          : Object.hashAll(
+              linkCounts.map(
+                (l) => Object.hash(
+                  l.url,
+                  l.clicks,
+                  l.title,
+                  l.internal,
+                  l.reflection,
+                ),
+              ),
+            ),
     );
   }
 
@@ -917,9 +929,8 @@ class _TopicPostListState extends State<TopicPostList> {
     );
 
     // 不再包系统 SelectionArea:正文选区全部由 FluxdoRender 自研选区承担
-    // (含未登录场景 —— toolbar 降级只留「复制」),header/footer 等本就
-    // SelectionContainer.disabled。省掉整个滚动区的系统选区手势竞技场
-    // 竞争与 registrar 树维护。
+    // (含未登录场景 —— toolbar 降级只留「复制」)。header/footer 等普通
+    // Widget 不创建系统选区节点,省掉手势竞技场竞争与 registrar 树维护。
     return NotificationListener<ScrollNotification>(
       onNotification: _handleScrollNotification,
       child: Listener(
@@ -930,51 +941,91 @@ class _TopicPostListState extends State<TopicPostList> {
           }
         },
         child: CustomScrollView(
-            controller: scrollController,
-            center: centerKey,
-            anchor: widget.viewportAnchor,
-            scrollCacheExtent: ScrollCacheExtent.pixels(500),
-            physics: const AlwaysScrollableScrollPhysics(
-              parent: BouncingScrollPhysics(),
-            ),
-            slivers: [
-              // 滚动锚定哨兵(before 区):位于 center 之前 = reverse 增长区,
-              // 该区布局序从近 center 向外推进,首位哨兵最后布局,能读到
-              // 本区兄弟的新鲜位置。作用见 AnchorGuardSliver 文档。
-              AnchorGuardSliver(structureSignature: anchorSignature),
-              // 向上加载骨架屏 / 失败重试(ListenableBuilder 就地切换,
-              // 分页起止只重建这一个 sliver,不整页 rebuild)
-              if (hasMoreBefore)
-                ListenableBuilder(
-                  listenable: Listenable.merge([
-                    widget.loadingPreviousListenable,
-                    widget.loadPreviousFailedListenable,
-                  ]),
-                  builder: (context, _) {
-                    if (widget.loadPreviousFailedListenable.value) {
-                      return SliverToBoxAdapter(
-                        child: _LoadFailedRetry(onRetry: onRetryLoadPrevious),
-                      );
-                    }
-                    if (widget.loadingPreviousListenable.value) {
-                      return SliverToBoxAdapter(
-                        child: _wrapContent(
-                          context,
-                          const _LoadMoreIndicator(),
-                        ),
-                      );
-                    }
-                    return const SliverToBoxAdapter(child: SizedBox.shrink());
-                  },
-                ),
+          controller: scrollController,
+          center: centerKey,
+          anchor: widget.viewportAnchor,
+          scrollCacheExtent: ScrollCacheExtent.pixels(
+            Responsive.isMobile(context) ? 300 : 500,
+          ),
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
+          ),
+          slivers: [
+            // 滚动锚定哨兵(before 区):位于 center 之前 = reverse 增长区,
+            // 该区布局序从近 center 向外推进,首位哨兵最后布局,能读到
+            // 本区兄弟的新鲜位置。作用见 AnchorGuardSliver 文档。
+            AnchorGuardSliver(structureSignature: anchorSignature),
+            // 向上加载骨架屏 / 失败重试(ListenableBuilder 就地切换,
+            // 分页起止只重建这一个 sliver,不整页 rebuild)
+            if (hasMoreBefore)
+              ListenableBuilder(
+                listenable: Listenable.merge([
+                  widget.loadingPreviousListenable,
+                  widget.loadPreviousFailedListenable,
+                ]),
+                builder: (context, _) {
+                  if (widget.loadPreviousFailedListenable.value) {
+                    return SliverToBoxAdapter(
+                      child: _LoadFailedRetry(onRetry: onRetryLoadPrevious),
+                    );
+                  }
+                  if (widget.loadingPreviousListenable.value) {
+                    return SliverToBoxAdapter(
+                      child: _wrapContent(context, const _LoadMoreIndicator()),
+                    );
+                  }
+                  return const SliverToBoxAdapter(child: SizedBox.shrink());
+                },
+              ),
 
-              // 话题 Header（centerPostIndex > 0 时放在 before-center 区域）
-              if (hasFirstPost && centerPostIndex > 0)
-                SliverToBoxAdapter(
-                  child: _wrapContent(
+            // 话题 Header（centerPostIndex > 0 时放在 before-center 区域）
+            if (hasFirstPost && centerPostIndex > 0)
+              SliverToBoxAdapter(
+                child: _wrapContent(
+                  context,
+                  TopicDetailHeader(
+                    detail: detail,
+                    headerKey: headerKey,
+                    showTitle: !widget.hideHeaderTitle,
+                    onVoteChanged: onVoteChanged,
+                    onNotificationLevelChanged: onNotificationLevelChanged,
+                    onJumpToPost: onJumpToPost,
+                  ),
+                ),
+              ),
+
+            // Before-center 帖子（SliverList.builder 实现虚拟化回收）
+            // center 之前的 sliver 向上增长，index 0 离 center 最近，需要反转映射
+            if (centerPostIndex > 0)
+              SliverList.builder(
+                // 渐进物化:cap 截断的是远离 center 的上方远端
+                itemCount: _materializeCapBefore == null
+                    ? centerScrollIndex
+                    : (_materializeCapBefore! < centerScrollIndex
+                          ? _materializeCapBefore!
+                          : centerScrollIndex),
+                itemBuilder: (context, index) {
+                  final segmentIndex = centerScrollIndex - 1 - index;
+                  return _buildSegmentItem(
                     context,
-                    SelectionContainer.disabled(
-                      child: TopicDetailHeader(
+                    _renderSegments[segmentIndex],
+                  );
+                },
+              ),
+
+            // 中心帖子 + after-center 帖子（合并为一个 SliverList.builder）
+            // SliverList 不会回收最后一个 child，所以必须合并，确保 center 帖子
+            // 是多 item 列表中的一项，滚出视口后能被正常回收。
+            // centerPostIndex == 0 且有 header 时，用 SliverMainAxisGroup 将
+            // header 和帖子列表组合为 center，保证 header 默认可见。
+            if (centerPostIndex == 0 && hasFirstPost)
+              SliverMainAxisGroup(
+                key: centerKey,
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: _wrapContent(
+                      context,
+                      TopicDetailHeader(
                         detail: detail,
                         headerKey: headerKey,
                         showTitle: !widget.hideHeaderTitle,
@@ -984,177 +1035,123 @@ class _TopicPostListState extends State<TopicPostList> {
                       ),
                     ),
                   ),
-                ),
-
-              // Before-center 帖子（SliverList.builder 实现虚拟化回收）
-              // center 之前的 sliver 向上增长，index 0 离 center 最近，需要反转映射
-              if (centerPostIndex > 0)
-                SliverList.builder(
-                  // 渐进物化:cap 截断的是远离 center 的上方远端
-                  itemCount: _materializeCapBefore == null
-                      ? centerScrollIndex
-                      : (_materializeCapBefore! < centerScrollIndex
-                          ? _materializeCapBefore!
-                          : centerScrollIndex),
-                  itemBuilder: (context, index) {
-                    final segmentIndex = centerScrollIndex - 1 - index;
-                    return _buildSegmentItem(
-                      context,
-                      _renderSegments[segmentIndex],
-                    );
-                  },
-                ),
-
-              // 中心帖子 + after-center 帖子（合并为一个 SliverList.builder）
-              // SliverList 不会回收最后一个 child，所以必须合并，确保 center 帖子
-              // 是多 item 列表中的一项，滚出视口后能被正常回收。
-              // centerPostIndex == 0 且有 header 时，用 SliverMainAxisGroup 将
-              // header 和帖子列表组合为 center，保证 header 默认可见。
-              if (centerPostIndex == 0 && hasFirstPost)
-                SliverMainAxisGroup(
-                  key: centerKey,
-                  slivers: [
-                    SliverToBoxAdapter(
-                      child: _wrapContent(
-                        context,
-                        SelectionContainer.disabled(
-                          child: TopicDetailHeader(
-                            detail: detail,
-                            headerKey: headerKey,
-                            showTitle: !widget.hideHeaderTitle,
-                            onVoteChanged: onVoteChanged,
-                            onNotificationLevelChanged:
-                                onNotificationLevelChanged,
-                            onJumpToPost: onJumpToPost,
-                          ),
-                        ),
-                      ),
-                    ),
-                    SliverList.builder(
-                      // 首屏渐进物化:挂载初期逐帧放开(见 _materializeCap)
-                      itemCount: _materializeCapAfter == null
-                          ? _renderSegments.length
-                          : (_materializeCapAfter! < _renderSegments.length
+                  SliverList.builder(
+                    // 首屏渐进物化:挂载初期逐帧放开(见 _materializeCap)
+                    itemCount: _materializeCapAfter == null
+                        ? _renderSegments.length
+                        : (_materializeCapAfter! < _renderSegments.length
                               ? _materializeCapAfter!
                               : _renderSegments.length),
-                      itemBuilder: (context, index) =>
-                          _buildSegmentItem(context, _renderSegments[index]),
-                    ),
-                  ],
-                )
-              else
-                SliverList.builder(
-                  key: centerKey,
-                  // 渐进物化:center 是本列表 index 0,cap 截断下方远端
-                  itemCount: () {
-                    final total = _renderSegments.length - centerScrollIndex;
-                    final cap = _materializeCapAfter;
-                    return cap == null || cap >= total ? total : cap;
-                  }(),
-                  itemBuilder: (context, index) {
-                    final segmentIndex = centerScrollIndex + index;
-                    return _buildSegmentItem(
-                      context,
-                      _renderSegments[segmentIndex],
-                    );
-                  },
-                ),
-
-              // 当前用户的待审核回复(帖子流末尾,仅本人可见;对齐官方
-              // topic 模板的 pending-posts 块)。位于分页边界内侧:还有
-              // 更多帖子未加载时不显示,避免"待审"出现在中间位置。
-              if (!hasMoreAfter &&
-                  detail.pendingPosts.isNotEmpty &&
-                  widget.onWithdrawPendingPost != null &&
-                  widget.onWithdrawAndEditPendingPost != null)
-                SliverToBoxAdapter(
-                  child: _wrapContent(
-                    context,
-                    SelectionContainer.disabled(
-                      child: PendingPostsSection(
-                        pendingPosts: detail.pendingPosts,
-                        onWithdraw: widget.onWithdrawPendingPost!,
-                        onWithdrawAndEdit:
-                            widget.onWithdrawAndEditPendingPost!,
-                      ),
-                    ),
+                    itemBuilder: (context, index) =>
+                        _buildSegmentItem(context, _renderSegments[index]),
                   ),
-                ),
-
-              // 正在输入指示器（始终占位，通过 AnimatedSize 平滑过渡避免列表抖动）
-              // Consumer 放在 sliver 内部：typingUsers 变化只重建这一行头像，
-              // 不连累整个列表（此前 watch 在页面层，presence 消息 = 整列表 rebuild）
-              if (!hasMoreAfter)
-                SliverToBoxAdapter(
-                  child: _wrapContent(
+                ],
+              )
+            else
+              SliverList.builder(
+                key: centerKey,
+                // 渐进物化:center 是本列表 index 0,cap 截断下方远端
+                itemCount: () {
+                  final total = _renderSegments.length - centerScrollIndex;
+                  final cap = _materializeCapAfter;
+                  return cap == null || cap >= total ? total : cap;
+                }(),
+                itemBuilder: (context, index) {
+                  final segmentIndex = centerScrollIndex + index;
+                  return _buildSegmentItem(
                     context,
-                    SelectionContainer.disabled(
-                      child: AnimatedSize(
-                        duration: const Duration(milliseconds: 200),
-                        alignment: Alignment.topCenter,
-                        child: Consumer(
-                          builder: (context, ref, _) {
-                            final typingUsers = ref.watch(
-                              topicChannelProvider(
-                                detail.id,
-                              ).select((s) => s.typingUsers),
-                            );
-                            // 汇入性能诊断时间轴:"有人正在输入"场景的
-                            // 卡顿是否与 presence/typing 更新同时刻。
-                            // 同值去重:presence 消息风暴下重复的
-                            // "0 users" 只会淹没时间轴,不携带信息
-                            if (typingUsers.length != _lastLoggedTypingCount) {
-                              _lastLoggedTypingCount = typingUsers.length;
-                              FrameJankMonitor.logEvent(
-                                'TYPING',
-                                '${typingUsers.length} users',
-                              );
-                            }
-                            return TypingAvatars(users: typingUsers);
-                          },
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                    _renderSegments[segmentIndex],
+                  );
+                },
+              ),
 
-              // 底部加载骨架屏 / 失败重试(同顶部,分页起止只重建本 sliver)
-              if (hasMoreAfter)
-                ListenableBuilder(
-                  listenable: Listenable.merge([
-                    widget.loadingMoreListenable,
-                    widget.loadMoreFailedListenable,
-                  ]),
-                  builder: (context, _) {
-                    if (widget.loadMoreFailedListenable.value) {
-                      return SliverToBoxAdapter(
-                        child: _LoadFailedRetry(onRetry: onRetryLoadMore),
-                      );
-                    }
-                    if (widget.loadingMoreListenable.value) {
-                      return SliverToBoxAdapter(
-                        child: _wrapContent(
-                          context,
-                          const _LoadMoreIndicator(),
-                        ),
-                      );
-                    }
-                    return const SliverToBoxAdapter(child: SizedBox.shrink());
-                  },
-                ),
-              SliverPadding(
-                padding: EdgeInsets.only(
-                  bottom: 80 + MediaQuery.of(context).padding.bottom,
+            // 当前用户的待审核回复(帖子流末尾,仅本人可见;对齐官方
+            // topic 模板的 pending-posts 块)。位于分页边界内侧:还有
+            // 更多帖子未加载时不显示,避免"待审"出现在中间位置。
+            if (!hasMoreAfter &&
+                detail.pendingPosts.isNotEmpty &&
+                widget.onWithdrawPendingPost != null &&
+                widget.onWithdrawAndEditPendingPost != null)
+              SliverToBoxAdapter(
+                child: _wrapContent(
+                  context,
+                  PendingPostsSection(
+                    pendingPosts: detail.pendingPosts,
+                    onWithdraw: widget.onWithdrawPendingPost!,
+                    onWithdrawAndEdit: widget.onWithdrawAndEditPendingPost!,
+                  ),
                 ),
               ),
-              // 滚动锚定哨兵(center/after 区):全局最后布局,守护 forward
-              // 区的空闲期高度变化(before 区约束不含对面区尺寸,单哨兵会
-              // 对 forward 区变化失明,故首尾各一)
-              AnchorGuardSliver(structureSignature: anchorSignature),
-            ],
-          ),
+
+            // 正在输入指示器（始终占位，通过 AnimatedSize 平滑过渡避免列表抖动）
+            // Consumer 放在 sliver 内部：typingUsers 变化只重建这一行头像，
+            // 不连累整个列表（此前 watch 在页面层，presence 消息 = 整列表 rebuild）
+            if (!hasMoreAfter)
+              SliverToBoxAdapter(
+                child: _wrapContent(
+                  context,
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 200),
+                    alignment: Alignment.topCenter,
+                    child: Consumer(
+                      builder: (context, ref, _) {
+                        final typingUsers = ref.watch(
+                          topicChannelProvider(
+                            detail.id,
+                          ).select((s) => s.typingUsers),
+                        );
+                        // 汇入性能诊断时间轴:"有人正在输入"场景的
+                        // 卡顿是否与 presence/typing 更新同时刻。
+                        // 同值去重:presence 消息风暴下重复的
+                        // "0 users" 只会淹没时间轴,不携带信息
+                        if (typingUsers.length != _lastLoggedTypingCount) {
+                          _lastLoggedTypingCount = typingUsers.length;
+                          FrameJankMonitor.logEvent(
+                            'TYPING',
+                            '${typingUsers.length} users',
+                          );
+                        }
+                        return TypingAvatars(users: typingUsers);
+                      },
+                    ),
+                  ),
+                ),
+              ),
+
+            // 底部加载骨架屏 / 失败重试(同顶部,分页起止只重建本 sliver)
+            if (hasMoreAfter)
+              ListenableBuilder(
+                listenable: Listenable.merge([
+                  widget.loadingMoreListenable,
+                  widget.loadMoreFailedListenable,
+                ]),
+                builder: (context, _) {
+                  if (widget.loadMoreFailedListenable.value) {
+                    return SliverToBoxAdapter(
+                      child: _LoadFailedRetry(onRetry: onRetryLoadMore),
+                    );
+                  }
+                  if (widget.loadingMoreListenable.value) {
+                    return SliverToBoxAdapter(
+                      child: _wrapContent(context, const _LoadMoreIndicator()),
+                    );
+                  }
+                  return const SliverToBoxAdapter(child: SizedBox.shrink());
+                },
+              ),
+            SliverPadding(
+              padding: EdgeInsets.only(
+                bottom: 80 + MediaQuery.of(context).padding.bottom,
+              ),
+            ),
+            // 滚动锚定哨兵(center/after 区):全局最后布局,守护 forward
+            // 区的空闲期高度变化(before 区约束不含对面区尺寸,单哨兵会
+            // 对 forward 区变化失明,故首尾各一)
+            AnchorGuardSliver(structureSignature: anchorSignature),
+          ],
         ),
-      );
+      ),
+    );
   }
 
   /// 判断是否需要显示日期分割线
@@ -1377,23 +1374,17 @@ class _TopicPostListState extends State<TopicPostList> {
         );
         break;
       case _PostRenderSegmentType.gapBefore:
-        child = SelectionContainer.disabled(
-          child: _GapIndicator(
-            count: segment.gapCount,
-            onTap: onFillGapBefore != null
-                ? () => onFillGapBefore!(post.id)
-                : null,
-          ),
+        child = _GapIndicator(
+          count: segment.gapCount,
+          onTap: onFillGapBefore != null
+              ? () => onFillGapBefore!(post.id)
+              : null,
         );
         break;
       case _PostRenderSegmentType.gapAfter:
-        child = SelectionContainer.disabled(
-          child: _GapIndicator(
-            count: segment.gapCount,
-            onTap: onFillGapAfter != null
-                ? () => onFillGapAfter!(post.id)
-                : null,
-          ),
+        child = _GapIndicator(
+          count: segment.gapCount,
+          onTap: onFillGapAfter != null ? () => onFillGapAfter!(post.id) : null,
         );
         break;
     }
@@ -1431,10 +1422,7 @@ class _ShortPostCacheEntry {
   final Object signature;
   final Widget widget;
 
-  const _ShortPostCacheEntry({
-    required this.signature,
-    required this.widget,
-  });
+  const _ShortPostCacheEntry({required this.signature, required this.widget});
 }
 
 /// 长帖正文 chunk 段的实例缓存条目
@@ -1462,8 +1450,7 @@ class _LongPostRenderCacheEntry {
     this.newEngineData,
   });
 
-  List<HtmlChunk> get chunks =>
-      newEngineData?.chunks ?? const <HtmlChunk>[];
+  List<HtmlChunk> get chunks => newEngineData?.chunks ?? const <HtmlChunk>[];
 }
 
 class _PostRenderSegment {
@@ -1668,7 +1655,11 @@ class _LoadFailedRetry extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Symbols.refresh_rounded, size: 16, color: theme.colorScheme.primary),
+              Icon(
+                Symbols.refresh_rounded,
+                size: 16,
+                color: theme.colorScheme.primary,
+              ),
               const SizedBox(width: 6),
               Text(
                 S.current.topicDetail_loadFailedTapRetry,

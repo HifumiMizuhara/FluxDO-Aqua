@@ -42,11 +42,7 @@ class PostSignatureBlock extends ConsumerStatefulWidget {
   });
 
   /// 是否应渲染签名（供调用方在外层 if 中短路，避免空 Padding）。
-  static bool shouldRender(
-    WidgetRef ref,
-    Post post, {
-    int? categoryId,
-  }) {
+  static bool shouldRender(WidgetRef ref, Post post, {int? categoryId}) {
     final preloaded = PreloadedDataService();
     if (!preloaded.signaturesEnabled) return false;
     if (!ref.watch(preferencesProvider).showSignatures) return false;
@@ -149,20 +145,18 @@ class _PostSignatureBlockState extends ConsumerState<PostSignatureBlock> {
 
     return Padding(
       padding: EdgeInsets.only(top: widget.spacing),
-      child: SelectionContainer.disabled(
-        child: Container(
-          width: double.infinity,
-          padding: EdgeInsets.only(top: widget.spacing),
-          decoration: BoxDecoration(
-            border: Border(
-              top: BorderSide(
-                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
-                width: 0.5,
-              ),
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.only(top: widget.spacing),
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+              width: 0.5,
             ),
           ),
-          child: content,
         ),
+        child: content,
       ),
     );
   }

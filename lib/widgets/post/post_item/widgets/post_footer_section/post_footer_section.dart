@@ -504,9 +504,6 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
         currentUser != null && currentUser.username == widget.post.username;
     final isGuest = currentUser == null;
 
-    // 预热打赏凭证，避免首次打开更多菜单时因 AsyncLoading 导致打赏选项不显示
-    ref.watch(ldcRewardCredentialsProvider);
-
     return Padding(
       padding: widget.padding,
       child: Column(

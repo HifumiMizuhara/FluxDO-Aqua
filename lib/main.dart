@@ -160,11 +160,13 @@ Future<void> main() async {
     FrameJankMonitor.start();
   }
 
-  // 定位构建热点用(仅 debug/profile 生效,release 编译器自动剔除):
-  // 打开后 DevTools timeline 的 BUILD 段内会显示每个 widget 的耗时,
-  // 用于追查"重楼层挂载 build 35ms"的具体构成。事件量大,录制请控制
-  // 在 10 秒以内,定位完成后删除。
-  if (!kReleaseMode) {
+  // Widget 级 build profiling 会为每次 build 写 Timeline 事件,对多楼层
+  // 首建场景有明显观察者效应。默认关闭;需要深度归因时通过
+  // --dart-define=FLUXDO_PROFILE_WIDGET_BUILDS=true 临时开启。
+  const profileWidgetBuilds = bool.fromEnvironment(
+    'FLUXDO_PROFILE_WIDGET_BUILDS',
+  );
+  if (!kReleaseMode && profileWidgetBuilds) {
     debugProfileBuildsEnabled = true;
   }
 
