@@ -396,8 +396,9 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
       return;
     }
 
-    final linkText = result['text']!;
     final url = result['url']!;
+    final rawText = result['text']!.trim();
+    final linkText = rawText.isEmpty ? url : rawText;
     final link = '[$linkText]($url)';
 
     // 插入链接

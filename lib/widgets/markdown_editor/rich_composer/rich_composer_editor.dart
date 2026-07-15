@@ -44,6 +44,7 @@ import '../../../services/discourse_cook_service.dart';
 import '../../../services/emoji_handler.dart';
 import '../../../utils/dialog_utils.dart';
 import '../../../utils/fluxdo_render_callbacks.dart';
+import '../../../utils/link_launcher.dart';
 import '../../../utils/platform_utils.dart';
 import '../../../utils/url_helper.dart';
 import '../../common/fading_edge_scroll_view.dart';
@@ -221,6 +222,7 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     _serializeDebounce?.cancel();
     _mentionDebounce?.cancel();
     _removeMentionOverlay();
+    _linkToolbarOverlay?.remove();
     _removeSlashOverlay();
     _removeImageOverlay();
     _altFocus.dispose();
@@ -1186,6 +1188,211 @@ class RichComposerEditorState extends State<RichComposerEditor> {
   // -----------------------------------------------------------------
 
   ImageAtomSelection? _imageSel;
+  // -----------------------------------------------------------------
+  // 链接工具条(官方 link-toolbar 对齐:光标进链接浮出
+  // [编辑|复制|取消链接|加载预览|访问])
+  // -----------------------------------------------------------------
+
+  LinkCaretInfo? _linkCaret;
+  OverlayEntry? _linkToolbarOverlay;
+
+  void _onLinkCaret(LinkCaretInfo? info) {
+    _linkCaret = info;
+    if (info == null) {
+      _linkToolbarOverlay?.remove();
+      _linkToolbarOverlay = null;
+      return;
+    }
+    if (_linkToolbarOverlay == null) {
+      _showLinkToolbar();
+    } else {
+      _linkToolbarOverlay!.markNeedsBuild();
+    }
+  }
+
+  /// 链接是否独占一段(加载预览仅此时可用:替换整段为裸 URL 经 cook
+  /// 成 onebox —— 官方 show-preview 对行内链接同样隐藏)。
+  bool _linkIsWholeParagraph(LinkCaretInfo info) {
+    final editor = _editor;
+    if (editor == null) return false;
+    final block = editor.textBlockById(info.blockId);
+    if (block == null || !block.isParagraph || block.containers.isNotEmpty) {
+      return false;
+    }
+    final t = block.content.text;
+    return t.substring(0, info.start).trim().isEmpty &&
+        t.substring(info.end).trim().isEmpty;
+  }
+
+  void _showLinkToolbar() {
+    _linkToolbarOverlay = OverlayEntry(builder: (context) {
+      final info = _linkCaret;
+      if (info == null) return const SizedBox.shrink();
+      final scheme = Theme.of(context).colorScheme;
+      final screen = MediaQuery.sizeOf(context);
+      final href = info.href ?? '';
+
+      // href 缩略标签(官方 visit 按钮的 translatedLabel 同款:剥站内
+      // origin / mailto / https 前缀)
+      var label = href;
+      final origin = UrlHelper.resolveUrl('');
+      if (origin.isNotEmpty && label.startsWith(origin)) {
+        label = label.substring(origin.length);
+        if (label.isEmpty) label = '/';
+      }
+      label = label.replaceFirst(RegExp(r'^(mailto:|https://)'), '');
+
+      Widget btn(IconData icon, String tooltip, VoidCallback onTap) =>
+          Tooltip(
+            message: tooltip,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Icon(icon, size: 17, color: scheme.onSurfaceVariant),
+              ),
+            ),
+          );
+
+      const barH = 40.0;
+      final top = info.rangeGlobal.top - barH - 6 < kToolbarHeight
+          ? info.rangeGlobal.bottom + 6
+          : info.rangeGlobal.top - barH - 6;
+
+      return Positioned(
+        left: 12,
+        right: 12,
+        top: top.clamp(8.0, screen.height - barH - 8),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            TapRegion(
+              // 与编辑器同组:点工具条不收光标态
+              groupId: 'rich-composer-link-toolbar',
+              child: _FloatingPanel(
+                maxHeight: barH + 4,
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  btn(Icons.edit_rounded, '编辑链接', _editLinkAtCaret),
+                  btn(Icons.copy_rounded, '复制链接', () {
+                    Clipboard.setData(ClipboardData(text: href));
+                    ScaffoldMessenger.maybeOf(this.context)?.showSnackBar(
+                      const SnackBar(
+                        content: Text('链接已复制'),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                  }),
+                  btn(Icons.link_off_rounded, '移除链接', _unlinkAtCaret),
+                  if (_linkIsWholeParagraph(info))
+                    btn(Icons.expand_rounded, '加载预览',
+                        _convertLinkToPreview),
+                  Container(
+                    width: 1,
+                    height: 20,
+                    color: scheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                  // 访问:图标 + href 缩略标签
+                  Tooltip(
+                    message: '访问链接',
+                    child: InkWell(
+                      onTap: href.isEmpty
+                          ? null
+                          : () => launchContentLink(this.context, href),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 8),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(Icons.open_in_new_rounded,
+                              size: 15, color: scheme.primary),
+                          const SizedBox(width: 5),
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 150),
+                            child: Text(
+                              label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: scheme.primary,
+                              ),
+                            ),
+                          ),
+                        ]),
+                      ),
+                    ),
+                  ),
+                ]),
+              ),
+            ),
+          ],
+        ),
+      );
+    });
+    Overlay.of(context).insert(_linkToolbarOverlay!);
+  }
+
+  /// 编辑链接:预填当前文字+href,提交 = 选中原区间 → 删 → 插新
+  /// [text](url)(insertMarkdownSnippet 同 cook 链,官方 replaceText
+  /// 同语义)。
+  Future<void> _editLinkAtCaret() async {
+    final info = _linkCaret;
+    final editor = _editor;
+    if (info == null || editor == null) return;
+    final result = await showLinkInsertDialog(
+      context,
+      initialText: info.text,
+      initialUrl: info.href,
+      editing: true,
+    );
+    if (result == null || !mounted) return;
+    final url = result['url'] ?? '';
+    if (url.isEmpty) return;
+    final text = (result['text'] ?? '').trim();
+    editor.updateSelection(EditorSelection(
+      base: EditorPosition(blockId: info.blockId, offset: info.start),
+      extent: EditorPosition(blockId: info.blockId, offset: info.end),
+    ));
+    await insertMarkdownSnippet('[${text.isEmpty ? url : text}]($url)');
+  }
+
+  /// 取消链接:对链接区间 removeLink(文字保留)。
+  void _unlinkAtCaret() {
+    final info = _linkCaret;
+    final editor = _editor;
+    if (info == null || editor == null) return;
+    editor.updateSelection(EditorSelection(
+      base: EditorPosition(blockId: info.blockId, offset: info.start),
+      extent: EditorPosition(blockId: info.blockId, offset: info.end),
+    ));
+    editor.removeLink();
+    // 光标落链接尾(collapsed),工具条随 onLinkCaret(null) 自动收
+    editor.updateSelection(EditorSelection.collapsed(
+      EditorPosition(blockId: info.blockId, offset: info.end),
+    ));
+  }
+
+  /// 加载预览(官方 show-preview):链接独占段 → 整段替换为裸 URL 经
+  /// cook → onebox 岛。
+  Future<void> _convertLinkToPreview() async {
+    final info = _linkCaret;
+    final editor = _editor;
+    if (info == null || editor == null) return;
+    final href = info.href;
+    if (href == null || href.isEmpty) return;
+    if (!_linkIsWholeParagraph(info)) return;
+    final block = editor.textBlockById(info.blockId);
+    if (block == null) return;
+    // 选中整段内容(含链接前后空白)→ 粘贴语义替换为 onebox 岛
+    editor.updateSelection(EditorSelection(
+      base: EditorPosition(blockId: info.blockId, offset: 0),
+      extent: EditorPosition(
+          blockId: info.blockId, offset: block.content.length),
+    ));
+    await insertMarkdownSnippet(href);
+  }
+
   OverlayEntry? _imageOverlay;
 
   /// alt 输入条展开态与草稿(浮层重建间保持)。
@@ -1721,6 +1928,9 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                                   // 彼时矩形还是上一帧旧值,不跟随的话初始
                                   // 位置错、直到下次 markNeedsBuild(如按
                                   // 上下键)才跳到正确位置。
+                                  // collapsed 光标进出链接 → 链接工具条
+                                  // (编辑/复制/取消链接/预览/访问)
+                                  onLinkCaret: _onLinkCaret,
                                   onCaretRectChanged: (r) {
                                     if (r == _caretGlobalRect) return;
                                     _caretGlobalRect = r;
