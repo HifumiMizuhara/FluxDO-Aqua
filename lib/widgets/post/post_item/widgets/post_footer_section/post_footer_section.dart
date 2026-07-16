@@ -192,7 +192,8 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
   void _handleBoostDeleted(Boost boost) {
     if (!mounted) return;
     setState(() {
-      _boosts.removeWhere((b) => b.id == boost.id);
+      // _boosts 可能来自 _dedupeBoostsById 的固定长度列表,不能原地 removeWhere
+      _boosts = _boosts.where((b) => b.id != boost.id).toList();
       final currentUser = ref.read(currentUserProvider).value;
       if (currentUser != null && boost.user.username == currentUser.username) {
         _canBoost = true;
@@ -249,13 +250,14 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
 
     try {
       await _service.deleteBoost(boost.id);
-      if (!mounted) return;
-      _handleBoostDeleted(boost);
-      ToastService.showSuccess(S.current.boost_deleted);
     } catch (_) {
       if (!mounted) return;
       ToastService.showError(S.current.boost_deleteFailed);
+      return;
     }
+    if (!mounted) return;
+    _handleBoostDeleted(boost);
+    ToastService.showSuccess(S.current.boost_deleted);
   }
 
   bool _shouldFetchBoostActionState({
