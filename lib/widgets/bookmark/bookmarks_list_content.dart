@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/s.dart';
 import '../../models/category.dart';
 import '../../models/topic.dart';
+import '../../models/topic_card_style.dart';
 import '../../pages/bookmarks/bookmarks_models.dart';
 import '../../providers/category_provider.dart';
 import '../../providers/preferences_provider.dart';
@@ -126,6 +127,9 @@ class BookmarksListContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 话题卡自定义样式:改设置触发 rebuild(自绘排版直读全局快照,
+    // stamp 变化换新实例);widget 路径进 sig 防命中旧卡
+    ref.watch(preferencesProvider.select((p) => p.topicCardStyle));
     return DesktopRefreshIndicator(
       onRefresh: onRefresh,
       child: bookmarksAsync.when(
@@ -290,6 +294,7 @@ class BookmarksListContent extends ConsumerWidget {
           reminderExpired: reminderExpired,
           themeId: identityHashCode(Theme.of(context)),
           categoryMap: categoryMap,
+          cardStyle: TopicCardStyleScope.current,
         );
         final cacheKey = bookmarkTopicIdentity(topic);
         final hit = _itemCache[cacheKey];

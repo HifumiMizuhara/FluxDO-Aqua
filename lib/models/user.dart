@@ -336,9 +336,10 @@ class User {
     }
   }
   
-  /// 获取头像 URL，优先使用动画头像（GIF）
-  String getAvatarUrl({int size = 120}) {
-    if (animatedAvatar != null && animatedAvatar!.isNotEmpty) {
+  /// 获取头像 URL，优先使用动画头像（GIF）;
+  /// [allowAnimated] false 时跳过动画头像直取静态模板(话题卡动态头像开关)
+  String getAvatarUrl({int size = 120, bool allowAnimated = true}) {
+    if (allowAnimated && animatedAvatar != null && animatedAvatar!.isNotEmpty) {
       return UrlHelper.resolveUrlWithCdn(animatedAvatar!);
     }
     if (avatarTemplate == null) return '';

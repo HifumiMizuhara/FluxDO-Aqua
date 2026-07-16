@@ -150,12 +150,14 @@ class TopicUser {
   final String username;
   final String? name;
   final String avatarTemplate;
+  final String? animatedAvatar;
 
   TopicUser({
     required this.id,
     required this.username,
     this.name,
     required this.avatarTemplate,
+    this.animatedAvatar,
   });
 
   /// 显示名:优先昵称,空则回退 username
@@ -170,10 +172,16 @@ class TopicUser {
       username: json['username'] as String? ?? '',
       name: json['name'] as String?,
       avatarTemplate: json['avatar_template'] as String? ?? '',
+      animatedAvatar: json['animated_avatar'] as String?,
     );
   }
 
-  String getAvatarUrl({int size = 40}) {
+  /// [allowAnimated] false 时跳过动画头像直取静态模板(话题卡动态头像开关;
+  /// avatar_template 是站点静态化端点,恒为静态图)
+  String getAvatarUrl({int size = 40, bool allowAnimated = true}) {
+    if (allowAnimated && animatedAvatar != null && animatedAvatar!.isNotEmpty) {
+      return UrlHelper.resolveUrlWithCdn(animatedAvatar!);
+    }
     final template = avatarTemplate.replaceAll('{size}', '$size');
     return UrlHelper.resolveUrlWithCdn(template);
   }

@@ -215,8 +215,13 @@ class _RenderTopicCard extends RenderBox {
       );
     }
 
-    canvas.drawParagraph(l.author!, offset + l.authorOffset);
-    canvas.drawParagraph(l.time!, offset + l.timeOffset);
+    // 署名/时间可被字段开关关闭(layout 中为 null)
+    if (l.author != null) {
+      canvas.drawParagraph(l.author!, offset + l.authorOffset);
+    }
+    if (l.time != null) {
+      canvas.drawParagraph(l.time!, offset + l.timeOffset);
+    }
     if (l.categoryDotColor != null) {
       canvas.drawRRect(
         RRect.fromRectAndRadius(

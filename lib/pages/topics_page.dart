@@ -2838,6 +2838,11 @@ class _TopicListState extends ConsumerState<_TopicList>
     final enableLongPress = ref.watch(
       preferencesProvider.select((p) => p.longPressPreview),
     );
+    // 话题卡自定义样式:改设置触发列表 rebuild(排版层直读全局快照),
+    // 并进 widget 缓存签名防命中旧卡
+    final topicCardStyle = ref.watch(
+      preferencesProvider.select((p) => p.topicCardStyle),
+    );
 
     // 桌面端：注册 J/K/Enter 导航到主面板快捷键
     if (PlatformUtils.isDesktop && isCurrentTab) {
@@ -3099,6 +3104,14 @@ class _TopicListState extends ConsumerState<_TopicList>
                               enableLongPress: enableLongPress,
                               category: _categorySignatureFor(topic),
                               statsWidthTier: statsWidthTier,
+                              cardStyle: topicCardStyle,
+                              // 主题恒等进签名:自绘卡的文字颜色在排版期
+                              // 烤死,obtain 发生在缓存短路点之外 —— 不换
+                              // 代则深浅色切换后旧排版继续画(底色由
+                              // PaintedTopicCard 自身 Theme 依赖刷新,文字
+                              // 停留旧主题)。didChangeDependencies 清缓存
+                              // 兜不住:State 自身 context 未注册 Theme 依赖
+                              themeId: identityHashCode(Theme.of(context)),
                             );
                             final cached = _topicItemCache[topic.id];
                             if (cached != null &&

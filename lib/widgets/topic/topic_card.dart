@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../models/topic.dart';
 import '../../models/category.dart';
+import '../../models/topic_card_style.dart';
 import '../../providers/discourse_providers.dart';
+import '../../providers/preferences_provider.dart';
 import '../../utils/font_awesome_helper.dart';
 import '../../utils/frame_jank_monitor.dart';
 import '../../utils/platform_utils.dart';
@@ -222,13 +224,6 @@ class TopicCard extends ConsumerWidget {
     final titleColor = isFullyRead
         ? theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.75)
         : theme.colorScheme.onSurface;
-    // 标题 15sp:Gmail 主题行(14)与原版(16)的折中,置顶后担得起主视觉
-    final titleStyle = theme.textTheme.bodyMedium?.copyWith(
-      fontSize: 15,
-      fontWeight: isFullyRead ? FontWeight.w500 : FontWeight.w600,
-      height: 1.3,
-      color: titleColor,
-    );
     // 首行/末行的 meta 文本色
     final metaColor = theme.colorScheme.onSurfaceVariant.withValues(
       alpha: isFullyRead ? 0.6 : 0.8,
@@ -241,6 +236,20 @@ class TopicCard extends ConsumerWidget {
         categoryMap ?? ref.watch(categoryMapProvider).value;
     final categoryId = int.tryParse(topic.categoryId);
     final category = effectiveCategoryMap?[categoryId];
+
+    // 话题卡自定义样式(私信卡不受影响,强制默认)
+    final style = messageStyle
+        ? TopicCardStyle.defaults
+        : ref.watch(preferencesProvider.select((p) => p.topicCardStyle));
+
+    // 标题字号可自定义(默认 15:Gmail 主题行 14 与原版 16 的折中);
+    // 私信卡主题行字号在 _buildMessageBody 内部另定,不走这里
+    final titleStyle = theme.textTheme.bodyMedium?.copyWith(
+      fontSize: style.titleFontSize,
+      fontWeight: isFullyRead ? FontWeight.w500 : FontWeight.w600,
+      height: 1.3,
+      color: titleColor,
+    );
 
     // Card 壳换轻装(视觉逐项等价):cardTheme elevation=0 无阴影无 tint,
     // 而 Card→Material 每卡挂一套 AnimatedPhysicalModel 隐式动画基建
@@ -285,79 +294,16 @@ class TopicCard extends ConsumerWidget {
                           metaColor: metaColor,
                           unreadIndicator: unreadIndicator,
                         )
-                      : Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // 第1行：标题满宽置顶(最多两行) + 右侧未读槽位。
-                            // 论坛列表以标题为主信息,置顶让视线沿左边缘直扫
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: _buildTitleText(
-                                    context,
-                                    style: titleStyle,
-                                    titleColor: titleColor,
-                                    isFullyRead: isFullyRead,
-                                  ),
-                                ),
-                                if (unreadIndicator != null) ...[
-                                  const SizedBox(width: 6),
-                                  Padding(
-                                    // 蓝点与标题首行视觉居中;数字徽章本身够高不用补
-                                    padding: EdgeInsets.only(
-                                      top: topic.unread > 0 ? 0 : 5,
-                                    ),
-                                    child: unreadIndicator,
-                                  ),
-                                ],
-                              ],
-                            ),
-                            // 详情摘要(如书签的帖子摘要):标题下、署名块上,
-                            // Gmail snippet 的位置
-                            if (middleWidget != null) ...[
-                              const SizedBox(height: 4),
-                              middleWidget!,
-                            ],
-                            const SizedBox(height: 8),
-
-                            // 第2+3行：头像跨两行,右侧上下两行小字。
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                _fadeWhenRead(
-                                  _buildOriginalPosterAvatar(context),
-                                  isFullyRead: isFullyRead,
-                                  opacity: 0.6,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: statsAvailableWidth != null
-                                      ? _buildMetadataBlock(
-                                          context,
-                                          category: category,
-                                          metaColor: metaColor,
-                                          isUnread: isUnread,
-                                          isFullyRead: isFullyRead,
-                                          availableWidth: statsAvailableWidth!,
-                                        )
-                                      : LayoutBuilder(
-                                          builder: (context, constraints) {
-                                            return _buildMetadataBlock(
-                                              context,
-                                              category: category,
-                                              metaColor: metaColor,
-                                              isUnread: isUnread,
-                                              isFullyRead: isFullyRead,
-                                              availableWidth:
-                                                  constraints.maxWidth,
-                                            );
-                                          },
-                                        ),
-                                ),
-                              ],
-                            ),
-                          ],
+                      : _buildNormalBody(
+                          context,
+                          style: style,
+                          titleStyle: titleStyle,
+                          titleColor: titleColor,
+                          metaColor: metaColor,
+                          isUnread: isUnread,
+                          isFullyRead: isFullyRead,
+                          unreadIndicator: unreadIndicator,
+                          category: category,
                         ),
                 ),
               ],
@@ -376,8 +322,108 @@ class TopicCard extends ConsumerWidget {
     return isFullyRead ? Opacity(opacity: opacity, child: child) : child;
   }
 
+  /// 普通话题卡主体:按 [TopicCardStyle.avatarLayout] 分两种结构。
+  /// inline = 现状(头像 32 在元信息行内);column = 头像 40 独占左列,
+  /// 标题/摘要/元信息都在右侧(类似私信卡,头像顶对齐)
+  Widget _buildNormalBody(
+    BuildContext context, {
+    required TopicCardStyle style,
+    required TextStyle? titleStyle,
+    required Color titleColor,
+    required Color metaColor,
+    required bool isUnread,
+    required bool isFullyRead,
+    required Widget? unreadIndicator,
+    required Category? category,
+  }) {
+    // 第1行：标题满宽置顶(最多两行) + 右侧未读槽位。
+    // 论坛列表以标题为主信息,置顶让视线沿左边缘直扫
+    final titleRow = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: _buildTitleText(
+            context,
+            style: titleStyle,
+            titleColor: titleColor,
+            isFullyRead: isFullyRead,
+          ),
+        ),
+        if (unreadIndicator != null) ...[
+          const SizedBox(width: 6),
+          Padding(
+            // 蓝点与标题首行视觉居中;数字徽章本身够高不用补
+            padding: EdgeInsets.only(top: topic.unread > 0 ? 0 : 5),
+            child: unreadIndicator,
+          ),
+        ],
+      ],
+    );
+
+    Widget metadata({required bool withAvatarInline}) {
+      Widget block(double availableWidth) => _buildMetadataBlock(
+        context,
+        style: style,
+        category: category,
+        metaColor: metaColor,
+        isUnread: isUnread,
+        isFullyRead: isFullyRead,
+        availableWidth: availableWidth,
+      );
+      final meta = statsAvailableWidth != null
+          ? block(statsAvailableWidth!)
+          : LayoutBuilder(
+              builder: (context, constraints) => block(constraints.maxWidth),
+            );
+      if (!withAvatarInline) return meta;
+      // 第2+3行：头像跨两行,右侧上下两行小字。
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _fadeWhenRead(
+            _buildOriginalPosterAvatar(context, style: style),
+            isFullyRead: isFullyRead,
+            opacity: 0.6,
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: meta),
+        ],
+      );
+    }
+
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        titleRow,
+        // 详情摘要(如书签的帖子摘要):标题下、署名块上,
+        // Gmail snippet 的位置
+        if (middleWidget != null) ...[const SizedBox(height: 4), middleWidget!],
+        const SizedBox(height: 8),
+        metadata(
+          withAvatarInline:
+              style.avatarLayout == TopicCardAvatarLayout.inline,
+        ),
+      ],
+    );
+
+    if (style.avatarLayout != TopicCardAvatarLayout.column) return content;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _fadeWhenRead(
+          _buildOriginalPosterAvatar(context, style: style, radius: 20),
+          isFullyRead: isFullyRead,
+          opacity: 0.6,
+        ),
+        const SizedBox(width: 10),
+        Expanded(child: content),
+      ],
+    );
+  }
+
   Widget _buildMetadataBlock(
     BuildContext context, {
+    required TopicCardStyle style,
     required Category? category,
     required Color metaColor,
     required bool isUnread,
@@ -389,36 +435,38 @@ class TopicCard extends ConsumerWidget {
     final stats = _buildStatsCluster(
       context,
       availableWidth,
+      style: style,
       dim: isFullyRead,
     );
+    // 分类是骨架字段恒定显示;标签可精简
     final catTags = _buildCategoryTagsLine(
       context,
       category,
       metaColor,
+      showTags: style.showTags,
       dim: isFullyRead,
     );
+    // 时间是骨架字段,恒定显示
     final timeText = RelativeTimeText(
       dateTime: topic.lastPostedAt,
       style: theme.textTheme.labelSmall?.copyWith(
         color: isUnread ? theme.colorScheme.primary : metaColor,
       ),
     );
+    final authorName = style.showAuthor
+        ? _buildAuthorName(context, metaColor, isFullyRead: isFullyRead)
+        : null;
 
-    if (catTags == null) {
+    // 动态布局:author 与 catTags 双双在场才分两行(署名+时间 /
+    // 分类标签+统计);任一缺席则剩余字段合并单行 [左块 … 统计 时间],
+    // 行随内容收缩(与自绘卡同构)
+    if (authorName == null || catTags == null) {
+      final leftBlock = authorName ?? catTags;
       return Row(
         children: [
-          Expanded(
-            child: _buildAuthorName(
-              context,
-              metaColor,
-              isFullyRead: isFullyRead,
-            ),
-          ),
+          Expanded(child: leftBlock ?? const SizedBox.shrink()),
           const SizedBox(width: 8),
-          if (stats != null) ...[
-            stats,
-            const SizedBox(width: 10),
-          ],
+          if (stats != null) ...[stats, const SizedBox(width: 10)],
           timeText,
         ],
       );
@@ -429,13 +477,7 @@ class TopicCard extends ConsumerWidget {
       children: [
         Row(
           children: [
-            Expanded(
-              child: _buildAuthorName(
-                context,
-                metaColor,
-                isFullyRead: isFullyRead,
-              ),
-            ),
+            Expanded(child: authorName),
             const SizedBox(width: 8),
             timeText,
           ],
@@ -444,31 +486,34 @@ class TopicCard extends ConsumerWidget {
         Row(
           children: [
             Expanded(child: catTags),
-            if (stats != null) ...[
-              const SizedBox(width: 8),
-              stats,
-            ],
+            if (stats != null) ...[const SizedBox(width: 8), stats],
           ],
         ),
       ],
     );
   }
 
-  /// 构建楼主头像(默认 32px 跨署名两行;私信布局用 40px)
+  /// 构建楼主头像(默认 32px 跨署名两行;私信/column 布局用 40px)
   Widget _buildOriginalPosterAvatar(
     BuildContext context, {
+    TopicCardStyle? style,
     double radius = 16,
   }) {
     // 取第一个 poster（Original Poster）
     if (topic.posters.isNotEmpty) {
       final op = topic.posters.first;
       if (op.user != null) {
+        final allowAnimated = style?.animatedAvatar ?? true;
         // @2x 显示尺寸请求,radius*2 为显示直径
-        final avatarUrl = op.user!.getAvatarUrl(size: (radius * 4).round());
+        final avatarUrl = op.user!.getAvatarUrl(
+          size: (radius * 4).round(),
+          allowAnimated: allowAnimated,
+        );
         return SmartAvatar(
           imageUrl: avatarUrl,
           radius: radius,
           fallbackText: op.user!.username,
+          forceStatic: !allowAnimated,
         );
       }
     }
@@ -689,17 +734,19 @@ class TopicCard extends ConsumerWidget {
 
   /// 第3行:▪分类色标+名 + 标签轻文本,单行 ellipsis(共享组件)。
   /// 已读退灰经 opacityFactor 逐色预乘(像素恒等,免外层 Opacity 层);
-  /// 分类和标签都无时返回 null
+  /// 分类和标签都无(或均被开关关闭)时返回 null
   Widget? _buildCategoryTagsLine(
     BuildContext context,
     Category? category,
     Color metaColor, {
+    bool showTags = true,
     bool dim = false,
   }) {
-    if (category == null && topic.tags.isEmpty) return null;
+    final tags = showTags ? topic.tags : const <Tag>[];
+    if (category == null && tags.isEmpty) return null;
     return CategoryTagsLine(
       category: category,
-      tags: topic.tags,
+      tags: tags,
       metaColor: metaColor,
       opacityFactor: dim ? 0.55 : 1.0,
     );
@@ -740,16 +787,21 @@ class TopicCard extends ConsumerWidget {
   }
 
   /// 第3行右侧统计簇:💬回复(热度色)为主,宽度富余时加 ❤/👁。
-  /// 与分类/标签同行(时间在第2行),无内容返回 null 不占位
+  /// 与分类/标签同行(时间在第2行),无内容返回 null 不占位;
+  /// 字段开关与响应式宽度条件取 AND
   Widget? _buildStatsCluster(
     BuildContext context,
     double availableWidth, {
+    required TopicCardStyle style,
     bool dim = false,
   }) {
     final theme = Theme.of(context);
-    final showLikes = availableWidth >= 300 && topic.likeCount > 0;
-    final showViews = availableWidth >= 460 && topic.views > 0;
+    final showLikes =
+        style.showLikes && availableWidth >= 300 && topic.likeCount > 0;
+    final showViews =
+        style.showViews && availableWidth >= 460 && topic.views > 0;
     final replies = (topic.postsCount - 1).clamp(0, 999999);
+    final showReplies = style.showReplies && replies > 0;
     final heatColor = _replyHeatColor(topic, theme);
 
     final children = <Widget>[
@@ -762,7 +814,7 @@ class TopicCard extends ConsumerWidget {
           topic.likeCount,
           dim: dim,
         ),
-      if (replies > 0)
+      if (showReplies)
         _buildStat(
           context,
           Symbols.chat_bubble_rounded,
