@@ -10,6 +10,7 @@ import '../../../utils/blocked_user_filter.dart';
 import '../../../utils/code_selection_context.dart';
 import '../../../utils/fluxdo_render_callbacks.dart';
 import '../../../utils/frame_jank_monitor.dart';
+import '../../common/perf_span_box.dart';
 import '../post_boost/boost_danmaku.dart';
 import '../post_signature_block.dart';
 import '../small_action_item.dart';
@@ -183,7 +184,11 @@ class _PostItemState extends ConsumerState<PostItem> {
     const danmakuTrackHeight = 36.0;
 
     final isModeratorAction = post.postType == PostTypes.moderatorAction;
-    return PostSegmentFrame(
+    // PerfSpanBox:整帖子树的 layout/paint 账单(lay:post#N / pnt:post#N),
+    // 与上面 noteBuild 的在场名单互补(监控关闭零开销,纯代理盒无视觉影响)
+    return PerfSpanBox(
+      label: 'post#${post.postNumber}',
+      child: PostSegmentFrame(
       post: post,
       selected: widget.selected,
       highlight: widget.highlight,
@@ -380,6 +385,7 @@ class _PostItemState extends ConsumerState<PostItem> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

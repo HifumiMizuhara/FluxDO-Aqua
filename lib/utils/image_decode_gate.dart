@@ -4,6 +4,8 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
 
+import 'perf_pipeline_probe.dart';
+
 /// 全局图片解码并发闸门:限制同一时刻在引擎里跑的图片解码任务数。
 ///
 /// ## 为什么闸解码就是闸纹理上传(病灶与对症关系)
@@ -120,10 +122,12 @@ class GatedImageCodec implements ui.Codec {
 }
 
 /// 应用级 binding:接管框架标准图片解码入口,给所有标准路径的图
-/// 套上 [ImageDecodeGate]。必须在 main() 里以
+/// 套上 [ImageDecodeGate];并混入 [PerfPipelineProbe] 提供 UI 相位
+/// 拆分(监控关闭时零成本)。必须在 main() 里以
 /// `FluxdoWidgetsBinding.ensureInitialized()` 替代
 /// `WidgetsFlutterBinding.ensureInitialized()`。
-class FluxdoWidgetsBinding extends WidgetsFlutterBinding {
+class FluxdoWidgetsBinding extends WidgetsFlutterBinding
+    with PerfPipelineProbe {
   static FluxdoWidgetsBinding? _instance;
 
   static FluxdoWidgetsBinding ensureInitialized() =>

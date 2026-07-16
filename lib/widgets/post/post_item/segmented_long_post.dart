@@ -6,6 +6,7 @@ import 'package:html/parser.dart' as html_parser;
 import '../../../l10n/s.dart';
 import '../../../models/topic.dart';
 import '../../../utils/frame_jank_monitor.dart';
+import '../../common/perf_span_box.dart';
 import '../../../services/toast_service.dart';
 import '../../../utils/fluxdo_render_callbacks.dart';
 import '../post_signature_block.dart';
@@ -223,7 +224,10 @@ class NewEngineChunkSegment extends StatelessWidget {
       'chk#${post.postNumber}:$chunkIndex/'
       '${(chunk.html.length / 1000).toStringAsFixed(1)}k',
     );
-    return PostSegmentFrame(
+    // PerfSpanBox:单 chunk 子树的 layout/paint 账单(监控关闭零开销)
+    return PerfSpanBox(
+      label: 'chk#${post.postNumber}:$chunkIndex',
+      child: PostSegmentFrame(
       post: post,
       selected: selected,
       highlight: highlight,
@@ -279,6 +283,7 @@ class NewEngineChunkSegment extends StatelessWidget {
           onCopyToast: () =>
               ToastService.showSuccess(context.l10n.common_copiedToClipboard),
         ),
+      ),
       ),
     );
   }

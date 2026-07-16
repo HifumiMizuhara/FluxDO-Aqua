@@ -12,6 +12,7 @@ import '../../utils/frame_jank_monitor.dart';
 import '../../utils/platform_utils.dart';
 import '../../utils/url_helper.dart';
 import '../common/smart_avatar.dart';
+import '../common/perf_span_box.dart';
 import '../../services/discourse_cache_manager.dart';
 import '../common/category_tags_line.dart';
 import '../common/icon_glyph_span.dart';
@@ -257,7 +258,11 @@ class TopicCard extends ConsumerWidget {
     // (生产 PROF 点名)。DecoratedBox 复刻色/圆角/选中描边,ClipRRect
     // 复刻 antiAlias 裁剪,Material(transparency) 只做 InkWell 的 ink 载体。
     final cardRadius = BorderRadius.circular(10);
-    return Padding(
+    // PerfSpanBox:整卡子树的 layout/paint 账单(lay:card#N / pnt:card#N),
+    // 与 noteBuild 在场名单互补(监控关闭零开销,纯代理盒无视觉影响)
+    return PerfSpanBox(
+      label: 'card#${topic.id}',
+      child: Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: _clipCardIfNeeded(
         borderRadius: cardRadius,
@@ -310,6 +315,7 @@ class TopicCard extends ConsumerWidget {
             ),
           ),
         ),
+      ),
       ),
     );
   }
