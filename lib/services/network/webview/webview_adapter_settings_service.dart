@@ -81,6 +81,11 @@ class WebViewAdapterSettingsService {
   /// 判断请求是否应走 WebView 适配器
   bool shouldUseWebView(Uri uri) {
     if (!effectiveEnabled) return false;
+    return canUseWebView(uri);
+  }
+
+  /// 判断目标地址是否属于 WebView 适配器可覆盖的范围，不考虑当前是否启用。
+  bool canUseWebView(Uri uri) {
     final baseHost = Uri.parse(AppConstants.baseUrl).host;
     // 仅主域名（排除 CDN、ping 等子域名）
     if (uri.host != baseHost) return false;

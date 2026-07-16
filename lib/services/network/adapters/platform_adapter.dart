@@ -146,6 +146,22 @@ void configureStableNativeAdapter(Dio dio) {
   dio.httpClientAdapter = adapter;
 }
 
+/// 软重建当前 Dio 的网络适配器。
+///
+/// 仅用于恢复主业务 Dio 在 CF/连接池异常后的网络状态；不会修改代理、
+/// rhttp 或 WebView 的持久化设置，也不会影响其它 Dio（例如 MessageBus）。
+/// 正在进行的请求允许自然结束，随后创建全新的底层连接池。
+void rebuildPlatformAdapter(Dio dio) {
+  final previous = dio.httpClientAdapter;
+  try {
+    previous.close(force: false);
+  } catch (e) {
+    debugPrint('[DIO] 软重建旧适配器失败: $e');
+  }
+  configurePlatformAdapter(dio);
+  debugPrint('[DIO] 已软重建主业务网络适配器');
+}
+
 /// 配置 WebView 适配器
 void _configureWebViewAdapter(Dio dio) {
   final adapter = WebViewHttpAdapter();
@@ -382,86 +398,94 @@ class _GatewayAdapterWrapper implements HttpClientAdapter {
   }
 
   bool _shouldUseWebView(RequestOptions options) {
-    final uri = options.uri;
-    if (options.extra['skipWebViewAdapter'] == true) {
-      return false;
-    }
     if (!WebViewAdapterSettingsService.instance.effectiveEnabled) {
       return false;
     }
-    if (options.extra['isCfChallengePlatform'] == true ||
-        uri.path.startsWith('/cdn-cgi/')) {
-      return false;
-    }
+    return requestCanUseWebViewAdapter(options);
+  }
+}
 
-    final resourceKind = options.extra[WebViewHttpAdapter.resourceKindExtraKey]
-        ?.toString();
-    final method = options.method.toUpperCase();
-    final isBinaryResponse =
-        options.responseType == ResponseType.stream ||
-        options.responseType == ResponseType.bytes;
-
-    // 当前 WebView fetch 运行在 linux.do origin；跨域图片即使浏览器能显示，
-    // JS 也不能读取响应字节。图片流仅允许同源请求，其它 stream 请求
-    //（MessageBus、下载等）仍不走 WebView。
-    if (resourceKind == WebViewHttpAdapter.resourceKindImage) {
-      return (method == 'GET' || method == 'HEAD') &&
-          isBinaryResponse &&
-          WebViewAdapterSettingsService.instance.shouldUseWebView(uri);
-    }
-
-    if (!WebViewAdapterSettingsService.instance.shouldUseWebView(uri)) {
-      return false;
-    }
-    if (isBinaryResponse) {
-      return false;
-    }
-
-    final accept = _headerValue(options.headers, 'Accept').toLowerCase();
-    final requestedWith = _headerValue(options.headers, 'X-Requested-With');
-    final explicitlyHtml =
-        accept.contains('text/html') ||
-        accept.contains('application/xhtml+xml');
-    if (explicitlyHtml) {
-      return false;
-    }
-    final apiLikeGet =
-        requestedWith == 'XMLHttpRequest' ||
-        uri.path.endsWith('.json') ||
-        accept.contains('application/json') ||
-        accept.contains('text/javascript');
-    if ((method == 'GET' || method == 'HEAD') && !apiLikeGet) {
-      return false;
-    }
-
-    return method == 'GET' ||
-        method == 'HEAD' ||
-        method == 'POST' ||
-        method == 'PUT' ||
-        method == 'PATCH' ||
-        method == 'DELETE';
+/// 判断请求本身是否能由 WebView 适配器承载，不考虑当前兼容模式开关。
+/// 用于 CF 恢复在弹出兼容提示前确认该请求确实可以被浏览器网络栈接管。
+bool requestCanUseWebViewAdapter(RequestOptions options) {
+  final uri = options.uri;
+  if (options.extra['skipWebViewAdapter'] == true) {
+    return false;
+  }
+  if (options.extra['isCfChallengePlatform'] == true ||
+      uri.path.startsWith('/cdn-cgi/')) {
+    return false;
   }
 
-  String _headerValue(Map<String, dynamic> headers, String name) {
-    for (final entry in headers.entries) {
-      if (entry.key.toString().toLowerCase() == name.toLowerCase()) {
-        return _headerValueToString(entry.value);
-      }
-    }
-    return '';
+  final resourceKind = options.extra[WebViewHttpAdapter.resourceKindExtraKey]
+      ?.toString();
+  final method = options.method.toUpperCase();
+  final isBinaryResponse =
+      options.responseType == ResponseType.stream ||
+      options.responseType == ResponseType.bytes;
+
+  // 当前 WebView fetch 运行在 linux.do origin；跨域图片即使浏览器能显示，
+  // JS 也不能读取响应字节。图片流仅允许同源请求，其它 stream 请求
+  //（MessageBus、下载等）仍不走 WebView。
+  if (resourceKind == WebViewHttpAdapter.resourceKindImage) {
+    return (method == 'GET' || method == 'HEAD') &&
+        isBinaryResponse &&
+        WebViewAdapterSettingsService.instance.canUseWebView(uri);
   }
 
-  String _headerValueToString(Object? value) {
-    if (value == null) return '';
-    if (value is Iterable) {
-      return value
-          .where((e) => e != null)
-          .map((e) => e.toString().trim())
-          .where((e) => e.isNotEmpty)
-          .join(', ');
-    }
-    return value.toString().trim();
+  if (!WebViewAdapterSettingsService.instance.canUseWebView(uri)) {
+    return false;
   }
+  if (isBinaryResponse) {
+    return false;
+  }
+
+  final accept = _requestHeaderValue(options.headers, 'Accept').toLowerCase();
+  final requestedWith = _requestHeaderValue(
+    options.headers,
+    'X-Requested-With',
+  );
+  final explicitlyHtml =
+      accept.contains('text/html') || accept.contains('application/xhtml+xml');
+  if (explicitlyHtml) {
+    return false;
+  }
+  final apiLikeGet =
+      requestedWith == 'XMLHttpRequest' ||
+      uri.path.endsWith('.json') ||
+      accept.contains('application/json') ||
+      accept.contains('text/javascript');
+  if ((method == 'GET' || method == 'HEAD') && !apiLikeGet) {
+    return false;
+  }
+
+  return method == 'GET' ||
+      method == 'HEAD' ||
+      method == 'POST' ||
+      method == 'PUT' ||
+      method == 'PATCH' ||
+      method == 'DELETE';
+}
+
+String _requestHeaderValue(Map<String, dynamic> headers, String name) {
+  for (final entry in headers.entries) {
+    if (entry.key.toString().toLowerCase() == name.toLowerCase()) {
+      return _requestHeaderValueToString(entry.value);
+    }
+  }
+  return '';
+}
+
+String _requestHeaderValueToString(Object? value) {
+  if (value == null) return '';
+  if (value is Iterable) {
+    return value
+        .where((e) => e != null)
+        .map((e) => e.toString().trim())
+        .where((e) => e.isNotEmpty)
+        .join(', ');
+  }
+  return value.toString().trim();
 }
 
 /// 动态适配器：每次请求时根据设置 version 变化自动切换底层适配器
