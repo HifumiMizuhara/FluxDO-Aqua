@@ -90,6 +90,7 @@ import 'widgets/onboarding_gate.dart';
 import 'widgets/layout/adaptive_scaffold.dart';
 import 'widgets/layout/adaptive_navigation.dart';
 import 'widgets/notification/notification_quick_panel.dart';
+import 'widgets/topic/category_drawer.dart' show CategoryDrawerHost;
 import 'widgets/read_later/read_later_bubble.dart';
 import 'navigation/nav_action_bus.dart';
 import 'navigation/nav_entry.dart';
@@ -1317,6 +1318,13 @@ class _MainPageState extends ConsumerState<MainPage>
       canPop: false,
       onPopInvokedWithResult: (bool didPop, dynamic result) {
         if (didPop) return;
+        // 分类侧栏开着：返回=关抽屉。抽屉自身的 LocalHistoryEntry 在
+        // 根路由 canPop:false 下不生效（PopScope 的 doNotPop 判定
+        // 优先于 LocalHistoryRoute 的内部消费），只能在这里兜底。
+        if (CategoryDrawerHost.isOpen) {
+          CategoryDrawerHost.close();
+          return;
+        }
         if (NotificationQuickPanel.isVisible) {
           NotificationQuickPanel.dismiss();
           return;
