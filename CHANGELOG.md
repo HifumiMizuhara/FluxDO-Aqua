@@ -26,6 +26,10 @@
 
 ### 🐛 修复
 
+- 自绘卡动图头像:双 URL 分层(静帧秒出 + overlay 原位播放) by @Lingyan000
+
+- 修复 CF 会话内持续 403(重启也无解):回收无效恢复机器 + cf_clearance 单向流 by @Lingyan000
+
 - 修复静默 CF 验证循环与会话网络恢复 by @Lingyan000
 
 - 恢复 WebView 分区 cookie(CHIPS):移除进程级禁用 by @Lingyan000
@@ -74,6 +78,8 @@
 
 
 ### 🔧 其他
+
+- 🔇 cf_clearance 双变体日志降噪:良性形态五道核验后降级 by @Lingyan000
 
 - ⬆️ doh_proxy: CF 验证域名走隧道直连 by @Lingyan000
 
