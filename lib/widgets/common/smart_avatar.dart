@@ -3,7 +3,6 @@ import 'package:app_icons/app_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:jovial_svg/jovial_svg.dart';
 import '../../services/discourse_cache_manager.dart';
-import '../../services/sticker_thumbnail_provider.dart';
 import '../../utils/svg_utils.dart';
 
 /// 智能头像组件
@@ -18,10 +17,6 @@ class SmartAvatar extends StatefulWidget {
   final Color? foregroundColor;
   final BoxBorder? border;
 
-  /// 强制静态:URL 即使是动图(gif/apng/webp)也只解码首帧展示
-  /// (话题卡「动态头像」开关;其他调用点默认不受影响)
-  final bool forceStatic;
-
   const SmartAvatar({
     super.key,
     this.imageUrl,
@@ -30,7 +25,6 @@ class SmartAvatar extends StatefulWidget {
     this.backgroundColor,
     this.foregroundColor,
     this.border,
-    this.forceStatic = false,
   });
 
   @override
@@ -173,17 +167,13 @@ class _SmartAvatarState extends State<SmartAvatar> {
     if (widget.imageUrl == null || widget.imageUrl!.isEmpty) {
       child = _buildFallback(fgColor, innerRadius);
     } else if (isNativeAnimatedUrl(widget.imageUrl!)) {
-      if (widget.forceStatic) {
-        // 强制静态:走 StickerThumbnailProvider 单帧解码管线
-        // (gif/webp/apng 首帧 → PNG 缩略图缓存),不进动图播放链路
-        final dpr = MediaQuery.devicePixelRatioOf(context);
-        final decodeSide = (innerSize * dpr * 2).round().clamp(1, 512);
-        child = Image(
-          image: StickerThumbnailProvider(
-            widget.imageUrl!,
-            targetSize: decodeSide,
-            cacheManager: _cacheManager,
-          ),
+      // 动图(GIF/APNG/动画 WebP)走 native_animated_image Rust pipeline,
+      // 绕开 Flutter Skia multi_frame_codec 的 #85831 bug。
+      // RepaintBoundary 将每帧 setImage 触发的重绘限制在头像区域内,
+      // 避免列表中多个动图头像同时连累整个 list item 重绘。
+      child = RepaintBoundary(
+        child: Image(
+          image: discourseImageProvider(widget.imageUrl!),
           width: innerSize,
           height: innerSize,
           fit: BoxFit.cover,
@@ -193,33 +183,11 @@ class _SmartAvatarState extends State<SmartAvatar> {
             return _buildLoading(fgColor, innerRadius);
           },
           errorBuilder: (context, error, stack) {
+            // 动图链路出错(网络 / Rust 解码失败),退化到字母 fallback
             return _buildFallback(fgColor, innerRadius);
           },
-        );
-      } else {
-        // 动图(GIF/APNG/动画 WebP)走 native_animated_image Rust pipeline,
-        // 绕开 Flutter Skia multi_frame_codec 的 #85831 bug。
-        // RepaintBoundary 将每帧 setImage 触发的重绘限制在头像区域内,
-        // 避免列表中多个动图头像同时连累整个 list item 重绘。
-        child = RepaintBoundary(
-          child: Image(
-            image: discourseImageProvider(widget.imageUrl!),
-            width: innerSize,
-            height: innerSize,
-            fit: BoxFit.cover,
-            gaplessPlayback: true,
-            frameBuilder:
-                (context, displayChild, frame, wasSynchronouslyLoaded) {
-              if (wasSynchronouslyLoaded || frame != null) return displayChild;
-              return _buildLoading(fgColor, innerRadius);
-            },
-            errorBuilder: (context, error, stack) {
-              // 动图链路出错(网络 / Rust 解码失败),退化到字母 fallback
-              return _buildFallback(fgColor, innerRadius);
-            },
-          ),
-        );
-      }
+        ),
+      );
     } else if (_svgProbeResolved) {
       // 探测结果已知(memo 命中 / 无需探测):同步单阶段,零 FutureBuilder。
       // 快滚重访头像走这里 —— 不再付 sqlite 查询与两阶段 rebuild。

@@ -86,6 +86,11 @@ class TopicCardLayout {
   Color cardColor = Colors.transparent;
   String? avatarUrl;
 
+  /// 动画头像原件 URL(gif 全文件),仅动态头像开关开启且用户有动图时
+  /// 非空。画布不消费它 —— 由 PaintedTopicCard 挂播放 overlay;
+  /// [avatarUrl] 恒为静态模板小图,保证首帧秒出
+  String? animatedAvatarUrl;
+
   /// 无障碍标签(自绘卡不产生语义子树,整卡一条)
   String semanticsLabel = '';
 
@@ -248,11 +253,15 @@ class TopicCardLayout {
       bandName: bandName,
       bandReminder: bandReminder,
       bandExpired: bandExpired,
+      // 画布首帧恒用静态模板小图(几 KB 秒出);gif 原件(几百 KB~MB)
+      // 只在开关开启时单独带出,供播放 overlay 消费 —— 把原件喂进
+      // 静态首帧管线会整卡等一次大文件下载("动图用户头像加载慢")
       avatarUrlValue: topic.posters.isNotEmpty
-          ? topic.posters.first.user?.getAvatarUrl(
-              size: 128,
-              allowAnimated: effStyle.animatedAvatar,
-            )
+          ? topic.posters.first.user?.getAvatarUrl(size: 128)
+          : null,
+      animatedAvatarUrlValue:
+          effStyle.animatedAvatar && topic.posters.isNotEmpty
+          ? topic.posters.first.user?.animatedAvatarUrl
           : null,
       titleRightChips: const [],
       style: effStyle,
@@ -449,6 +458,7 @@ class TopicCardLayout {
     required String? bandReminder,
     required bool bandExpired,
     required String? avatarUrlValue,
+    String? animatedAvatarUrlValue,
     required List<(_ChipKind, String)> titleRightChips,
     required TopicCardStyle style,
   }) {
@@ -969,6 +979,7 @@ class TopicCardLayout {
     }
 
     avatarUrl = avatarUrlValue;
+    animatedAvatarUrl = animatedAvatarUrlValue;
     semanticsLabel = [
       for (final (t, _) in titleSegments) t,
       if (author != null && authorName.isNotEmpty) authorName,

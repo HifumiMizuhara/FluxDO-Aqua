@@ -176,15 +176,19 @@ class TopicUser {
     );
   }
 
-  /// [allowAnimated] false 时跳过动画头像直取静态模板(话题卡动态头像开关;
-  /// avatar_template 是站点静态化端点,恒为静态图)
-  String getAvatarUrl({int size = 40, bool allowAnimated = true}) {
-    if (allowAnimated && animatedAvatar != null && animatedAvatar!.isNotEmpty) {
-      return UrlHelper.resolveUrlWithCdn(animatedAvatar!);
-    }
+  /// 静态模板端点 URL(恒为尺寸化静态小图);动图原件见 [animatedAvatarUrl]
+  String getAvatarUrl({int size = 40}) {
     final template = avatarTemplate.replaceAll('{size}', '$size');
     return UrlHelper.resolveUrlWithCdn(template);
   }
+
+  /// 动画头像原件 URL(无则 null)。注意这是**原始 gif 全文件**
+  /// (几百 KB~几 MB,无尺寸化),只应喂给真正播放动画的层;
+  /// 静态展示一律用 [getAvatarUrl] 的模板端点(几 KB 小图)
+  String? get animatedAvatarUrl =>
+      (animatedAvatar != null && animatedAvatar!.isNotEmpty)
+      ? UrlHelper.resolveUrlWithCdn(animatedAvatar!)
+      : null;
 }
 
 /// 话题海报（参与者）信息
@@ -220,6 +224,7 @@ class TopicPoster {
                   username: json['_username'] as String? ?? '',
                   name: json['_name'] as String?,
                   avatarTemplate: json['_avatar_template'] as String? ?? '',
+                  animatedAvatar: json['_animated_avatar'] as String?,
                 )
               : null),
     );
@@ -1973,6 +1978,8 @@ Map<String, dynamic> normalizeBookmarkListEntry(
         'extras': 'latest',
         if (user.containsKey('avatar_template'))
           '_avatar_template': user['avatar_template'],
+        if (user.containsKey('animated_avatar'))
+          '_animated_avatar': user['animated_avatar'],
         if (user.containsKey('username')) '_username': user['username'],
         if (user.containsKey('name')) '_name': user['name'],
       },
