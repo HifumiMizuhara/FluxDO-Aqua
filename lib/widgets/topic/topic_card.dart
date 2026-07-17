@@ -12,6 +12,7 @@ import '../../utils/frame_jank_monitor.dart';
 import '../../utils/platform_utils.dart';
 import '../../utils/url_helper.dart';
 import '../common/smart_avatar.dart';
+import '../common/animated_avatar_overlay.dart';
 import '../common/perf_span_box.dart';
 import '../../services/discourse_cache_manager.dart';
 import '../common/category_tags_line.dart';
@@ -509,17 +510,28 @@ class TopicCard extends ConsumerWidget {
     if (topic.posters.isNotEmpty) {
       final op = topic.posters.first;
       if (op.user != null) {
-        final allowAnimated = style?.animatedAvatar ?? true;
-        // @2x 显示尺寸请求,radius*2 为显示直径
+        // 静态模板小图打底(几 KB 秒出);动图原件只作 overlay 叠加,
+        // ready 前透明 —— 避免把几百 KB 的 gif 原件喂进静态首帧管线
+        // 造成"动图用户头像加载慢"
         final avatarUrl = op.user!.getAvatarUrl(
-          size: (radius * 4).round(),
-          allowAnimated: allowAnimated,
+          size: (radius * 4).round(), // @2x 显示尺寸请求,radius*2 为显示直径
         );
-        return SmartAvatar(
+        final animatedUrl = (style?.animatedAvatar ?? true)
+            ? op.user!.animatedAvatarUrl
+            : null;
+        final base = SmartAvatar(
           imageUrl: avatarUrl,
           radius: radius,
           fallbackText: op.user!.username,
-          forceStatic: !allowAnimated,
+        );
+        if (animatedUrl == null) return base;
+        return SizedBox(
+          width: radius * 2,
+          height: radius * 2,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [base, AnimatedAvatarOverlay(url: animatedUrl)],
+          ),
         );
       }
     }

@@ -7,6 +7,7 @@ import 'package:flutter/rendering.dart';
 import '../../services/discourse_cache_manager.dart';
 import '../../services/emoji_handler.dart';
 import '../../utils/relative_time_clock.dart';
+import '../common/animated_avatar_overlay.dart';
 import 'topic_card.dart' show TopicCardInteractiveSurface;
 import 'topic_card_layout.dart';
 
@@ -57,6 +58,13 @@ class PaintedTopicCard extends StatelessWidget {
     final bgColor = isSelected
         ? theme.colorScheme.primaryContainer.withValues(alpha: 0.4)
         : (highlightColor ?? layout.cardColor);
+    // 动图头像混合岛:layout.animatedAvatarUrl 非空(开关开启且用户有
+    // 动图)时挂播放 overlay 钉在 avatarRect,画布仍照常画静态模板
+    // 小图(几 KB 秒出)—— 感知上先见静态首帧,ready 后原位开始动
+    final animatedUrl = layout.animatedAvatarUrl;
+    final Widget? avatarOverlay = animatedUrl != null
+        ? AnimatedAvatarOverlay(url: animatedUrl)
+        : null;
     Widget card = DecoratedBox(
       decoration: BoxDecoration(
         color: bgColor,
@@ -72,7 +80,7 @@ class PaintedTopicCard extends StatelessWidget {
         onTap: onTap,
         onLongPress: onLongPress,
         onMiddleClick: onMiddleClick,
-        child: _PaintedTopicCardLeaf(layout: layout),
+        child: _PaintedTopicCardLeaf(layout: layout, child: avatarOverlay),
       ),
     );
     if (layout.band != null) {
@@ -82,8 +90,8 @@ class PaintedTopicCard extends StatelessWidget {
   }
 }
 
-class _PaintedTopicCardLeaf extends LeafRenderObjectWidget {
-  const _PaintedTopicCardLeaf({required this.layout});
+class _PaintedTopicCardLeaf extends SingleChildRenderObjectWidget {
+  const _PaintedTopicCardLeaf({required this.layout, super.child});
 
   final TopicCardLayout layout;
 
@@ -101,7 +109,8 @@ class _PaintedTopicCardLeaf extends LeafRenderObjectWidget {
   }
 }
 
-class _RenderTopicCard extends RenderBox {
+class _RenderTopicCard extends RenderBox
+    with RenderObjectWithChildMixin<RenderBox> {
   _RenderTopicCard({required TopicCardLayout layout}) : _layout = layout;
 
   TopicCardLayout _layout;
@@ -150,6 +159,12 @@ class _RenderTopicCard extends RenderBox {
     size = constraints.constrain(
       Size(constraints.maxWidth, _layout.cardHeight - 8),
     );
+    // 动图头像子节点(SmartAvatar 混合岛):钉在 avatarRect
+    final c = child;
+    if (c != null) {
+      c.layout(BoxConstraints.tight(_layout.avatarRect.size));
+      (c.parentData! as BoxParentData).offset = _layout.avatarRect.topLeft;
+    }
   }
 
   @override
@@ -193,7 +208,8 @@ class _RenderTopicCard extends RenderBox {
       canvas.drawParagraph(l.excerpt!, offset + l.excerptOffset);
     }
 
-    // 头像(圆裁;未到则占位灰底)
+    // 头像:画布始终画静态首帧(TopicCardImages 单帧,未到则灰底),
+    // 动图 overlay 子节点 ready 前透明,ready 后原位盖住此层开始播放
     final avatarRect = l.avatarRect.shift(offset);
     final avatar = l.avatarUrl == null
         ? null
@@ -259,6 +275,13 @@ class _RenderTopicCard extends RenderBox {
     }
     for (final (pos, p) in l.extraTexts) {
       canvas.drawParagraph(p, pos + offset);
+    }
+
+    // 动图头像子节点(SmartAvatar 混合岛,内含 RepaintBoundary,
+    // 逐帧重绘不连累本画布)
+    final c = child;
+    if (c != null) {
+      context.paintChild(c, offset + (c.parentData! as BoxParentData).offset);
     }
   }
 
