@@ -1386,6 +1386,10 @@ class _AsyncHighlightedCode extends StatefulWidget {
 
 class _AsyncHighlightedCodeState extends State<_AsyncHighlightedCode> {
   List<HighlightToken>? _tokens;
+  // memoize:span 树只在 tokens / 明暗切换时重建,普通 build 直接复用。
+  // 大代码块 tokensToSpan 是主线程大头,不能每帧重算。
+  TextSpan? _span;
+  bool? _spanIsDark;
 
   @override
   void initState() {
@@ -1398,17 +1402,31 @@ class _AsyncHighlightedCodeState extends State<_AsyncHighlightedCode> {
     super.didUpdateWidget(old);
     if (old.code != widget.code || old.language != widget.language) {
       _tokens = null;
+      _span = null;
       unawaited(_load());
     }
   }
 
   Future<void> _load() async {
+    // 网页端同款熔断:超大块 / lang-auto 大块保持纯 monospace,
+    // 提前短路连 isolate 往返都省掉。
+    if (HighlighterService.instance.shouldSkipHighlight(
+      widget.code,
+      widget.language,
+    )) {
+      return;
+    }
     try {
       final tokens = await HighlighterService.instance.highlightAsync(
         widget.code,
         language: widget.language,
       );
-      if (mounted) setState(() => _tokens = tokens);
+      if (mounted) {
+        setState(() {
+          _tokens = tokens;
+          _span = null;
+        });
+      }
     } catch (_) {
       // 高亮失败:保持 null,fallback 显示纯 monospace
     }
@@ -1428,12 +1446,15 @@ class _AsyncHighlightedCodeState extends State<_AsyncHighlightedCode> {
     if (_tokens == null) {
       return Text(widget.code, style: baseStyle);
     }
-    final span = HighlighterService.instance.tokensToSpan(
-      _tokens!,
-      isDark: isDark,
-      baseStyle: baseStyle,
-    );
-    return Text.rich(span);
+    if (_span == null || _spanIsDark != isDark) {
+      _span = HighlighterService.instance.tokensToSpan(
+        _tokens!,
+        isDark: isDark,
+        baseStyle: baseStyle,
+      );
+      _spanIsDark = isDark;
+    }
+    return Text.rich(_span!);
   }
 }
 
