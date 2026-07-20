@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
 
+import 'frame_scheduler_probe.dart';
 import 'perf_pipeline_probe.dart';
 
 /// 全局图片解码并发闸门:限制同一时刻在引擎里跑的图片解码任务数。
@@ -61,6 +62,30 @@ class ImageDecodeGate {
     return completer.future;
   }
 
+  /// 申请名额:未满直接获准(返回 null);满员入队,返回排队句柄供
+  /// [GatedImageCodec] 在 dispose 时主动退队。
+  static Completer<void>? _acquireOrEnqueue() {
+    if (_inFlight < _maxInFlight) {
+      _inFlight++;
+      return null;
+    }
+    final completer = Completer<void>();
+    _waiters.add(completer);
+    return completer;
+  }
+
+  /// 把仍在排队的申请摘除(codec 排队期间被 dispose 时调用)。
+  ///
+  /// 摘除成功 = 名额从未持有,以 error 完成其 future 让等待方立刻退出
+  /// 且**不归还名额**(归还会超发,并发 2 会越放越松);已被授予名额的
+  /// (完成竞态,牌已不在队里)摘不到,走 getNextFrame 里的 _disposed
+  /// 惰性检查 + finally 归还的老路兜底。
+  static void _cancelWaiter(Completer<void> completer) {
+    if (_waiters.remove(completer)) {
+      completer.completeError(const _CancelledWhileQueued());
+    }
+  }
+
   static void _release() {
     if (_waiters.isNotEmpty) {
       // 名额直接移交队首,_inFlight 不变
@@ -81,6 +106,11 @@ class ImageDecodeGate {
   }
 }
 
+/// 排队期间被 dispose 主动退队的标记异常,仅在闸门内部流转。
+class _CancelledWhileQueued implements Exception {
+  const _CancelledWhileQueued();
+}
+
 /// 包装引擎 codec:首帧解码(= Impeller 纹理上传点)过 [ImageDecodeGate]。
 class GatedImageCodec implements ui.Codec {
   GatedImageCodec(this._inner);
@@ -88,6 +118,9 @@ class GatedImageCodec implements ui.Codec {
   final ui.Codec _inner;
   bool _firstFrameGated = false;
   bool _disposed = false;
+
+  /// 排队中的号码牌;拿到名额或退队后归 null。
+  Completer<void>? _queuedWaiter;
 
   @override
   int get frameCount => _inner.frameCount;
@@ -98,6 +131,12 @@ class GatedImageCodec implements ui.Codec {
   @override
   void dispose() {
     _disposed = true;
+    // 还在排队就主动退队,免得快滚划走一串图后队列里全是死号:
+    // 每个死号轮到时都要空转一次"喊号→发现已死→抛异常",且监控
+    // 看到的排队深度全是虚的。
+    final waiter = _queuedWaiter;
+    _queuedWaiter = null;
+    if (waiter != null) ImageDecodeGate._cancelWaiter(waiter);
     _inner.dispose();
   }
 
@@ -105,29 +144,46 @@ class GatedImageCodec implements ui.Codec {
   Future<ui.FrameInfo> getNextFrame() {
     if (_firstFrameGated) return _inner.getNextFrame();
     _firstFrameGated = true;
-    return ImageDecodeGate.run(() {
-      // 排队期间可能被 dispose(图滚出视口、监听者清空、cache 驱逐 →
-      // MultiFrameImageStreamCompleter._maybeDispose 释放 codec)。
-      // dart:ui 的 getNextFrame 对已 dispose 的 native peer 没有防护,
-      // 出队后再调用是未定义行为;这里改抛异常 —— 框架侧本就有
+    return _gatedFirstFrame();
+  }
+
+  Future<ui.FrameInfo> _gatedFirstFrame() async {
+    final waiter = ImageDecodeGate._acquireOrEnqueue();
+    if (waiter != null) {
+      _queuedWaiter = waiter;
+      try {
+        await waiter.future;
+      } on _CancelledWhileQueued {
+        // dispose 主动退队:名额从未持有,不走 _release。
+        throw StateError('GatedImageCodec: codec disposed while queued');
+      } finally {
+        _queuedWaiter = null;
+      }
+    }
+    // 至此已持有名额,任何出口都必须归还。
+    try {
+      // 授予名额与 dispose 存在微任务竞态(牌已出队、future 未跑),
+      // 退队路径摘不到,靠这里的惰性检查兜底。dart:ui 的 getNextFrame
+      // 对已 dispose 的 native peer 没有防护,改抛异常 —— 框架侧本就有
       // "codec was disposed during getNextFrame" 的静默兜底路径
-      // (catch → reportError(silent))。副产品是队列级取消:已死的
-      // 解码请求不再白白占名额解码 + 上传。
+      // (catch → reportError(silent))。
       if (_disposed) {
         throw StateError('GatedImageCodec: codec disposed while queued');
       }
-      return _inner.getNextFrame();
-    });
+      return await _inner.getNextFrame();
+    } finally {
+      ImageDecodeGate._release();
+    }
   }
 }
 
 /// 应用级 binding:接管框架标准图片解码入口,给所有标准路径的图
 /// 套上 [ImageDecodeGate];并混入 [PerfPipelineProbe] 提供 UI 相位
-/// 拆分(监控关闭时零成本)。必须在 main() 里以
-/// `FluxdoWidgetsBinding.ensureInitialized()` 替代
+/// 拆分、[FrameSchedulerProbe] 提供帧调度归因(监控关闭时零成本)。
+/// 必须在 main() 里以 `FluxdoWidgetsBinding.ensureInitialized()` 替代
 /// `WidgetsFlutterBinding.ensureInitialized()`。
 class FluxdoWidgetsBinding extends WidgetsFlutterBinding
-    with PerfPipelineProbe {
+    with PerfPipelineProbe, FrameSchedulerProbe {
   static FluxdoWidgetsBinding? _instance;
 
   static FluxdoWidgetsBinding ensureInitialized() =>

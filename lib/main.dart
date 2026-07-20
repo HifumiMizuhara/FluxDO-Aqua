@@ -52,6 +52,8 @@ import 'services/cf_challenge_logger.dart';
 import 'services/browser_trust_coordinator.dart';
 import 'services/update_service.dart';
 import 'services/update_checker_helper.dart';
+import 'package:fluxdo_render/fluxdo_render.dart' show FlattenCache;
+
 import 'services/clipboard_topic_link_service.dart';
 import 'services/deep_link_service.dart';
 import 'services/windows_protocol_registrar_stub.dart'
@@ -145,6 +147,12 @@ Future<void> main() async {
   // Rust 动图管线的首帧(挂载瞬态的裸 RGBA 上传,不经 binding)注入
   // 同一个闸门,与标准路径统一错峰;播放中的后续帧不过闸。
   NativeAnimatedImageProvider.firstFrameGate = ImageDecodeGate.run;
+
+  // FlattenCache miss 的 flatten 成本上报 span 账单(flat: 前缀,与
+  // parse:/lay:/pnt: 同一管道;监控关闭时 noteSpan 空操作)。
+  FlattenCache.profileHook = (micros) {
+    FrameJankMonitor.noteSpan('flat:miss', micros);
+  };
 
   // 触摸重采样已定案关闭(回归框架默认 false)。曾为治"120Hz 触摸 ×
   // 60Hz 显示"的滚动微抖开启(96a94f1),但 SDK 的重采样偏移是按 60Hz

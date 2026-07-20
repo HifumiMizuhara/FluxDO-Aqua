@@ -23,6 +23,7 @@ import 'package:fluxdo_render/fluxdo_render.dart' show HtmlChunk;
 import '../../../widgets/post/post_item/post_item.dart';
 import '../../../widgets/post/post_item/render_parse_cache.dart';
 import '../../../widgets/post/post_item/segmented_long_post.dart';
+import '../../../widgets/post/quote_image_scope.dart';
 import 'topic_detail_header.dart';
 import 'shared_issue_button.dart';
 import 'typing_indicator.dart';
@@ -931,7 +932,13 @@ class _TopicPostListState extends State<TopicPostList> {
     // 不再包系统 SelectionArea:正文选区全部由 FluxdoRender 自研选区承担
     // (含未登录场景 —— toolbar 降级只留「复制」)。header/footer 等普通
     // Widget 不创建系统选区节点,省掉手势竞技场竞争与 registrar 树维护。
-    return NotificationListener<ScrollNotification>(
+    //
+    // QuoteImageScope:图片长按菜单的「引用」handler 在 tap 时刻就近现取
+    // (flatten 产物进全局缓存后,callbacks 闭包里的冻结引用可能指向已
+    // 销毁页面的 State,见 QuoteImageScope 文档)。
+    return QuoteImageScope(
+      handler: widget.onQuoteImage,
+      child: NotificationListener<ScrollNotification>(
       onNotification: _handleScrollNotification,
       child: Listener(
         behavior: HitTestBehavior.translucent,
@@ -1151,6 +1158,7 @@ class _TopicPostListState extends State<TopicPostList> {
           ],
         ),
       ),
+    ),
     );
   }
 
