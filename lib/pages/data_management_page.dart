@@ -13,7 +13,6 @@ import '../providers/theme_provider.dart';
 import '../utils/dialog_utils.dart';
 import '../services/data_management/cache_size_service.dart';
 import '../services/data_management/data_backup_service.dart';
-import '../services/discourse_cache_manager.dart';
 import '../services/toast_service.dart';
 import '../settings/definitions/data_management_defs.dart';
 import 'package:common_ui/common_ui.dart';
@@ -39,7 +38,13 @@ class DataManagementPage extends StatelessWidget {
 // 缓存管理区块（有状态，被 CustomModel 包装）
 // ─────────────────────────────────────────────
 
-/// 缓存管理区块，封装了缓存大小加载和清除逻辑
+/// 缓存管理区块 —— Telegram Storage Usage 式信息架构:
+///
+/// - 图片缓存(可再下载)细分六类,**多选勾选 + 单一「清理所选」按钮**,
+///   顶部分段彩条总览(分类色 = 勾选框色,取消勾选实时从彩条移除);
+/// - AI 聊天 / Cookie 是本地数据(清了就没/要重登),**不进多选**,
+///   保持独立行 + 各自确认 —— 对齐 Telegram 把 Local Database 与
+///   可再下载缓存分离的原则。
 class CacheManagementSection extends ConsumerStatefulWidget {
   const CacheManagementSection({super.key});
 
@@ -50,10 +55,14 @@ class CacheManagementSection extends ConsumerStatefulWidget {
 
 class _CacheManagementSectionState
     extends ConsumerState<CacheManagementSection> {
-  int _imageCacheSize = -1;
+  /// null = 计算中
+  Map<ImageCacheCategory, int>? _breakdown;
   int _aiChatDataSize = -1;
   int _cookieCacheSize = -1;
   bool _isClearing = false;
+
+  /// 勾选状态。默认全选(Telegram 同款)。
+  final Set<ImageCacheCategory> _selected = {...ImageCacheCategory.values};
 
   @override
   void initState() {
@@ -64,24 +73,29 @@ class _CacheManagementSectionState
   Future<void> _loadCacheSizes() async {
     final prefs = ref.read(sharedPreferencesProvider);
     final results = await Future.wait([
-      CacheSizeService.getImageCacheSize(),
+      CacheSizeService.getImageCacheBreakdown(),
       CacheSizeService.getAiChatDataSize(prefs),
       CacheSizeService.getCookieCacheSize(),
     ]);
     if (mounted) {
       setState(() {
-        _imageCacheSize = results[0];
-        _aiChatDataSize = results[1];
-        _cookieCacheSize = results[2];
+        _breakdown = results[0] as Map<ImageCacheCategory, int>;
+        _aiChatDataSize = results[1] as int;
+        _cookieCacheSize = results[2] as int;
       });
     }
   }
 
-  int get _totalCacheSize {
-    int total = 0;
-    if (_imageCacheSize > 0) total += _imageCacheSize;
-    if (_aiChatDataSize > 0) total += _aiChatDataSize;
-    if (_cookieCacheSize > 0) total += _cookieCacheSize;
+  int get _imageTotal =>
+      _breakdown?.values.fold(0, (a, b) => a! + b) ?? -1;
+
+  int get _selectedSize {
+    final b = _breakdown;
+    if (b == null) return 0;
+    var total = 0;
+    for (final c in _selected) {
+      total += b[c] ?? 0;
+    }
     return total;
   }
 
@@ -91,24 +105,55 @@ class _CacheManagementSectionState
     return CacheSizeService.formatSize(size);
   }
 
-  Future<void> _clearImageCache() async {
+  String _categoryName(ImageCacheCategory c) => switch (c) {
+        ImageCacheCategory.content => S.current.dataManagement_categoryContent,
+        ImageCacheCategory.emoji => S.current.dataManagement_categoryEmoji,
+        ImageCacheCategory.avatar => S.current.dataManagement_categoryAvatar,
+        ImageCacheCategory.sticker => S.current.dataManagement_categorySticker,
+        ImageCacheCategory.external =>
+          S.current.dataManagement_categoryExternal,
+        ImageCacheCategory.other => S.current.dataManagement_categoryOther,
+      };
+
+  /// 分类色:从主题派生(不硬编码色值),深浅主题自适应。
+  /// 彩条段色 == 勾选框色,建立视觉对应(Telegram 同款)。
+  Color _categoryColor(ImageCacheCategory c, ColorScheme scheme) =>
+      switch (c) {
+        ImageCacheCategory.content => scheme.primary,
+        ImageCacheCategory.emoji => scheme.tertiary,
+        ImageCacheCategory.avatar => scheme.secondary,
+        ImageCacheCategory.sticker =>
+          Color.lerp(scheme.primary, scheme.tertiary, 0.5)!,
+        ImageCacheCategory.external =>
+          Color.lerp(scheme.secondary, scheme.error, 0.45)!,
+        ImageCacheCategory.other => scheme.outline,
+      };
+
+  Future<void> _clearSelected() async {
+    final size = _selectedSize;
+    final confirmed = await _showConfirmDialog(
+      title: S.current.dataManagement_clearSelectedTitle,
+      content: S.current.dataManagement_clearSelectedContent,
+      confirmText: S.current.common_clear,
+    );
+    if (confirmed != true) return;
+
     setState(() => _isClearing = true);
     try {
-      await Future.wait([
-        DiscourseCacheManager().emptyCache(),
-        ExternalImageCacheManager().emptyCache(),
-        StickerCacheManager().emptyCache(),
-        BlobImageCache.clearAll(),
-      ]);
-      // emptyCache() 只清除了索引，磁盘文件可能残留，需要删除整个目录
-      await CacheSizeService.deleteImageCacheDirs();
+      for (final c in _selected) {
+        await CacheSizeService.clearImageCacheCategory(c);
+      }
       PaintingBinding.instance.imageCache.clear();
-      setState(() => _imageCacheSize = 0);
-      ToastService.showSuccess(S.current.dataManagement_imageCacheCleared);
+      ToastService.showSuccess(
+        S.current.dataManagement_freedSpace(CacheSizeService.formatSize(size)),
+      );
     } catch (e) {
       ToastService.showError(S.current.common_clearFailed(e.toString()));
     } finally {
-      if (mounted) setState(() => _isClearing = false);
+      if (mounted) {
+        setState(() => _isClearing = false);
+        await _loadCacheSizes();
+      }
     }
   }
 
@@ -146,41 +191,6 @@ class _CacheManagementSectionState
       await _doClearCookies();
       setState(() => _cookieCacheSize = 0);
       ToastService.showSuccess(S.current.dataManagement_cookieCleared);
-    } catch (e) {
-      ToastService.showError(S.current.common_clearFailed(e.toString()));
-    } finally {
-      if (mounted) setState(() => _isClearing = false);
-    }
-  }
-
-  Future<void> _clearAllCache() async {
-    final confirmed = await _showConfirmDialog(
-      title: S.current.dataManagement_clearAllTitle,
-      content: S.current.dataManagement_clearAllContent,
-      confirmText: S.current.dataManagement_clearAll,
-      isDestructive: true,
-    );
-    if (confirmed != true) return;
-
-    setState(() => _isClearing = true);
-    try {
-      final prefs = ref.read(sharedPreferencesProvider);
-      await Future.wait([
-        DiscourseCacheManager().emptyCache(),
-        ExternalImageCacheManager().emptyCache(),
-        StickerCacheManager().emptyCache(),
-        BlobImageCache.clearAll(),
-        AiChatStorageService(prefs).deleteAllSessions(),
-        _doClearCookies(),
-      ]);
-      await CacheSizeService.deleteImageCacheDirs();
-      PaintingBinding.instance.imageCache.clear();
-      setState(() {
-        _imageCacheSize = 0;
-        _aiChatDataSize = 0;
-        _cookieCacheSize = 0;
-      });
-      ToastService.showSuccess(S.current.dataManagement_allCleared);
     } catch (e) {
       ToastService.showError(S.current.common_clearFailed(e.toString()));
     } finally {
@@ -228,47 +238,157 @@ class _CacheManagementSectionState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return SegmentedCardGroup(
+    final breakdown = _breakdown;
+
+    // 按大小降序(Telegram 同款);计算中保持枚举顺序。
+    final categories = [...ImageCacheCategory.values];
+    if (breakdown != null) {
+      categories.sort((a, b) => (breakdown[b] ?? 0) - (breakdown[a] ?? 0));
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildCacheTile(
-          theme: theme,
-          icon: Symbols.image_rounded,
-          title: context.l10n.dataManagement_imageCache,
-          size: _imageCacheSize,
-          onClear: _isClearing ? null : _clearImageCache,
+        SegmentedCardGroup(
+          children: [
+            // 顶部总览:分段彩条 + 总量
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          context.l10n.dataManagement_imageCache,
+                          style: theme.textTheme.titleSmall,
+                        ),
+                      ),
+                      Text(
+                        _formatCacheSize(_imageTotal),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  _SegmentedBar(
+                    segments: breakdown == null
+                        ? null
+                        : [
+                            for (final c in categories)
+                              if (_selected.contains(c) &&
+                                  (breakdown[c] ?? 0) > 0)
+                                (
+                                  color: _categoryColor(c, theme.colorScheme),
+                                  size: breakdown[c]!,
+                                ),
+                          ],
+                  ),
+                ],
+              ),
+            ),
+            // 六类勾选行
+            for (final c in categories)
+              _buildCategoryTile(theme, c, breakdown?[c]),
+            // 清理所选按钮
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: FilledButton(
+                onPressed: _isClearing ||
+                        breakdown == null ||
+                        _selectedSize <= 0
+                    ? null
+                    : _clearSelected,
+                child: _isClearing
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(
+                        S.current.dataManagement_clearSelected(
+                          CacheSizeService.formatSize(_selectedSize),
+                        ),
+                      ),
+              ),
+            ),
+          ],
         ),
-        _buildCacheTile(
-          theme: theme,
-          icon: Symbols.smart_toy_rounded,
-          title: context.l10n.dataManagement_aiChatData,
-          size: _aiChatDataSize,
-          onClear: _isClearing ? null : _clearAiChatData,
-        ),
-        _buildCacheTile(
-          theme: theme,
-          icon: Symbols.cookie_rounded,
-          title: context.l10n.dataManagement_cookieCache,
-          size: _cookieCacheSize,
-          onClear: _isClearing ? null : _clearCookieCache,
-        ),
-        ListTile(
-          leading: Icon(
-            Symbols.delete_sweep_rounded,
-            color: theme.colorScheme.error,
-          ),
-          title: Text(context.l10n.dataManagement_clearAllCache),
-          subtitle: Text(_formatCacheSize(_totalCacheSize)),
-          trailing: TextButton(
-            onPressed:
-                _isClearing || _totalCacheSize <= 0 ? null : _clearAllCache,
-            child: Text(context.l10n.common_clear),
-          ),
+        const SizedBox(height: 16),
+        // 本地数据(非"可再下载"):独立区块,不进多选
+        SegmentedCardGroup(
+          children: [
+            _buildLocalDataTile(
+              theme: theme,
+              icon: Symbols.smart_toy_rounded,
+              title: context.l10n.dataManagement_aiChatData,
+              size: _aiChatDataSize,
+              onClear: _isClearing ? null : _clearAiChatData,
+            ),
+            _buildLocalDataTile(
+              theme: theme,
+              icon: Symbols.cookie_rounded,
+              title: context.l10n.dataManagement_cookieCache,
+              size: _cookieCacheSize,
+              onClear: _isClearing ? null : _clearCookieCache,
+            ),
+          ],
         ),
       ],
     );
   }
 
-  Widget _buildCacheTile({
+  Widget _buildCategoryTile(
+    ThemeData theme,
+    ImageCacheCategory c,
+    int? size,
+  ) {
+    final color = _categoryColor(c, theme.colorScheme);
+    final empty = size != null && size <= 0;
+    final checked = _selected.contains(c) && !empty;
+    return ListTile(
+      dense: true,
+      enabled: !empty && !_isClearing,
+      leading: Checkbox(
+        value: checked,
+        shape: const CircleBorder(),
+        activeColor: color,
+        side: BorderSide(color: empty ? theme.colorScheme.outlineVariant : color, width: 2),
+        onChanged: empty || _isClearing
+            ? null
+            : (v) => setState(() {
+                  if (v == true) {
+                    _selected.add(c);
+                  } else {
+                    _selected.remove(c);
+                  }
+                }),
+      ),
+      title: Text(_categoryName(c)),
+      trailing: size == null
+          ? _ShimmerBox(width: 48, height: 14, theme: theme)
+          : Text(
+              _formatCacheSize(size),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+      onTap: empty || _isClearing
+          ? null
+          : () => setState(() {
+                if (_selected.contains(c)) {
+                  _selected.remove(c);
+                } else {
+                  _selected.add(c);
+                }
+              }),
+    );
+  }
+
+  Widget _buildLocalDataTile({
     required ThemeData theme,
     required IconData icon,
     required String title,
@@ -287,6 +407,92 @@ class _CacheManagementSectionState
   }
 }
 
+/// 分段彩条:六类按占比着色的水平条(Telegram 环形图的轻量等价物)。
+/// segments 为 null = 计算中,画 shimmer 灰条。
+class _SegmentedBar extends StatelessWidget {
+  const _SegmentedBar({required this.segments});
+
+  final List<({Color color, int size})>? segments;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: SizedBox(
+        height: 8,
+        child: segments == null
+            ? _ShimmerBox(width: double.infinity, height: 8, theme: theme)
+            : CustomPaint(
+                painter: _SegmentedBarPainter(
+                  segments: segments!,
+                  emptyColor: theme.colorScheme.surfaceContainerHighest,
+                ),
+                size: const Size(double.infinity, 8),
+              ),
+      ),
+    );
+  }
+}
+
+class _SegmentedBarPainter extends CustomPainter {
+  _SegmentedBarPainter({required this.segments, required this.emptyColor});
+
+  final List<({Color color, int size})> segments;
+  final Color emptyColor;
+
+  static const double _gap = 2;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint();
+    final total = segments.fold<int>(0, (a, s) => a + s.size);
+    if (total <= 0) {
+      paint.color = emptyColor;
+      canvas.drawRect(Offset.zero & size, paint);
+      return;
+    }
+    final gapTotal = _gap * (segments.length - 1);
+    final usable = (size.width - gapTotal).clamp(0.0, double.infinity);
+    var x = 0.0;
+    for (final s in segments) {
+      final w = usable * s.size / total;
+      paint.color = s.color;
+      canvas.drawRect(Rect.fromLTWH(x, 0, w, size.height), paint);
+      x += w + _gap;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SegmentedBarPainter old) =>
+      old.segments != segments || old.emptyColor != emptyColor;
+}
+
+/// 计算中的静态灰底占位(不做动画,页面停留短)。
+class _ShimmerBox extends StatelessWidget {
+  const _ShimmerBox({
+    required this.width,
+    required this.height,
+    required this.theme,
+  });
+
+  final double width;
+  final double height;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(4),
+      ),
+    );
+  }
+}
+
 // ─────────────────────────────────────────────
 // 数据备份区块（被 CustomModel 包装）
 // ─────────────────────────────────────────────
@@ -296,6 +502,26 @@ class DataBackupSection extends ConsumerWidget {
   const DataBackupSection({super.key});
 
   Future<void> _exportData(BuildContext context, WidgetRef ref) async {
+    // 导出前敏感信息提示(备份 v2 含 API Key / 代理密码 / Notion Token)
+    final confirmed = await showAppDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(S.current.dataManagement_exportConfirmTitle),
+        content: Text(S.current.dataManagement_exportSensitiveWarning),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(ctx.l10n.common_cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(ctx.l10n.common_confirm),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
     try {
       final prefs = ref.read(sharedPreferencesProvider);
       final filePath = await DataBackupService.exportToFile(prefs);

@@ -5,6 +5,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../discourse_cache_manager.dart';
 
+/// 图片缓存分类(Telegram Storage Usage 式明细的口径)。
+///
+/// 每类聚合一个或多个磁盘目录;`other` 兜底迁移 `.trash` 待删区与
+/// 已废弃的 legacy 目录。
+enum ImageCacheCategory {
+  content,
+  emoji,
+  avatar,
+  sticker,
+  external,
+  other,
+}
+
 /// 缓存大小计算服务
 class CacheSizeService {
   /// flutter_cache_manager 的缓存 key 列表 + blob 缓存根目录。
@@ -32,6 +45,85 @@ class CacheSizeService {
       totalSize += await _getDirectorySize(dir);
     }
     return totalSize;
+  }
+
+  /// 按分类统计图片缓存大小(六类并行)。
+  static Future<Map<ImageCacheCategory, int>> getImageCacheBreakdown() async {
+    final tempDir = await getTemporaryDirectory();
+    final t = tempDir.path;
+    const blob = BlobImageCache.dirName;
+
+    Future<int> dirsSize(List<String> paths) async {
+      var total = 0;
+      for (final p in paths) {
+        total += await _getDirectorySize(Directory(p));
+      }
+      return total;
+    }
+
+    Future<int> otherSize() async {
+      var total = await dirsSize(['$t/$kLegacyEmojiCacheKey']);
+      for (final dir in await _trashDirs(tempDir)) {
+        total += await _getDirectorySize(dir);
+      }
+      return total;
+    }
+
+    final results = await Future.wait([
+      dirsSize(['$t/${DiscourseCacheManager.key}']),
+      dirsSize(['$t/$blob/${BlobImageCache.emojiBucket}']),
+      dirsSize(['$t/$blob/${BlobImageCache.avatarBucket}']),
+      dirsSize([
+        '$t/${StickerCacheManager.key}',
+        '$t/$blob/${BlobImageCache.stickerThumbBucket}',
+      ]),
+      dirsSize(['$t/${ExternalImageCacheManager.key}']),
+      otherSize(),
+    ]);
+    return {
+      ImageCacheCategory.content: results[0],
+      ImageCacheCategory.emoji: results[1],
+      ImageCacheCategory.avatar: results[2],
+      ImageCacheCategory.sticker: results[3],
+      ImageCacheCategory.external: results[4],
+      ImageCacheCategory.other: results[5],
+    };
+  }
+
+  /// 按分类清除图片缓存。
+  static Future<void> clearImageCacheCategory(
+    ImageCacheCategory category,
+  ) async {
+    final tempDir = await getTemporaryDirectory();
+
+    Future<void> deleteDir(String key) async {
+      final dir = Directory('${tempDir.path}/$key');
+      if (await dir.exists()) await dir.delete(recursive: true);
+    }
+
+    switch (category) {
+      case ImageCacheCategory.content:
+        await DiscourseCacheManager().emptyCache();
+        await deleteDir(DiscourseCacheManager.key);
+      case ImageCacheCategory.emoji:
+        await BlobImageCache.clearBucket(BlobImageCache.emojiBucket);
+      case ImageCacheCategory.avatar:
+        await BlobImageCache.clearBucket(BlobImageCache.avatarBucket);
+      case ImageCacheCategory.sticker:
+        await StickerCacheManager().emptyCache();
+        await deleteDir(StickerCacheManager.key);
+        await BlobImageCache.clearBucket(BlobImageCache.stickerThumbBucket);
+      case ImageCacheCategory.external:
+        await ExternalImageCacheManager().emptyCache();
+        await deleteDir(ExternalImageCacheManager.key);
+      case ImageCacheCategory.other:
+        await deleteDir(kLegacyEmojiCacheKey);
+        for (final dir in await _trashDirs(tempDir)) {
+          try {
+            await dir.delete(recursive: true);
+          } catch (_) {}
+        }
+    }
   }
 
   /// 计算 AI 聊天数据大小（SharedPreferences 中 ai_chat_ 开头的 key）
