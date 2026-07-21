@@ -78,6 +78,7 @@ import 'providers/connectivity_provider.dart';
 import 'utils/dialog_utils.dart';
 import 'utils/frame_jank_monitor.dart';
 import 'utils/image_decode_gate.dart';
+import 'widgets/post/post_item/render_parse_cache.dart';
 import 'utils/scroll_busy_signal.dart';
 import 'utils/time_utils.dart';
 
@@ -1094,6 +1095,26 @@ class _MainPageState extends ConsumerState<MainPage>
         unawaited(_resumeFromBackground());
       });
     }
+  }
+
+  @override
+  void didHaveMemoryPressure() {
+    super.didHaveMemoryPressure();
+    // 系统内存压力统一入口:iOS 内存警告 / Android onTrimMemory /
+    // 金标联盟公平运行内存 TRIM 广播(FairMemoryReceiver 翻译成同一
+    // memoryPressure 通道)。imageCache(最大头,256MB 上限)由框架
+    // PaintingBinding.handleMemoryPressure 自清,这里补自建缓存:
+    // - RenderParseCache:纯数据,清空安全;
+    // - FlattenCache:引用计数设计,在用条目标 dead 延迟释放,安全;
+    // - ParagraphLayoutCache 刻意不清:evictAll 会 dispose 在屏
+    //   RenderObject 仍持有的 ui.Paragraph(paint 不重走 layout,
+    //   仅 reassemble 全量重建场景安全),且量级仅数 MB 不值得冒险。
+    RenderParseCache.clear();
+    FlattenCache.evictAll();
+    // 公平内存机制下持续增长会触达查杀线,先把监控现场落盘(未启用
+    // 或无记录时内部直接返回,静默失败)。
+    unawaited(FrameJankMonitor.persistSnapshot());
+    debugPrint('[MainPage] 内存压力:已清理解析/flatten 缓存');
   }
 
   Future<void> _resumeFromBackground() async {
