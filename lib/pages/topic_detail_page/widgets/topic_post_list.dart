@@ -1428,12 +1428,17 @@ class _TopicPostListState extends State<TopicPostList> {
         // widget 实例让框架整棵短路。单帖更新(点赞等)触发的整页
         // rebuild 里,正文富文本的重建是最大头,这里短路后更新只剩
         // header/footer 的轻量重建。
+        // 首 chunk 额外携带弹幕层(读 post.boosts/boostUsername),必须
+        // 连 post 实例一起比对 —— 否则新 boost 到达后弹幕拿的还是旧数据。
         final chunkKey = (post.id, ci);
         final cachedChunk = _chunkWidgetCache[chunkKey];
         if (cachedChunk != null &&
             identical(cachedChunk.data, data) &&
             cachedChunk.selected == isSelectedPost &&
-            cachedChunk.highlight == highlight) {
+            cachedChunk.highlight == highlight &&
+            (ci != 0 ||
+                (identical(cachedChunk.post, post) &&
+                    cachedChunk.boostUsername == boostUsername))) {
           child = cachedChunk.widget;
           break;
         }
@@ -1451,11 +1456,15 @@ class _TopicPostListState extends State<TopicPostList> {
           footnotesHtml: data.footnotesHtml,
           callbacks: data.callbacks,
           onQuoteSelection: onQuoteSelection,
+          highlightBoostUsername: ci == 0 ? boostUsername : null,
+          topicTitle: detail.title,
         );
         _chunkWidgetCache[chunkKey] = _ChunkWidgetCacheEntry(
           data: data,
+          post: post,
           selected: isSelectedPost,
           highlight: highlight,
+          boostUsername: boostUsername,
           widget: child,
         );
         break;
@@ -1546,14 +1555,20 @@ class _ShortPostCacheEntry {
 /// 长帖正文 chunk 段的实例缓存条目
 class _ChunkWidgetCacheEntry {
   final NewEngineLongPostData data;
+
+  /// 首 chunk 弹幕层读 post.boosts,post 实例参与缓存签名
+  final Post post;
   final bool selected;
   final bool highlight;
+  final String? boostUsername;
   final Widget widget;
 
   const _ChunkWidgetCacheEntry({
     required this.data,
+    required this.post,
     required this.selected,
     required this.highlight,
+    required this.boostUsername,
     required this.widget,
   });
 }
