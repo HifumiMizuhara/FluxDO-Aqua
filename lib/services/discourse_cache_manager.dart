@@ -244,12 +244,12 @@ bool _isNativeAnimatedUrl(String url) {
 /// - GIF / APNG / 动画 WebP → NativeAnimatedImageProvider (Rust pipeline,
 ///   绕 Skia multi_frame_codec 的 #85831 bug)
 /// - 其他静态格式 → CachedNetworkImageProvider
-ImageProvider discourseImageProvider(
-  String url, {
-  double scale = 1.0,
-  int? maxWidth,
-  int? maxHeight,
-}) {
+///
+/// 需要限制解码尺寸时在外层包 decode-time 的 `ResizeImage(policy: fit)`。
+/// 刻意不透传 CachedNetworkImageProvider 的 maxWidth/maxHeight —— 那走
+/// flutter_cache_manager 的 resize 路径:webp 不在 supportedFileNames 里
+/// 静默原图返回,jpg/png 解码后 PNG 重编码再写第二份磁盘缓存。
+ImageProvider discourseImageProvider(String url, {double scale = 1.0}) {
   if (_isAvifUrl(url)) {
     return AvifImageProvider(url, scale: scale);
   }
@@ -270,8 +270,6 @@ ImageProvider discourseImageProvider(
   return CachedNetworkImageProvider(
     url,
     scale: scale,
-    maxWidth: maxWidth,
-    maxHeight: maxHeight,
     cacheManager: DiscourseCacheManager(),
   );
 }

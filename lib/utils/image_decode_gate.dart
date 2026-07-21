@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
 
+import 'frame_jank_monitor.dart';
 import 'frame_scheduler_probe.dart';
 import 'perf_pipeline_probe.dart';
 
@@ -170,7 +171,16 @@ class GatedImageCodec implements ui.Codec {
       if (_disposed) {
         throw StateError('GatedImageCodec: codec disposed while queued');
       }
-      return await _inner.getNextFrame();
+      final info = await _inner.getNextFrame();
+      // 解码完成点 = Impeller 纹理上传点(worker 解完立即建纹理提交
+      // GPU 队列)。在场名单记 dec 事件补上归因盲区:img+ 记的是**首绘**,
+      // 上传发生在**此刻**,两者可以差很多帧(快滚划走的图甚至永远没有
+      // img+)。raster 大帧同帧/邻帧见 dec = 上传嫌疑坐实;零 dec 的
+      // raster 大帧 = 排除图片,矛头转向字形图集等。
+      FrameJankMonitor.noteBuild(
+        'dec:${info.image.width}x${info.image.height}',
+      );
+      return info;
     } finally {
       ImageDecodeGate._release();
     }

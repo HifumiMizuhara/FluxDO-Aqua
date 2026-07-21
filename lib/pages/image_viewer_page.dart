@@ -6,6 +6,7 @@ import 'package:jovial_svg/jovial_svg.dart';
 import 'package:gal/gal.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 import '../services/discourse_cache_manager.dart';
+import '../services/image_decode_spec_memo.dart';
 import '../utils/double_tap_zoom_controller.dart';
 import '../utils/hero_visibility_controller.dart';
 import '../utils/screenshot_utils.dart';
@@ -161,6 +162,22 @@ class _ImageViewerPageState extends State<ImageViewerPage>
       discourseImageProvider(url),
       width: longestPx,
       height: longestPx,
+      policy: ResizeImagePolicy.fit,
+    );
+  }
+
+  /// 缩略图占位 provider:按帖内登记的解码参数原样重建 —— ImageCache 的
+  /// key 是 ResizeImageKey(内层 key + 宽高 + 策略),参数一致才能同步命中
+  /// 帖内那份还在屏的解码位图;裸 provider 是不同 key,Hero 转场帧会白付
+  /// 一次全量解码(原图 jpg/png 尤其疼)。未登记(非帖内入口)退回裸
+  /// provider,行为同旧。
+  ImageProvider _thumbnailProvider(String url) {
+    final spec = ImageDecodeSpecMemo.peek(url);
+    if (spec == null) return discourseImageProvider(url);
+    return ResizeImage(
+      discourseImageProvider(url),
+      width: spec.$1,
+      height: spec.$2,
       policy: ResizeImagePolicy.fit,
     );
   }
@@ -756,9 +773,7 @@ class _ImageViewerPageState extends State<ImageViewerPage>
                           if (widget.thumbnailUrl != null &&
                               widget.thumbnailUrl != widget.imageUrl) {
                             return Image(
-                              image: discourseImageProvider(
-                                widget.thumbnailUrl!,
-                              ),
+                              image: _thumbnailProvider(widget.thumbnailUrl!),
                               fit: BoxFit.contain,
                             );
                           }
@@ -790,9 +805,7 @@ class _ImageViewerPageState extends State<ImageViewerPage>
                               widget.thumbnailUrl != null &&
                               widget.thumbnailUrl != widget.imageUrl) {
                             return Image(
-                              image: discourseImageProvider(
-                                widget.thumbnailUrl!,
-                              ),
+                              image: _thumbnailProvider(widget.thumbnailUrl!),
                               fit: BoxFit.contain,
                             );
                           }
@@ -884,7 +897,7 @@ class _ImageViewerPageState extends State<ImageViewerPage>
                                     LoadState.loading) {
                                   if (thumbUrl != null && thumbUrl != url) {
                                     return Image(
-                                      image: discourseImageProvider(thumbUrl),
+                                      image: _thumbnailProvider(thumbUrl),
                                       fit: BoxFit.contain,
                                     );
                                   }
@@ -914,9 +927,7 @@ class _ImageViewerPageState extends State<ImageViewerPage>
                                       false) {
                                     if (thumbUrl != null && thumbUrl != url) {
                                       return Image(
-                                        image: discourseImageProvider(
-                                          thumbUrl,
-                                        ),
+                                        image: _thumbnailProvider(thumbUrl),
                                         fit: BoxFit.contain,
                                       );
                                     }

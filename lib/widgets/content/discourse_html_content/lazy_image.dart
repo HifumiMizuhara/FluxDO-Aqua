@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
+import '../../../services/image_decode_spec_memo.dart';
 import '../../../services/media_geometry_memo.dart';
 import '../../../utils/frame_jank_monitor.dart';
 import '../../../utils/image_paint_gate.dart';
@@ -231,6 +232,12 @@ class _LazyImageState extends State<LazyImage> {
     final logicalWidth =
         (widget.decodeWidth ?? widget.width ?? screenW).clamp(1.0, screenW);
     final cacheWidth = (logicalWidth * dpr).round().clamp(1, 1 << 16);
+    // 登记解码参数:查看器缩略图占位按同参重建 provider → 同 key 命中
+    // ImageCache,Hero 转场帧零重解码。
+    final key = widget.cacheKey;
+    if (key != null && key.isNotEmpty) {
+      ImageDecodeSpecMemo.remember(key, cacheWidth, LazyImage._kMaxDecodeHeight);
+    }
     return ResizeImage(
       widget.imageProvider,
       width: cacheWidth,
