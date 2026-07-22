@@ -569,6 +569,16 @@ class FrameJankMonitor {
           details.add(
               'imageCache ${cache.currentSize}张/${sizeMb}MB (Δ${deltaMb}MB) '
               'pending=${cache.pendingImageCount}');
+          // dec 归因:上传发生在解码完成点(与首绘可差多帧),dec 事件
+          // 记录在解码那一帧的构建名单里。raster 大帧本身多是 build 极小
+          // 的帧(不满足上面 build>6ms 的名单条件),这里按 raster 口径
+          // 独立附上 —— 同帧/邻帧见 dec = 上传嫌疑坐实;零 dec = 排除
+          // 图片,矛头转 PSO 编译/平台线程挤占等(2026-07-22 首屏簇
+          // 291 张图零 dec 记录的归因盲区,即此条件缺失)。
+          final notes = _buildNotesFor(t.frameNumber);
+          if (notes != null && notes.contains('dec:')) {
+            details.add(notes);
+          }
           // 图层清单:分类点名本帧(近似)提交了什么(pictures 字节/saveLayer
           // 源/平台视图/纹理)+ 与上次大帧 diff。独立节流,遍历不常发生。
           final now = DateTime.now();
