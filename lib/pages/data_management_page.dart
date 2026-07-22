@@ -1,6 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cross_file/cross_file.dart';
 import 'package:ai_model_manager/ai_model_manager.dart';
@@ -115,19 +116,22 @@ class _CacheManagementSectionState
         ImageCacheCategory.other => S.current.dataManagement_categoryOther,
       };
 
-  /// 分类色:从主题派生(不硬编码色值),深浅主题自适应。
-  /// 彩条段色 == 勾选框色,建立视觉对应(Telegram 同款)。
-  Color _categoryColor(ImageCacheCategory c, ColorScheme scheme) =>
-      switch (c) {
-        ImageCacheCategory.content => scheme.primary,
-        ImageCacheCategory.emoji => scheme.tertiary,
-        ImageCacheCategory.avatar => scheme.secondary,
-        ImageCacheCategory.sticker =>
-          Color.lerp(scheme.primary, scheme.tertiary, 0.5)!,
-        ImageCacheCategory.external =>
-          Color.lerp(scheme.secondary, scheme.error, 0.45)!,
-        ImageCacheCategory.other => scheme.outline,
-      };
+  /// 分类色:固定统计色板 + harmonizeWith(primary) 向主题色调和。
+  ///
+  /// 不能从 colorScheme 派生(primary/secondary/tertiary 在单色主题下
+  /// 几乎同色,六类无法区分);固定色板保证区分度,harmonize 保证与
+  /// 任意主题色/深浅模式协调 —— Telegram 统计色板同款思路。
+  Color _categoryColor(ImageCacheCategory c, ColorScheme scheme) {
+    const palette = {
+      ImageCacheCategory.content: Color(0xFF4C8DF6), // 蓝
+      ImageCacheCategory.sticker: Color(0xFFF2A03F), // 橙
+      ImageCacheCategory.emoji: Color(0xFF41BA6D), // 绿
+      ImageCacheCategory.avatar: Color(0xFF45B7D2), // 青
+      ImageCacheCategory.external: Color(0xFF9B7BF0), // 紫
+      ImageCacheCategory.other: Color(0xFF95A1AC), // 灰
+    };
+    return palette[c]!.harmonizeWith(scheme.primary);
+  }
 
   Future<void> _clearSelected() async {
     final size = _selectedSize;
@@ -251,13 +255,15 @@ class _CacheManagementSectionState
       children: [
         SegmentedCardGroup(
           children: [
-            // 顶部总览:分段彩条 + 总量
+            // 顶部总览:总量 + 分段彩条
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
                     children: [
                       Expanded(
                         child: Text(
@@ -267,13 +273,13 @@ class _CacheManagementSectionState
                       ),
                       Text(
                         _formatCacheSize(_imageTotal),
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                   _SegmentedBar(
                     segments: breakdown == null
                         ? null
@@ -293,26 +299,30 @@ class _CacheManagementSectionState
             // 六类勾选行
             for (final c in categories)
               _buildCategoryTile(theme, c, breakdown?[c]),
-            // 清理所选按钮
+            // 清理所选按钮(通栏,高度对齐 M3 FilledButton 规格)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              child: FilledButton(
-                onPressed: _isClearing ||
-                        breakdown == null ||
-                        _selectedSize <= 0
-                    ? null
-                    : _clearSelected,
-                child: _isClearing
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(
-                        S.current.dataManagement_clearSelected(
-                          CacheSizeService.formatSize(_selectedSize),
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+              child: SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: FilledButton(
+                  onPressed: _isClearing ||
+                          breakdown == null ||
+                          _selectedSize <= 0
+                      ? null
+                      : _clearSelected,
+                  child: _isClearing
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(
+                          S.current.dataManagement_clearSelected(
+                            CacheSizeService.formatSize(_selectedSize),
+                          ),
                         ),
-                      ),
+                ),
               ),
             ),
           ],
@@ -349,6 +359,13 @@ class _CacheManagementSectionState
     final color = _categoryColor(c, theme.colorScheme);
     final empty = size != null && size <= 0;
     final checked = _selected.contains(c) && !empty;
+    final total = _imageTotal;
+    // 占比:Telegram 同款,名称后跟小号加粗百分比;<1% 显示 <1%。
+    String? percent;
+    if (size != null && size > 0 && total > 0) {
+      final p = size * 100 / total;
+      percent = p < 1 ? '<1%' : '${p.round()}%';
+    }
     return ListTile(
       dense: true,
       enabled: !empty && !_isClearing,
@@ -356,7 +373,10 @@ class _CacheManagementSectionState
         value: checked,
         shape: const CircleBorder(),
         activeColor: color,
-        side: BorderSide(color: empty ? theme.colorScheme.outlineVariant : color, width: 2),
+        side: BorderSide(
+          color: empty ? theme.colorScheme.outlineVariant : color,
+          width: 2,
+        ),
         onChanged: empty || _isClearing
             ? null
             : (v) => setState(() {
@@ -367,13 +387,29 @@ class _CacheManagementSectionState
                   }
                 }),
       ),
-      title: Text(_categoryName(c)),
+      title: Text.rich(
+        TextSpan(
+          text: _categoryName(c),
+          children: [
+            if (percent != null)
+              TextSpan(
+                text: '  $percent',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+          ],
+        ),
+      ),
       trailing: size == null
           ? _ShimmerBox(width: 48, height: 14, theme: theme)
           : Text(
               _formatCacheSize(size),
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+                color: empty
+                    ? theme.colorScheme.outline
+                    : theme.colorScheme.onSurfaceVariant,
               ),
             ),
       onTap: empty || _isClearing
@@ -407,8 +443,8 @@ class _CacheManagementSectionState
   }
 }
 
-/// 分段彩条:六类按占比着色的水平条(Telegram 环形图的轻量等价物)。
-/// segments 为 null = 计算中,画 shimmer 灰条。
+/// 分段彩条:分类按占比着色的水平条(环形图的轻量等价物)。
+/// segments 为 null = 计算中,画灰条。
 class _SegmentedBar extends StatelessWidget {
   const _SegmentedBar({required this.segments});
 
@@ -417,20 +453,17 @@ class _SegmentedBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(4),
-      child: SizedBox(
-        height: 8,
-        child: segments == null
-            ? _ShimmerBox(width: double.infinity, height: 8, theme: theme)
-            : CustomPaint(
-                painter: _SegmentedBarPainter(
-                  segments: segments!,
-                  emptyColor: theme.colorScheme.surfaceContainerHighest,
-                ),
-                size: const Size(double.infinity, 8),
+    return SizedBox(
+      height: 12,
+      child: segments == null
+          ? _ShimmerBox(width: double.infinity, height: 12, theme: theme)
+          : CustomPaint(
+              painter: _SegmentedBarPainter(
+                segments: segments!,
+                emptyColor: theme.colorScheme.surfaceContainerHighest,
               ),
-      ),
+              size: const Size(double.infinity, 12),
+            ),
     );
   }
 }
@@ -441,25 +474,59 @@ class _SegmentedBarPainter extends CustomPainter {
   final List<({Color color, int size})> segments;
   final Color emptyColor;
 
-  static const double _gap = 2;
+  static const double _gap = 3;
+
+  /// 单段保底宽度:极小分类(几 MB vs 几百 MB)也要有可见的一段,
+  /// 否则彩条退化成单色条,分类色与列表的对应关系断掉。
+  static const double _minSegWidth = 10;
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint();
+    final radius = Radius.circular(size.height / 2);
     final total = segments.fold<int>(0, (a, s) => a + s.size);
-    if (total <= 0) {
+    if (total <= 0 || segments.isEmpty) {
       paint.color = emptyColor;
-      canvas.drawRect(Offset.zero & size, paint);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(Offset.zero & size, radius),
+        paint,
+      );
       return;
     }
     final gapTotal = _gap * (segments.length - 1);
     final usable = (size.width - gapTotal).clamp(0.0, double.infinity);
+
+    // 先按占比分宽,再把不足保底的段抬到保底,超出部分从最大段扣回。
+    final widths = [
+      for (final s in segments) usable * s.size / total,
+    ];
+    var deficit = 0.0;
+    for (var i = 0; i < widths.length; i++) {
+      if (widths[i] < _minSegWidth) {
+        deficit += _minSegWidth - widths[i];
+        widths[i] = _minSegWidth;
+      }
+    }
+    if (deficit > 0) {
+      var maxIdx = 0;
+      for (var i = 1; i < widths.length; i++) {
+        if (widths[i] > widths[maxIdx]) maxIdx = i;
+      }
+      widths[maxIdx] =
+          (widths[maxIdx] - deficit).clamp(_minSegWidth, double.infinity);
+    }
+
     var x = 0.0;
-    for (final s in segments) {
-      final w = usable * s.size / total;
-      paint.color = s.color;
-      canvas.drawRect(Rect.fromLTWH(x, 0, w, size.height), paint);
-      x += w + _gap;
+    for (var i = 0; i < segments.length; i++) {
+      paint.color = segments[i].color;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(x, 0, widths[i], size.height),
+          radius,
+        ),
+        paint,
+      );
+      x += widths[i] + _gap;
     }
   }
 
