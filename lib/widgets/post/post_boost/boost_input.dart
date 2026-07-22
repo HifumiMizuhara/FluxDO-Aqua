@@ -160,6 +160,48 @@ class _BoostInputSheetState extends ConsumerState<_BoostInputSheet> {
     setState(() {});
   }
 
+  /// 退格删除:光标前是完整 :shortcode: 时整体删除,否则删一个字符
+  /// (与 EmojiShortcodeDeleteFormatter 的整体删除语义一致 —— 表情
+  /// 面板打开时键盘收起,这是唯一的删除途径)。
+  void _deleteBackward() {
+    final text = _controller.text;
+    final selection = _controller.selection;
+    if (text.isEmpty) return;
+
+    // 有选区:删选区
+    if (selection.isValid && !selection.isCollapsed) {
+      final newText = text.replaceRange(selection.start, selection.end, '');
+      _controller.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: selection.start),
+      );
+      setState(() {});
+      return;
+    }
+
+    final cursor = selection.isValid ? selection.end : text.length;
+    if (cursor <= 0) return;
+
+    // 光标前一个字符起点(按字素簇,防拆 emoji/代理对)
+    final before = text.substring(0, cursor);
+    final lastChar = before.characters.last;
+    var start = cursor - lastChar.length;
+
+    // 落在 :shortcode: 尾部时整体删除
+    final expanded = expandRangeToEmojiShortcodeBoundaries(
+      text,
+      TextRange(start: start, end: cursor),
+    );
+    start = expanded.start;
+
+    final newText = text.replaceRange(start, cursor, '');
+    _controller.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: start),
+    );
+    setState(() {});
+  }
+
   void _toggleEmojiPanel() {
     setState(() {
       _showEmojiPanel = !_showEmojiPanel;
@@ -282,16 +324,49 @@ class _BoostInputSheetState extends ConsumerState<_BoostInputSheet> {
 
           const SizedBox(height: 8),
 
-          // Emoji 面板
+          // Emoji 面板(bottomPadding 给底部安全区 + 悬浮退格键留空)
           if (_showEmojiPanel)
             SizedBox(
-              height: 280,
-              child: EmojiPicker(
-                onEmojiSelected: (emoji) => _insertEmoji(emoji),
+              height: 280 + MediaQuery.of(context).padding.bottom,
+              child: Stack(
+                children: [
+                  EmojiPicker(
+                    onEmojiSelected: (emoji) => _insertEmoji(emoji),
+                    bottomPadding:
+                        MediaQuery.of(context).padding.bottom + 48,
+                  ),
+                  // 悬浮退格键(表情键盘标配 —— 面板打开时软键盘收起,
+                  // 没有它就无法删除,只能切回键盘)
+                  Positioned(
+                    right: 12,
+                    bottom: MediaQuery.of(context).padding.bottom + 8,
+                    child: Material(
+                      color: theme.colorScheme.surfaceContainerHighest,
+                      shape: const CircleBorder(),
+                      elevation: 1,
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap:
+                            _controller.text.isEmpty ? null : _deleteBackward,
+                        child: Padding(
+                          padding: const EdgeInsets.all(10),
+                          child: Icon(
+                            Symbols.backspace_rounded,
+                            size: 20,
+                            color: _controller.text.isEmpty
+                                ? theme.colorScheme.onSurfaceVariant
+                                    .withValues(alpha: 0.3)
+                                : theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
 
-          // 底部安全区
+          // 底部安全区(面板打开时安全区已计入面板高度)
           if (!_showEmojiPanel)
             SizedBox(height: MediaQuery.of(context).padding.bottom),
         ],
