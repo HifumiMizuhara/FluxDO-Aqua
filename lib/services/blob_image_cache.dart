@@ -164,12 +164,14 @@ class BlobImageCache {
   ) async {
     final bytes = await DioHttpClient().fetchBytes(
       Uri.parse(url),
-      // 贴纸原文件走独立下载通道:面板一开 30+ 张大动图批量预取,
-      // 与内容通道(正文/头像/emoji,用户正在看的)物理隔离,
-      // 防止贴纸风暴把正文图饿死。
-      channel: bucket == stickerOriginalBucket
-          ? DownloadChannel.sticker
-          : DownloadChannel.content,
+      // 按 bucket 选下载通道:emoji(KB 级,RTT 主导)走 12 槽 small
+      // 高并发;贴纸原文件(面板预取型大动图)独立 3 槽防饿死内容;
+      // 其余(正文/头像/原图/外部)走 6 槽 content。
+      channel: switch (bucket) {
+        emojiBucket => DownloadChannel.small,
+        stickerOriginalBucket => DownloadChannel.sticker,
+        _ => DownloadChannel.content,
+      },
       onProgress: onProgress,
     );
     if (bytes.isEmpty) {

@@ -113,73 +113,56 @@ class StickerThumbnailProvider
     String bucket = BlobImageCache.stickerOriginalBucket,
     bool Function()? shouldContinue,
   }) async {
-    // Phase 1: 过滤掉不支持 / 已 cache / in-flight 的 URL,异步拉 bytes。
-    // AVIF 跟非 AVIF 分开:走不同的解码 backend(AVIF → flutter_avif FFI,
-    // 其余 → Rust worker pool),且各自独立限流。
+    // 全程流水线:每张图「下载 → magic 分流 → 解码 → 写缩略图」独立
+    // 链式推进,不再是"全部下载完才开始解码"的两段式 —— 旧形态下载
+    // 串行(30 张 × 数百 ms = 十几秒)且总时长 = 下载总和 + 解码总和;
+    // 现在下载并发由 sticker 通道(3 槽)限,解码并发由 AVIF(4)/
+    // 非 AVIF worker pool 各自限,总时长 ≈ max(下载, 解码)。
     //
-    // 关键:用**实际 magic bytes** 而不是 URL 后缀分流。CDN 给的 .gif/.webp
-    // URL 实际内容可能是 AVIF,只看后缀会让 AVIF bytes 进 Rust → crash。
-    final pendingNonAvif = <(String, Uint8List)>[];
-    final pendingAvifUrls = <String>[];
-    for (final url in urls) {
-      if (shouldContinue != null && !shouldContinue()) return;
-      if (!supports(url)) continue;
+    // 分流关键不变:用**实际 magic bytes** 而不是 URL 后缀。CDN 给的
+    // .gif/.webp URL 实际内容可能是 AVIF,后缀分流会让 AVIF bytes 进
+    // Rust → crash。
+    //
+    // shouldContinue 在每张的下载前与解码前各检查一次,切组/关 panel
+    // 后在途任务自然收敛(已发起的单张下载/解码不可中断,跑完即停)。
+    Future<void> one(String url) async {
+      if (!supports(url)) return;
       final thumbKey = _thumbnailCacheKey(url, targetSize);
-      if (_knownThumbnailKeys.contains(thumbKey)) continue;
-      if (_pendingThumbnailTasks.containsKey(thumbKey)) continue;
-
-      final cachedBytes = await _readCachedThumbnailBytes(thumbKey);
-      if (cachedBytes != null) continue;
+      if (_knownThumbnailKeys.contains(thumbKey)) return;
+      if (_pendingThumbnailTasks.containsKey(thumbKey)) return;
+      if (shouldContinue != null && !shouldContinue()) return;
 
       try {
+        final cachedBytes = await _readCachedThumbnailBytes(thumbKey);
+        if (cachedBytes != null) return;
+
         final bytes = await BlobImageCache.fetch(bucket, url);
+        if (shouldContinue != null && !shouldContinue()) return;
+
         if (_bytesLookLikeAvif(bytes)) {
-          pendingAvifUrls.add(url);
+          // AVIF → precache(_pendingThumbnailTasks 去重,与 grid 现场
+          // 解码互不重复;_avifSemaphore(4) 限流)
+          await precache(url, targetSize: targetSize, bucket: bucket);
         } else {
-          pendingNonAvif.add((url, bytes));
+          // 非 AVIF → Rust worker pool(池内并发限流)
+          final reply = await _DecoderWorkerPool.instance.decode(bytes);
+          if (reply == null) return;
+          if (shouldContinue != null && !shouldContinue()) return;
+          await _writeThumbnailFromRustOrFallback(
+            url: url,
+            bytes: bytes,
+            reply: reply,
+            targetSize: targetSize,
+          );
         }
-      } catch (e) {
-        debugPrint('[StickerThumbnail] fetch bytes failed $url: $e');
-      }
-    }
-
-    // Phase 2A: 非 AVIF (GIF / WebP / APNG) — 走 long-lived worker pool
-    // 每张串行送进 worker,主 isolate 拿到 reply 后 ui.Image + resize + cache。
-    // shouldContinue 在每张 sticker 之间检查,用户切组 / 关 panel 立即停。
-    // (worker 内部正在跑的那张无法中断,但不会再 enqueue 新任务。)
-    for (final entry in pendingNonAvif) {
-      if (shouldContinue != null && !shouldContinue()) return;
-      final reply = await _DecoderWorkerPool.instance.decode(entry.$2);
-      if (reply == null) continue;
-      await _writeThumbnailFromRustOrFallback(
-        url: entry.$1,
-        bytes: entry.$2,
-        reply: reply,
-        targetSize: targetSize,
-      );
-    }
-
-    // Phase 2B: AVIF — 经 [precache] 逐张预热(内部 `_pendingThumbnailTasks`
-    // 去重,与 grid widget 触发的现场解码互不重复;`_avifSemaphore(4)` 限流)。
-    //
-    // 历史:这里曾经完全跳过 AVIF prefetch —— 当时 `fa.decodeAvif` 被认为
-    // 走 method channel 全帧 marshal 阻塞主 isolate。现在两个前提都变了:
-    // flutter_avif 3.x 是 FFI + native port 异步(解码在 native 线程),
-    // 且缩略图改为单帧解码([AvifImageProvider.decodeFirstFrame]),主
-    // isolate 每张只剩一次单帧 RGBA 解包,毫秒级 → 放心预热。
-    //
-    // shouldContinue 在每张之间检查(切组 / 关 panel 立即停);已在跑的
-    // 单张解码由 generation 检查点兜底取消(见 [cancelInflight])。
-    for (final url in pendingAvifUrls) {
-      if (shouldContinue != null && !shouldContinue()) return;
-      try {
-        await precache(url, targetSize: targetSize, bucket: bucket);
       } on _ThumbnailCancelled {
-        return;
+        // 面板关闭触发的取消,静默
       } catch (e) {
-        debugPrint('[StickerThumbnail] avif prefetch failed $url: $e');
+        debugPrint('[StickerThumbnail] prefetch failed $url: $e');
       }
     }
+
+    await Future.wait([for (final url in urls) one(url)]);
   }
 
   static Future<void> _writeThumbnailFromRustOrFallback({
@@ -654,21 +637,30 @@ class _DecoderWorkerPool {
   _DecoderWorkerPool._();
   static final _DecoderWorkerPool instance = _DecoderWorkerPool._();
 
-  SendPort? _sendPort;
+  /// worker 条数。旧值 1 的注释是"decode CPU-bound,worker 内并行无意义"
+  /// —— 对单核成立,对现代 8+ 核机器不成立:1 条 isolate 串行吃 30 张
+  /// GIF/WebP,其余核全闲。3 条对齐 AVIF 侧 _avifSemaphore(4) 的量级,
+  /// 冷开面板解码段 ≈ 1/3;spawn 仍是一次性成本(long-lived)。
+  static const int _workerCount = 3;
+
+  final List<SendPort> _sendPorts = [];
   Future<void>? _initFuture;
   int _nextTaskId = 0;
+  int _nextWorker = 0;
   final Map<int, Completer<_DecodeReply>> _pending = {};
 
   Future<void> _ensureInit() {
-    if (_sendPort != null) return Future.value();
+    if (_sendPorts.length == _workerCount) return Future.value();
     if (_initFuture != null) return _initFuture!;
     final completer = Completer<void>();
     _initFuture = completer.future;
     final receivePort = ReceivePort();
     receivePort.listen((dynamic msg) {
       if (msg is SendPort) {
-        _sendPort = msg;
-        if (!completer.isCompleted) completer.complete();
+        _sendPorts.add(msg);
+        if (_sendPorts.length == _workerCount && !completer.isCompleted) {
+          completer.complete();
+        }
         return;
       }
       if (msg is List && msg.length == 2 && msg[0] is int) {
@@ -679,13 +671,15 @@ class _DecoderWorkerPool {
         if (pending != null) pending.complete(reply);
       }
     });
-    Isolate.spawn<SendPort>(_decoderWorkerEntry, receivePort.sendPort,
-            debugName: 'StickerThumbnailWorker')
-        .then((_) {});
+    for (var i = 0; i < _workerCount; i++) {
+      Isolate.spawn<SendPort>(_decoderWorkerEntry, receivePort.sendPort,
+              debugName: 'StickerThumbnailWorker#$i')
+          .then((_) {});
+    }
     return completer.future;
   }
 
-  /// 提交一个 decode 任务。Worker 串行处理。
+  /// 提交一个 decode 任务(round-robin 派给某条 worker,各自串行)。
   /// 如果在解码过程中 [token] 被 cancel,Future 立即 complete `_DecodeReply.err`
   /// (用 sentinel 错误),后续 ui.Image 创建会被跳过。
   Future<_DecodeReply?> decode(
@@ -697,7 +691,8 @@ class _DecoderWorkerPool {
     final taskId = _nextTaskId++;
     final completer = Completer<_DecodeReply>();
     _pending[taskId] = completer;
-    _sendPort!.send([taskId, bytes]);
+    _sendPorts[_nextWorker].send([taskId, bytes]);
+    _nextWorker = (_nextWorker + 1) % _sendPorts.length;
 
     if (token != null) {
       // 监听 cancel:如果在等待期间 token 被 cancel,主动从 pending 移除

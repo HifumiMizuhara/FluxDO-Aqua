@@ -52,17 +52,22 @@ class DioHttpClient extends http.BaseClient {
     'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
   };
 
-  /// 图片下载并发通道(Telegram small/large 分队同款)。
+  /// 图片下载并发通道(下载侧按内容域分队,与缓存 bucket 分池同思路)。
   ///
   /// 曾是单一全局 8 槽 FIFO —— cache_manager 时代每个 manager 自带 10
   /// 并发互相稀释,问题不显;全量走 blob 单一入口后,贴纸面板一开
   /// (30+ 张几百 KB~几 MB 动图 + 批量预取)就把 8 槽全占满,正文图
   /// 排在几十个大文件后面,表现为"贴纸一多正文图加载不出来"。
   ///
-  /// 修法 = TG 下载侧形态:**按内容域分通道,物理隔离**。贴纸(面板
-  /// 预取型、单文件大)独立 3 槽;内容通道(正文/头像/emoji/原图,
-  /// 用户正在看的东西)6 槽 —— 贴纸风暴最多占满自己的通道,永远抢
-  /// 不走内容通道的槽。总并发 9 与原 8 同量级,TLS/带宽压力不变。
+  /// 修法 = 按内容域分通道,物理隔离:
+  /// - **small 12 槽**:emoji 等 KB 级小文件。耗时被 RTT 主导而非带宽,
+  ///   高并发是纯赚(连接复用后无 TLS 风暴,浏览器 H2 加载 emoji 同为
+  ///   几十路);6 槽跑 200 张 ≈ 200/6×RTT≈5s,12 槽砍半。
+  /// - **content 6 槽**:正文/头像/原图/外部图(几十 KB~几 MB 混合,
+  ///   带宽敏感,并发过高互相挤占)。
+  /// - **sticker 3 槽**:贴纸原文件(面板预取型、单文件大),独立通道
+  ///   防挤占内容。
+  static final _Semaphore _smallSemaphore = _Semaphore(12);
   static final _Semaphore _contentSemaphore = _Semaphore(6);
   static final _Semaphore _stickerSemaphore = _Semaphore(3);
 
@@ -181,9 +186,11 @@ class DioHttpClient extends http.BaseClient {
     DownloadChannel channel = DownloadChannel.content,
     void Function(int received, int? total)? onProgress,
   }) async {
-    final semaphore = channel == DownloadChannel.sticker
-        ? _stickerSemaphore
-        : _contentSemaphore;
+    final semaphore = switch (channel) {
+      DownloadChannel.small => _smallSemaphore,
+      DownloadChannel.content => _contentSemaphore,
+      DownloadChannel.sticker => _stickerSemaphore,
+    };
     await semaphore.acquire();
     try {
       final isMainDomain = _isMainDomain(url);
@@ -231,9 +238,12 @@ class DioHttpClient extends http.BaseClient {
   }
 }
 
-/// 图片下载并发通道(见 [DioHttpClient._contentSemaphore] 注释)。
+/// 图片下载并发通道(见 [DioHttpClient._smallSemaphore] 注释)。
 enum DownloadChannel {
-  /// 正文/头像/emoji/原图/外部图 —— 用户正在看的内容,高优通道。
+  /// KB 级小文件(emoji)—— RTT 主导,高并发纯赚。
+  small,
+
+  /// 正文/头像/原图/外部图 —— 带宽敏感的混合内容。
   content,
 
   /// 贴纸原文件 —— 面板预取型、单文件大,独立通道防挤占内容。
