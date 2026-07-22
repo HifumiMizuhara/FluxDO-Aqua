@@ -58,6 +58,10 @@ class LazyImage extends StatefulWidget {
   /// 原始宽,三档共享同一缓存条目,切档 = 纯布局变化零解码。
   final double? decodeWidth;
 
+  /// 加载占位底色(Discourse `data-dominant-color` 主色,官方唯一占位
+  /// 语义 —— web 端加载中就是此纯色背景)。null = 默认灰底。
+  final Color? placeholderColor;
+
   const LazyImage({
     super.key,
     required this.imageProvider,
@@ -70,6 +74,7 @@ class LazyImage extends StatefulWidget {
     this.onSecondaryTapUp,
     this.cacheKey,
     this.decodeWidth,
+    this.placeholderColor,
   });
 
   @override
@@ -271,14 +276,17 @@ class _LazyImageState extends State<LazyImage> {
     // 的层)会被每帧全量重栅格化 —— 实测就是"无动图页面 raster
     // 每帧 8ms 常驻、加载完自愈"的来源。
     Widget placeholderBox({double? progress}) {
+      // 主色占位(dominant-color)压到 0.35 alpha 叠在 surface 上:保留
+      // 色相提示又不刺眼;无主色回落原灰底。
+      final baseColor = widget.placeholderColor == null
+          ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.2)
+          : widget.placeholderColor!.withValues(alpha: 0.35);
       return Container(
         width: width,
         height: height ?? 200,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest.withValues(
-            alpha: 0.2,
-          ),
+          color: baseColor,
           borderRadius: BorderRadius.circular(8),
         ),
         child: RepaintBoundary(

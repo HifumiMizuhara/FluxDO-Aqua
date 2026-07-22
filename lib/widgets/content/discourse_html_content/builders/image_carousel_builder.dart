@@ -1,3 +1,4 @@
+import 'dart:async' show unawaited;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -119,13 +120,14 @@ class _ImageCarouselState extends State<_ImageCarousel> {
 
   /// 预加载当前页 ± _preloadRange 的图片到磁盘缓存
   void _preloadAdjacent(int centerIndex) {
-    final cacheManager = DiscourseCacheManager();
     final start = math.max(0, centerIndex - _preloadRange);
     final end = math.min(widget.images.length - 1, centerIndex + _preloadRange);
     for (int i = start; i <= end; i++) {
       final url = _resolvedUrls[i];
       if (url != null) {
-        cacheManager.preloadImage(url);
+        unawaited(
+          BlobImageCache.precache(BlobImageCache.contentBucket, url),
+        );
       }
     }
   }

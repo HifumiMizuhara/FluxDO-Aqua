@@ -170,6 +170,61 @@ class DioHttpClient extends http.BaseClient {
   void close() {
     // 不关闭共享的 Dio 实例
   }
+
+  /// 直接拉取 URL 的完整字节(BlobImageCache 专用):同一个下载信号量、
+  /// 同一套双 dio 分流,流式读 body 逐 chunk 上报进度。
+  ///
+  /// 非 200 抛 [http.ClientException];[onProgress] 的 total 在响应无
+  /// content-length(或 gzip)时为 null。
+  Future<Uint8List> fetchBytes(
+    Uri url, {
+    void Function(int received, int? total)? onProgress,
+  }) async {
+    await _downloadSemaphore.acquire();
+    try {
+      final isMainDomain = _isMainDomain(url);
+      final extra = <String, dynamic>{};
+      if (isMainDomain) {
+        extra[WebViewHttpAdapter.resourceKindExtraKey] =
+            WebViewHttpAdapter.resourceKindImage;
+        extra[WebViewHttpAdapter.cookieModeExtraKey] =
+            WebViewHttpAdapter.cookieModeReadOnly;
+      }
+      final response = await _selectDio(url).get<dio.ResponseBody>(
+        url.toString(),
+        options: dio.Options(
+          responseType: dio.ResponseType.stream,
+          extra: extra,
+          validateStatus: (status) => true,
+        ),
+      );
+      if (response.statusCode != 200) {
+        throw http.ClientException(
+          'HTTP ${response.statusCode} for $url',
+          url,
+        );
+      }
+      final contentLength = int.tryParse(
+        response.headers.value('content-length') ?? '',
+      );
+      final total =
+          (contentLength != null && contentLength > 0) ? contentLength : null;
+
+      final builder = BytesBuilder(copy: false);
+      final body = response.data;
+      if (body != null) {
+        await for (final chunk in body.stream) {
+          builder.add(chunk);
+          onProgress?.call(builder.length, total);
+        }
+      }
+      return builder.takeBytes();
+    } on dio.DioException catch (e) {
+      throw http.ClientException('Dio error: ${e.message}', url);
+    } finally {
+      _downloadSemaphore.release();
+    }
+  }
 }
 
 /// 简单异步信号量,限制全局图片下载并发。

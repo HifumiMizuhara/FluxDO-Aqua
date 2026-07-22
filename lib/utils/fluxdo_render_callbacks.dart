@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:archive/archive.dart' show ZLibEncoder;
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
@@ -729,6 +728,20 @@ class FluxdoRenderCallbacks {
   /// 不传 resolver(单图打开、菜单隐藏引用)。heroTag 统一 `${heroNamespace}_img_N`。
   /// [galleryResolver] 惰性:仅在用户点图时调用(见 _buildImageWidget onTap),
   /// build 阶段零解析成本。
+  /// 按设备 dpr 从 srcset 选档(浏览器语义:scale ≥ dpr 的最小档,
+  /// 都不够则取最大档)。Discourse 契约:src=1x 主档,srcset 含 1.5x/2x
+  /// (cooked_processor_mixin optimize_image!)。无 srcset 返回 null
+  /// (调用方回落 src)。3x 屏由此从"690px 拉伸模糊"变 2x 档,与 web
+  /// 端渲染等价;解码纹理量不变(ResizeImage 仍按显示宽 × dpr cap)。
+  static String? _pickSrcsetUrl(ImageRun image, double dpr) {
+    if (image.srcset.isEmpty) return null;
+    final sorted = [...image.srcset]..sort((a, b) => a.scale.compareTo(b.scale));
+    for (final c in sorted) {
+      if (c.scale >= dpr - 0.01) return c.url;
+    }
+    return sorted.last.url;
+  }
+
   static ImageContentBuilder _imageContentBuilder({
     required String heroNamespace,
     _GalleryData Function()? galleryResolver,
@@ -1171,8 +1184,26 @@ class FluxdoRenderCallbacks {
           height: dispH,
           child: Builder(
             builder: (ctx) {
+              // srcset 按 dpr 选档(仅 http(s) src;upload:// 短链解析后的
+              // resolvedUrl 与 srcset 候选不同源,不混用)。cacheKey 保持
+              // resolvedUrl:查看器 thumbnailUrl / Hero 同 key 复用不受
+              // 档位影响。
+              final srcsetUrl = DiscourseImageUtils.isUploadUrl(image.src)
+                  ? null
+                  : _pickSrcsetUrl(
+                      image, MediaQuery.devicePixelRatioOf(ctx));
+              final displayUrl = srcsetUrl == null
+                  ? resolvedUrl
+                  : UrlHelper.resolveUrlWithCdn(srcsetUrl);
+              final dominant = image.dominantColor;
               Widget img = LazyImage(
-                imageProvider: discourseImageProvider(resolvedUrl),
+                imageProvider: discourseImageProvider(displayUrl),
+                placeholderColor: dominant == null
+                    ? null
+                    : Color(
+                        0xFF000000 |
+                            (int.tryParse(dominant, radix: 16) ?? 0xEEEEEE),
+                      ),
                 width: dispW,
                 height: dispH,
                 // 解码恒按**原始宽**(scale 乘之前的声明宽):缩放档切换
@@ -1182,18 +1213,26 @@ class FluxdoRenderCallbacks {
                 // 行为不变。
                 decodeWidth: image.origWidth ?? dispW,
                 heroTag: heroTag,
-                cacheKey: resolvedUrl,
+                cacheKey: displayUrl,
                 onTap: () {
                   // 打开大图前清掉自研选区:图片 tap 被 HeroImage 手势赢走,
                   // 选区层收不到不会自动清(否则返回后选区还残留)。
                   SelectionScope.clearAt(ctx);
-                  // 优先用 lightboxUrl(原图大版本);否则用当前 resolvedUrl(已 CDN 重写)
+                  // Discourse 契约:a.lightbox[href] 就是原图 URL,直接用;
+                  // 只有裸 <img>(无 lightbox 包装)才用 /optimized/→
+                  // /original/ 正则反推兜底(正则对 CDN 变体路径有漏配
+                  // 风险,能不用就不用)。
+                  final hasLightbox = image.lightboxUrl != null;
                   final fullUrl = image.lightboxUrl ?? resolvedUrl;
-                  final resolvedFullUrl =
+                  var resolvedFullUrl =
                       DiscourseImageUtils.isUploadUrl(fullUrl)
                       ? (DiscourseImageUtils.getCachedUploadUrl(fullUrl) ??
                             fullUrl)
                       : UrlHelper.resolveUrlWithCdn(fullUrl);
+                  if (!hasLightbox) {
+                    resolvedFullUrl =
+                        DiscourseImageUtils.getOriginalUrl(resolvedFullUrl);
+                  }
                   // 画廊数据在点击时才解析(长帖懒解析场景首次点图会触发
                   // 全 chunk parse,离散动作可接受;之后命中缓存)。
                   // 全帖画廊非空时走画廊 viewer(左右切同帖其他图);否则单图。
@@ -1208,11 +1247,9 @@ class FluxdoRenderCallbacks {
                       galleryIndex < gallery.urls.length;
                   DiscourseImageUtils.openViewer(
                     context: ctx,
-                    imageUrl: DiscourseImageUtils.getOriginalUrl(
-                      resolvedFullUrl,
-                    ),
+                    imageUrl: resolvedFullUrl,
                     heroTag: heroTag,
-                    thumbnailUrl: resolvedUrl,
+                    thumbnailUrl: displayUrl,
                     galleryImages: hasGallery ? gallery.urls : null,
                     thumbnailUrls: hasGallery ? gallery.thumbs : null,
                     heroTags: hasGallery ? gallery.heroTags : null,
@@ -1657,14 +1694,19 @@ class _MermaidBlockState extends State<_MermaidBlock> {
       },
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: CachedNetworkImage(
+        child: Image(
           key: ValueKey('$imageUrl-$_retryCount'),
-          imageUrl: imageUrl,
-          cacheManager: ExternalImageCacheManager(),
+          image: BlobImageProvider(
+            imageUrl,
+            bucket: BlobImageCache.externalBucket,
+          ),
           fit: BoxFit.contain,
-          placeholder: (context, url) =>
-              _buildShimmer(theme, withMargin: false),
-          errorWidget: (context, url, error) {
+          gaplessPlayback: true,
+          frameBuilder: (context, child, frame, wasSync) {
+            if (wasSync || frame != null) return child;
+            return _buildShimmer(theme, withMargin: false);
+          },
+          errorBuilder: (context, error, stack) {
             if (!onInk) {
               // 主源失败 → 下一帧切备源(build 内不能直接 setState)
               WidgetsBinding.instance.addPostFrameCallback((_) {

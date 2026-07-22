@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
 import 'package:common_ui/common_ui.dart';
@@ -125,7 +127,6 @@ class _ImageViewerPageState extends State<ImageViewerPage>
   bool _isSaving = false;
   bool _isSharing = false;
   bool _showUI = true;
-  final DiscourseCacheManager _cacheManager = DiscourseCacheManager();
 
   /// 滑动关闭状态入口:loadStateChanged 用它判断"滑动进行中",冻结
   /// loading→completed 的树切换(切换会销毁正在驱动滑动的手势载体,
@@ -159,7 +160,7 @@ class _ImageViewerPageState extends State<ImageViewerPage>
     final longestPx =
         (view.physicalSize.longestSide * 3).clamp(2048.0, 8192.0).round();
     return ResizeImage(
-      discourseImageProvider(url),
+      discourseImageProvider(url, bucket: BlobImageCache.originalBucket),
       width: longestPx,
       height: longestPx,
       policy: ResizeImagePolicy.fit,
@@ -272,7 +273,11 @@ class _ImageViewerPageState extends State<ImageViewerPage>
     if (currentIndex < images.length - 1) {
       preloadUrls.add(images[currentIndex + 1]);
     }
-    _cacheManager.preloadImages(preloadUrls);
+    for (final url in preloadUrls) {
+      unawaited(
+        BlobImageCache.precache(BlobImageCache.originalBucket, url),
+      );
+    }
   }
 
   /// 获取当前显示的图片 URL
@@ -310,9 +315,12 @@ class _ImageViewerPageState extends State<ImageViewerPage>
 
       // 使用缓存管理器获取图片字节（优先从缓存读取）
       final imageUrl = _currentImageUrl;
-      final Uint8List? imageBytes = await _cacheManager.getImageBytes(imageUrl);
+      final Uint8List imageBytes = await BlobImageCache.fetch(
+        BlobImageCache.originalBucket,
+        imageUrl,
+      );
 
-      if (imageBytes == null || imageBytes.isEmpty) {
+      if (imageBytes.isEmpty) {
         throw Exception(S.current.image_fetchFailed);
       }
 
@@ -513,7 +521,10 @@ class _ImageViewerPageState extends State<ImageViewerPage>
     try {
       final imageUrl = _currentImageUrl;
       // 获取缓存文件（如果不存在会自动下载）
-      final file = await _cacheManager.getSingleFile(imageUrl);
+      final file = await BlobImageCache.getFile(
+        BlobImageCache.originalBucket,
+        imageUrl,
+      );
 
       // 分享文件
       final xFile = XFile(
@@ -1139,10 +1150,7 @@ class _ImageViewerPageState extends State<ImageViewerPage>
 
   /// 构建图片解码 fallback 组件（SVG / AVIF）
   Widget _buildSvgFallback(String imageUrl) {
-    return _ImageDecodeFallback(
-      imageUrl: imageUrl,
-      cacheManager: _cacheManager,
-    );
+    return _ImageDecodeFallback(imageUrl: imageUrl);
   }
 }
 
@@ -1150,12 +1158,8 @@ class _ImageViewerPageState extends State<ImageViewerPage>
 /// 当普通图片解码失败时，依次检测 SVG 和 AVIF 并渲染
 class _ImageDecodeFallback extends StatefulWidget {
   final String imageUrl;
-  final DiscourseCacheManager cacheManager;
 
-  const _ImageDecodeFallback({
-    required this.imageUrl,
-    required this.cacheManager,
-  });
+  const _ImageDecodeFallback({required this.imageUrl});
 
   @override
   State<_ImageDecodeFallback> createState() => _ImageDecodeFallbackState();
@@ -1176,8 +1180,10 @@ class _ImageDecodeFallbackState extends State<_ImageDecodeFallback> {
 
   Future<void> _detectAndDecode() async {
     try {
-      final file = await widget.cacheManager.getSingleFile(widget.imageUrl);
-      final bytes = await file.readAsBytes();
+      final bytes = await BlobImageCache.fetch(
+        BlobImageCache.originalBucket,
+        widget.imageUrl,
+      );
 
       if (bytes.isEmpty || !mounted) return;
 

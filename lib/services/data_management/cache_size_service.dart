@@ -20,14 +20,11 @@ enum ImageCacheCategory {
 
 /// 缓存大小计算服务
 class CacheSizeService {
-  /// flutter_cache_manager 的缓存 key 列表 + blob 缓存根目录。
-  /// 都在 `getTemporaryDirectory()` 下,统计/删除口径一致。
+  /// 统计/删除口径:blob 缓存根目录 + legacy cache_manager 残留目录
+  /// (v9 迁移后为空,防被杀断残留)。都在 `getTemporaryDirectory()` 下。
   static const _cacheKeys = [
-    DiscourseCacheManager.key,
-    kLegacyEmojiCacheKey,
-    ExternalImageCacheManager.key,
-    StickerCacheManager.key,
     BlobImageCache.dirName,
+    ...kLegacyImageCacheKeys,
   ];
 
   /// 计算图片缓存大小（遍历三个 CacheManager 的磁盘目录）
@@ -62,7 +59,10 @@ class CacheSizeService {
     }
 
     Future<int> otherSize() async {
-      var total = await dirsSize(['$t/$kLegacyEmojiCacheKey']);
+      var total = 0;
+      for (final key in kLegacyImageCacheKeys) {
+        total += await _getDirectorySize(Directory('$t/$key'));
+      }
       for (final dir in await _trashDirs(tempDir)) {
         total += await _getDirectorySize(dir);
       }
@@ -70,14 +70,17 @@ class CacheSizeService {
     }
 
     final results = await Future.wait([
-      dirsSize(['$t/${DiscourseCacheManager.key}']),
+      dirsSize([
+        '$t/$blob/${BlobImageCache.contentBucket}',
+        '$t/$blob/${BlobImageCache.originalBucket}',
+      ]),
       dirsSize(['$t/$blob/${BlobImageCache.emojiBucket}']),
       dirsSize(['$t/$blob/${BlobImageCache.avatarBucket}']),
       dirsSize([
-        '$t/${StickerCacheManager.key}',
+        '$t/$blob/${BlobImageCache.stickerOriginalBucket}',
         '$t/$blob/${BlobImageCache.stickerThumbBucket}',
       ]),
-      dirsSize(['$t/${ExternalImageCacheManager.key}']),
+      dirsSize(['$t/$blob/${BlobImageCache.externalBucket}']),
       otherSize(),
     ]);
     return {
@@ -103,21 +106,21 @@ class CacheSizeService {
 
     switch (category) {
       case ImageCacheCategory.content:
-        await DiscourseCacheManager().emptyCache();
-        await deleteDir(DiscourseCacheManager.key);
+        await BlobImageCache.clearBucket(BlobImageCache.contentBucket);
+        await BlobImageCache.clearBucket(BlobImageCache.originalBucket);
       case ImageCacheCategory.emoji:
         await BlobImageCache.clearBucket(BlobImageCache.emojiBucket);
       case ImageCacheCategory.avatar:
         await BlobImageCache.clearBucket(BlobImageCache.avatarBucket);
       case ImageCacheCategory.sticker:
-        await StickerCacheManager().emptyCache();
-        await deleteDir(StickerCacheManager.key);
+        await BlobImageCache.clearBucket(BlobImageCache.stickerOriginalBucket);
         await BlobImageCache.clearBucket(BlobImageCache.stickerThumbBucket);
       case ImageCacheCategory.external:
-        await ExternalImageCacheManager().emptyCache();
-        await deleteDir(ExternalImageCacheManager.key);
+        await BlobImageCache.clearBucket(BlobImageCache.externalBucket);
       case ImageCacheCategory.other:
-        await deleteDir(kLegacyEmojiCacheKey);
+        for (final key in kLegacyImageCacheKeys) {
+          await deleteDir(key);
+        }
         for (final dir in await _trashDirs(tempDir)) {
           try {
             await dir.delete(recursive: true);

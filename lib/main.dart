@@ -12,7 +12,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:native_animated_image/native_animated_image.dart'
     show NativeAnimatedImageProvider;
 import 'package:window_manager/window_manager.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart' as acrylic;
 import 'pages/topics_page.dart';
 import 'pages/data_management_page.dart';
@@ -188,14 +187,6 @@ Future<void> main() async {
     debugProfileBuildsEnabled = true;
   }
 
-  // 桌面端(Windows/Linux)图片缓存索引走 sqlite,需 FFI 提供 sqlite3;移动端 /
-  // macOS 用各自原生 sqflite(flutter_cache_manager 已带),无需处理。必须在任何
-  // 数据库操作(CacheManager / migration)之前设好 databaseFactory。
-  if (Platform.isWindows || Platform.isLinux) {
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
-  }
-
   // Release 模式下禁用 debugPrint 输出：全项目有数百处 debugPrint 调试输出，
   // 它们在 release 下默认仍会写 logcat/console，徒增 I/O 开销。
   // 需要持久化的日志统一走 AppLogger（落盘到统一 JSONL）。
@@ -365,11 +356,9 @@ Future<void> main() async {
 
   // 冷启动自动清除图片缓存（如果用户开启了该选项）
   if (prefs.getBool('pref_clear_cache_on_exit') == true) {
-    Future.wait([
-      DiscourseCacheManager().emptyCache(),
-      ExternalImageCacheManager().emptyCache(),
-      BlobImageCache.clearAll(),
-    ]).then((_) => CacheSizeService.deleteImageCacheDirs()).ignore();
+    BlobImageCache.clearAll()
+        .then((_) => CacheSizeService.deleteImageCacheDirs())
+        .ignore();
   }
 
   // 应用竖屏锁定设置（仅移动端）

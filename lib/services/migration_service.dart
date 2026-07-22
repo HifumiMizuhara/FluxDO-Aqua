@@ -239,7 +239,7 @@ class MigrationService {
       shouldRun: (prefs) async {
         try {
           final tempDir = await getTemporaryDirectory();
-          for (final key in kImageCacheKeys) {
+          for (final key in kLegacyImageCacheKeys) {
             if (await io.Directory(p.join(tempDir.path, key)).exists()) {
               return true;
             }
@@ -252,7 +252,7 @@ class MigrationService {
       run: () async {
         final tempDir = await getTemporaryDirectory();
         final supportDir = await getApplicationSupportDirectory();
-        for (final key in kImageCacheKeys) {
+        for (final key in kLegacyImageCacheKeys) {
           await _trashCacheDir(tempDir, key);
           await _deleteCacheDb(supportDir, key);
         }
@@ -285,6 +285,38 @@ class MigrationService {
         final supportDir = await getApplicationSupportDirectory();
         await _trashCacheDir(tempDir, kLegacyEmojiCacheKey);
         await _deleteCacheDb(supportDir, kLegacyEmojiCacheKey);
+      },
+    ),
+    // v9: 图片缓存全量迁入 BlobImageCache(零 sqlite 寻址),
+    // flutter_cache_manager 退役 —— 三个旧缓存(正文/贴纸/外部)目录 +
+    // db 三件套废弃。直接删不迁移(纯缓存按需重下);同 v7 防卡顿契约。
+    Migration(
+      key: 'image_cache_blob_unification_v9',
+      name: 'Retire flutter_cache_manager image caches',
+      shouldRun: (prefs) async {
+        try {
+          final tempDir = await getTemporaryDirectory();
+          final supportDir = await getApplicationSupportDirectory();
+          for (final key in kLegacyImageCacheKeys) {
+            if (await io.Directory(p.join(tempDir.path, key)).exists()) {
+              return true;
+            }
+            if (await io.File(p.join(supportDir.path, '$key.db')).exists()) {
+              return true;
+            }
+          }
+          return false;
+        } catch (_) {
+          return false;
+        }
+      },
+      run: () async {
+        final tempDir = await getTemporaryDirectory();
+        final supportDir = await getApplicationSupportDirectory();
+        for (final key in kLegacyImageCacheKeys) {
+          await _trashCacheDir(tempDir, key);
+          await _deleteCacheDb(supportDir, key);
+        }
       },
     ),
   ];

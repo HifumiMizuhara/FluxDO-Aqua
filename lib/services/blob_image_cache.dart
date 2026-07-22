@@ -12,29 +12,31 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'dio_http_client.dart';
 
-/// 小图专用的内容寻址文件缓存(Telegram ImageLoader 形态)。
+/// 图片的内容寻址文件缓存(Telegram ImageLoader 形态)。
 ///
 /// ## 为什么不用 flutter_cache_manager
 ///
 /// cache_manager 每张图的热路径 = sqlite SELECT(url→相对路径)→
 /// File.exists → 读文件,还要 touch 回写维护 LRU。表情面板 200 张同屏
 /// = 200 次串行查询,这层索引本身就是延迟来源(为此已被迫做过
-/// ThrottledCacheObjectProvider 节流补丁)。
+/// ThrottledCacheObjectProvider 节流补丁);正文图侧 500 条 LRU 上限
+/// 让两三个图密话题就互相挤兑重下。
 ///
 /// Telegram 的收敛形态(源码实证)是**零数据库**:
 /// - 寻址:HTTP 图 = `MD5(url)` 确定性文件名,给定 URL 纯函数算路径
 ///   (ImageLoader.getHttpFilePath);FilePathDatabase 只是"文件被移出
 ///   缓存目录"的例外覆盖表,图片显示热路径不查库;
 /// - 淘汰:每 24h 节流扫描 listFiles + stat 时间戳,按保留期删旧
-///   (AutoDeleteMediaTask),无 per-file LRU 记录。
+///   (AutoDeleteMediaTask);容量上限 = 按时间戳排序从旧裁剪
+///   (cache_limit),无 per-file LRU 记录。
 /// **文件系统本身就是索引,时间戳本身就是 LRU。**
 ///
-/// ## 适用边界
+/// ## 覆盖面(2026-07 起全量,flutter_cache_manager 退役)
 ///
-/// 只服务"小而多、URL 稳定、不需下载进度"的图:emoji / 头像 / 贴纸
-/// 缩略图。正文大图仍走 DiscourseCacheManager —— 那里需要下载进度、
-/// secure-uploads、部分下载语义,且单屏数量少,索引开销无感;与
-/// Telegram"大媒体走 FileLoader 全套、小图 MD5 直寻址"的分层一致。
+/// 小图(emoji/头像/贴纸缩略)与大图(正文/原图/贴纸原文件/外部图)
+/// 全部走这里,按 bucket 分池:保留期各异 + 大图 bucket 另设字节上限,
+/// 查看器原图(多 MB)不再与正文图挤兑。下载进度经 [fetch] 的
+/// onProgress 上报(替代 cache_manager 的 DownloadProgress 流)。
 class BlobImageCache {
   BlobImageCache._();
 
@@ -46,11 +48,37 @@ class BlobImageCache {
     emojiBucket: Duration(days: 90),
     avatarBucket: Duration(days: 30),
     stickerThumbBucket: Duration(days: 90),
+    contentBucket: Duration(days: 7),
+    originalBucket: Duration(days: 7),
+    stickerOriginalBucket: Duration(days: 90),
+    externalBucket: Duration(days: 30),
+  };
+
+  /// 大图 bucket 的字节上限(TG cache_limit 式:sweep 时按 mtime 从旧
+  /// 裁剪到上限内)。小图 bucket 域有界(emoji ~3k×5KB)不设上限。
+  static const Map<String, int> bucketByteLimits = {
+    contentBucket: 1 << 30, // 1 GB
+    originalBucket: 512 << 20, // 512 MB
+    stickerOriginalBucket: 1 << 30, // 1 GB
+    externalBucket: 256 << 20, // 256 MB
   };
 
   static const String emojiBucket = 'emoji';
   static const String avatarBucket = 'avatar';
   static const String stickerThumbBucket = 'stickerThumb';
+
+  /// 正文 optimized 图(cooked src / srcset 选档结果)。
+  static const String contentBucket = 'content';
+
+  /// 查看器原图(lightbox href)。与 content 分池:多 MB 原图的容量
+  /// 压力不波及正文图。
+  static const String originalBucket = 'original';
+
+  /// 贴纸原文件(Rust 解码管线的 bytes 来源)。
+  static const String stickerOriginalBucket = 'stickerOriginal';
+
+  /// 第三方图(mermaid.ink / GitHub 等,无 Discourse 鉴权语义)。
+  static const String externalBucket = 'external';
 
   static Directory? _root;
   static Future<Directory>? _rootFuture;
@@ -110,27 +138,68 @@ class BlobImageCache {
   ///
   /// 下载走 [DioHttpClient](主域带 cookie / CDN 不带的双 dio 语义 +
   /// 全局 8 并发信号量,与 cache_manager 时代同一条网络路径)。
-  static Future<Uint8List> fetch(String bucket, String url) async {
+  ///
+  /// [onProgress] 下载字节进度(received, total;total 可能为 null ——
+  /// 无 content-length)。缓存命中不回调;同 key 并发时**只有首个调用
+  /// 方的回调生效**(共享同一下载,进度语义按首发方)。
+  static Future<Uint8List> fetch(
+    String bucket,
+    String url, {
+    void Function(int received, int? total)? onProgress,
+  }) async {
     final cached = await read(bucket, url);
     if (cached != null) return cached;
 
     final inflightKey = '$bucket|$url';
-    return _inflight[inflightKey] ??= _download(bucket, url).whenComplete(() {
+    return _inflight[inflightKey] ??=
+        _download(bucket, url, onProgress).whenComplete(() {
       _inflight.remove(inflightKey);
     });
   }
 
-  static Future<Uint8List> _download(String bucket, String url) async {
-    final response = await DioHttpClient().get(Uri.parse(url));
-    if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
-      throw HttpException(
-        'BlobImageCache: HTTP ${response.statusCode} for $url',
-        uri: Uri.parse(url),
-      );
+  static Future<Uint8List> _download(
+    String bucket,
+    String url,
+    void Function(int received, int? total)? onProgress,
+  ) async {
+    final bytes = await DioHttpClient().fetchBytes(
+      Uri.parse(url),
+      onProgress: onProgress,
+    );
+    if (bytes.isEmpty) {
+      throw HttpException('BlobImageCache: empty body for $url',
+          uri: Uri.parse(url));
     }
-    final bytes = response.bodyBytes;
     await write(bucket, url, bytes);
     return bytes;
+  }
+
+  /// 读缓存,miss 则下载,返回**缓存文件**(需要 File 语义的调用方:
+  /// 贴纸 Rust 管线、保存/分享)。文件由 fetch 落盘,路径确定性。
+  static Future<File> getFile(
+    String bucket,
+    String url, {
+    void Function(int received, int? total)? onProgress,
+  }) async {
+    await fetch(bucket, url, onProgress: onProgress);
+    return _fileFor(bucket, url);
+  }
+
+  /// 仅查缓存是否已存在(不下载)。预取跳过判断用。
+  static Future<bool> contains(String bucket, String url) async {
+    final file = await _fileFor(bucket, url);
+    return file.exists();
+  }
+
+  /// 预取:已缓存/在途则跳过,否则下载落盘。错误静默(预取尽力而为)。
+  static Future<void> precache(String bucket, String url) async {
+    try {
+      if (_inflight.containsKey('$bucket|$url')) return;
+      if (await contains(bucket, url)) return;
+      await fetch(bucket, url);
+    } catch (e) {
+      debugPrint('[BlobImageCache] precache 失败 $url: $e');
+    }
   }
 
   /// 节流 touch:更新 mtime 供 [sweep] 判活。fire-and-forget,失败无害
@@ -142,10 +211,10 @@ class BlobImageCache {
     );
   }
 
-  /// 淘汰扫描:按 bucket 保留期删除 mtime 过期文件(Telegram
-  /// AutoDeleteMediaTask 同款)。prefs 时间戳节流每 24h 一次;调用方
-  /// 应在首帧后空闲时机触发。扫描/删除整体放 [Isolate.run],主 isolate
-  /// 零负担。
+  /// 淘汰扫描:按 bucket 保留期删 mtime 过期文件 + 大图 bucket 超出
+  /// 字节上限时按 mtime 从旧裁剪(Telegram AutoDeleteMediaTask +
+  /// cache_limit 同款)。prefs 时间戳节流每 24h 一次;调用方应在首帧后
+  /// 空闲时机触发。扫描/删除整体放 [Isolate.run],主 isolate 零负担。
   static Future<void> sweep(SharedPreferences prefs) async {
     const stampKey = 'blob_image_cache_last_sweep';
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -155,8 +224,9 @@ class BlobImageCache {
 
     final root = await _ensureRoot();
     final rootPath = root.path;
-    // buckets 是 const,复制成局部量传进 isolate。
+    // const map 复制成局部量传进 isolate。
     final retention = Map<String, Duration>.of(buckets);
+    final byteLimits = Map<String, int>.of(bucketByteLimits);
     try {
       final deleted = await Isolate.run(() async {
         var count = 0;
@@ -164,24 +234,45 @@ class BlobImageCache {
         for (final entry in retention.entries) {
           final dir = Directory('$rootPath/${entry.key}');
           if (!dir.existsSync()) continue;
+
+          // Pass 1: 按保留期删过期 + 清 .tmp 残骸;顺带收集存活文件。
+          final alive = <({String path, DateTime mtime, int size})>[];
           for (final f in dir.listSync()) {
             if (f is! File) continue;
             try {
               final stat = f.statSync();
               final age = nowTime.difference(stat.modified);
-              // .tmp 残骸(写一半被杀)超过 1 天也一并清。
               final isTmp = f.path.endsWith('.tmp');
-              if (age > entry.value || (isTmp && age > const Duration(days: 1))) {
+              if (age > entry.value ||
+                  (isTmp && age > const Duration(days: 1))) {
                 f.deleteSync();
                 count++;
+              } else if (!isTmp) {
+                alive.add(
+                    (path: f.path, mtime: stat.modified, size: stat.size));
               }
+            } catch (_) {}
+          }
+
+          // Pass 2: 字节上限裁剪(从旧到新删,直到落回上限内)。
+          final limit = byteLimits[entry.key];
+          if (limit == null) continue;
+          var total = alive.fold<int>(0, (a, f) => a + f.size);
+          if (total <= limit) continue;
+          alive.sort((a, b) => a.mtime.compareTo(b.mtime));
+          for (final f in alive) {
+            if (total <= limit) break;
+            try {
+              File(f.path).deleteSync();
+              total -= f.size;
+              count++;
             } catch (_) {}
           }
         }
         return count;
       });
       if (deleted > 0) {
-        debugPrint('[BlobImageCache] sweep 删除 $deleted 个过期文件');
+        debugPrint('[BlobImageCache] sweep 删除 $deleted 个过期/超限文件');
       }
     } catch (e) {
       debugPrint('[BlobImageCache] sweep 失败: $e');
@@ -235,8 +326,12 @@ class BlobImageProvider extends ImageProvider<BlobImageProvider> {
     BlobImageProvider key,
     ImageDecoderCallback decode,
   ) {
+    // chunkEvents 驱动 Image.loadingBuilder / LazyImage 的确定值进度环
+    // (与 CachedNetworkImageProvider 的 DownloadProgress 流同语义)。
+    final chunkEvents = StreamController<ImageChunkEvent>();
     return MultiFrameImageStreamCompleter(
-      codec: _loadAsync(key, decode),
+      codec: _loadAsync(key, decode, chunkEvents),
+      chunkEvents: chunkEvents.stream,
       scale: key.scale,
       debugLabel: 'BlobImageProvider(${key.url})',
       informationCollector: () => [
@@ -249,9 +344,20 @@ class BlobImageProvider extends ImageProvider<BlobImageProvider> {
   Future<ui.Codec> _loadAsync(
     BlobImageProvider key,
     ImageDecoderCallback decode,
+    StreamController<ImageChunkEvent> chunkEvents,
   ) async {
     try {
-      final bytes = await BlobImageCache.fetch(key.bucket, key.url);
+      final bytes = await BlobImageCache.fetch(
+        key.bucket,
+        key.url,
+        onProgress: (received, total) {
+          if (chunkEvents.isClosed) return;
+          chunkEvents.add(ImageChunkEvent(
+            cumulativeBytesLoaded: received,
+            expectedTotalBytes: total,
+          ));
+        },
+      );
       final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
       return await decode(buffer);
     } catch (e) {
@@ -261,6 +367,8 @@ class BlobImageProvider extends ImageProvider<BlobImageProvider> {
         PaintingBinding.instance.imageCache.evict(key);
       });
       rethrow;
+    } finally {
+      unawaited(chunkEvents.close());
     }
   }
 
