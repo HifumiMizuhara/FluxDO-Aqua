@@ -5,6 +5,8 @@ import 'avif_image_provider.dart';
 export 'avif_image_provider.dart' show AvifImageProvider;
 import 'blob_image_cache.dart';
 export 'blob_image_cache.dart' show BlobImageCache, BlobImageProvider;
+import 'dio_http_client.dart' show DownloadPriority;
+export 'dio_http_client.dart' show DownloadPriority;
 
 /// 旧 flutter_cache_manager 时代的缓存 cacheKey(2026-07 全量退役,
 /// 仅供迁移 v7/v8/v9 清理旧目录与 db 引用)。
@@ -64,18 +66,24 @@ ImageProvider discourseImageProvider(
   String url, {
   double scale = 1.0,
   String bucket = BlobImageCache.contentBucket,
+  DownloadPriority priority = DownloadPriority.normal,
 }) {
   if (_isAvifUrl(url)) {
     return AvifImageProvider(url, scale: scale, bucket: bucket);
   }
   if (_isNativeAnimatedUrl(url)) {
     return NativeAnimatedImageProvider.fromBytesProvider(
-      loader: () => BlobImageCache.fetch(bucket, url),
+      loader: () => BlobImageCache.fetch(bucket, url, priority: priority),
       tag: url,
       scale: scale,
     );
   }
-  return BlobImageProvider(url, bucket: bucket, scale: scale);
+  return BlobImageProvider(
+    url,
+    bucket: bucket,
+    scale: scale,
+    priority: priority,
+  );
 }
 
 /// 创建 Emoji 图片 Provider

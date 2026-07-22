@@ -145,6 +145,7 @@ class BlobImageCache {
   static Future<Uint8List> fetch(
     String bucket,
     String url, {
+    DownloadPriority priority = DownloadPriority.normal,
     void Function(int received, int? total)? onProgress,
   }) async {
     final cached = await read(bucket, url);
@@ -152,26 +153,40 @@ class BlobImageCache {
 
     final inflightKey = '$bucket|$url';
     return _inflight[inflightKey] ??=
-        _download(bucket, url, onProgress).whenComplete(() {
+        _download(bucket, url, priority, onProgress).whenComplete(() {
       _inflight.remove(inflightKey);
     });
   }
 
+  /// 按 bucket 选下载通道:emoji(KB 级,RTT 主导)走 12 槽 small
+  /// 高并发;贴纸原文件(面板预取型大动图)独立 3 槽防饿死内容;
+  /// 其余(正文/头像/原图/外部)走 6 槽 content。
+  static DownloadChannel _channelOf(String bucket) => switch (bucket) {
+        emojiBucket => DownloadChannel.small,
+        stickerOriginalBucket => DownloadChannel.sticker,
+        _ => DownloadChannel.content,
+      };
+
+  /// 视野优先级信号(Telegram bumpPriority 同款语义):
+  /// [bump] = 图片首帧 paint(真进视口)→ 排队中的请求插到高优队列;
+  /// [sink] = widget dispose(滚出视口)→ 沉回低优队尾给新视野让路。
+  /// 在途 HTTP 不动 —— 下完写盘即缓存,取消是白扔投资。两者幂等。
+  static void bump(String bucket, String url) =>
+      DioHttpClient.bumpPending(_channelOf(bucket), url);
+
+  static void sink(String bucket, String url) =>
+      DioHttpClient.sinkPending(_channelOf(bucket), url);
+
   static Future<Uint8List> _download(
     String bucket,
     String url,
+    DownloadPriority priority,
     void Function(int received, int? total)? onProgress,
   ) async {
     final bytes = await DioHttpClient().fetchBytes(
       Uri.parse(url),
-      // 按 bucket 选下载通道:emoji(KB 级,RTT 主导)走 12 槽 small
-      // 高并发;贴纸原文件(面板预取型大动图)独立 3 槽防饿死内容;
-      // 其余(正文/头像/原图/外部)走 6 槽 content。
-      channel: switch (bucket) {
-        emojiBucket => DownloadChannel.small,
-        stickerOriginalBucket => DownloadChannel.sticker,
-        _ => DownloadChannel.content,
-      },
+      channel: _channelOf(bucket),
+      priority: priority,
       onProgress: onProgress,
     );
     if (bytes.isEmpty) {
@@ -318,11 +333,22 @@ class BlobImageCache {
 /// 自动纳入解码闸门的尺寸分档(小图旁路 / 大图过闸)。
 @immutable
 class BlobImageProvider extends ImageProvider<BlobImageProvider> {
-  const BlobImageProvider(this.url, {required this.bucket, this.scale = 1.0});
+  const BlobImageProvider(
+    this.url, {
+    required this.bucket,
+    this.scale = 1.0,
+    this.priority = DownloadPriority.normal,
+  });
 
   final String url;
   final String bucket;
   final double scale;
+
+  /// 初始下载优先级(用户主动打开的查看器传 high;正文/面板图默认
+  /// normal,靠首帧 paint 的 [BlobImageCache.bump] 动态提级)。
+  /// **刻意不参与 == / hashCode**:优先级是调度提示,不是图片身份,
+  /// 参与相等性会让同 URL 的 high/normal 各解码一份。
+  final DownloadPriority priority;
 
   @override
   Future<BlobImageProvider> obtainKey(ImageConfiguration configuration) {
@@ -358,6 +384,7 @@ class BlobImageProvider extends ImageProvider<BlobImageProvider> {
       final bytes = await BlobImageCache.fetch(
         key.bucket,
         key.url,
+        priority: key.priority,
         onProgress: (received, total) {
           if (chunkEvents.isClosed) return;
           chunkEvents.add(ImageChunkEvent(

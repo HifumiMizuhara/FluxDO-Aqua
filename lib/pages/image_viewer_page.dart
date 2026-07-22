@@ -160,7 +160,12 @@ class _ImageViewerPageState extends State<ImageViewerPage>
     final longestPx =
         (view.physicalSize.longestSide * 3).clamp(2048.0, 8192.0).round();
     return ResizeImage(
-      discourseImageProvider(url, bucket: BlobImageCache.originalBucket),
+      discourseImageProvider(
+        url,
+        bucket: BlobImageCache.originalBucket,
+        // 用户主动点开的大图,插到所有预建/预取前面
+        priority: DownloadPriority.high,
+      ),
       width: longestPx,
       height: longestPx,
       policy: ResizeImagePolicy.fit,

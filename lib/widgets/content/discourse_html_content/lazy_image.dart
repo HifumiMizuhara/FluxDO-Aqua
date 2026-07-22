@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
+import '../../../services/blob_image_cache.dart';
 import '../../../services/image_decode_spec_memo.dart';
 import '../../../services/media_geometry_memo.dart';
 import '../../../utils/frame_jank_monitor.dart';
 import '../../../utils/image_paint_gate.dart';
 import '../../common/anchor_guard_sliver.dart';
+import '../../common/first_paint_probe.dart';
 import '../../common/hero_image.dart';
 import '../svg_view.dart';
 
@@ -144,6 +146,12 @@ class _LazyImageState extends State<LazyImage> {
     _stopRatioResolve();
     _cancelGateWait();
     _scrollAwareContext.dispose();
+    // 滚出视口:仍在下载等待队列的请求沉回低优队尾,给新视野让路。
+    // 在途 HTTP 不取消 —— 下完写盘即缓存,滚回来直接命中。
+    final url = widget.cacheKey;
+    if (url != null && url.startsWith('http')) {
+      BlobImageCache.sink(BlobImageCache.contentBucket, url);
+    }
     super.dispose();
   }
 
@@ -386,6 +394,18 @@ class _LazyImageState extends State<LazyImage> {
       onSecondaryTapUp: widget.onSecondaryTapUp,
       child: imageChild,
     );
+
+    // 视野优先级:cacheExtent 预建区的 cell 会 build/layout 但不 paint,
+    // 首帧 paint = 真进视口 —— 把还在下载等待队列的请求提到高优
+    // (Telegram 滚入视野 bumpPriority 同款语义,幂等零成本)。
+    final bumpUrl = widget.cacheKey;
+    if (bumpUrl != null && bumpUrl.startsWith('http')) {
+      imageWidget = FirstPaintProbe(
+        onFirstPaint: () =>
+            BlobImageCache.bump(BlobImageCache.contentBucket, bumpUrl),
+        child: imageWidget,
+      );
+    }
 
     // 重绘隔离:spinner/动图/首绘只重画图片区域,不连带整个帖子 segment
     imageWidget = RepaintBoundary(child: imageWidget);

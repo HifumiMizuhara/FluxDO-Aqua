@@ -74,6 +74,21 @@ class DioHttpClient extends http.BaseClient {
   /// [send](http.BaseClient 接口,现无常驻调用方)沿用内容通道。
   static _Semaphore get _downloadSemaphore => _contentSemaphore;
 
+  static _Semaphore _semaphoreOf(DownloadChannel channel) => switch (channel) {
+        DownloadChannel.small => _smallSemaphore,
+        DownloadChannel.content => _contentSemaphore,
+        DownloadChannel.sticker => _stickerSemaphore,
+      };
+
+  /// 把仍在 [channel] 等待队列中的 [url] 提到高优先级(滚入视野)。
+  /// 在途/未排队/已完成均为无操作 —— 幂等,调用方无需判断状态。
+  static void bumpPending(DownloadChannel channel, String url) =>
+      _semaphoreOf(channel).bump(url);
+
+  /// 把仍在 [channel] 等待队列中的 [url] 沉到低优先级队尾(滚出视野)。
+  static void sinkPending(DownloadChannel channel, String url) =>
+      _semaphoreOf(channel).sink(url);
+
   /// 提取 [AppConstants.baseUrl] 的 host(例如 `linux.do`),用于判断主域。
   /// 注意是 host 比对而不是 URL prefix 比对 —— 子域(`auth.linux.do` 等)
   /// 也算主域,会走带 cookie 的 dio。
@@ -90,7 +105,10 @@ class DioHttpClient extends http.BaseClient {
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
-    await _downloadSemaphore.acquire();
+    await _downloadSemaphore.acquire(
+      request.url.toString(),
+      DownloadPriority.normal,
+    );
     try {
       // 转换 headers
       final headers = <String, dynamic>{};
@@ -184,14 +202,11 @@ class DioHttpClient extends http.BaseClient {
   Future<Uint8List> fetchBytes(
     Uri url, {
     DownloadChannel channel = DownloadChannel.content,
+    DownloadPriority priority = DownloadPriority.normal,
     void Function(int received, int? total)? onProgress,
   }) async {
-    final semaphore = switch (channel) {
-      DownloadChannel.small => _smallSemaphore,
-      DownloadChannel.content => _contentSemaphore,
-      DownloadChannel.sticker => _stickerSemaphore,
-    };
-    await semaphore.acquire();
+    final semaphore = _semaphoreOf(channel);
+    await semaphore.acquire(url.toString(), priority);
     try {
       final isMainDomain = _isMainDomain(url);
       final extra = <String, dynamic>{};
@@ -250,29 +265,73 @@ enum DownloadChannel {
   sticker,
 }
 
-/// 简单异步信号量,限制全局图片下载并发。
+/// 下载请求优先级(Telegram FileLoaderPriorityQueue 的两级简化)。
+enum DownloadPriority {
+  /// 在视口内 / 用户主动操作(查看器、保存、分享)。
+  high,
+
+  /// 预建 / 预取 / 已滚出视口。
+  normal,
+}
+
+/// 两级优先级信号量:释放槽位时 high 队列先行;同级 FIFO。
+///
+/// 配合 [DioHttpClient.bumpPending] / [DioHttpClient.sinkPending]:
+/// 排队中的请求可随视野变化在两级间迁移(滚入视野 → high 插队,
+/// 滚出视野 → 沉回 normal 队尾),在途请求不动 —— 已下载字节写盘
+/// 即缓存,取消只会白扔投资(我们没有 TG 的 .temp 断点续传,几 MB
+/// 以下文件也不值得建)。
 class _Semaphore {
   _Semaphore(this.maxCount);
 
   final int maxCount;
   int _current = 0;
-  final _queue = <Completer<void>>[];
+  final _high = <_Waiter>[];
+  final _normal = <_Waiter>[];
 
-  Future<void> acquire() {
+  Future<void> acquire(String key, DownloadPriority priority) {
     if (_current < maxCount) {
       _current++;
       return Future.value();
     }
-    final c = Completer<void>();
-    _queue.add(c);
-    return c.future;
+    final w = _Waiter(key);
+    (priority == DownloadPriority.high ? _high : _normal).add(w);
+    return w.completer.future;
   }
 
   void release() {
-    if (_queue.isNotEmpty) {
-      _queue.removeAt(0).complete();
+    final queue = _high.isNotEmpty ? _high : _normal;
+    if (queue.isNotEmpty) {
+      queue.removeAt(0).completer.complete();
     } else {
       _current--;
     }
   }
+
+  /// 把排队中的 [key] 提到 high 队尾(已在 high / 未在队列则无操作)。
+  void bump(String key) {
+    final i = _normal.indexWhere((w) => w.key == key);
+    if (i < 0) return;
+    _high.add(_normal.removeAt(i));
+  }
+
+  /// 把排队中的 [key] 沉到 normal 队尾(滚出视野的预建请求让路)。
+  void sink(String key) {
+    final i = _high.indexWhere((w) => w.key == key);
+    if (i >= 0) {
+      _normal.add(_high.removeAt(i));
+      return;
+    }
+    // 已在 normal:移到队尾(后来的视野内请求先走)
+    final j = _normal.indexWhere((w) => w.key == key);
+    if (j >= 0 && j != _normal.length - 1) {
+      _normal.add(_normal.removeAt(j));
+    }
+  }
+}
+
+class _Waiter {
+  _Waiter(this.key);
+  final String key;
+  final completer = Completer<void>();
 }
