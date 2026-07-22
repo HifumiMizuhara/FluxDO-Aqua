@@ -5,6 +5,7 @@ import 'package:flutter/painting.dart';
 import 'package:flutter_avif/flutter_avif.dart' as fa;
 import '../l10n/s.dart';
 import '../utils/scroll_busy_signal.dart';
+import 'avif_fast_bridge.dart';
 import 'blob_image_cache.dart';
 
 /// 限制并发 AVIF 解码数(thumbnail batch 场景)。
@@ -215,8 +216,9 @@ class AvifImageProvider extends ImageProvider<AvifImageProvider> {
   ///
   /// 静态 AVIF 优先平台 codec([_tryPlatformAvifCodec],IO 线程解码 +
   /// decode-time 降采样到 [maxDimension]);动画 / 平台不支持时回落
-  /// `MultiFrameAvifCodec`:`initMemoryDecoder` 只做容器解析,帧由
-  /// `getNextFrame` 增量解出。
+  /// Rust 增量解码 —— 优先 [AvifFastBridge](零拷贝帧桥,每帧免
+  /// protobuf 解析 + 双重拷贝,且带 decode-time 降采样),桥不可用
+  /// (理论上只有 web)才落官方 `MultiFrameAvifCodec`。
   static Future<fa.AvifCodec> _createCodec(AvifImageProvider key) async {
     final bytes = await BlobImageCache.fetch(key.bucket, key.url);
     if (!_avifPlatformCodecUnavailable && !_looksAnimatedAvif(bytes)) {
@@ -228,6 +230,14 @@ class AvifImageProvider extends ImageProvider<AvifImageProvider> {
       // 静态 AVIF 平台解不了 → 断定平台无 AVIF 支持,后续不再白试。
       // (即使是文件损坏导致的误判,效果也只是回到全 Rust 现状。)
       _avifPlatformCodecUnavailable = true;
+    }
+    if (AvifFastBridge.available) {
+      final codec = _FastAvifCodec(
+        key: '${_avifCodecKeySeq++}',
+        maxDim: key.maxDimension,
+      );
+      await codec.init(bytes);
+      return codec;
     }
     final codec = fa.MultiFrameAvifCodec(
       key: _avifCodecKeySeq++,
@@ -264,6 +274,16 @@ class AvifImageProvider extends ImageProvider<AvifImageProvider> {
       }
       if (!_looksAnimatedAvif(bytes)) {
         _avifPlatformCodecUnavailable = true;
+      }
+    }
+    if (AvifFastBridge.available) {
+      final key = 'ff${_avifCodecKeySeq++}';
+      try {
+        await AvifFastBridge.initDecoder(key, bytes);
+        final frame = await AvifFastBridge.getNextFrame(key, maxDim: maxDim);
+        return frame.image;
+      } finally {
+        unawaited(AvifFastBridge.disposeDecoder(key));
       }
     }
     final codec = fa.MultiFrameAvifCodec(
@@ -491,6 +511,49 @@ class _PlatformAvifCodec implements fa.AvifCodec {
   void dispose() => _codec.dispose();
 }
 
+/// [AvifFastBridge] 的 [fa.AvifCodec] 适配:Rust 增量解码(动画 AVIF /
+/// 无平台 codec 的静态 AVIF),每帧零拷贝 + decode-time 降采样。
+///
+/// 与官方 `MultiFrameAvifCodec` 共用 Rust 端 decoder 注册表与调用契约,
+/// 仅 Dart 桥不同(见 avif_fast_bridge.dart 头注释)。
+class _FastAvifCodec implements fa.AvifCodec {
+  _FastAvifCodec({required String key, this.maxDim}) : _key = key;
+
+  final String _key;
+
+  /// 帧长边上限,超限帧解码时直接降采样(替代 completer 的 GPU 缩放兜底)。
+  final int? maxDim;
+
+  int _frameCount = 1;
+  double _durationSec = 0;
+
+  @override
+  int get frameCount => _frameCount;
+
+  @override
+  int get durationMs => (_durationSec * 1000).round();
+
+  Future<void> init(Uint8List bytes) async {
+    final info = await AvifFastBridge.initDecoder(_key, bytes);
+    _frameCount = info.imageCount;
+    _durationSec = info.durationSec;
+  }
+
+  @override
+  Future<void> ready() async {}
+
+  @override
+  Future<fa.AvifFrameInfo> getNextFrame() async {
+    final frame = await AvifFastBridge.getNextFrame(_key, maxDim: maxDim);
+    return fa.AvifFrameInfo(image: frame.image, duration: frame.duration);
+  }
+
+  @override
+  void dispose() {
+    unawaited(AvifFastBridge.disposeDecoder(_key));
+  }
+}
+
 /// AVIF 流式动画 Completer。
 ///
 /// 与旧实现("`fa.decodeAvif` 全帧预解,Timer 轮播内存中的帧列表")的区别:
@@ -528,6 +591,11 @@ class _AvifAnimatedImageStreamCompleter extends ImageStreamCompleter {
   fa.AvifCodec? _codec;
   bool _starting = false;
   Timer? _timer;
+
+  /// 是否已交付过至少一帧。滚动冻结只拦**后续帧**:首帧要放行,否则
+  /// 滚动中进入视口的图整个 busy 窗口(1s)只有占位,"加载很慢"的
+  /// 观感大头;静态图(平台 codec/单帧)滚动中本来就允许首绘,口径对齐。
+  bool _hasEmittedFrame = false;
 
   /// 暂停代号:每次 [_pause] 自增,使在途的异步解码结果作废。
   int _generation = 0;
@@ -582,7 +650,9 @@ class _AvifAnimatedImageStreamCompleter extends ImageStreamCompleter {
     // 时匿名解码线程合计吃 40%+ 单核,raster 反复 50~200ms 大帧且
     // imageCache 零增量(动图帧不进缓存增量,是它的指纹)。冻结在
     // 当前帧、静默后恢复播放;滚动中肉眼无感,和首绘闸门口径一致。
-    if (ScrollBusySignal.isBusy) {
+    // 首帧除外:占位→首帧是一次性成本,拦它只会把"加载慢"拖满整个
+    // busy 窗口。
+    if (_hasEmittedFrame && ScrollBusySignal.isBusy) {
       _timer?.cancel();
       _timer = Timer(const Duration(milliseconds: 250), _decodeAndEmitNext);
       return;
@@ -622,6 +692,7 @@ class _AvifAnimatedImageStreamCompleter extends ImageStreamCompleter {
 
     // setImage 接管 image 所有权(替换时基类会 dispose 旧帧)
     setImage(ImageInfo(image: image, scale: scale));
+    _hasEmittedFrame = true;
 
     if (singleFrame || codec.frameCount <= 1) {
       // 静态图 / 单帧:不会再要帧,立即释放 Rust 端 decoder

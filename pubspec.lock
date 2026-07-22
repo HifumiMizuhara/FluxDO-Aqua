@@ -575,7 +575,7 @@ packages:
     source: hosted
     version: "3.1.0"
   flutter_avif_platform_interface:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: flutter_avif_platform_interface
       sha256: f5c110bdb7de2d4ab4902bfe2ec331fe24bc19b6d54f00ac4fa165effc0edcda
