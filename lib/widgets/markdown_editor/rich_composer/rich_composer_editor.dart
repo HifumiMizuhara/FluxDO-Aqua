@@ -930,6 +930,8 @@ class RichComposerEditorState extends State<RichComposerEditor> {
       onEmojiSelected: (emoji) => _insertEmoji(emoji.name),
       // sticker markdown(含 ,30% 缩放后缀)走 cook 链路整段导入
       onStickerSelected: insertMarkdownSnippet,
+      // 富编辑器的 backspace 原生处理岛/容器边界,直接复用
+      onBackspace: () => _editor?.backspace(),
     );
     return SizedBox(height: _panelHeight, child: _emojiPanelChild);
   }
