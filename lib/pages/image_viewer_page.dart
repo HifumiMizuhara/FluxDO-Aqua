@@ -1288,8 +1288,13 @@ class _ImageDecodeFallbackState extends State<_ImageDecodeFallback> {
       // 使用 AvifImageProvider 解码并渲染，自动支持动画 AVIF
       return Center(
         child: Image(
-          // 查看器要原图清晰度,放开帖内默认的 2048 帧上限
-          image: AvifImageProvider(widget.imageUrl, maxDimension: null),
+          // 查看器要原图清晰度,放开帖内默认的 2048 帧上限;bucket 与
+          // 本组件嗅探时的 fetch 一致(original),避免同图双份缓存。
+          image: AvifImageProvider(
+            widget.imageUrl,
+            maxDimension: null,
+            bucket: BlobImageCache.originalBucket,
+          ),
           fit: BoxFit.contain,
         ),
       );
