@@ -52,22 +52,22 @@ class DioHttpClient extends http.BaseClient {
     'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
   };
 
-  /// 全局图片下载并发上限。
+  /// 图片下载并发通道(Telegram small/large 分队同款)。
   ///
-  /// flutter_cache_manager 的 WebHelper 虽然每个 manager 限 10 并发,但
-  /// 内容 / emoji / sticker / 外部 4 个 manager 共享同一条网络:emoji 与
-  /// sticker 面板同时 keep-alive、再叠加贴内图片时,瞬时 30+ 并发会造成
-  /// TLS 握手风暴、带宽互相挤占和 CDN 限流(429→裂图)。这里在 Dio 层做
-  /// 全局兜底。
+  /// 曾是单一全局 8 槽 FIFO —— cache_manager 时代每个 manager 自带 10
+  /// 并发互相稀释,问题不显;全量走 blob 单一入口后,贴纸面板一开
+  /// (30+ 张几百 KB~几 MB 动图 + 批量预取)就把 8 槽全占满,正文图
+  /// 排在几十个大文件后面,表现为"贴纸一多正文图加载不出来"。
   ///
-  /// 实现上 [send] 会把 body **完整读进内存后**才返回并在 finally 释放槽:
-  /// - 并发槽覆盖整个 body 传输阶段,限流不是只限"拿到响应头";
-  /// - WebHelper 对非 200/304 响应直接 throw、从不消费 body 流,如果释放
-  ///   时机挂在"调用方读完流"上,每个失败响应都会泄漏一个槽,8 次 404/429
-  ///   之后全 app 图片下载死锁。读完再返回让释放变成确定性的。
-  /// 经此 client 的都是图片/小文件(cache manager 专用),8 并发 × 几 MB
-  /// 的瞬时内存可控;进度事件本来就没有 UI 在消费,无损失。
-  static final _Semaphore _downloadSemaphore = _Semaphore(8);
+  /// 修法 = TG 下载侧形态:**按内容域分通道,物理隔离**。贴纸(面板
+  /// 预取型、单文件大)独立 3 槽;内容通道(正文/头像/emoji/原图,
+  /// 用户正在看的东西)6 槽 —— 贴纸风暴最多占满自己的通道,永远抢
+  /// 不走内容通道的槽。总并发 9 与原 8 同量级,TLS/带宽压力不变。
+  static final _Semaphore _contentSemaphore = _Semaphore(6);
+  static final _Semaphore _stickerSemaphore = _Semaphore(3);
+
+  /// [send](http.BaseClient 接口,现无常驻调用方)沿用内容通道。
+  static _Semaphore get _downloadSemaphore => _contentSemaphore;
 
   /// 提取 [AppConstants.baseUrl] 的 host(例如 `linux.do`),用于判断主域。
   /// 注意是 host 比对而不是 URL prefix 比对 —— 子域(`auth.linux.do` 等)
@@ -171,16 +171,20 @@ class DioHttpClient extends http.BaseClient {
     // 不关闭共享的 Dio 实例
   }
 
-  /// 直接拉取 URL 的完整字节(BlobImageCache 专用):同一个下载信号量、
-  /// 同一套双 dio 分流,流式读 body 逐 chunk 上报进度。
+  /// 直接拉取 URL 的完整字节(BlobImageCache 专用):按 [channel] 选
+  /// 并发通道、同一套双 dio 分流,流式读 body 逐 chunk 上报进度。
   ///
   /// 非 200 抛 [http.ClientException];[onProgress] 的 total 在响应无
   /// content-length(或 gzip)时为 null。
   Future<Uint8List> fetchBytes(
     Uri url, {
+    DownloadChannel channel = DownloadChannel.content,
     void Function(int received, int? total)? onProgress,
   }) async {
-    await _downloadSemaphore.acquire();
+    final semaphore = channel == DownloadChannel.sticker
+        ? _stickerSemaphore
+        : _contentSemaphore;
+    await semaphore.acquire();
     try {
       final isMainDomain = _isMainDomain(url);
       final extra = <String, dynamic>{};
@@ -222,9 +226,18 @@ class DioHttpClient extends http.BaseClient {
     } on dio.DioException catch (e) {
       throw http.ClientException('Dio error: ${e.message}', url);
     } finally {
-      _downloadSemaphore.release();
+      semaphore.release();
     }
   }
+}
+
+/// 图片下载并发通道(见 [DioHttpClient._contentSemaphore] 注释)。
+enum DownloadChannel {
+  /// 正文/头像/emoji/原图/外部图 —— 用户正在看的内容,高优通道。
+  content,
+
+  /// 贴纸原文件 —— 面板预取型、单文件大,独立通道防挤占内容。
+  sticker,
 }
 
 /// 简单异步信号量,限制全局图片下载并发。
