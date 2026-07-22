@@ -895,6 +895,26 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     widget.onEmojiPanelChanged?.call(false);
   }
 
+  /// 关闭表情面板(供外部调用,如返回键拦截/标题栏点击 ——
+  /// MarkdownEditor.closeEmojiPanel 同构):收面板不弹键盘。
+  /// 宿主页 PopScope 只认 onEmojiPanelChanged 回落 canPop,这里
+  /// 直接同步状态,不等容器 onPanelTypeChange 转一圈。
+  void closeEmojiPanel() {
+    if (_intendedPanel == _RichPanelType.none &&
+        _currentPanel != _RichPanelType.emoji) {
+      return;
+    }
+    _intendedPanel = _RichPanelType.none;
+    _panelController.updatePanelType(
+      ChatBottomPanelType.none,
+      forceHandleFocus: ChatBottomHandleFocus.none,
+    );
+    if (_showEmojiPanel) {
+      setState(() => _showEmojiPanel = false);
+      widget.onEmojiPanelChanged?.call(false);
+    }
+  }
+
   /// 面板高度:键盘高度已知用键盘高(等高切换),否则 emojiPanelHeight
   /// 兜底;都含底部安全区。
   double get _panelHeight {
