@@ -23,7 +23,10 @@ class InertiaPhysicsConfig {
 }
 
 /// 2D 惯性滑动模拟器
-class Inertia2DSimulation extends Simulation {
+///
+/// 由 GestureAnimation 以线性时间轴采样 [positionAt] 驱动
+/// (不走 animateWith,见 utils.dart 的 _onOffsetAnimation)。
+class Inertia2DSimulation {
   Inertia2DSimulation({
     required this.startPosition,
     required Offset velocity,
@@ -32,7 +35,6 @@ class Inertia2DSimulation extends Simulation {
     required this.maxX,
     required this.minY,
     required this.maxY,
-    super.tolerance,
   }) : _xSim = FrictionSimulation(friction, startPosition.dx, velocity.dx),
        _ySim = FrictionSimulation(friction, startPosition.dy, velocity.dy);
 
@@ -57,70 +59,4 @@ class Inertia2DSimulation extends Simulation {
 
     return Offset(x, y);
   }
-
-  /// 获取指定时间点的速度
-  Offset velocityAt(double time) {
-    return Offset(_xSim.dx(time), _ySim.dx(time));
-  }
-
-  /// 预测最终停止位置（考虑边界）
-  Offset get finalPosition {
-    double x = _xSim.finalX.clamp(minX, maxX);
-    double y = _ySim.finalX.clamp(minY, maxY);
-    return Offset(x, y);
-  }
-
-  /// 检查是否已到达边界
-  bool isAtBoundary(double time) {
-    final pos = positionAt(time);
-    return pos.dx <= minX || pos.dx >= maxX ||
-           pos.dy <= minY || pos.dy >= maxY;
-  }
-
-  @override
-  double x(double time) => positionAt(time).distance;
-
-  @override
-  double dx(double time) => velocityAt(time).distance;
-
-  @override
-  bool isDone(double time) {
-    final vel = velocityAt(time);
-    final atBoundary = isAtBoundary(time);
-    // 速度足够小或已到边界
-    return (vel.distance < tolerance.velocity) || atBoundary;
-  }
 }
-
-/// 计算惯性滑动的边界
-class ScrollBounds {
-  const ScrollBounds({
-    required this.viewportSize,
-    required this.contentSize,
-  });
-
-  final Size viewportSize;
-  final Size contentSize;
-
-  /// 获取 X 方向的偏移边界
-  /// 返回 (minOffset, maxOffset)
-  (double, double) get xBounds {
-    if (contentSize.width <= viewportSize.width) {
-      // 内容比视口小，居中，不允许滑动
-      return (0.0, 0.0);
-    }
-    // 内容比视口大，可以左右滑动
-    final maxOffset = (contentSize.width - viewportSize.width) / 2;
-    return (-maxOffset, maxOffset);
-  }
-
-  /// 获取 Y 方向的偏移边界
-  (double, double) get yBounds {
-    if (contentSize.height <= viewportSize.height) {
-      return (0.0, 0.0);
-    }
-    final maxOffset = (contentSize.height - viewportSize.height) / 2;
-    return (-maxOffset, maxOffset);
-  }
-}
-

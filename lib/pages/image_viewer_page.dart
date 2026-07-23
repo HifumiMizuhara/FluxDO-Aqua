@@ -24,7 +24,7 @@ import '../utils/platform_utils.dart';
 import '../utils/share_utils.dart';
 import '../widgets/common/app_bottom_sheet.dart';
 import '../widgets/common/image_context_menu.dart';
-import '../widgets/common/loading_spinner.dart';
+import 'package:m3e_ui/m3e_ui.dart';
 import '../l10n/s.dart';
 
 class ImageViewerPage extends StatefulWidget {
@@ -128,17 +128,48 @@ class _ImageViewerPageState extends State<ImageViewerPage>
   bool _isSharing = false;
   bool _showUI = true;
 
-  /// 滑动关闭状态入口:loadStateChanged 用它判断"滑动进行中",冻结
-  /// loading→completed 的树切换(切换会销毁正在驱动滑动的手势载体,
-  /// pointer 流中断,本次滑动作废,表现为"滑动关闭停在某帧/需再滑一次")
-  final GlobalKey<ExtendedImageSlidePageState> _slidePageKey = GlobalKey();
-
-  /// 上一次 onSlidingPage 回调时是否在滑动(检测下降沿,滑动结束后
-  /// setState 让被冻结的 loading→completed 切换补齐)
-  bool _wasSlidingPage = false;
-
   /// 通知所有缓存页面当前活跃的 Hero 页码变化，确保只有当前页有 Hero
   late final ValueNotifier<int> _activeHeroPage;
+
+  /// 画廊翻页控制器。必须是 State 字段:内联在 build 里会导致每次
+  /// setState(如 onPageChanged、_toggleUI)都新建 controller,切页
+  /// 动画中途换控制器。
+  ExtendedPageController? _galleryPageController;
+
+  ExtendedPageController get _ensureGalleryPageController =>
+      _galleryPageController ??= ExtendedPageController(
+        initialPage: widget.initialIndex,
+        pageSpacing: 50,
+      );
+
+  /// 手势状态控制器(按页索引;单图/内存图用 0)。生命周期由本 State
+  /// 持有 —— loading→completed 等树切换只换绘制载体,手势状态与进行
+  /// 中的交互(如下滑关闭)不再随载体销毁。
+  final Map<int, ImageGestureController> _gestureControllers = {};
+
+  ImageGestureController _obtainGestureController(
+    int index, {
+    required bool inPageView,
+    double maxScale = 4.0,
+    double animationMaxScale = 4.5,
+  }) {
+    return _gestureControllers.putIfAbsent(
+      index,
+      () => ImageGestureController(
+        config: GestureConfig(
+          minScale: 0.9,
+          animationMinScale: 0.7,
+          maxScale: maxScale,
+          animationMaxScale: animationMaxScale,
+          speed: 1.0,
+          inertialSpeed: 500.0,
+          initialScale: 1.0,
+          inPageView: inPageView,
+          initialAlignment: InitialAlignment.center,
+        ),
+      ),
+    );
+  }
 
   /// 获取指定索引的 hero tag
   String? _getHeroTagForIndex(int index) {
@@ -188,6 +219,30 @@ class _ImageViewerPageState extends State<ImageViewerPage>
     );
   }
 
+  /// 下滑关闭判定:惯性投影终点法。
+  ///
+  /// projected = 当前位移 + v · k(k = r/(1-r)/1000 ≈ 0.199,r=0.995/ms
+  /// 的指数衰减投影系数)—— 用"松手后惯性预测能滑到哪"代替"松手瞬间
+  /// 在哪"。慢拖(v≈0)时投影≈位移,与旧的纯位移阈值行为一致;快甩时
+  /// 投影提前过阈值,轻扫即可关闭;拖下又反向甩回时投影回落,自然回弹。
+  /// 阈值维持 defaultSlideEndHandler 的 1/6 不变。
+  bool _slideShouldPop(
+    Offset offset,
+    ScaleEndDetails details,
+    Size pageSize,
+    SlideAxis axis,
+  ) {
+    const double k = 0.199;
+    final Offset v = details.velocity.pixelsPerSecond;
+    if (axis == SlideAxis.vertical) {
+      return (offset.dy + v.dy * k).abs() > pageSize.height / 6;
+    }
+    // both:向量投影,阈值与 defaultSlideEndHandler both 分支一致
+    final Offset projected = offset + v * k;
+    return projected.distance >
+        Offset(pageSize.width, pageSize.height).distance / 6;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -207,6 +262,10 @@ class _ImageViewerPageState extends State<ImageViewerPage>
   void dispose() {
     HeroVisibilityController.instance.clear();
     _activeHeroPage.dispose();
+    _galleryPageController?.dispose();
+    for (final controller in _gestureControllers.values) {
+      controller.dispose();
+    }
     _restoreSystemUI();
     disposeDoubleTapZoom();
     super.dispose();
@@ -583,6 +642,9 @@ class _ImageViewerPageState extends State<ImageViewerPage>
           child: ExtendedImageSlidePage(
             slideAxis: SlideAxis.both,
             slideType: SlideType.onlyImage,
+            slideEndHandler: (offset, {required state, required details}) =>
+                _slideShouldPop(offset, details, state.pageSize,
+                    SlideAxis.both),
             slidePageBackgroundHandler: (Offset offset, Size pageSize) {
               double progress = offset.distance / (pageSize.height);
               return Colors.black.withValues(
@@ -600,23 +662,16 @@ class _ImageViewerPageState extends State<ImageViewerPage>
                       context,
                       position: details.globalPosition,
                     ),
-                    child: ExtendedImage.memory(
-                      widget.imageBytes!,
-                      width: double.infinity,
-                      height: double.infinity,
-                      fit: BoxFit.contain,
-                      mode: ExtendedImageMode.gesture,
-                      enableSlideOutPage: true,
-                      initGestureConfigHandler: (state) => GestureConfig(
-                        minScale: 0.9,
-                        animationMinScale: 0.7,
+                    child: GestureImageView(
+                      image: MemoryImage(widget.imageBytes!),
+                      controller: _obtainGestureController(
+                        0,
+                        inPageView: false,
                         maxScale: 5.0,
                         animationMaxScale: 5.5,
-                        speed: 1.0,
-                        inertialSpeed: 500.0,
-                        initialScale: 1.0,
-                        inPageView: false,
                       ),
+                      fit: BoxFit.contain,
+                      enableSlideOutPage: true,
                       onDoubleTap: (state) {
                         _hideUI();
                         handleDoubleTapZoom(state);
@@ -676,13 +731,9 @@ class _ImageViewerPageState extends State<ImageViewerPage>
                               child: _isSaving
                                   ? const Padding(
                                       padding: EdgeInsets.all(12),
-                                      child: SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white,
-                                        ),
+                                      child: LoadingSpinner(
+                                        size: 20,
+                                        color: Colors.white,
                                       ),
                                     )
                                   : IconButton(
@@ -718,19 +769,11 @@ class _ImageViewerPageState extends State<ImageViewerPage>
           statusBarBrightness: Brightness.dark,
         ),
         child: ExtendedImageSlidePage(
-          key: _slidePageKey,
           slideAxis: SlideAxis.vertical, // 仅垂直滑动关闭，避免与左右切换图片冲突
           slideType: SlideType.onlyImage,
-          // 滑动结束下降沿:若滑动期间冻结过 loading→completed 树切换,
-          // 此刻补一次 setState 完成切换(见 _slidePageKey 注释)
-          onSlidingPage: (state) {
-            if (state.isSliding) {
-              _wasSlidingPage = true;
-            } else if (_wasSlidingPage) {
-              _wasSlidingPage = false;
-              if (mounted) setState(() {});
-            }
-          },
+          slideEndHandler: (offset, {required state, required details}) =>
+              _slideShouldPop(offset, details, state.pageSize,
+                  SlideAxis.vertical),
           // 只处理背景透明度，不干预关闭逻辑，让库自己处理 pop
           slidePageBackgroundHandler: (Offset offset, Size pageSize) {
             // 使用垂直偏移量计算背景透明度（与 slideAxis: vertical 匹配）
@@ -752,82 +795,42 @@ class _ImageViewerPageState extends State<ImageViewerPage>
                       context,
                       position: details.globalPosition,
                     ),
-                    child: ExtendedImage(
+                    child: GestureImageView(
                       image: _clampedViewerProvider(widget.imageUrl!),
-                      width: double.infinity,
-                      height: double.infinity,
+                      placeholder:
+                          (widget.thumbnailUrl != null &&
+                              widget.thumbnailUrl != widget.imageUrl)
+                          ? _thumbnailProvider(widget.thumbnailUrl!)
+                          : null,
+                      controller: _obtainGestureController(
+                        0,
+                        inPageView: false,
+                      ),
                       fit: BoxFit.contain,
-                      mode: ExtendedImageMode.gesture,
                       enableSlideOutPage: true,
-                      heroBuilderForSlidingPage: widget.heroTag != null
+                      heroBuilder: widget.heroTag != null
                           ? (child) => Hero(
                               tag: widget.heroTag!,
                               flightShuttleBuilder: (_, _, _, _, _) => child,
                               child: child,
                             )
                           : null,
-                      initGestureConfigHandler: (state) {
-                        return GestureConfig(
-                          minScale: 0.9,
-                          animationMinScale: 0.7,
-                          maxScale: 4.0,
-                          animationMaxScale: 4.5,
-                          speed: 1.0,
-                          inertialSpeed: 500.0,
-                          initialScale: 1.0,
-                          inPageView: false,
-                          initialAlignment: InitialAlignment.center,
-                        );
-                      },
                       onDoubleTap: (state) {
                         _hideUI();
                         handleDoubleTapZoom(state, imageUrl: widget.imageUrl);
                       },
-                      loadStateChanged: (state) {
-                        // 加载中时显示缩略图（如果有）
-                        if (state.extendedImageLoadState == LoadState.loading) {
-                          if (widget.thumbnailUrl != null &&
-                              widget.thumbnailUrl != widget.imageUrl) {
-                            return Image(
-                              image: _thumbnailProvider(widget.thumbnailUrl!),
-                              fit: BoxFit.contain,
-                            );
-                          }
-                        }
-                        // 加载失败时检测是否为 SVG
-                        if (state.extendedImageLoadState == LoadState.failed) {
-                          return _buildSvgFallback(widget.imageUrl!);
-                        }
+                      onImageLoaded: (imageInfo) {
                         // 缓存图片尺寸用于智能缩放
-                        if (state.extendedImageLoadState ==
-                            LoadState.completed) {
-                          final imageInfo = state.extendedImageInfo;
-                          if (imageInfo != null && widget.imageUrl != null) {
-                            cacheImageSize(
-                              widget.imageUrl!,
-                              Size(
-                                imageInfo.image.width.toDouble(),
-                                imageInfo.image.height.toDouble(),
-                              ),
-                            );
-                          }
-                          // 滑动关闭进行中不做 loading→completed 树切换:
-                          // 切换会销毁正在驱动滑动的手势载体,pointer 流
-                          // 中断、本次滑动作废(表现为图片停在半路,需再
-                          // 滑一次)。继续显示缩略图,滑动结束后由
-                          // onSlidingPage 下降沿补 setState 完成切换。
-                          if ((_slidePageKey.currentState?.isSliding ??
-                                  false) &&
-                              widget.thumbnailUrl != null &&
-                              widget.thumbnailUrl != widget.imageUrl) {
-                            return Image(
-                              image: _thumbnailProvider(widget.thumbnailUrl!),
-                              fit: BoxFit.contain,
-                            );
-                          }
-                        }
-                        return null;
+                        cacheImageSize(
+                          widget.imageUrl!,
+                          Size(
+                            imageInfo.image.width.toDouble(),
+                            imageInfo.image.height.toDouble(),
+                          ),
+                        );
                       },
+                      failedBuilder: (context, _) =>
+                          _buildSvgFallback(widget.imageUrl!),
                     ),
                   )
                 else
@@ -842,19 +845,27 @@ class _ImageViewerPageState extends State<ImageViewerPage>
                     child: ExtendedImageGesturePageView.builder(
                       itemCount: images.length,
                       physics: const BouncingScrollPhysics(),
-                      controller: ExtendedPageController(
-                        initialPage: widget.initialIndex,
-                        pageSpacing: 50,
-                      ),
+                      controller: _ensureGalleryPageController,
                       onPageChanged: (index) {
+                        // 离场页重置缩放(与旧行为一致:PageView 不缓存
+                        // 离屏页,离页即回初始状态)
+                        _gestureControllers[currentIndex]?.reset();
                         setState(() {
                           currentIndex = index;
                         });
                         _activeHeroPage.value = index;
                         // 更新底层页面应该隐藏的图片
-                        HeroVisibilityController.instance.setHiddenTag(
-                          _getHeroTagForIndex(index),
-                        );
+                        final newTag = _getHeroTagForIndex(index);
+                        HeroVisibilityController.instance.setHiddenTag(newTag);
+                        // 预滚:把源页对应缩略图滚进可视区(黑底全不透明,
+                        // 底下滚动无感),保证之后任意 pop 路径 Hero 都能
+                        // 飞回当前这张的原位
+                        if (newTag != null) {
+                          unawaited(
+                            HeroVisibilityController.instance
+                                .ensureSourceVisible(newTag),
+                          );
+                        }
                         // 预加载相邻图片
                         _preloadAdjacentImages();
                       },
@@ -878,11 +889,19 @@ class _ImageViewerPageState extends State<ImageViewerPage>
                               }
                             }
 
-                            return ExtendedImage(
+                            return GestureImageView(
                               image: _clampedViewerProvider(url),
-                              mode: ExtendedImageMode.gesture,
+                              placeholder: (thumbUrl != null && thumbUrl != url)
+                                  ? _thumbnailProvider(thumbUrl)
+                                  : null,
+                              controller: _obtainGestureController(
+                                index,
+                                inPageView: true, // 必须为 true
+                              ),
+                              fit: BoxFit.contain,
                               enableSlideOutPage: true,
-                              heroBuilderForSlidingPage: heroTag != null
+                              inPageView: true,
+                              heroBuilder: heroTag != null
                                   ? (child) => Hero(
                                       tag: heroTag!,
                                       flightShuttleBuilder: (_, _, _, _, _) =>
@@ -890,70 +909,24 @@ class _ImageViewerPageState extends State<ImageViewerPage>
                                       child: child,
                                     )
                                   : null,
-                              initGestureConfigHandler: (state) {
-                                return GestureConfig(
-                                  minScale: 0.9,
-                                  animationMinScale: 0.7,
-                                  maxScale: 4.0,
-                                  animationMaxScale: 4.5,
-                                  speed: 1.0,
-                                  inertialSpeed: 500.0,
-                                  initialScale: 1.0,
-                                  inPageView: true, // 必须为 true
-                                  initialAlignment: InitialAlignment.center,
-                                );
-                              },
                               onDoubleTap: (state) {
                                 _hideUI();
                                 handleDoubleTapZoom(state, imageUrl: url);
                               },
-                              loadStateChanged: (state) {
-                                // 加载中时显示缩略图（如果有）
-                                if (state.extendedImageLoadState ==
-                                    LoadState.loading) {
-                                  if (thumbUrl != null && thumbUrl != url) {
-                                    return Image(
-                                      image: _thumbnailProvider(thumbUrl),
-                                      fit: BoxFit.contain,
-                                    );
-                                  }
-                                  return const Center(child: LoadingSpinner());
-                                }
-                                // 加载失败时检测是否为 SVG
-                                if (state.extendedImageLoadState ==
-                                    LoadState.failed) {
-                                  return _buildSvgFallback(url);
-                                }
+                              onImageLoaded: (imageInfo) {
                                 // 缓存图片尺寸用于智能缩放
-                                if (state.extendedImageLoadState ==
-                                    LoadState.completed) {
-                                  final imageInfo = state.extendedImageInfo;
-                                  if (imageInfo != null) {
-                                    cacheImageSize(
-                                      url,
-                                      Size(
-                                        imageInfo.image.width.toDouble(),
-                                        imageInfo.image.height.toDouble(),
-                                      ),
-                                    );
-                                  }
-                                  // 同单图:滑动关闭进行中冻结树切换,
-                                  // 滑动结束后 onSlidingPage 下降沿补切
-                                  if (_slidePageKey.currentState?.isSliding ??
-                                      false) {
-                                    if (thumbUrl != null && thumbUrl != url) {
-                                      return Image(
-                                        image: _thumbnailProvider(thumbUrl),
-                                        fit: BoxFit.contain,
-                                      );
-                                    }
-                                    return const Center(
-                                      child: LoadingSpinner(),
-                                    );
-                                  }
-                                }
-                                return null;
+                                cacheImageSize(
+                                  url,
+                                  Size(
+                                    imageInfo.image.width.toDouble(),
+                                    imageInfo.image.height.toDouble(),
+                                  ),
+                                );
                               },
+                              failedBuilder: (context, _) =>
+                                  _buildSvgFallback(url),
+                              loadingBuilder: (context) =>
+                                  const Center(child: LoadingSpinner()),
                             );
                           },
                         );
@@ -1044,13 +1017,9 @@ class _ImageViewerPageState extends State<ImageViewerPage>
                             child: _isSaving
                                 ? const Padding(
                                     padding: EdgeInsets.all(12),
-                                    child: SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
+                                    child: LoadingSpinner(
+                                      size: 20,
+                                      color: Colors.white,
                                     ),
                                   )
                                 : IconButton(
@@ -1075,13 +1044,9 @@ class _ImageViewerPageState extends State<ImageViewerPage>
                               child: _isSharing
                                   ? const Padding(
                                       padding: EdgeInsets.all(12),
-                                      child: SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white,
-                                        ),
+                                      child: LoadingSpinner(
+                                        size: 20,
+                                        color: Colors.white,
                                       ),
                                     )
                                   : IconButton(

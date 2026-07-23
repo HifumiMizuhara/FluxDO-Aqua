@@ -177,10 +177,12 @@ mixin DoubleTapZoomMixin<T extends StatefulWidget> on State<T>, TickerProviderSt
   }
   
   /// 处理双击事件（带平滑动画）
-  /// 
+  ///
   /// 这是核心方法，使用 AnimationController + Tween 驱动动画
+  ///
+  /// [state] 为包内 DoubleTapTarget 接口(由 GestureSurfaceState 实现)。
   void handleDoubleTapZoom(
-    ExtendedImageGestureState state, {
+    DoubleTapTarget state, {
     String? imageUrl,
   }) {
     final pointerDownPosition = state.pointerDownPosition;
