@@ -181,7 +181,7 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
                         UserScript(
                           source: '''
                           new MutationObserver(function(_, obs) {
-                            var el = document.querySelector('[data-preloaded]');
+                            var el = document.querySelector('#data-preloaded, [data-preloaded]');
                             if (!el) return;
                             obs.disconnect();
                             var parts = [el.outerHTML];
