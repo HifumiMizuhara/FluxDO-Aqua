@@ -4,13 +4,19 @@ import 'utils.dart';
 
 /// 双击缩放动画的驱动目标。
 ///
-/// 主工程的双击 mixin 每帧调用 [handleDoubleTap] 喂合成缩放值;
-/// 旧手势载体(ExtendedImageGestureState)与常驻手势层
-/// (GestureSurfaceState)都实现它,迁移期两者可互换。
+/// 动画本体由手势层持有并驱动(与其他动画同受指针打断管理,避免
+/// mixin 侧 controller 在新手势开始后继续回灌、清掉拖拽会话锚点);
+/// 主工程 mixin 只负责算目标倍率后调用 [animateDoubleTapZoom]。
 abstract class DoubleTapTarget {
   Offset? get pointerDownPosition;
   GestureDetails? get gestureDetails;
   void handleDoubleTap({double? scale, Offset? doubleTapPosition});
+
+  /// 弹簧动画缩放到 [targetScale](快起慢收,可被新手势无缝打断)
+  void animateDoubleTapZoom({
+    required double targetScale,
+    Offset? doubleTapPosition,
+  });
 }
 
 /// GesturePageView 的仲裁对象:翻页手势需要读取当前图片的手势状态

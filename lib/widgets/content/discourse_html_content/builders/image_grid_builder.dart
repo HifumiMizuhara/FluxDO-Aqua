@@ -344,6 +344,10 @@ class _GridImageTileState extends State<_GridImageTile> {
       heroTags: widget.heroTags,
       initialIndex: widget.index >= 0 ? widget.index : 0,
       filenames: widget.filenames,
+      // 网格瓦片是 cover 裁剪 + 圆角 4:启用飞行 crossfade,
+      // 消除起飞/落地瞬间「裁剪图↔完整图」跳变
+      heroSourceFit: BoxFit.cover,
+      heroSourceRadius: 4,
     );
   }
 

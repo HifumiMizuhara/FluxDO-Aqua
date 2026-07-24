@@ -1265,6 +1265,7 @@ class FluxdoRenderCallbacks {
                   post: post,
                   topicId: topicId,
                   onQuoteImage: onQuoteImage,
+                  heroTag: heroTag,
                 ),
                 onSecondaryTapUp: (details) => _showImageContextMenu(
                   ctx,
@@ -1274,6 +1275,7 @@ class FluxdoRenderCallbacks {
                   topicId: topicId,
                   onQuoteImage: onQuoteImage,
                   position: details.globalPosition,
+                  heroTag: heroTag,
                 ),
               );
               // 预览缩放胶囊(右上角浮层,子包统一视觉)。仅有界宽上下文
@@ -1325,6 +1327,7 @@ class FluxdoRenderCallbacks {
     int? topicId,
     void Function(String quote, Post post)? onQuoteImage,
     Offset? position,
+    String? heroTag,
   }) {
     final scope = QuoteImageScope.maybeOf(context);
     final liveQuoteHandler = scope != null ? scope.handler : onQuoteImage;
@@ -1340,6 +1343,7 @@ class FluxdoRenderCallbacks {
       topicId: topicId,
       onQuoteImage: liveQuoteHandler,
       position: position,
+      heroTag: heroTag,
     );
   }
 

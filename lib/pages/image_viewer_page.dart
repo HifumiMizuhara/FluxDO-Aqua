@@ -27,7 +27,7 @@ import '../widgets/common/image_context_menu.dart';
 import 'package:m3e_ui/m3e_ui.dart';
 import '../l10n/s.dart';
 
-class ImageViewerPage extends StatefulWidget {
+class ImageViewerPage extends ConsumerStatefulWidget {
   final String? imageUrl;
   final Uint8List? imageBytes;
   final String? heroTag;
@@ -47,6 +47,14 @@ class ImageViewerPage extends StatefulWidget {
   /// 画廊中每张图片的文件名列表
   final List<String?>? filenames;
 
+  /// 源缩略图的 BoxFit(仅 cover 时启用飞行 crossfade:源瓦片是裁剪
+  /// 展示,起飞/落地瞬间与查看器的 contain 之间有跳变,飞行层用
+  /// cover 纹理短暂淡入淡出盖住差异)。null = 源与查看器同为 contain。
+  final BoxFit? heroSourceFit;
+
+  /// 源缩略图的圆角(飞行中插值到 0 / 从 0 恢复)
+  final double heroSourceRadius;
+
   const ImageViewerPage({
     super.key,
     this.imageUrl,
@@ -59,7 +67,22 @@ class ImageViewerPage extends StatefulWidget {
     this.thumbnailUrl,
     this.thumbnailUrls,
     this.filenames,
+    this.heroSourceFit,
+    this.heroSourceRadius = 0,
   }) : assert(imageUrl != null || imageBytes != null);
+
+  /// 查看器路由的黑底/整页淡入淡出曲线:与 Hero 飞行(吃路由原始
+  /// animation,全程 300ms)异速 —— push 前 60%(~180ms)完成淡入、
+  /// pop 前 60% 完成淡出(reverseCurve 的 t 轴仍是 parent 值,
+  /// Interval(0.4,1.0) 即 parent 1→0.4 期间完成 1→0),背景先立住/
+  /// 先退场,图片随后落位/飞回,分层感更自然。
+  static Animation<double> _routeFadeAnimation(Animation<double> animation) {
+    return CurvedAnimation(
+      parent: animation,
+      curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+      reverseCurve: const Interval(0.4, 1.0, curve: Curves.easeIn),
+    );
+  }
 
   /// 使用透明路由打开图片查看器。返回的 Future 在查看器关闭时完成
   /// (调用方可借此恢复被隐藏的浮层等)。
@@ -74,6 +97,8 @@ class ImageViewerPage extends StatefulWidget {
     String? thumbnailUrl,
     List<String>? thumbnailUrls,
     List<String?>? filenames,
+    BoxFit? heroSourceFit,
+    double heroSourceRadius = 0,
   }) {
     return Navigator.push(
       context,
@@ -91,10 +116,15 @@ class ImageViewerPage extends StatefulWidget {
             thumbnailUrl: thumbnailUrl,
             thumbnailUrls: thumbnailUrls,
             filenames: filenames,
+            heroSourceFit: heroSourceFit,
+            heroSourceRadius: heroSourceRadius,
           );
         },
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(opacity: animation, child: child);
+          return FadeTransition(
+            opacity: _routeFadeAnimation(animation),
+            child: child,
+          );
         },
       ),
     );
@@ -111,17 +141,20 @@ class ImageViewerPage extends StatefulWidget {
           return ImageViewerPage(imageBytes: bytes);
         },
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(opacity: animation, child: child);
+          return FadeTransition(
+            opacity: _routeFadeAnimation(animation),
+            child: child,
+          );
         },
       ),
     );
   }
 
   @override
-  State<ImageViewerPage> createState() => _ImageViewerPageState();
+  ConsumerState<ImageViewerPage> createState() => _ImageViewerPageState();
 }
 
-class _ImageViewerPageState extends State<ImageViewerPage>
+class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
     with TickerProviderStateMixin, DoubleTapZoomMixin {
   late int currentIndex;
   bool _isSaving = false;
@@ -179,6 +212,64 @@ class _ImageViewerPageState extends State<ImageViewerPage>
       return widget.heroTag;
     }
     return null;
+  }
+
+  /// 构建查看器侧 Hero(单图/画廊共用)。
+  ///
+  /// 源缩略图为 cover 裁剪展示(heroSourceFit == cover,目前只有网格
+  /// 瓦片)时,飞行体升级为双层 crossfade:cover 纹理层(带圆角插值)
+  /// 在飞行前段淡出、查看器 contain 层淡入 —— 消除起飞瞬间
+  /// 「裁剪图→完整图」的跳变(落地/pop 方向反向同理)。
+  ///
+  /// 注意 pop 方向对网格也走本 shuttle(源端是朴素 Hero 无自定义
+  /// shuttle,Flutter 回落到 fromHero=查看器侧)。
+  Widget _buildViewerHero({
+    required String tag,
+    required String? thumbUrl,
+    required Widget child,
+  }) {
+    final bool coverSource =
+        widget.heroSourceFit == BoxFit.cover && thumbUrl != null;
+    return Hero(
+      tag: tag,
+      flightShuttleBuilder: !coverSource
+          ? (_, _, _, _, _) => child
+          : (flightContext, animation, direction, fromContext, toContext) {
+              // push:cover 层在前 40% 淡出;pop:cover 层在后 40% 淡入
+              // (animation 在 pop 方向由 1 走向 0,同一 Interval 语义对称)
+              final Animation<double> coverOpacity = animation.drive(
+                Tween<double>(begin: 1.0, end: 0.0).chain(
+                  CurveTween(
+                    curve: const Interval(0.0, 0.4, curve: Curves.easeOut),
+                  ),
+                ),
+              );
+              final double radius = widget.heroSourceRadius;
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  child,
+                  FadeTransition(
+                    opacity: coverOpacity,
+                    child: AnimatedBuilder(
+                      animation: animation,
+                      builder: (context, coverChild) => ClipRRect(
+                        borderRadius: BorderRadius.circular(
+                          radius * (1 - animation.value),
+                        ),
+                        child: coverChild,
+                      ),
+                      child: Image(
+                        image: _thumbnailProvider(thumbUrl),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+      child: child,
+    );
   }
 
   /// 查看器主图解码上限:等比 clamp 到屏幕长边×3(且 ≤8192,常见 GPU
@@ -809,9 +900,9 @@ class _ImageViewerPageState extends State<ImageViewerPage>
                       fit: BoxFit.contain,
                       enableSlideOutPage: true,
                       heroBuilder: widget.heroTag != null
-                          ? (child) => Hero(
+                          ? (child) => _buildViewerHero(
                               tag: widget.heroTag!,
-                              flightShuttleBuilder: (_, _, _, _, _) => child,
+                              thumbUrl: widget.thumbnailUrl,
                               child: child,
                             )
                           : null,
@@ -902,10 +993,9 @@ class _ImageViewerPageState extends State<ImageViewerPage>
                               enableSlideOutPage: true,
                               inPageView: true,
                               heroBuilder: heroTag != null
-                                  ? (child) => Hero(
+                                  ? (child) => _buildViewerHero(
                                       tag: heroTag!,
-                                      flightShuttleBuilder: (_, _, _, _, _) =>
-                                          child,
+                                      thumbUrl: thumbUrl,
                                       child: child,
                                     )
                                   : null,
