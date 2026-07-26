@@ -6,6 +6,7 @@ import '../../services/notion/notion_bookmark_auto_sync.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderSliver, RenderViewport;
 import 'package:flutter/scheduler.dart' show SchedulerBinding, Priority;
+import 'package:flutter/services.dart';
 import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
@@ -198,7 +199,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
   bool _defaultNestedViewApplied = false; // 默认嵌套视图配置是否已应用（依赖 detail 加载后判定）
   // 搜索相关
   final TextEditingController _searchController = TextEditingController();
-  final FocusNode _searchFocusNode = FocusNode();
+  late final FocusNode _searchFocusNode;
   late final AnimationController _expandController;
   late final Animation<Offset> _animation;
   Set<int> _lastReadPostNumbers = {};
@@ -262,6 +263,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
     WidgetsBinding.instance.addObserver(this);
     _isParentActive = widget.parentActive;
     _providerPostNumber = widget.scrollToPostNumber;
+    _searchFocusNode = FocusNode(onKeyEvent: _handleSearchKeyEvent);
 
     _expandController = AnimationController(
       vsync: this,
@@ -523,15 +525,56 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
         unawaited(_handleDeletePost(post));
       },
     };
-    final registeredShortcuts = widget.embeddedMode
-        ? shortcuts
-        : {
-            ...shortcuts,
-            ShortcutAction.closeOverlay: () {
-              if (mounted) Navigator.of(context).maybePop();
-            },
-          };
+    // Esc 优先退出页内搜索/AI，再按当前布局执行嵌入返回或路由返回。
+    final registeredShortcuts = {
+      ...shortcuts,
+      ShortcutAction.closeOverlay: _handleCloseShortcut,
+    };
     _shortcutScopeBinding.register(context, registeredShortcuts);
+  }
+
+  void _exitSearchMode() {
+    _searchController.clear();
+    ref.read(topicSearchProvider(widget.topicId).notifier).exitSearchMode();
+  }
+
+  void _returnFromAiPage() {
+    _pageController.animateToPage(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  void _handleCloseShortcut() {
+    if (!mounted) return;
+    if (ref.read(topicSearchProvider(widget.topicId)).isSearchMode) {
+      _exitSearchMode();
+      return;
+    }
+    if (_currentPageNotifier.value != 0) {
+      _returnFromAiPage();
+      return;
+    }
+    if (widget.embeddedMode) {
+      // 嵌入模式只有书签页移动端 chrome 会传 onEmbeddedBack;桌面双栏
+      // 下它是 null,此时 Esc 落到这里是刻意的空操作:scope 回调没有
+      // 「未处理」语义(分发端 containsKey 即消费),又不能不注册 ——
+      // 上面退搜索/回正文正是嵌入模式需要的。也不能落到 maybePop:
+      // 嵌入面板不是独立路由,pop 的会是宿主页面(如整个书签页)。
+      widget.onEmbeddedBack?.call();
+      return;
+    }
+    Navigator.of(context).maybePop();
+  }
+
+  KeyEventResult _handleSearchKeyEvent(FocusNode _, KeyEvent event) {
+    if (event is! KeyDownEvent ||
+        event.logicalKey != LogicalKeyboardKey.escape) {
+      return KeyEventResult.ignored;
+    }
+    _exitSearchMode();
+    return KeyEventResult.handled;
   }
 
   void _schedulePostShortcutRegistration() {
@@ -885,12 +928,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
         actions: [
           IconButton(
             icon: const Icon(Symbols.close_rounded),
-            onPressed: () {
-              _searchController.clear();
-              ref
-                  .read(topicSearchProvider(widget.topicId).notifier)
-                  .exitSearchMode();
-            },
+            onPressed: _exitSearchMode,
           ),
         ],
       );
@@ -1937,10 +1975,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
           canPop: !isSearchMode,
           onPopInvokedWithResult: (bool didPop, dynamic result) {
             if (!didPop) {
-              _searchController.clear();
-              ref
-                  .read(topicSearchProvider(widget.topicId).notifier)
-                  .exitSearchMode();
+              _exitSearchMode();
             }
           },
           child: topicScaffold,
@@ -1959,16 +1994,9 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
             onPopInvokedWithResult: (bool didPop, dynamic result) {
               if (!didPop) {
                 if (isOnAiPage) {
-                  _pageController.animateToPage(
-                    0,
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeOutCubic,
-                  );
+                  _returnFromAiPage();
                 } else {
-                  _searchController.clear();
-                  ref
-                      .read(topicSearchProvider(widget.topicId).notifier)
-                      .exitSearchMode();
+                  _exitSearchMode();
                 }
               }
             },
@@ -1995,6 +2023,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
                         topicId: widget.topicId,
                         detail: detail,
                         embedded: true,
+                        onEscape: _returnFromAiPage,
                         onReplyToTopic: detail == null
                             ? null
                             : (imageMarkdown) {
