@@ -657,7 +657,21 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
     if (oldWidget.topicId == widget.topicId &&
         oldWidget.scrollToPostNumber != widget.scrollToPostNumber &&
         widget.scrollToPostNumber != null &&
-        widget.scrollToPostNumber! > 0) {
+        widget.scrollToPostNumber! > 0 &&
+        // 自回流守卫:双栏包装层每次 build 都把 detailScrollPositionProvider
+        // (本页 eyeline 自己上报的浏览位置)现读回传为 scrollToPostNumber,
+        // 用于面板槽位搬动重建时恢复位置。State 存活期间收到与上报值相同
+        // 的参数变化只是这条恢复通道的回声,不是外部跳转指令 —— 不挡住的
+        // 话,boost 弹层等任何 push 引发的外层 rebuild 都会在初次加载后
+        // 触发一次假跳转 + 高亮。真正的外部跳转(搜索结果/通知点进同话题
+        // 其他楼层)目标必不等于当前上报位置,不受影响。
+        widget.scrollToPostNumber !=
+            ref.read(
+              detailScrollPositionProvider((
+                topicId: widget.topicId,
+                instanceId: _instanceId,
+              )),
+            )) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         unawaited(
