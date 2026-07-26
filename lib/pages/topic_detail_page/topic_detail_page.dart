@@ -17,6 +17,7 @@ import '../../utils/html_to_markdown.dart';
 import '../../utils/code_selection_context.dart';
 import '../../utils/link_launcher.dart';
 import '../../utils/quote_builder.dart';
+import '../../utils/scroll_jump.dart';
 import 'package:fluxdo_render/fluxdo_render.dart' show SelectionCoordinator;
 import 'package:uuid/uuid.dart';
 import 'dart:async';

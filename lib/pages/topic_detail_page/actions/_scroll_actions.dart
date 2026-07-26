@@ -495,10 +495,9 @@ extension _ScrollActions on _TopicDetailPageState {
       }
 
       if (!forceLocalJump && _controller.isPostRendered(postIndex)) {
-        await _controller.scrollController.scrollToIndex(
+        // 同 _scrollToPost：走 jumpTo 而非 animateTo，避免触底回弹
+        await _controller.scrollController.jumpToRenderedScrollIndex(
           _controller.scrollIndexForPostIndex(postIndex),
-          preferPosition: AutoScrollPosition.begin,
-          duration: const Duration(milliseconds: 1),
         );
       } else {
         // 同 _scrollToPost：center 换锚构造性定位
