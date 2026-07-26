@@ -52,6 +52,15 @@ List<SettingsGroup> buildReadingGroups(BuildContext context) {
           onChanged: (ref, v) =>
               ref.read(preferencesProvider.notifier).setBoostDanmaku(v),
         ),
+        SwitchModel(
+          id: 'showSuggestedTopics',
+          title: l10n.reading_showSuggestedTopics,
+          subtitle: l10n.reading_showSuggestedTopicsDesc,
+          icon: Symbols.forum_rounded,
+          getValue: (ref) => ref.watch(preferencesProvider).showSuggestedTopics,
+          onChanged: (ref, v) =>
+              ref.read(preferencesProvider.notifier).setShowSuggestedTopics(v),
+        ),
       ],
     ),
     SettingsGroup(

@@ -92,6 +92,8 @@
   "reading_expandRelatedLinksDesc": "帖子中的相關鏈接區域預設展開顯示",
   "reading_showSignatures": "顯示用户簽名",
   "reading_showSignaturesDesc": "在帖子內容下方顯示用户簽名",
+  "reading_showSuggestedTopics": "顯示推薦話題",
+  "reading_showSuggestedTopicsDesc": "話題讀到底部時顯示相關話題和建議話題",
   "reading_title": "閱讀設定",
   "schemeVariant_content": "內容",
   "schemeVariant_expressive": "表現力",

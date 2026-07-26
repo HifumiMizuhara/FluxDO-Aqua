@@ -92,6 +92,8 @@
   "reading_expandRelatedLinksDesc": "帖子中的相关链接区域默认展开显示",
   "reading_showSignatures": "显示用户签名",
   "reading_showSignaturesDesc": "在帖子内容下方显示用户签名",
+  "reading_showSuggestedTopics": "显示推荐话题",
+  "reading_showSuggestedTopicsDesc": "话题读到底部时显示相关话题和建议话题",
   "reading_title": "阅读设置",
   "schemeVariant_content": "内容",
   "schemeVariant_expressive": "表现力",

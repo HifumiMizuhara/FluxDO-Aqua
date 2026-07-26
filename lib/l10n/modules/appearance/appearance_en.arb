@@ -92,6 +92,8 @@
   "reading_expandRelatedLinksDesc": "Show related links expanded in posts",
   "reading_showSignatures": "Show user signatures",
   "reading_showSignaturesDesc": "Display user signatures below post content",
+  "reading_showSuggestedTopics": "Show suggested topics",
+  "reading_showSuggestedTopicsDesc": "Show related and suggested topics at the end of a topic",
   "reading_title": "Reading Settings",
   "schemeVariant_content": "Content",
   "schemeVariant_expressive": "Expressive",

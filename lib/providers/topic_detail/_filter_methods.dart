@@ -108,7 +108,7 @@ extension FilterMethods on TopicDetailNotifier {
 
       _updateBoundaryState(detail.postStream.posts, detail.postStream.stream);
 
-      return detail;
+      return _withSuggestedCache(detail);
     });
     if (!ref.mounted) return;
     state = result;
@@ -128,7 +128,7 @@ extension FilterMethods on TopicDetailNotifier {
 
       _updateBoundaryState(detail.postStream.posts, detail.postStream.stream);
 
-      return detail;
+      return _withSuggestedCache(detail);
     });
     if (!ref.mounted) return;
     state = result;
@@ -170,7 +170,12 @@ extension FilterMethods on TopicDetailNotifier {
         }
 
         final service = ref.read(discourseServiceProvider);
-        final newPostStream = await service.getPosts(arg.topicId, nextIds);
+        final newPostStream = await service.getPosts(
+          arg.topicId,
+          nextIds,
+          // 过滤模式下服务端同样不下发推荐话题,靠这一次翻页补
+          includeSuggested: currentDetail.suggestedTopics.isEmpty,
+        );
 
         final existingIds = currentPosts.map((p) => p.id).toSet();
         final newPosts = newPostStream.posts.where((p) => !existingIds.contains(p.id)).toList();
@@ -181,9 +186,15 @@ extension FilterMethods on TopicDetailNotifier {
         final newLastIndex = stream.indexOf(newLastId);
         _hasMoreAfter = newLastIndex < stream.length - 1;
 
-        return currentDetail.copyWith(
+        return _withSuggestedCache(currentDetail.copyWith(
           postStream: PostStream(posts: mergedPosts, stream: stream, gaps: currentDetail.postStream.gaps),
-        );
+          suggestedTopics: newPostStream.suggestedTopics.isNotEmpty
+              ? newPostStream.suggestedTopics
+              : null,
+          relatedTopics: newPostStream.relatedTopics.isNotEmpty
+              ? newPostStream.relatedTopics
+              : null,
+        ));
       });
       if (!ref.mounted) return;
       if (result.hasError) {
