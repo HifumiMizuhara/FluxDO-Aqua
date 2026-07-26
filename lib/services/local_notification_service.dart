@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../l10n/s.dart';
-import '../navigation/nav_action_bus.dart';
 import '../pages/topic_detail_page/topic_detail_page.dart';
-import '../providers/selected_topic_provider.dart';
-import '../widgets/layout/master_detail_layout.dart';
+import '../utils/notification_navigation.dart';
 
 /// 全局 NavigatorKey，用于通知点击时导航
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -81,51 +78,20 @@ class LocalNotificationService {
       '[LocalNotification] 跳转到${isMessage ? "私信" : "话题"}: $topicId, 帖子: $postNumber',
     );
 
-    // 宽屏走平行视界(跟应用内点通知/点列表一致的左右栏表现)。
-    // 两种情况退化成独立全屏路由:
-    // - 拿不到 context(冷启动时通知先于根 widget 树就绪);
-    // - 窄屏单栏——select() 写栈后没有任何东西会推出详情页
-    //   (TopicsScreen 只在宽→窄切换/tab 重新激活时补 push,已在目标
-    //   tab 上时 requestNavDestination 又是 no-op),必须直接开全屏页。
+    // 与应用内通知落点一致:大屏页面弹窗、窄屏全屏路由(私信/话题
+    // 同一入口,不再写工作区栈/切 tab)。拿不到 context(冷启动时通知
+    // 先于根 widget 树就绪)退化为直接 push。
+    final page = TopicDetailPage(
+      topicId: topicId,
+      scrollToPostNumber: postNumber,
+    );
     final context = navigatorKey.currentContext;
-    if (context != null &&
-        context.mounted &&
-        MasterDetailLayout.canShowBothPanesFor(context)) {
-      final container = ProviderScope.containerOf(context);
-      if (isMessage) {
-        container
-            .read(selectedMessageProvider.notifier)
-            .select(topicId: topicId, scrollToPostNumber: postNumber);
-        container.read(navDestinationRequestProvider.notifier).state =
-            NavDestinationRequest(
-              targetId: NavEntryIds.messages,
-              nonce: DateTime.now().millisecondsSinceEpoch,
-            );
-      } else {
-        container
-            .read(selectedTopicProvider.notifier)
-            .select(topicId: topicId, scrollToPostNumber: postNumber);
-        container.read(navDestinationRequestProvider.notifier).state =
-            NavDestinationRequest(
-              targetId: NavEntryIds.home,
-              nonce: DateTime.now().millisecondsSinceEpoch,
-            );
-      }
+    if (context != null && context.mounted) {
+      openNotificationPage(context, page);
       return;
     }
-
     navigatorKey.currentState?.push(
-      MaterialPageRoute(
-        builder: (_) => TopicDetailPage(
-          topicId: topicId,
-          scrollToPostNumber: postNumber,
-          // 中途拉宽窗口时自动收回对应的平行视界栈,私信必须回私信栏
-          autoSwitchToMasterDetail: true,
-          stackProvider: isMessage
-              ? selectedMessageProvider
-              : selectedTopicProvider,
-        ),
-      ),
+      MaterialPageRoute(builder: (_) => page),
     );
   }
 

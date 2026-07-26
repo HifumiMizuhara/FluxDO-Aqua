@@ -536,7 +536,17 @@ class _NotificationBodyState extends ConsumerState<_NotificationBody> {
                 notification: notification,
                 systemAvatarTemplate: systemAvatarTemplate,
                 onTap: () {
-                  handleNotificationTap(context, ref, notification);
+                  // 先派发跳转再关面板:跳转在本帧同步读取
+                  // context/provider,面板收起动画导致的子树卸载不影响
+                  // 已打开的弹窗/路由。siblings = 当前可见列表,弹窗内
+                  // 可上一条/下一条快速切换。
+                  handleNotificationTap(
+                    context,
+                    ref,
+                    notification,
+                    siblings: visibleNotifications,
+                  );
+                  NotificationQuickPanel.dismiss();
                 },
               );
             },
