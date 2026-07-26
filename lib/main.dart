@@ -79,6 +79,7 @@ import 'utils/frame_jank_monitor.dart';
 import 'utils/image_decode_gate.dart';
 import 'widgets/post/post_item/render_parse_cache.dart';
 import 'utils/scroll_busy_signal.dart';
+import 'utils/seed_color_scheme.dart';
 import 'utils/time_utils.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -653,10 +654,10 @@ class MainApp extends ConsumerWidget {
 
         // 动态色路径只取系统动态色 primary 当种子,不用 OEM 原始 scheme。
         ColorScheme buildScheme(Color seed, Brightness brightness) {
-          return ColorScheme.fromSeed(
+          return SeedColorScheme.from(
             seedColor: seed,
             brightness: brightness,
-            dynamicSchemeVariant: themeState.schemeVariant,
+            variant: themeState.schemeVariant,
           );
         }
 
