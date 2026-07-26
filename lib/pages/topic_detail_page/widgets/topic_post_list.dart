@@ -3,7 +3,7 @@ import 'dart:async' show Timer;
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart' show SchedulerBinding, Priority;
+import '../../../utils/idle_task.dart';
 import 'package:app_icons/app_icons.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -559,11 +559,16 @@ class _TopicPostListState extends State<TopicPostList> {
         }
       }
       if (pending != null) {
-        SchedulerBinding.instance.scheduleTask(() {
-          if (!mounted || generation != _warmUpGeneration) return;
-          pending!.warmUpOneChunk();
-          step();
-        }, Priority.idle);
+        // scheduleIdleTask 是我们自己包的安全版:Flutter 3.44 的
+        // SchedulerBinding.scheduleTask(idle) 撞上持续动画会让事件循环
+        // 忙等活锁(Windows 上表现为窗口卡死),原生 scheduleTask 不能用。
+        scheduleIdleTask(
+          () {
+            pending!.warmUpOneChunk();
+            step();
+          },
+          isCanceled: () => !mounted || generation != _warmUpGeneration,
+        );
         return;
       }
       // ---- 级 2:方向前方楼层的段落 flatten + 排版 ----
@@ -588,8 +593,11 @@ class _TopicPostListState extends State<TopicPostList> {
         ? 0
         : (_postNumberToIndex[anchorNumber] ?? 0);
     // 游标续跑:同一楼层没热完接着热,否则从锚点楼层往后找。
-    SchedulerBinding.instance.scheduleTask(() {
-      if (!mounted || generation != _warmUpGeneration) return;
+    // scheduleIdleTask 是我们自己包的安全版,原因见 _scheduleChunkWarmUp
+    // 顶部注释(原生 SchedulerBinding.scheduleTask(idle) 撞持续动画会
+    // 活锁)。
+    scheduleIdleTask(
+      () {
       // 找目标楼层:游标楼层仍有效则续,否则从 startIndex 起第一个
       // 已有解析产物的楼层(不为预热触发解析 —— 短帖解析很便宜但
       // 语义上归级 1/首建;这里只吃现成 AST)。
@@ -643,7 +651,9 @@ class _TopicPostListState extends State<TopicPostList> {
         _warmNodeCursor = next;
       }
       _scheduleParagraphWarmUp(generation); // 下一 idle 步
-    }, Priority.idle);
+      },
+      isCanceled: () => !mounted || generation != _warmUpGeneration,
+    );
   }
 
   /// 楼层的现成 AST(只取已解析的,不触发解析):
@@ -934,7 +944,7 @@ class _TopicPostListState extends State<TopicPostList> {
     final generation = ++_parseWarmUpGeneration;
     var index = 0;
     void step() {
-      SchedulerBinding.instance.scheduleTask(() {
+      scheduleIdleTask(() {
         if (!mounted || generation != _parseWarmUpGeneration) return;
         if (ScrollBusySignal.isBusy) {
           _parseWarmUpRetry?.cancel();
@@ -953,7 +963,7 @@ class _TopicPostListState extends State<TopicPostList> {
           break;
         }
         if (index < posts.length) step();
-      }, Priority.idle);
+      });
     }
 
     step();
