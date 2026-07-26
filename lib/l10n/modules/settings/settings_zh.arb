@@ -94,6 +94,8 @@
   "preferences_enableCrashlyticsContent": "本应用使用 Firebase Crashlytics 收集崩溃信息以改进应用稳定性。\n\n收集的数据包括设备信息和崩溃详情，不包含个人隐私数据。您可以在设置中关闭此功能。",
   "preferences_enableCrashlyticsTitle": "数据收集说明",
   "preferences_enterUrl": "输入 URL",
+  "preferences_fullscreenSwipeBack": "全屏侧滑返回",
+  "preferences_fullscreenSwipeBackDesc": "在页面任意位置右滑即可返回上一页；关闭时仅屏幕左缘可侧滑",
   "preferences_hideBarOnScroll": "滚动收起导航栏",
   "preferences_hideBarOnScrollDesc": "首页滚动时自动收起顶栏和底栏",
   "preferences_longPressPreview": "长按预览",

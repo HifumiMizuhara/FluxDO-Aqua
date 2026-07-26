@@ -132,6 +132,9 @@ class AppPreferences {
   /// 竖屏锁定
   final bool portraitLock;
 
+  /// 全屏侧滑返回(页面任意位置右滑,默认仅屏幕左缘)
+  final bool fullscreenSwipeBack;
+
   /// 滚动时收起顶栏和底栏
   final bool hideBarOnScroll;
 
@@ -256,6 +259,7 @@ class AppPreferences {
     this.blockedUsernames = const [],
     required this.crashlytics,
     required this.portraitLock,
+    required this.fullscreenSwipeBack,
     required this.hideBarOnScroll,
     required this.clearCacheOnExit,
     required this.autoCfChallenge,
@@ -308,6 +312,7 @@ class AppPreferences {
     List<String>? blockedUsernames,
     bool? crashlytics,
     bool? portraitLock,
+    bool? fullscreenSwipeBack,
     bool? hideBarOnScroll,
     bool? clearCacheOnExit,
     bool? autoCfChallenge,
@@ -361,6 +366,7 @@ class AppPreferences {
       blockedUsernames: blockedUsernames ?? this.blockedUsernames,
       crashlytics: crashlytics ?? this.crashlytics,
       portraitLock: portraitLock ?? this.portraitLock,
+      fullscreenSwipeBack: fullscreenSwipeBack ?? this.fullscreenSwipeBack,
       hideBarOnScroll: hideBarOnScroll ?? this.hideBarOnScroll,
       clearCacheOnExit: clearCacheOnExit ?? this.clearCacheOnExit,
       autoCfChallenge: autoCfChallenge ?? this.autoCfChallenge,
@@ -438,6 +444,7 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
   static const String _blockedUsernamesKey = 'pref_blocked_usernames';
   static const String _crashlyticsKey = 'pref_crashlytics';
   static const String _portraitLockKey = 'pref_portrait_lock';
+  static const String _fullscreenSwipeBackKey = 'pref_fullscreen_swipe_back';
   static const String _hideBarOnScrollKey = 'pref_hide_bar_on_scroll';
   static const String _clearCacheOnExitKey = 'pref_clear_cache_on_exit';
   static const String _autoCfChallengeKey = 'pref_auto_cf_challenge';
@@ -512,6 +519,8 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
               _prefs.getStringList(_blockedUsernamesKey) ?? const [],
           crashlytics: _prefs.getBool(_crashlyticsKey) ?? true,
           portraitLock: _prefs.getBool(_portraitLockKey) ?? false,
+          fullscreenSwipeBack:
+              _prefs.getBool(_fullscreenSwipeBackKey) ?? false,
           hideBarOnScroll: _prefs.getBool(_hideBarOnScrollKey) ?? true,
           clearCacheOnExit: _prefs.getBool(_clearCacheOnExitKey) ?? false,
           autoCfChallenge: _prefs.getBool(_autoCfChallengeKey) ?? true,
@@ -692,6 +701,11 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
     } else {
       await SystemChrome.setPreferredOrientations([]);
     }
+  }
+
+  Future<void> setFullscreenSwipeBack(bool enabled) async {
+    state = state.copyWith(fullscreenSwipeBack: enabled);
+    await _prefs.setBool(_fullscreenSwipeBackKey, enabled);
   }
 
   Future<void> setHideBarOnScroll(bool enabled) async {

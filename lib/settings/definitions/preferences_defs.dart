@@ -96,6 +96,20 @@ List<SettingsGroup> buildPreferencesGroups(BuildContext context) {
           ),
           condition: () => Platform.isIOS || Platform.isAndroid,
         ),
+        PlatformConditionalModel(
+          inner: SwitchModel(
+            id: 'fullscreenSwipeBack',
+            title: l10n.preferences_fullscreenSwipeBack,
+            subtitle: l10n.preferences_fullscreenSwipeBackDesc,
+            icon: Symbols.swipe_right_rounded,
+            getValue: (ref) =>
+                ref.watch(preferencesProvider).fullscreenSwipeBack,
+            onChanged: (ref, v) => ref
+                .read(preferencesProvider.notifier)
+                .setFullscreenSwipeBack(v),
+          ),
+          condition: () => Platform.isIOS || Platform.isAndroid,
+        ),
       ],
     ),
     SettingsGroup(
