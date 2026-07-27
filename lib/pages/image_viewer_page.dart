@@ -24,6 +24,7 @@ import '../services/toast_service.dart';
 import '../utils/platform_utils.dart';
 import '../utils/share_utils.dart';
 import '../widgets/common/app_bottom_sheet.dart';
+import '../widgets/common/hero_image.dart';
 import '../widgets/common/image_context_menu.dart';
 import 'package:m3e_ui/m3e_ui.dart';
 import '../l10n/s.dart';
@@ -56,6 +57,9 @@ class ImageViewerPage extends ConsumerStatefulWidget {
   /// 源缩略图的圆角(飞行中插值到 0 / 从 0 恢复)
   final double heroSourceRadius;
 
+  /// 源为圆形裁切(头像):飞行中圆形↔直角连续插值
+  final bool heroSourceCircular;
+
   const ImageViewerPage({
     super.key,
     this.imageUrl,
@@ -70,6 +74,7 @@ class ImageViewerPage extends ConsumerStatefulWidget {
     this.filenames,
     this.heroSourceFit,
     this.heroSourceRadius = 0,
+    this.heroSourceCircular = false,
   }) : assert(imageUrl != null || imageBytes != null);
 
   /// 查看器路由的黑底/整页淡入淡出曲线:与 Hero 飞行(吃路由原始
@@ -100,6 +105,7 @@ class ImageViewerPage extends ConsumerStatefulWidget {
     List<String?>? filenames,
     BoxFit? heroSourceFit,
     double heroSourceRadius = 0,
+    bool heroSourceCircular = false,
   }) {
     return Navigator.push(
       context,
@@ -119,6 +125,7 @@ class ImageViewerPage extends ConsumerStatefulWidget {
             filenames: filenames,
             heroSourceFit: heroSourceFit,
             heroSourceRadius: heroSourceRadius,
+            heroSourceCircular: heroSourceCircular,
           );
         },
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
@@ -219,55 +226,32 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   /// 构建查看器侧 Hero(单图/画廊共用)。
   ///
   /// 源缩略图为 cover 裁剪展示(heroSourceFit == cover,目前只有网格
-  /// 瓦片)时,飞行体升级为双层 crossfade:cover 纹理层(带圆角插值)
-  /// 在飞行前段淡出、查看器 contain 层淡入 —— 消除起飞瞬间
-  /// 「裁剪图→完整图」的跳变(落地/pop 方向反向同理)。
+  /// 瓦片)时,飞行体为 [CoverContainFlightImage] 单层裁切插值(裁切
+  /// 窗口与飞行缩放绑同一 progress,两端与真实内容像素级对齐)。
   ///
-  /// 注意 pop 方向对网格也走本 shuttle(源端是朴素 Hero 无自定义
-  /// shuttle,Flutter 回落到 fromHero=查看器侧)。
+  /// push 方向本 shuttle 生效(toHero=查看器优先);pop 方向源端
+  /// HeroImage 的 shuttle 生效(带同款裁切插值),双向一致。
   Widget _buildViewerHero({
     required String tag,
     required String? thumbUrl,
     required Widget child,
   }) {
     final bool coverSource =
-        widget.heroSourceFit == BoxFit.cover && thumbUrl != null;
+        (widget.heroSourceFit == BoxFit.cover || widget.heroSourceCircular) &&
+        thumbUrl != null;
     return Hero(
       tag: tag,
       flightShuttleBuilder: !coverSource
           ? (_, _, _, _, _) => child
           : (flightContext, animation, direction, fromContext, toContext) {
-              // push:cover 层在前 40% 淡出;pop:cover 层在后 40% 淡入
-              // (animation 在 pop 方向由 1 走向 0,同一 Interval 语义对称)
-              final Animation<double> coverOpacity = animation.drive(
-                Tween<double>(begin: 1.0, end: 0.0).chain(
-                  CurveTween(
-                    curve: const Interval(0.0, 0.4, curve: Curves.easeOut),
-                  ),
-                ),
-              );
-              final double radius = widget.heroSourceRadius;
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  child,
-                  FadeTransition(
-                    opacity: coverOpacity,
-                    child: AnimatedBuilder(
-                      animation: animation,
-                      builder: (context, coverChild) => ClipRRect(
-                        borderRadius: BorderRadius.circular(
-                          radius * (1 - animation.value),
-                        ),
-                        child: coverChild,
-                      ),
-                      child: Image(
-                        image: _thumbnailProvider(thumbUrl),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
-                ],
+              // animation 为路由原始动画:push 0→1、pop 1→0,值语义
+              // 恒为「0=贴源,1=在查看器」,单套插值覆盖双向
+              return CoverContainFlightImage(
+                image: _thumbnailProvider(thumbUrl),
+                animation: animation,
+                radius: widget.heroSourceRadius,
+                circular: widget.heroSourceCircular,
+                fallback: child,
               );
             },
       child: child,
@@ -303,6 +287,12 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   /// 一次全量解码(原图 jpg/png 尤其疼)。未登记(非帖内入口)退回裸
   /// provider,行为同旧。
   ImageProvider _thumbnailProvider(String url) {
+    // 头像 URL 走 avatarBucket:与页面头像(SmartAvatar)同 bucket 同
+    // key,占位/飞行纹理直接命中已解码缓存(否则 content bucket 视为
+    // 全新资源,首次飞行拿不到纹理退化为无插值)
+    if (url.contains('/user_avatar/')) {
+      return discourseImageProvider(url, bucket: BlobImageCache.avatarBucket);
+    }
     final spec = ImageDecodeSpecMemo.peek(url);
     if (spec == null) return discourseImageProvider(url);
     return ResizeImage(

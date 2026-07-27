@@ -1502,10 +1502,19 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                                 final avatarUrl = _user!.getAvatarUrl(
                                   size: 360,
                                 );
+                                // 与页面头像同参(144)的缩略图作飞行纹理,
+                                // 命中已解码缓存;圆形头像飞行中圆↔直角
+                                // 连续插值(方形化账号走圆角 8 插值)
+                                final thumbUrl = _user!.getAvatarUrl(size: 144);
+                                final isSquare = isSquareAvatarUrl(thumbUrl);
                                 ImageViewerPage.open(
                                   context,
                                   avatarUrl,
                                   heroTag: 'user_avatar_${_user!.username}',
+                                  thumbnailUrl: thumbUrl,
+                                  heroSourceCircular: !isSquare,
+                                  heroSourceRadius: isSquare ? 8 : 0,
+                                  heroSourceFit: isSquare ? BoxFit.cover : null,
                                 );
                               }
                             },

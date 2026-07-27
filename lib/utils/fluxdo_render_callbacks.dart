@@ -1120,9 +1120,17 @@ class FluxdoRenderCallbacks {
     // 在无约束下 assert 崩溃)。
     return LayoutBuilder(
       builder: (lbCtx, lbc) {
+        // 网格瓦片内(GridTileScope):瓦片给 tight 约束,图按 cover
+        // 填满 —— Hero 包在 cover 之内,量到的就是瓦片矩形,开合飞行
+        // 落点正确(配合查看器/HeroImage 的裁切插值 shuttle,飞行中
+        // 裁切窗口随缩放连续张合,两端像素级对齐)。
+        final bool inGridTile = GridTileScope.of(lbCtx);
         double? dispW = image.width;
         double? dispH = image.height;
-        if (dispW != null &&
+        if (inGridTile && lbc.hasTightWidth && lbc.hasTightHeight) {
+          dispW = lbc.maxWidth;
+          dispH = lbc.maxHeight;
+        } else if (dispW != null &&
             dispH != null &&
             dispW > 0 &&
             lbc.maxWidth.isFinite &&
@@ -1204,6 +1212,11 @@ class FluxdoRenderCallbacks {
                       ),
                 width: dispW,
                 height: dispH,
+                // 瓦片内 cover 填满(裁切由瓦片 ClipRRect 完成);
+                // 文档流保持 contain
+                fit: inGridTile ? BoxFit.cover : BoxFit.contain,
+                coverFlight: inGridTile,
+                flightRadius: inGridTile ? 4 : 0,
                 // 解码恒按**原始宽**(scale 乘之前的声明宽):缩放档切换
                 // 显示宽变但解码宽不变 → ImageCache 同 key,切档零重
                 // 解码零 spinner(此前解码宽跟显示宽走,每次切档全新
@@ -1243,6 +1256,9 @@ class FluxdoRenderCallbacks {
                       galleryIndex != null &&
                       galleryIndex >= 0 &&
                       galleryIndex < gallery.urls.length;
+                  // 网格瓦片(cover 裁切+圆角 4)来源:启用飞行 crossfade,
+                  // 消除开合瞬间「裁剪图↔完整图」跳变
+                  final bool inGridTile = GridTileScope.of(ctx);
                   DiscourseImageUtils.openViewer(
                     context: ctx,
                     imageUrl: resolvedFullUrl,
@@ -1252,6 +1268,8 @@ class FluxdoRenderCallbacks {
                     thumbnailUrls: hasGallery ? gallery.thumbs : null,
                     heroTags: hasGallery ? gallery.heroTags : null,
                     initialIndex: hasGallery ? galleryIndex : 0,
+                    heroSourceFit: inGridTile ? BoxFit.cover : null,
+                    heroSourceRadius: inGridTile ? 4 : 0,
                   );
                 },
                 // 长按/右键 → 图片上下文菜单(对齐 legacy LazyImage
