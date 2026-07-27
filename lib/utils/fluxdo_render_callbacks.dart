@@ -31,6 +31,7 @@ import '../services/highlighter_service.dart';
 import '../services/media_compat_service.dart';
 import '../services/toast_service.dart';
 import '../utils/discourse_url_parser.dart';
+import '../utils/html_to_markdown.dart';
 import '../utils/link_launcher.dart';
 import '../utils/svg_utils.dart';
 import '../utils/url_helper.dart';
@@ -1340,7 +1341,37 @@ class FluxdoRenderCallbacks {
       topicId: topicId,
       onQuoteImage: liveQuoteHandler,
       position: position,
+      quoteMarkdown: _uploadMarkdownForImage(image),
       heroTag: heroTag,
+    );
+  }
+
+  /// 引用/复制引用图片时,对齐官方 lightbox/quote-image.js 的行为:直接用
+  /// [ImageRun] 自带的 cooked 契约字段构建 markdown,`base62Sha1 →
+  /// origSrc → src` 三级回退,用 `upload://sha1.ext` 短链而非 CDN 解析后
+  /// 的完整 URL(那样粘回聊天框/编辑器无法被识别为图片附件)。
+  ///
+  /// 无上传短链信息的外链图退回 src 本身,同样对齐官方;返回 null 仅在
+  /// src 为空时发生,调用方降级用 `![image](CDN url)`。
+  static String? _uploadMarkdownForImage(ImageRun image) {
+    String src;
+    final base62Sha1 = image.base62Sha1;
+    if (base62Sha1 != null && base62Sha1.isNotEmpty) {
+      src = 'upload://$base62Sha1';
+      final ext = HtmlToMarkdown.extensionFromUrl(image.src) ??
+          HtmlToMarkdown.extensionFromUrl(image.lightboxUrl) ??
+          HtmlToMarkdown.extensionFromUrl(image.origSrc);
+      if (ext != null) src = '$src.$ext';
+    } else {
+      final origSrc = image.origSrc;
+      src = (origSrc != null && origSrc.isNotEmpty) ? origSrc : image.src;
+    }
+    if (src.isEmpty) return null;
+    return HtmlToMarkdown.buildImageMarkdown(
+      src: src,
+      alt: image.alt.isNotEmpty ? image.alt : 'image',
+      width: image.width?.round().toString(),
+      height: image.height?.round().toString(),
     );
   }
 
