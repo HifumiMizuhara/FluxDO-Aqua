@@ -286,6 +286,14 @@ class _NotificationPagerDialogState extends State<_NotificationPagerDialog>
             currentUsername: widget.currentUsername,
           ) ??
           const SizedBox.shrink(),
+      // 全屏打开当前条目(播放列表已滤掉无落点通知,页面必然非 null);
+      // 全屏后翻页/列表随弹窗一起退场,回来重新从通知入口进即可
+      fullscreenBuilder: (_) =>
+          _notificationTargetPage(
+            notification,
+            currentUsername: widget.currentUsername,
+          ) ??
+          const SizedBox.shrink(),
     );
   }
 

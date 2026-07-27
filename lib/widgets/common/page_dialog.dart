@@ -25,7 +25,7 @@ Future<T?> showPageDialog<T>({
     barrierDismissible: true,
     barrierLabel: S.current.common_close,
     pageBuilder: (dialogContext, animation, secondaryAnimation) {
-      return PageDialogScaffold(builder: builder);
+      return PageDialogScaffold(builder: builder, fullscreenBuilder: builder);
     },
   );
 }
@@ -43,12 +43,18 @@ class PageDialogScaffold extends StatefulWidget {
     this.sidebar,
     this.sidebarWidth = 332,
     this.overlay,
+    this.fullscreenBuilder,
   });
 
   final WidgetBuilder builder;
 
   /// 追加在 ✕ 左侧的操作(如上一条/下一条),与 ✕ 同一行
   final List<Widget> topBar;
+
+  /// 非 null 时顶部操作行出现「全屏打开」按钮:关掉弹窗,改以全屏
+  /// 路由在根导航打开该页面 —— 把选择权交给想沉浸阅读的用户。翻页类
+  /// 调用方传当前条目的落点页;弹窗内已产生的内链子页不随迁。
+  final WidgetBuilder? fullscreenBuilder;
 
   /// 内容身份。变化时嵌套 Navigator 连同其路由栈整体重建
   final Key? contentKey;
@@ -75,6 +81,15 @@ class _PageDialogScaffoldState extends State<PageDialogScaffold> {
       // 换 GlobalKey 强制旧 Navigator 子树销毁重建(路由栈清零)
       _navKey = GlobalKey<NavigatorState>();
     }
+  }
+
+  /// 全屏打开:先关弹窗,再把同一页面推成根导航的全屏路由。顺序不能
+  /// 反 —— 先 push 会让 pop 关掉的是刚推上去的全屏页
+  void _openFullscreen() {
+    final builder = widget.fullscreenBuilder!;
+    final navigator = Navigator.of(context, rootNavigator: true);
+    navigator.pop();
+    navigator.push(MaterialPageRoute(builder: builder));
   }
 
   @override
@@ -104,6 +119,12 @@ class _PageDialogScaffoldState extends State<PageDialogScaffold> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   ...widget.topBar,
+                  if (widget.fullscreenBuilder != null)
+                    _PageDialogTopButton(
+                      tooltip: context.l10n.common_fullscreenOpen,
+                      icon: Symbols.open_in_full_rounded,
+                      onPressed: _openFullscreen,
+                    ),
                   _PageDialogTopButton(
                     tooltip: context.l10n.common_close,
                     icon: Symbols.close_rounded,
