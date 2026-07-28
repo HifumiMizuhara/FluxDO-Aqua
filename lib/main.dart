@@ -92,6 +92,7 @@ import 'providers/preferences_provider.dart';
 import 'providers/theme_provider.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
+import 'package:video_player_media_kit/video_player_media_kit.dart';
 import 'services/audio/just_audio_gst.dart';
 import 'widgets/preheat_gate.dart';
 import 'widgets/onboarding_gate.dart';
@@ -154,13 +155,22 @@ Future<void> main() async {
 
   // just_audio 不自带 Windows/Linux 实现,必须在创建 AudioPlayer 前注册
   // 后端,否则会落回不存在的 MethodChannel 实现。两平台后端不同:
-  // - Windows: MediaKit(libmpv-2.dll 随 media_kit_libs_windows_audio 打包);
-  // - Linux: GStreamer 桥(见 just_audio_gst.dart 注释,flatpak 禁网沙箱
-  //   与 GNOME runtime 均不容纳 mpv 方案)。
+  // - Windows: MediaKit(libmpv-2.dll 随 media_kit_libs_windows_video 打包,
+  //   与视频后端共用同一份 dll);
+  // - Linux: GStreamer 桥(见 just_audio_gst.dart 注释;音频不改走 mpv,
+  //   GStreamer 桥已稳定,换后端无收益)。
   if (!kIsWeb && Platform.isLinux) {
     JustAudioGst.registerWith();
   } else {
     JustAudioMediaKit.ensureInitialized(linux: false);
+  }
+
+  // video_player 官方无 Windows/Linux 后端,两平台桥接到 media_kit(libmpv),
+  // 必须先于任何 VideoPlayerController 创建。其余平台维持官方后端。
+  // Linux 运行期 dlopen libmpv.so.2 失败时,controller.initialize() 抛错,
+  // 走播放器的错误卡兜底(「用浏览器打开」),不影响其他功能。
+  if (!kIsWeb && (Platform.isWindows || Platform.isLinux)) {
+    VideoPlayerMediaKit.ensureInitialized(windows: true, linux: true);
   }
 
   // Rust 动图管线的首帧(挂载瞬态的裸 RGBA 上传,不经 binding)注入

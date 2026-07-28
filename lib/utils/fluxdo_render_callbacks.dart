@@ -58,7 +58,7 @@ import '../widgets/content/discourse_html_content/builders/poll_builder.dart'
     as legacy_poll;
 import '../widgets/content/discourse_html_content/builders/chat_transcript_builder.dart'
     as legacy_chat;
-import '../widgets/content/discourse_html_content/builders/video_builder.dart';
+import '../widgets/media_player/video/discourse_video_player.dart';
 import '../widgets/content/discourse_html_content/image_utils.dart';
 import '../widgets/content/discourse_html_content/lazy_image.dart';
 import '../widgets/content/lazy_load_scope.dart';
@@ -414,7 +414,8 @@ class FluxdoRenderCallbacks {
     return _buildInlineSvgFromSource(node.svgSource);
   };
 
-  /// 原生上传视频:复用 DiscourseVideoPlayer(chewie)。VideoNode 已结构化,
+  /// 原生上传视频:DiscourseVideoPlayer(自绘控制层,六端统一)。
+  /// VideoNode 已结构化,
   /// upload:// 短链先解析成真实 URL(与 image builder 同套路);再过
   /// MediaCompatService 处理「改名上传」(.xz 装 mp4 等,AVFoundation
   /// 按扩展名认容器,须本地化改回正确后缀,详见该服务文档)。
@@ -451,7 +452,10 @@ class FluxdoRenderCallbacks {
           resolvedSrc,
           aspectRatio: dimensOk ? node.width! / node.height! : 16 / 9,
           autoResize: !dimensOk,
-          controls: true,
+          // <source type> 优先于 URL 后缀(.xz 伪装等),Android ExoPlayer
+          // 靠它强制 progressive 路径;media_kit/mpv 按内容 probe 不吃提示
+          mimeType: node.mime,
+          loop: node.loop,
           poster: posterUrl == null
               ? null
               : Image(

@@ -156,19 +156,35 @@ dependencies:
   flutter_foreground_task: ^9.2.0  # Android 前台服务保活
   workmanager: ^0.9.0+3            # iOS BGTaskScheduler
 
-  chewie: any
   video_player: any
+  # video_player 官方无 Windows/Linux 后端,两平台经 video_player_media_kit
+  # 桥接到 media_kit(libmpv);移动端 + macOS 维持官方后端。
+  video_player_media_kit: ^2.0.0
+  # Windows 的 libmpv-2.dll。video 包是 audio 包的超集,音频侧
+  # (just_audio_media_kit)共用同一份 dll,不再单独引 *_windows_audio。
+  media_kit_libs_windows_video: ^1.0.11
+  # Linux 的 media_kit 初始化桩:不打包 libmpv,运行期 dlopen 系统/flatpak
+  # 内置的 libmpv.so.2(flatpak manifest 自建 mpv 模块,见 flatpak/*.yml);
+  # 其 CMake 会在 configure 期联网下载 mimalloc —— flatpak 禁网沙箱里由
+  # scripts/ci/linux/patch_plugins.sh 指向 vendored 副本。
+  media_kit_libs_linux: ^1.2.1
+  # 视频播放期间防熄屏(自绘播放器直接依赖)。1.4+ 依赖 package_info_plus ^9
+  # / win32 ^6,与项目锁定的 device_info_plus 12.3.0(win32 ^5)和
+  # package_info_plus ^8 冲突,停在 1.3.x。
+  wakelock_plus: ^1.3.3
+  volume_controller: ^3.6.0 # 播放器竖滑手势调系统音量(仅移动端调用)
+  screen_brightness: ^2.1.11 # 播放器竖滑手势调 app 亮度(仅移动端调用)
   just_audio: ^0.10.6 # 原生上传音频播放(FluxdoRender audioBuilder)
   # just_audio 本身不包含 Windows/Linux 实现。
-  # - Windows: media_kit 后端(自带 libmpv-2.dll)。
+  # - Windows: media_kit 后端(libmpv-2.dll 随 media_kit_libs_windows_video
+  #   打包,与视频共用)。
   # - Linux: 自写 GStreamer 桥(services/audio/just_audio_gst.dart),经
-  #   audioplayers_linux 走 GNOME runtime 自带的 GStreamer。不用 media_kit:
-  #   media_kit_libs_linux 不打包 libmpv(指望系统已装),且其 CMake 会在
-  #   configure 期联网下载 mimalloc —— flatpak 禁网沙箱里直接 FATAL_ERROR。
+  #   audioplayers_linux 走 GNOME runtime 自带的 GStreamer。音频不改走
+  #   media_kit:GStreamer 桥已稳定,换后端无收益(视频引入 libmpv 是
+  #   因为视频别无后端可选)。
   #   只依赖 audioplayers_linux + platform_interface,不拉 audioplayers 主包,
   #   避免给 Android/iOS 等平台塞进用不到的实现插件。
   just_audio_media_kit: ^2.1.0
-  media_kit_libs_windows_audio: ^1.0.9
   just_audio_platform_interface: ^4.6.0 # JustAudioGst 实现平台接口
   audioplayers_linux: ^4.3.0
   audioplayers_platform_interface: ^7.2.0
