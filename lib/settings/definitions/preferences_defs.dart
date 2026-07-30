@@ -144,6 +144,20 @@ List<SettingsGroup> buildPreferencesGroups(BuildContext context) {
           onChanged: (ref, v) => ref
               .read(preferencesProvider.notifier)
               .setComposerEnterSoftBreak(v),
+          // 软换行是富文本编辑器(EditorState)的语义,源码编辑器不认
+          enabledWhen: (ref) => ref.watch(preferencesProvider).useRichComposer,
+        ),
+        SwitchModel(
+          id: 'composerLiveRender',
+          title: l10n.preferences_composerLiveRender,
+          subtitle: l10n.preferences_composerLiveRenderDesc,
+          icon: Symbols.preview_rounded,
+          getValue: (ref) => ref.watch(preferencesProvider).composerLiveRender,
+          onChanged: (ref, v) => ref
+              .read(preferencesProvider.notifier)
+              .setComposerLiveRender(v),
+          // 即时渲染(ir)是富文本编辑器的模式,源码编辑器无显形概念
+          enabledWhen: (ref) => ref.watch(preferencesProvider).useRichComposer,
         ),
         SwitchModel(
           id: 'aiPostReview',
