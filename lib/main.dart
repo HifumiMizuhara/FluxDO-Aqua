@@ -957,16 +957,17 @@ class _MainPageState extends ConsumerState<MainPage>
       }
     });
 
+    // 提前捕获 container:登录成功广播可能落在本元素 deactivate/重挂载
+    // 窗口内,届时 containerOf(context) 会抛错把刷新链掐死(登录后无
+    // 登录态)。container 与根 ProviderScope 同生命周期,不受元素影响。
+    final appContainer = ProviderScope.containerOf(context, listen: false);
     _authStateSub = ref.listenManual<AsyncValue<void>>(authStateProvider, (
       _,
       next,
     ) {
       next.whenData((_) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          AppStateRefresher.refreshAll(
-            ProviderScope.containerOf(context, listen: false),
-          );
+          AppStateRefresher.refreshAll(appContainer);
         });
       });
     });
