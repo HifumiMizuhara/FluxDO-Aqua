@@ -75,6 +75,7 @@ import 'composer_doc_codec.dart';
 import 'html_to_markdown.dart';
 import 'local_date_edit_dialog.dart';
 import '../media_upload_helper.dart';
+import '../../../services/toast_service.dart';
 import '../cursor_swipe_control.dart';
 import '../voice_recorder_sheet.dart';
 
@@ -1640,6 +1641,45 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     }
   }
 
+  /// 通用文件上传(插入菜单「上传文件」):不限类型,走通用
+  /// `uploadFile` 接口(不做 4MB 音视频前置检查/改名,站点扩展名白名单
+  /// 内的常见文档/压缩包直接原名上传),插入 Discourse 标准附件链接
+  /// 语法 `[文件名|attachment](upload://...) (大小)`,cook 后渲染成
+  /// 网页端同款的附件下载条。
+  Future<void> _pickAndInsertFile() async {
+    // 白名单从站点配置动态派生(staff 名单叠加);null = 站点通配或
+    // 配置未加载,不设限让服务端裁决。
+    final allowed = attachmentAllowedExtensions();
+    final picked = await FilePicker.platform.pickFiles(
+      type: allowed == null ? FileType.any : FileType.custom,
+      allowedExtensions: allowed,
+    );
+    final file = picked?.files.single;
+    final path = file?.path;
+    if (file == null || path == null || !mounted) return;
+    setState(() => _uploadingCount++);
+    try {
+      final uploadResult = await DiscourseService().uploadFile(path);
+      if (!mounted) return;
+      final size = uploadResult.humanFilesize;
+      final snippet = '[${uploadResult.originalFilename}|attachment]'
+          '(${uploadResult.shortUrl})'
+          '${size != null ? ' ($size)' : ''}';
+      await insertMarkdownSnippet(snippet);
+    } catch (e, s) {
+      if (mounted) {
+        final msg = e is Exception
+            ? e.toString().replaceFirst('Exception: ', '')
+            : '文件上传失败';
+        ToastService.showError(msg);
+      } else {
+        AppErrorHandler.handleUnexpected(e, s);
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingCount--);
+    }
+  }
+
   /// 语音消息:录音面板 → 上传([wrap=voice] 语音条标签)→ 插入。
   Future<void> _recordAndInsertVoice() async {
     final path = await showVoiceRecorderSheet(context);
@@ -1778,6 +1818,7 @@ class RichComposerEditorState extends State<RichComposerEditor> {
         item('__audio__', Icons.audiotrack_rounded, '上传音频'),
         item('__video__', Icons.videocam_outlined, '上传视频'),
         item('__voice__', Icons.mic_rounded, '语音消息'),
+        item('__file__', Icons.attach_file_rounded, '上传文件'),
         const PopupMenuDivider(height: 8),
         // 用户自定义模板(与 MD 模式「模板」同一选择器,内容经 cook)
         item('__template__', Icons.assignment_outlined, '我的模板…'),
@@ -1793,6 +1834,8 @@ class RichComposerEditorState extends State<RichComposerEditor> {
       await _pickAndInsertMedia(isAudio: selected == '__audio__');
     } else if (selected == '__voice__') {
       await _recordAndInsertVoice();
+    } else if (selected == '__file__') {
+      await _pickAndInsertFile();
     } else if (selected == '__callout__') {
       await _insertCallout();
     } else if (selected == '__link__') {
