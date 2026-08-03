@@ -78,6 +78,7 @@ import 'constants.dart';
 import 'providers/connectivity_provider.dart';
 import 'utils/dialog_utils.dart';
 import 'utils/frame_jank_monitor.dart';
+import 'utils/hashtag_handlers.dart';
 import 'utils/image_decode_gate.dart';
 import 'widgets/post/post_item/render_parse_cache.dart';
 import 'utils/scroll_busy_signal.dart';
@@ -461,9 +462,11 @@ Future<void> main() async {
     await BlobImageCache.sweep(prefs);
   }());
 
+  // 注入 hashtag 药丸的图标解析与点击导航(fluxdo_render 注入点)
+  installHashtagHandlers();
+
   // 注入 AI 模型管理包的消息提示实现
-  AiToastDelegate.configure((message, {type = AiToastType.info}) {
-    switch (type) {
+  AiToastDelegate.configure((message, {type = AiToastType.info}) {    switch (type) {
       case AiToastType.success:
         ToastService.showSuccess(message);
       case AiToastType.error:
