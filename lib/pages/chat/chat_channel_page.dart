@@ -83,7 +83,8 @@ class ChatChannelPage extends ConsumerStatefulWidget {
   ConsumerState<ChatChannelPage> createState() => _ChatChannelPageState();
 }
 
-class _ChatChannelPageState extends ConsumerState<ChatChannelPage> {
+class _ChatChannelPageState extends ConsumerState<ChatChannelPage>
+    with WidgetsBindingObserver {
   final AutoScrollController _scrollController = AutoScrollController();
   final ChatComposerController _inputController = ChatComposerController();
   final FocusNode _inputFocus = FocusNode();
@@ -135,9 +136,22 @@ class _ChatChannelPageState extends ConsumerState<ChatChannelPage> {
   Timer? _draftDebounce;
   String _lastSavedDraft = '';
 
+  /// 已读上报去抖(官方 READ_INTERVAL_MS=1s:滚动/新消息触发都走它)
+  Timer? _readDebounce;
+
+  /// 前台判定(官方 userIsPresent):后台时不上报,回前台补报
+  bool _userPresent = true;
+
+  /// 列表 key:量各消息行相对视口的位置(可见已读口径)
+  final GlobalKey _listKey = GlobalKey();
+
+  /// composer key:返回键先收表情面板再退页(编辑器同款拦截)
+  final GlobalKey<_ChatComposerState> _composerKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(_onScroll);
     _inputController.addListener(() {
       final canSend = _inputController.text.trim().isNotEmpty;
@@ -156,6 +170,10 @@ class _ChatChannelPageState extends ConsumerState<ChatChannelPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    // 离开频道立即补报一次(官方 teardown 同款;去抖窗口内的滚动不丢)
+    _readDebounce?.cancel();
+    _reportVisibleRead();
     _typingReporter.dispose();
     _highlightTimer?.cancel();
     _scrollIdleTimer?.cancel();
@@ -169,6 +187,18 @@ class _ChatChannelPageState extends ConsumerState<ChatChannelPage> {
     _inputController.dispose();
     _inputFocus.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final present = state == AppLifecycleState.resumed;
+    if (present && !_userPresent) {
+      _userPresent = true;
+      // 回前台补报(官方 onUserPresent 同款)
+      _scheduleMarkRead();
+    } else {
+      _userPresent = present;
+    }
   }
 
   /// 进场回填草稿:current_user.chat_drafts 只在登录时下发一次,
@@ -405,6 +435,9 @@ class _ChatChannelPageState extends ConsumerState<ChatChannelPage> {
     if (position.pixels < 200) {
       _notifier.loadFuture();
     }
+    // 已读上报(官方口径:滚动即触发,1s 去抖,报视口内可见的最新消息
+    // ——历史区渐进推进,不只贴底才报)
+    _scheduleMarkRead();
     final away = position.pixels > 600;
     if (away != _awayFromBottom) {
       setState(() => _awayFromBottom = away);
@@ -783,13 +816,50 @@ class _ChatChannelPageState extends ConsumerState<ChatChannelPage> {
   /// 在窗口底部即把已读位推进到窗口内最新一条(渐进上报,服务端单调)。
   /// 不再要求窗口含全站最新页:锚点进入大量未读时那个条件永不满足,
   /// 已读永不上报,列表徽章永不清(网页版进一下频道才好=它替我们报了)。
-  void _maybeMarkRead(ChatMessagesState state) {
-    if (!_scrollController.hasClients) return;
-    if (_scrollController.position.pixels > 100) return;
-    final lastReal = state.messages.where((m) => !m.isStaged).lastOrNull;
-    if (lastReal != null) {
-      _notifier.markReadUpTo(lastReal.id);
+  void _scheduleMarkRead() {
+    _readDebounce?.cancel();
+    _readDebounce = Timer(const Duration(seconds: 1), () {
+      if (mounted) _reportVisibleRead();
+    });
+  }
+
+  /// 视口内底缘完全可见的最新消息 id(官方 firstVisibleMessageId 口径,
+  /// reverse 列表下即"看到哪");量不到时返回 null
+  int? _lastVisibleMessageId() {
+    if (!_scrollController.hasClients) return null;
+    final listBox = _listKey.currentContext?.findRenderObject() as RenderBox?;
+    if (listBox == null || !listBox.attached) return null;
+    final listTop = listBox.localToGlobal(Offset.zero).dy;
+    final listBottom = listTop + listBox.size.height;
+    int? best;
+    // AutoScrollTag 注册表:key=消息 id(缓存区外的行不在表里,
+    // 缓存区内但视口外的行由位置判定滤掉)
+    for (final entry in _scrollController.tagMap.entries) {
+      final box = entry.value.context.findRenderObject() as RenderBox?;
+      if (box == null || !box.attached) continue;
+      final bottom = box.localToGlobal(Offset.zero).dy + box.size.height;
+      if (bottom <= listBottom + 1 && bottom >= listTop) {
+        if (best == null || entry.key > best) best = entry.key;
+      }
     }
+    return best;
+  }
+
+  void _reportVisibleRead() {
+    // 官方三道门:在场 + 已 follow 频道 + 有内容
+    if (!_userPresent) return;
+    final channel = _findChannel();
+    if (channel?.currentUserMembership?.following != true) return;
+    final state = ref.read(chatMessagesProvider(_streamKey)).value;
+    if (state == null || state.messages.isEmpty) return;
+    var visibleId = _lastVisibleMessageId();
+    // 量不到(极端时序/行全在缓存外)退回贴底口径,不误报深处消息
+    if (visibleId == null &&
+        _scrollController.hasClients &&
+        _scrollController.position.pixels <= 100) {
+      visibleId = state.messages.where((m) => !m.isStaged).lastOrNull?.id;
+    }
+    if (visibleId != null) _notifier.markReadUpTo(visibleId);
   }
 
   @override
@@ -819,166 +889,179 @@ class _ChatChannelPageState extends ConsumerState<ChatChannelPage> {
           );
         });
       }
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _maybeMarkRead(state);
-      });
+      _scheduleMarkRead();
       if (widget.threadId == null) _syncPinsFromMessages(state.messages);
     });
 
-    return Scaffold(
-      // 键盘让位由 ChatBottomPanelContainer 的占位承担(编辑器同款),
-      // Scaffold 再 resize 会双重抬升
-      resizeToAvoidBottomInset: false,
-      appBar: _selecting
-          ? AppBar(
-              leading: IconButton(
-                icon: const Icon(Symbols.close_rounded),
-                onPressed: _exitSelection,
+    return PopScope(
+      // 移动端表情面板开着时,返回键先收面板(编辑器/TG 同款),不退页
+      canPop:
+          PlatformUtils.isDesktop ||
+          !(_composerKey.currentState?.isPanelOpen ?? false),
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          _composerKey.currentState?.closePanel();
+          // canPop 是构建期快照,收完面板要刷新它
+          setState(() {});
+        }
+      },
+      child: Scaffold(
+        // 键盘让位由 ChatBottomPanelContainer 的占位承担(编辑器同款),
+        // Scaffold 再 resize 会双重抬升
+        resizeToAvoidBottomInset: false,
+        appBar: _selecting
+            ? AppBar(
+                leading: IconButton(
+                  icon: const Icon(Symbols.close_rounded),
+                  onPressed: _exitSelection,
+                ),
+                title: Text(
+                  context.l10n.chat_selectedCount(_selectedIds.length),
+                ),
+              )
+            : AppBar(
+                automaticallyImplyLeading: !widget.embeddedMode,
+                leading: widget.embeddedMode && widget.onEmbeddedBack != null
+                    ? BackButton(onPressed: widget.onEmbeddedBack)
+                    : null,
+                titleSpacing: 0,
+                title: _buildTitle(channel),
+                actions: [
+                  SwipeDismissiblePopupMenuButton<String>(
+                    icon: const Icon(Symbols.more_vert_rounded),
+                    onSelected: (value) {
+                      switch (value) {
+                        case 'search':
+                          _openInChannelSearch();
+                        case 'summarize':
+                          _summarize();
+                        case 'refresh':
+                          // 整流重载:重拉频道详情+消息窗口+重订阅 bus
+                          // (断连漏消息/漏事件时的手动兜底)
+                          ref.invalidate(chatMessagesProvider(_streamKey));
+                      }
+                    },
+                    itemBuilder: (menuContext) => [
+                      PopupMenuItem(
+                        value: 'search',
+                        child: Row(
+                          children: [
+                            const Icon(Symbols.search_rounded, size: 20),
+                            const SizedBox(width: 12),
+                            Text(menuContext.l10n.chat_searchInChannel),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'summarize',
+                        child: Row(
+                          children: [
+                            const Icon(Symbols.summarize_rounded, size: 20),
+                            const SizedBox(width: 12),
+                            Text(menuContext.l10n.chat_summarize),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'refresh',
+                        child: Row(
+                          children: [
+                            const Icon(Symbols.refresh_rounded, size: 20),
+                            const SizedBox(width: 12),
+                            Text(menuContext.l10n.chat_refresh),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              title: Text(context.l10n.chat_selectedCount(_selectedIds.length)),
-            )
-          : AppBar(
-              automaticallyImplyLeading: !widget.embeddedMode,
-              leading: widget.embeddedMode && widget.onEmbeddedBack != null
-                  ? BackButton(onPressed: widget.onEmbeddedBack)
-                  : null,
-              titleSpacing: 0,
-              title: _buildTitle(channel),
-              actions: [
-                SwipeDismissiblePopupMenuButton<String>(
-                  icon: const Icon(Symbols.more_vert_rounded),
-                  onSelected: (value) {
-                    switch (value) {
-                      case 'search':
-                        _openInChannelSearch();
-                      case 'summarize':
-                        _summarize();
-                      case 'refresh':
-                        // 整流重载:重拉频道详情+消息窗口+重订阅 bus
-                        // (断连漏消息/漏事件时的手动兜底)
-                        ref.invalidate(chatMessagesProvider(_streamKey));
-                    }
-                  },
-                  itemBuilder: (menuContext) => [
-                    PopupMenuItem(
-                      value: 'search',
-                      child: Row(
-                        children: [
-                          const Icon(Symbols.search_rounded, size: 20),
-                          const SizedBox(width: 12),
-                          Text(menuContext.l10n.chat_searchInChannel),
-                        ],
+        body: Column(
+          children: [
+            Expanded(
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: messagesAsync.when(
+                      data: (state) => _buildMessageList(theme, state),
+                      loading: () => const Center(child: LoadingSpinner()),
+                      error: (error, stack) => ErrorView(
+                        error: error,
+                        stackTrace: stack,
+                        onRetry: () =>
+                            ref.invalidate(chatMessagesProvider(_streamKey)),
                       ),
-                    ),
-                    PopupMenuItem(
-                      value: 'summarize',
-                      child: Row(
-                        children: [
-                          const Icon(Symbols.summarize_rounded, size: 20),
-                          const SizedBox(width: 12),
-                          Text(menuContext.l10n.chat_summarize),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'refresh',
-                      child: Row(
-                        children: [
-                          const Icon(Symbols.refresh_rounded, size: 20),
-                          const SizedBox(width: 12),
-                          Text(menuContext.l10n.chat_refresh),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-      body: Column(
-        children: [
-          Expanded(
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: messagesAsync.when(
-                    data: (state) => _buildMessageList(theme, state),
-                    loading: () => const Center(child: LoadingSpinner()),
-                    error: (error, stack) => ErrorView(
-                      error: error,
-                      stackTrace: stack,
-                      onRetry: () =>
-                          ref.invalidate(chatMessagesProvider(_streamKey)),
                     ),
                   ),
-                ),
-                // 置顶横幅(TG 式:顶栏下,点击跳转,多条轮换)
-                if (_pins.isNotEmpty)
+                  // 置顶横幅(TG 式:顶栏下,点击跳转,多条轮换)
+                  if (_pins.isNotEmpty)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: _PinnedBanner(
+                        pins: _pins,
+                        cursor: _pinCursor % _pins.length,
+                        onTap: () {
+                          final pin = _pins[_pinCursor % _pins.length];
+                          setState(
+                            () => _pinCursor = (_pinCursor + 1) % _pins.length,
+                          );
+                          _jumpToMessage(pin.id);
+                        },
+                      ),
+                    ),
+                  // 回到底部浮钮(离底/锚点模式时出现)
                   Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    child: _PinnedBanner(
-                      pins: _pins,
-                      cursor: _pinCursor % _pins.length,
-                      onTap: () {
-                        final pin = _pins[_pinCursor % _pins.length];
-                        setState(
-                          () => _pinCursor =
-                              (_pinCursor + 1) % _pins.length,
-                        );
-                        _jumpToMessage(pin.id);
-                      },
-                    ),
-                  ),
-                // 回到底部浮钮(离底/锚点模式时出现)
-                Positioned(
-                  right: 16,
-                  bottom: 12,
-                  child: AnimatedScale(
-                    scale:
-                        _awayFromBottom ||
-                            (messagesAsync.value?.canLoadMoreFuture ?? false)
-                        ? 1
-                        : 0,
-                    duration: const Duration(milliseconds: 150),
-                    child: FloatingActionButton.small(
-                      heroTag: 'chatJumpBottom_${widget.channelId}',
-                      elevation: 2,
-                      onPressed: _jumpToLatest,
-                      child: const Icon(
-                        Symbols.keyboard_double_arrow_down_rounded,
+                    right: 16,
+                    bottom: 12,
+                    child: AnimatedScale(
+                      scale:
+                          _awayFromBottom ||
+                              (messagesAsync.value?.canLoadMoreFuture ?? false)
+                          ? 1
+                          : 0,
+                      duration: const Duration(milliseconds: 150),
+                      child: FloatingActionButton.small(
+                        heroTag: 'chatJumpBottom_${widget.channelId}',
+                        elevation: 2,
+                        onPressed: _jumpToLatest,
+                        child: const Icon(
+                          Symbols.keyboard_double_arrow_down_rounded,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          if (_selecting) ...[
-            _SelectionToolbar(
-              count: _selectedIds.length,
-              canDelete: _selectedIds.isNotEmpty && _canDeleteSelected(),
-              onQuote: _quoteSelected,
-              onCopy: _copySelected,
-              onDelete: _deleteSelected,
-            ),
-          ] else ...[
-            _ChatComposer(
-              controller: _inputController,
-              focusNode: _inputFocus,
-              canSend: _canSend,
-              editing: _editing,
-              replyingTo: _replyingTo,
-              onSend: (uploadIds) => _send(uploadIds: uploadIds),
-              onSendSticker: _sendSticker,
-              onCancelContext: () => setState(() {
-                if (_editing != null) _inputController.clear();
-                _editing = null;
-                _replyingTo = null;
-              }),
-            ),
+            if (_selecting) ...[
+              _SelectionToolbar(
+                count: _selectedIds.length,
+                canDelete: _selectedIds.isNotEmpty && _canDeleteSelected(),
+                onQuote: _quoteSelected,
+                onCopy: _copySelected,
+                onDelete: _deleteSelected,
+              ),
+            ] else ...[
+              _ChatComposer(
+                key: _composerKey,
+                controller: _inputController,
+                focusNode: _inputFocus,
+                canSend: _canSend,
+                editing: _editing,
+                replyingTo: _replyingTo,
+                onSend: (uploadIds) => _send(uploadIds: uploadIds),
+                onSendSticker: _sendSticker,
+                onCancelContext: () => setState(() {
+                  if (_editing != null) _inputController.clear();
+                  _editing = null;
+                  _replyingTo = null;
+                }),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -1103,9 +1186,11 @@ class _ChatChannelPageState extends ConsumerState<ChatChannelPage> {
     final messages = state.messages;
 
     return ListView.builder(
+      key: _listKey,
       controller: _scrollController,
       reverse: true,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      // 水平边距由行自管(桌面宽/移动窄),列表层不再叠一层
+      padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: messages.length + (state.loadingPast ? 1 : 0),
       itemBuilder: (context, index) {
         if (index >= messages.length) {
@@ -1309,6 +1394,7 @@ class _ChatComposer extends ConsumerStatefulWidget {
   final VoidCallback onCancelContext;
 
   const _ChatComposer({
+    super.key,
     required this.controller,
     required this.focusNode,
     required this.canSend,
@@ -1334,9 +1420,36 @@ class _ChatComposerState extends ConsumerState<_ChatComposer> {
 
   /// 移动端键盘位面板(chat_bottom_container,编辑器同款):
   /// 表情面板与键盘等高互换,不再用底部抽屉(与输入框脱节)
-  final _panelController =
-      ChatBottomPanelContainerController<_ComposerPanel>();
+  final _panelController = ChatBottomPanelContainerController<_ComposerPanel>();
   _ComposerPanel _currentPanel = _ComposerPanel.none;
+
+  /// 面板意图(编辑器 _intendedPanel 同款):updatePanelType 是异步生效,
+  /// 快速连点时用意图位判定目标态,不依赖回调回填的 _currentPanel
+  _ComposerPanel _intendedPanel = _ComposerPanel.none;
+
+  /// 表情面板打开时输入框只读:点击不弹键盘(编辑器同坑同修——
+  /// 不设只读的话,点输入框系统直接弹键盘,面板/键盘叠加闪跳)
+  bool _readOnly = false;
+
+  /// 是否有自定义面板在开(页面返回键拦截用)
+  bool get isPanelOpen =>
+      _intendedPanel != _ComposerPanel.none ||
+      _currentPanel == _ComposerPanel.emoji;
+
+  /// 收起面板(返回键/页面级调用;不聚焦输入框、不弹键盘)
+  void closePanel() {
+    _intendedPanel = _ComposerPanel.none;
+    _setReadOnly(false);
+    _panelController.updatePanelType(
+      ChatBottomPanelType.none,
+      forceHandleFocus: ChatBottomHandleFocus.none,
+    );
+  }
+
+  void _setReadOnly(bool value) {
+    if (_readOnly != value) setState(() => _readOnly = value);
+  }
+
   final List<_PendingAttachment> _attachments = [];
 
   // ---- @提及自动补全 ----
@@ -1713,8 +1826,7 @@ class _ChatComposerState extends ConsumerState<_ChatComposer> {
                         padding: const EdgeInsets.only(bottom: 1, right: 2),
                         child: Builder(
                           builder: (buttonContext) => IconButton(
-                            onPressed: () =>
-                                _showAttachmentMenu(buttonContext),
+                            onPressed: () => _showAttachmentMenu(buttonContext),
                             icon: const Icon(Symbols.add_rounded, size: 22),
                             style: IconButton.styleFrom(
                               minimumSize: const Size(36, 36),
@@ -1805,6 +1917,15 @@ class _ChatComposerState extends ConsumerState<_ChatComposer> {
                 ChatBottomPanelType.keyboard => _ComposerPanel.keyboard,
                 ChatBottomPanelType.other => data ?? _ComposerPanel.none,
               };
+              // 面板态离开 emoji(键盘顶掉/系统收起)时解除只读,
+              // 意图位同步(否则下次点表情钮判成"再点关闭")
+              if (_currentPanel != _ComposerPanel.emoji) {
+                if (_intendedPanel == _ComposerPanel.emoji &&
+                    _currentPanel == _ComposerPanel.keyboard) {
+                  _intendedPanel = _ComposerPanel.none;
+                }
+                _readOnly = false;
+              }
             });
           },
         ),
@@ -1893,16 +2014,24 @@ class _ChatComposerState extends ConsumerState<_ChatComposer> {
       popover.toggle(context, panel: _ensureEmojiPanel());
       return;
     }
-    if (_currentPanel == _ComposerPanel.emoji) {
+    if (_intendedPanel == _ComposerPanel.emoji) {
       // 再点=切回键盘
+      _intendedPanel = _ComposerPanel.none;
+      _setReadOnly(false);
       _panelController.updatePanelType(ChatBottomPanelType.keyboard);
       widget.focusNode.requestFocus();
     } else {
-      _panelController.updatePanelType(
-        ChatBottomPanelType.other,
-        data: _ComposerPanel.emoji,
-        forceHandleFocus: ChatBottomHandleFocus.requestFocus,
-      );
+      _intendedPanel = _ComposerPanel.emoji;
+      // 只读防系统键盘;帧末再切面板(编辑器同款时序:readOnly 先生效)
+      _setReadOnly(true);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _panelController.updatePanelType(
+          ChatBottomPanelType.other,
+          data: _ComposerPanel.emoji,
+          forceHandleFocus: ChatBottomHandleFocus.requestFocus,
+        );
+      });
     }
   }
 
@@ -2036,6 +2165,7 @@ class _ChatComposerState extends ConsumerState<_ChatComposer> {
       controller: widget.controller,
       focusNode: widget.focusNode,
       autofocus: PlatformUtils.isDesktop,
+      readOnly: _readOnly,
       minLines: 1,
       maxLines: 5,
       textInputAction: TextInputAction.newline,
@@ -2044,7 +2174,19 @@ class _ChatComposerState extends ConsumerState<_ChatComposer> {
       inputFormatters: const [EmojiShortcodeDeleteFormatter()],
       decoration: _fieldDecoration(context, theme),
     );
-    if (!PlatformUtils.isDesktop) return field;
+    if (!PlatformUtils.isDesktop) {
+      // 面板开着(readOnly)时点输入框=收面板换键盘(编辑器同款)
+      return Listener(
+        onPointerUp: (_) {
+          if (_readOnly) {
+            _intendedPanel = _ComposerPanel.none;
+            _setReadOnly(false);
+            _panelController.updatePanelType(ChatBottomPanelType.keyboard);
+          }
+        },
+        child: field,
+      );
+    }
     // 桌面:Enter 发送 / Shift+Enter 换行;候选条打开时 Enter 选第一个
     return Shortcuts(
       shortcuts: {LogicalKeySet(LogicalKeyboardKey.enter): const _SendIntent()},
@@ -2389,9 +2531,7 @@ class _PinnedBanner extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: i == cursor
                             ? theme.colorScheme.primary
-                            : theme.colorScheme.primary.withValues(
-                                alpha: 0.35,
-                              ),
+                            : theme.colorScheme.primary.withValues(alpha: 0.35),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -2854,10 +2994,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
             // 收藏后不撤条:图标原地翻转(didUpdateWidget markNeedsBuild)
             onBookmark: () => widget.onToggleBookmark?.call(),
             onMore: (buttonContext) {
-              final buttonBox =
-                  buttonContext.findRenderObject() as RenderBox?;
-              final anchor = buttonBox
-                  ?.localToGlobal(buttonBox.size.bottomLeft(Offset.zero));
+              final buttonBox = buttonContext.findRenderObject() as RenderBox?;
+              final anchor = buttonBox?.localToGlobal(
+                buttonBox.size.bottomLeft(Offset.zero),
+              );
               _removeHoverBar();
               if (anchor != null) _openDesktopMenuAt(anchor);
             },
@@ -2938,7 +3078,17 @@ class _MessageBubbleState extends State<_MessageBubble> {
     final rect = renderBox.localToGlobal(Offset.zero) & renderBox.size;
     widget.onMenuRequested(
       rect,
-      (ctx) => _buildBubbleCore(ctx, interactive: false),
+      // 扁平行正文无底色,overlay 里悬浮的副本需要自带气泡壳
+      // (圆角卡+surface 底),否则贴着模糊层像"没背景"
+      (ctx) => Material(
+        color: Theme.of(ctx).colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: _buildBubbleCore(ctx, interactive: false),
+        ),
+      ),
       null,
     );
   }
@@ -3259,8 +3409,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
         duration: const Duration(milliseconds: 300),
         color: rowColor,
         padding: EdgeInsets.only(
-          left: 12,
-          right: 16,
+          left: PlatformUtils.isDesktop ? 24 : 10,
+          right: PlatformUtils.isDesktop ? 28 : 10,
           top: clustered ? 2 : 10,
           bottom: 2,
         ),
@@ -3355,7 +3505,6 @@ class _MessageBubbleState extends State<_MessageBubble> {
     );
   }
 
-
   Widget _buildFailedRow(ThemeData theme) {
     return Padding(
       padding: const EdgeInsets.only(top: 2),
@@ -3432,36 +3581,36 @@ class _HoverActionBar extends StatelessWidget {
           children: [
             // 外置快捷表情:最近使用前 3,一击回应(Discord 同款)
             if (interactive)
-            for (final emoji in quickEmojis)
-              Tooltip(
-                message: ':$emoji:',
-                waitDuration: const Duration(milliseconds: 400),
-                child: InkWell(
-                  onTap: () => onQuickEmoji(emoji),
-                  borderRadius: BorderRadius.circular(8),
-                  hoverColor: theme.colorScheme.onSurface.withValues(
-                    alpha: 0.08,
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(5),
-                    child: Builder(
-                      builder: (context) {
-                        final url = handler.getEmojiUrl(emoji);
-                        return url.isEmpty
-                            ? Text(
-                                emoji,
-                                style: const TextStyle(fontSize: 16),
-                              )
-                            : Image(
-                                image: emojiImageProvider(url),
-                                width: 20,
-                                height: 20,
-                              );
-                      },
+              for (final emoji in quickEmojis)
+                Tooltip(
+                  message: ':$emoji:',
+                  waitDuration: const Duration(milliseconds: 400),
+                  child: InkWell(
+                    onTap: () => onQuickEmoji(emoji),
+                    borderRadius: BorderRadius.circular(8),
+                    hoverColor: theme.colorScheme.onSurface.withValues(
+                      alpha: 0.08,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(5),
+                      child: Builder(
+                        builder: (context) {
+                          final url = handler.getEmojiUrl(emoji);
+                          return url.isEmpty
+                              ? Text(
+                                  emoji,
+                                  style: const TextStyle(fontSize: 16),
+                                )
+                              : Image(
+                                  image: emojiImageProvider(url),
+                                  width: 20,
+                                  height: 20,
+                                );
+                        },
+                      ),
                     ),
                   ),
                 ),
-              ),
             if (interactive) ...[
               SizedBox(
                 height: 20,
@@ -3688,9 +3837,7 @@ class _ReactionChip extends StatelessWidget {
     if (reaction.users.isEmpty) return ':${reaction.emoji}:';
     final names = reaction.users.take(6).map((u) => u.username).join('、');
     final more = reaction.count - reaction.users.take(6).length;
-    return more > 0
-        ? context.l10n.chat_reactionUsersMore(names, more)
-        : names;
+    return more > 0 ? context.l10n.chat_reactionUsersMore(names, more) : names;
   }
 
   @override
