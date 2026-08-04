@@ -1820,23 +1820,6 @@ class _ChatComposerState extends ConsumerState<_ChatComposer> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    // 附件/工具菜单(编辑态隐藏)
-                    if (editing == null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 1, right: 2),
-                        child: Builder(
-                          builder: (buttonContext) => IconButton(
-                            onPressed: () => _showAttachmentMenu(buttonContext),
-                            icon: const Icon(Symbols.add_rounded, size: 22),
-                            style: IconButton.styleFrom(
-                              minimumSize: const Size(36, 36),
-                              padding: EdgeInsets.zero,
-                            ),
-                            color: theme.colorScheme.onSurfaceVariant,
-                            tooltip: context.l10n.chat_attach,
-                          ),
-                        ),
-                      ),
                     // 表情按钮(桌面锚定弹层,移动底部面板);
                     // 移动端面板开着时换键盘图标(TG 式:示意再点切回键盘)
                     Padding(
@@ -1869,7 +1852,29 @@ class _ChatComposerState extends ConsumerState<_ChatComposer> {
                       ),
                     ),
                     Expanded(child: _buildField(context, theme)),
-                    const SizedBox(width: 8),
+                    // 附件(编辑态隐藏):输入框右侧、发送键左边
+                    // (TG 口径 [表情][输入框][附件][发送];之前在最左
+                    // 不合 IM 习惯,用户点名)
+                    if (editing == null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 1, left: 4),
+                        child: Builder(
+                          builder: (buttonContext) => IconButton(
+                            onPressed: () => _showAttachmentMenu(buttonContext),
+                            icon: const Icon(
+                              Symbols.attach_file_rounded,
+                              size: 22,
+                            ),
+                            style: IconButton.styleFrom(
+                              minimumSize: const Size(36, 36),
+                              padding: EdgeInsets.zero,
+                            ),
+                            color: theme.colorScheme.onSurfaceVariant,
+                            tooltip: context.l10n.chat_attach,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(width: 6),
                     Padding(
                       padding: const EdgeInsets.only(bottom: 1),
                       child: IconButton.filled(
