@@ -148,6 +148,10 @@ class _ChatChannelPageState extends ConsumerState<ChatChannelPage>
   /// composer key:返回键先收表情面板再退页(编辑器同款拦截)
   final GlobalKey<_ChatComposerState> _composerKey = GlobalKey();
 
+  /// composer 面板开合(canPop 驱动:必须是页面级状态,composer 内部
+  /// setState 不重建页面,快照会失真导致返回键直接退页)
+  bool _composerPanelOpen = false;
+
   @override
   void initState() {
     super.initState();
@@ -895,15 +899,9 @@ class _ChatChannelPageState extends ConsumerState<ChatChannelPage>
 
     return PopScope(
       // 移动端表情面板开着时,返回键先收面板(编辑器同款),不退页
-      canPop:
-          PlatformUtils.isDesktop ||
-          !(_composerKey.currentState?.isPanelOpen ?? false),
+      canPop: PlatformUtils.isDesktop || !_composerPanelOpen,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) {
-          _composerKey.currentState?.closePanel();
-          // canPop 是构建期快照,收完面板要刷新它
-          setState(() {});
-        }
+        if (!didPop) _composerKey.currentState?.closePanel();
       },
       child: Scaffold(
         // 键盘让位由 ChatBottomPanelContainer 的占位承担(编辑器同款),
@@ -1046,6 +1044,11 @@ class _ChatChannelPageState extends ConsumerState<ChatChannelPage>
             ] else ...[
               _ChatComposer(
                 key: _composerKey,
+                onPanelOpenChanged: (open) {
+                  if (mounted && _composerPanelOpen != open) {
+                    setState(() => _composerPanelOpen = open);
+                  }
+                },
                 controller: _inputController,
                 focusNode: _inputFocus,
                 canSend: _canSend,
@@ -1393,6 +1396,10 @@ class _ChatComposer extends ConsumerStatefulWidget {
   final void Function(String markdown) onSendSticker;
   final VoidCallback onCancelContext;
 
+  /// 面板开合上报:PopScope.canPop 是页面构建期快照,面板态只在
+  /// composer 内部 setState 的话页面不重建,返回键会直接退页
+  final ValueChanged<bool>? onPanelOpenChanged;
+
   const _ChatComposer({
     super.key,
     required this.controller,
@@ -1403,6 +1410,7 @@ class _ChatComposer extends ConsumerStatefulWidget {
     required this.onSend,
     required this.onSendSticker,
     required this.onCancelContext,
+    this.onPanelOpenChanged,
   });
 
   @override
@@ -1436,6 +1444,16 @@ class _ChatComposerState extends ConsumerState<_ChatComposer> {
       _intendedPanel != _ComposerPanel.none ||
       _currentPanel == _ComposerPanel.emoji;
 
+  bool _lastReportedOpen = false;
+
+  void _reportPanelOpen() {
+    final open = isPanelOpen;
+    if (open != _lastReportedOpen) {
+      _lastReportedOpen = open;
+      widget.onPanelOpenChanged?.call(open);
+    }
+  }
+
   /// 收起面板(返回键/页面级调用;不聚焦输入框、不弹键盘)
   void closePanel() {
     _intendedPanel = _ComposerPanel.none;
@@ -1444,6 +1462,7 @@ class _ChatComposerState extends ConsumerState<_ChatComposer> {
       ChatBottomPanelType.none,
       forceHandleFocus: ChatBottomHandleFocus.none,
     );
+    _reportPanelOpen();
   }
 
   void _setReadOnly(bool value) {
@@ -1933,6 +1952,9 @@ class _ChatComposerState extends ConsumerState<_ChatComposer> {
         ChatBottomPanelContainer<_ComposerPanel>(
           controller: _panelController,
           inputFocusNode: widget.focusNode,
+          // 插件容器外壳默认纯白(panelBgColor: Colors.white),
+          // 深色主题下面板弹出/互换的过渡帧闪白(用户截图),必须跟主题
+          panelBgColor: theme.scaffoldBackgroundColor,
           otherPanelWidget: (type) => type == _ComposerPanel.emoji
               ? _buildDockedEmojiPanel()
               : const SizedBox.shrink(),
@@ -1953,6 +1975,7 @@ class _ChatComposerState extends ConsumerState<_ChatComposer> {
                 _readOnly = false;
               }
             });
+            _reportPanelOpen();
           },
         ),
       ],
@@ -2044,10 +2067,12 @@ class _ChatComposerState extends ConsumerState<_ChatComposer> {
       // 再点=切回键盘
       setState(() => _intendedPanel = _ComposerPanel.none);
       _setReadOnly(false);
+      _reportPanelOpen();
       _panelController.updatePanelType(ChatBottomPanelType.keyboard);
       widget.focusNode.requestFocus();
     } else {
       setState(() => _intendedPanel = _ComposerPanel.emoji);
+      _reportPanelOpen();
       // 只读防系统键盘;帧末再切面板(编辑器同款时序:readOnly 先生效)
       _setReadOnly(true);
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -2207,6 +2232,7 @@ class _ChatComposerState extends ConsumerState<_ChatComposer> {
           if (_readOnly) {
             _intendedPanel = _ComposerPanel.none;
             _setReadOnly(false);
+            _reportPanelOpen();
             _panelController.updatePanelType(ChatBottomPanelType.keyboard);
           }
         },
