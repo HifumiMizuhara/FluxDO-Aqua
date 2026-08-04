@@ -234,6 +234,11 @@ class _ChatListPageState extends ConsumerState<ChatListPage>
       ),
       body: DesktopRefreshIndicator(
         onRefresh: () => ref.read(chatChannelsProvider.notifier).refresh(),
+        // 列表在 TabBarView 内(水平 pager 占 depth 0,频道列表是
+        // depth 1),默认 predicate 只认 depth 0 → 下拉永远不触发
+        notificationPredicate: (notification) =>
+            notification.depth == 1 &&
+            notification.metrics.axis == Axis.vertical,
         child: channelsAsync.when(
           data: (state) => TabBarView(
             controller: _tabController,
