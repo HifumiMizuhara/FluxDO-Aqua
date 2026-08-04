@@ -3075,7 +3075,16 @@ class _MessageBubbleState extends State<_MessageBubble> {
     final renderBox =
         _bubbleKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
-    final rect = renderBox.localToGlobal(Offset.zero) & renderBox.size;
+    final contentRect = renderBox.localToGlobal(Offset.zero) & renderBox.size;
+    // 副本外扩气泡壳内边距(12/8):overlay 按 rect.width 定宽,壳的
+    // padding 在定宽内部再吃 24px 会把正文挤到重新换行(三字消息竖排/
+    // 长消息高度失真菜单叠上来)。外扩后壳内正文保持原始量测宽。
+    final rect = Rect.fromLTRB(
+      contentRect.left - 12,
+      contentRect.top - 8,
+      contentRect.right + 12,
+      contentRect.bottom + 8,
+    );
     widget.onMenuRequested(
       rect,
       // 扁平行正文无底色,overlay 里悬浮的副本需要自带气泡壳

@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
@@ -258,7 +259,12 @@ class _MessageActionsOverlay extends StatelessWidget {
         final animatedBubbleTop =
             bubbleRect.top + (bubbleTop - bubbleRect.top) * t;
         final barTop = animatedBubbleTop - gap - barHeight;
-        final menuTop = animatedBubbleTop + bubbleHeight + gap;
+        // 超长气泡(三段总高超屏)时菜单钉屏幕下缘,盖住气泡下半部
+        // (TG 同款取舍;菜单卡带影有层次),不再悬到屏外/叠中间
+        final menuTop = math.min(
+          animatedBubbleTop + bubbleHeight + gap,
+          screen.height - bottomSafe - 12 - menuHeight,
+        );
         return Stack(
           children: [
             // 背景:模糊 + 压暗,点击关闭
