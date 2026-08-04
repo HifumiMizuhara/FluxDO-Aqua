@@ -11,6 +11,7 @@ import '../../pages/bookmarks/bookmarks_models.dart';
 import '../../providers/category_provider.dart';
 import '../../providers/preferences_provider.dart';
 import '../topic/topic_card_layout.dart';
+import '../topic/topic_card_prewarmer.dart';
 import '../topic/painted_topic_card.dart';
 import '../../utils/blocked_user_filter.dart';
 import '../../utils/platform_utils.dart';
@@ -153,6 +154,42 @@ class BookmarksListContent extends ConsumerWidget {
     );
   }
 
+  /// 书签卡取排版单一入口:itemBuilder 挂载路径与列表外层的
+  /// [CardPrewarmScope] 预热路径共用,identity/宽度/theme/色带/摘要
+  /// 全同口径 —— 预热建的缓存挂载帧必命中(任一参数口径不一致,
+  /// stamp 对不上就是白热)。
+  TopicCardLayout _obtainBookmarkLayout(
+    BuildContext context,
+    Topic topic,
+    Map<int, Category>? categoryMap,
+    double? statsAvailableWidth,
+  ) {
+    final reminderAt = topic.bookmarkReminderAt;
+    final reminderExpired =
+        reminderAt != null && reminderAt.isBefore(DateTime.now());
+    final categoryId = int.tryParse(topic.categoryId);
+    // 桌面端对齐 widget 版 buildTopicItem 的列宽约束:内容居中、
+    // 卡宽 ≤ maxContentWidth;排版宽随之
+    final cardWidth = topicCardWidthFor(context);
+    return TopicCardLayout.obtain(
+      identity: bookmarkTopicIdentity(topic),
+      topic: topic,
+      width: cardWidth,
+      theme: Theme.of(context),
+      category: categoryMap?[categoryId],
+      excerptText: _cleanedExcerptOf(topic),
+      bandName: normalizeBookmarkName(topic.bookmarkName),
+      bandReminder: reminderAt == null
+          ? null
+          : (reminderExpired
+              ? context.l10n.bookmarks_expired
+              : ' ${TimeUtils.formatDetailTime(reminderAt)}'),
+      bandExpired: reminderExpired,
+      statsAvailableWidth: statsAvailableWidth ?? 460,
+      emojiUrlOf: topicCardEmojiUrlResolver,
+    );
+  }
+
   Widget _buildDataContent(
     BuildContext context,
     List<Topic> topics,
@@ -222,33 +259,13 @@ class BookmarksListContent extends ConsumerWidget {
         // TopicCardLayout 全局缓存里一次算死,挂载帧纯绘制 1~2ms。
         // widget 版路径保留在 else 分支(kUsePaintedCard=false 一键回退)
         if (kUsePaintedTopicCard && !topic.pinned) {
-          final theme = Theme.of(context);
-          final categoryId = int.tryParse(topic.categoryId);
-          // 桌面端对齐 widget 版 buildTopicItem 的列宽约束:内容居中、
-          // 卡宽 ≤ maxContentWidth;排版宽随之
-          final viewportWidth = MediaQuery.sizeOf(context).width - 24;
           final isMobile = Responsive.isMobile(context);
-          final cardWidth = isMobile
-              ? viewportWidth
-              : (viewportWidth > Breakpoints.maxContentWidth
-                  ? Breakpoints.maxContentWidth
-                  : viewportWidth);
-          final layout = TopicCardLayout.obtain(
-            identity: bookmarkTopicIdentity(topic),
-            topic: topic,
-            width: cardWidth,
-            theme: theme,
-            category: categoryMap?[categoryId],
-            excerptText: _cleanedExcerptOf(topic),
-            bandName: normalizeBookmarkName(topic.bookmarkName),
-            bandReminder: reminderAt == null
-                ? null
-                : (reminderExpired
-                    ? context.l10n.bookmarks_expired
-                    : ' ${TimeUtils.formatDetailTime(reminderAt)}'),
-            bandExpired: reminderExpired,
-            statsAvailableWidth: statsAvailableWidth ?? 460,
-            emojiUrlOf: topicCardEmojiUrlResolver,
+          final cardWidth = topicCardWidthFor(context);
+          final layout = _obtainBookmarkLayout(
+            context,
+            topic,
+            categoryMap,
+            statsAvailableWidth,
           );
           Widget card = PaintedTopicCard(
             key: ValueKey(bookmarkTopicIdentity(topic)),
@@ -334,7 +351,30 @@ class BookmarksListContent extends ConsumerWidget {
       summaries: summaries,
       selectedBookmarkName: selectedBookmarkName,
       onSelectedBookmarkName: onSelectedBookmarkName,
-      child: listView,
+      // 空闲预热:书签卡绕开 buildTopicItem 走专用接线(色带/摘要),
+      // 排版取用经 _obtainBookmarkLayout 与 itemBuilder 同源;含两行
+      // 摘要的卡排版更贵,不预热则 miss 全落在滚入帧,叠加头像补画
+      // 潮即"拖影感"
+      child: CardPrewarmScope<Topic>(
+        items: filteredTopics,
+        signature: (
+          identityHashCode(filteredTopics),
+          identityHashCode(Theme.of(context)),
+          topicCardWidthFor(context),
+          statsAvailableWidth,
+          identityHashCode(categoryMap),
+          TopicCardStyleScope.current,
+        ),
+        warmItem: (context, topic) => topic.pinned
+            ? null
+            : _obtainBookmarkLayout(
+                context,
+                topic,
+                categoryMap,
+                statsAvailableWidth,
+              ),
+        child: listView,
+      ),
     );
 
     if (!showSummaryBar) {

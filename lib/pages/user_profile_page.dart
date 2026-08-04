@@ -37,6 +37,7 @@ import '../utils/fluxdo_render_callbacks.dart';
 import '../widgets/post/reply_sheet.dart';
 import '../widgets/user/user_profile_skeleton.dart';
 import '../widgets/user/ignore_duration_picker.dart';
+import '../widgets/topic/topic_card_prewarmer.dart';
 import '../widgets/topic/topic_item_builder.dart';
 import '../widgets/topic/topic_list_skeleton.dart';
 import '../widgets/post/post_boost/boost_content.dart';
@@ -2862,7 +2863,9 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
       },
       child: M3eRefreshIndicator(
         onRefresh: () => _loadVotes(),
-        child: ListView.builder(
+        child: TopicCardPrewarmScope(
+          topics: topics,
+          child: ListView.builder(
           padding: const EdgeInsets.all(12),
           itemCount: topics.length + 1,
           itemBuilder: (context, index) {
@@ -2887,6 +2890,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
               enableLongPress: enableLongPress,
             );
           },
+          ),
         ),
       ),
     );

@@ -14,6 +14,7 @@ import '../widgets/common/paged_list_footer.dart';
 import '../widgets/topic/topic_list_skeleton.dart';
 import '../widgets/topic/keyword_filter_hint_bar.dart';
 import '../widgets/topic/sort_and_tags_bar.dart';
+import '../widgets/topic/topic_card_prewarmer.dart';
 import '../widgets/topic/topic_item_builder.dart';
 import '../widgets/topic/topic_notification_button.dart';
 import '../widgets/common/tag_selection_sheet.dart';
@@ -589,7 +590,9 @@ class _CategoryTopicsPageState extends ConsumerState<CategoryTopicsPage> {
     );
     final hintOffset = hidden > 0 ? 1 : 0;
 
-    return DesktopRefreshIndicator(
+    return TopicCardPrewarmScope(
+      topics: visible,
+      child: DesktopRefreshIndicator(
       onRefresh: _loadTopics,
       child: ListView.builder(
         controller: _scrollController,
@@ -629,6 +632,7 @@ class _CategoryTopicsPageState extends ConsumerState<CategoryTopicsPage> {
             enableLongPress: enableLongPress,
           );
         },
+      ),
       ),
     );
   }

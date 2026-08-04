@@ -13,6 +13,7 @@ import '../utils/load_more_coordinator.dart';
 import '../widgets/common/paged_list_footer.dart';
 import '../widgets/layout/auto_restore_master_detail_route.dart';
 import '../widgets/layout/master_detail_layout.dart';
+import '../widgets/topic/topic_card_prewarmer.dart';
 import '../widgets/topic/topic_item_builder.dart';
 import '../widgets/topic/topic_list_skeleton.dart';
 import '../widgets/post/reply_sheet.dart';
@@ -464,7 +465,10 @@ class _PrivateMessageTabViewState extends ConsumerState<_PrivateMessageTabView>
             );
           }
 
-          return ListView.builder(
+          return TopicCardPrewarmScope(
+            topics: topics,
+            messageStyle: true,
+            child: ListView.builder(
             controller: _scrollController,
             // 底部让出 extendBody 注入的底栏高度
             padding: EdgeInsets.fromLTRB(
@@ -494,6 +498,7 @@ class _PrivateMessageTabViewState extends ConsumerState<_PrivateMessageTabView>
                 messageStyle: true,
               );
             },
+            ),
           );
         },
         loading: () => const TopicListSkeleton(messageStyle: true),

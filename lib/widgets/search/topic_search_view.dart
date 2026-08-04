@@ -177,8 +177,11 @@ class _TopicSearchViewState extends ConsumerState<TopicSearchView> {
           ),
         ),
         Expanded(
-          child: ListView.builder(
+          child: SearchPostPrewarmScope(
+            posts: searchState.results,
+            child: ListView.builder(
             controller: _scrollController,
+            addAutomaticKeepAlives: false,
             padding: const EdgeInsets.all(16),
             itemCount: searchState.results.length + 1,
             itemBuilder: (context, index) {
@@ -217,6 +220,7 @@ class _TopicSearchViewState extends ConsumerState<TopicSearchView> {
                 },
               );
             },
+            ),
           ),
         ),
       ],

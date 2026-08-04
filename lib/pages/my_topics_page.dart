@@ -12,6 +12,7 @@ import '../widgets/layout/master_detail_layout.dart';
 import '../widgets/layout/master_detail_pane_host.dart';
 import '../widgets/search/searchable_app_bar.dart';
 import '../widgets/search/user_content_search_view.dart';
+import '../widgets/topic/topic_card_prewarmer.dart';
 import '../widgets/topic/topic_item_builder.dart';
 import '../widgets/topic/topic_list_skeleton.dart';
 import '../providers/preferences_provider.dart';
@@ -193,7 +194,9 @@ class _MyTopicsPageState extends ConsumerState<MyTopicsPage> {
             );
           }
 
-          return ListView.builder(
+          return TopicCardPrewarmScope(
+            topics: topics,
+            child: ListView.builder(
             controller: _scrollController,
             padding: const EdgeInsets.all(12),
             itemCount: topics.length + 1,
@@ -220,6 +223,7 @@ class _MyTopicsPageState extends ConsumerState<MyTopicsPage> {
                 enableLongPress: enableLongPress,
               );
             },
+            ),
           );
         },
         loading: () => const TopicListSkeleton(),

@@ -31,6 +31,7 @@ import '../widgets/topic/topic_filter_menu.dart';
 import '../widgets/common/topic_badges.dart';
 import '../widgets/common/search_capsule.dart';
 import '../widgets/topic/category_drawer.dart';
+import '../widgets/topic/topic_card_prewarmer.dart';
 import '../widgets/topic/topic_item_builder.dart';
 import '../widgets/common/tag_selection_sheet.dart';
 import '../widgets/common/paged_list_footer.dart';
@@ -2962,7 +2963,11 @@ class _TopicListState extends ConsumerState<_TopicList>
         }
         _lastHeaderOffset = headerOffset;
 
-        return DesktopRefreshIndicator(
+        return TopicCardPrewarmScope(
+          topics: topics,
+          categoryMap: widget.categoryMap,
+          statsAvailableWidth: statsAvailableWidth,
+          child: DesktopRefreshIndicator(
           refreshIndicatorKey: _refreshIndicatorKey,
           refreshNotifier: masterRefreshNotifier,
           // 头部可折叠段悬浮在列表上方;列表贴顶时头部必然全展开
@@ -3210,6 +3215,7 @@ class _TopicListState extends ConsumerState<_TopicList>
                 ),
               ],
             ),
+          ),
           ),
         );
       },

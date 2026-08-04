@@ -1253,8 +1253,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             ),
           ),
         Expanded(
-          child: ListView.builder(
+          child: SearchPostPrewarmScope(
+            posts: posts,
+            child: ListView.builder(
             controller: _scrollController,
+            addAutomaticKeepAlives: false,
             padding: const EdgeInsets.all(16),
             itemCount:
                 posts.length + (users.isNotEmpty ? users.length + 1 : 0) + 1,
@@ -1313,6 +1316,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 },
               );
             },
+            ),
           ),
         ),
       ],
