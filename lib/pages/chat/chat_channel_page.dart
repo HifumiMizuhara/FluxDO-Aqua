@@ -512,7 +512,7 @@ class _ChatChannelPageState extends ConsumerState<ChatChannelPage>
     await _notifier.send(text, inReplyToId: replyTo?.id, uploadIds: uploadIds);
   }
 
-  /// 表情包直发(TG 式):不经输入框,选中即独立成一条消息发出;
+  /// 表情包直发:不经输入框,选中即独立成一条消息发出;
   /// 带回复上下文时作为回复发出并清除回复条
   Future<void> _sendSticker(String markdown) async {
     final replyTo = _replyingTo;
@@ -545,7 +545,7 @@ class _ChatChannelPageState extends ConsumerState<ChatChannelPage>
     _inputFocus.requestFocus();
   }
 
-  /// 触发消息菜单:移动=TG 式长按 overlay;桌面=锚点菜单(右键位置或
+  /// 触发消息菜单:移动=长按 overlay;桌面=锚点菜单(右键位置或
   /// hover 工具条按钮位置)。
   Future<void> _onMessageMenu(
     ChatMessage message,
@@ -894,7 +894,7 @@ class _ChatChannelPageState extends ConsumerState<ChatChannelPage>
     });
 
     return PopScope(
-      // 移动端表情面板开着时,返回键先收面板(编辑器/TG 同款),不退页
+      // 移动端表情面板开着时,返回键先收面板(编辑器同款),不退页
       canPop:
           PlatformUtils.isDesktop ||
           !(_composerKey.currentState?.isPanelOpen ?? false),
@@ -993,7 +993,7 @@ class _ChatChannelPageState extends ConsumerState<ChatChannelPage>
                       ),
                     ),
                   ),
-                  // 置顶横幅(TG 式:顶栏下,点击跳转,多条轮换)
+                  // 置顶横幅:顶栏下,点击跳转,多条轮换
                   if (_pins.isNotEmpty)
                     Positioned(
                       top: 0,
@@ -1141,7 +1141,7 @@ class _ChatChannelPageState extends ConsumerState<ChatChannelPage>
     );
   }
 
-  /// 顶栏副标题(TG 口径):有人输入时显示"xxx 正在输入…"(主色+动画点),
+  /// 顶栏副标题:有人输入时显示"xxx 正在输入…"(主色+动画点),
   /// 空闲回落成员数;1:1 DM 空闲无副标题
   Widget _buildSubtitle(ThemeData theme, ChatChannel channel) {
     final typingUsers = widget.threadId == null
@@ -1389,7 +1389,7 @@ class _ChatComposer extends ConsumerStatefulWidget {
   /// 发送回调,附带已上传完成的 upload id 列表
   final void Function(List<int> uploadIds) onSend;
 
-  /// 表情包直发:不进输入框,选中即作为独立消息发出(TG 式)
+  /// 表情包直发:不进输入框,选中即作为独立消息发出
   final void Function(String markdown) onSendSticker;
   final VoidCallback onCancelContext;
 
@@ -1488,7 +1488,7 @@ class _ChatComposerState extends ConsumerState<_ChatComposer> {
   }
 
   /// 桌面弹层面板(只建一次;移动端不用):表情+表情包双 Tab。
-  /// 表情插入输入框;表情包 TG 式直发,不进输入框
+  /// 表情插入输入框;表情包直发,不进输入框
   Widget _ensureEmojiPanel() {
     _emojiPanelChild ??= EmojiStickerPanel(
       inlineSearch: true,
@@ -1821,7 +1821,7 @@ class _ChatComposerState extends ConsumerState<_ChatComposer> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     // 表情按钮(桌面锚定弹层,移动底部面板);
-                    // 移动端面板开着时换键盘图标(TG 式:示意再点切回键盘)
+                    // 移动端面板开着时换键盘图标(示意再点切回键盘)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 1, right: 4),
                       child: _wrapEmojiAnchor(
@@ -1853,7 +1853,7 @@ class _ChatComposerState extends ConsumerState<_ChatComposer> {
                     ),
                     Expanded(child: _buildField(context, theme)),
                     // 附件(编辑态隐藏):输入框右侧、发送键左边
-                    // (TG 口径 [表情][输入框][附件][发送];之前在最左
+                    // (通用 IM 秩序 [表情][输入框][附件][发送];之前在最左
                     // 不合 IM 习惯,用户点名)
                     if (editing == null)
                       Padding(
@@ -2076,7 +2076,7 @@ class _ChatComposerState extends ConsumerState<_ChatComposer> {
         height: _dockedPanelHeight,
         child: EmojiStickerPanel(
           onEmojiSelected: (emoji) => _insertAtCursor(':${emoji.name}:'),
-          // 表情包 TG 式直发:不进输入框,面板保持打开可连发
+          // 表情包直发:不进输入框,面板保持打开可连发
           onStickerSelected: widget.onSendSticker,
           onBackspace: () =>
               deleteBackwardWithEmojiShortcodes(widget.controller),
@@ -2463,7 +2463,7 @@ class _SelectionAction extends StatelessWidget {
   }
 }
 
-/// 顶栏"正在输入"副标题(TG 式):状态文字 + 三点循环动画
+/// 顶栏"正在输入"副标题:状态文字 + 三点循环动画
 class _TypingSubtitle extends StatefulWidget {
   final String text;
   final TextStyle style;
@@ -2518,7 +2518,7 @@ class _TypingSubtitleState extends State<_TypingSubtitle>
   }
 }
 
-/// 置顶横幅(TG 口径):列表顶部悬浮一条,竖线记号+置顶人/摘要,
+/// 置顶横幅:列表顶部悬浮一条,竖线记号+置顶人/摘要,
 /// 点击跳到消息(多条时轮换);pin/unpin 广播实时增删
 class _PinnedBanner extends StatelessWidget {
   final List<ChatMessage> pins;
@@ -2545,7 +2545,7 @@ class _PinnedBanner extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
           child: Row(
             children: [
-              // 竖线记号:多条时分段(TG 同款小节拍)
+              // 竖线记号:多条时分段指示当前位置
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -2798,7 +2798,7 @@ class _MessageUploads extends StatelessWidget {
 /// (自己 primaryContainer 右对齐,对方 surfaceContainerLow 左对齐带头像;
 ///  非对称圆角 16/4;maxWidth 78%)
 ///
-/// 交互:移动长按 = TG 式 overlay(气泡副本+反应条+菜单卡);
+/// 交互:移动长按 = 全屏 overlay(气泡副本+反应条+菜单卡);
 /// 桌面 = hover 工具条(回复/表情/更多)+ 右键锚点菜单。
 class _MessageBubble extends StatefulWidget {
   final ChatMessage message;
@@ -2870,7 +2870,7 @@ class _MessageBubble extends StatefulWidget {
 class _MessageBubbleState extends State<_MessageBubble> {
   final GlobalKey _bubbleKey = GlobalKey();
 
-  /// 整行的 key:hover 工具条钉在行右上角(Discord 口径,与内容宽度
+  /// 整行的 key:hover 工具条钉在行右上角(与内容宽度
   /// 无关;量 _bubbleKey 会随 shrinkWrap 内容宽漂移)
   final GlobalKey _rowKey = GlobalKey();
 
@@ -2894,7 +2894,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
   bool get isSelf => widget.isSelf;
   bool get clustered => widget.clustered;
 
-  /// 工具条外置快捷表情(Discord 式:最近使用前几个一击回应)
+  /// 工具条外置快捷表情:最近使用前几个一击回应
   List<String> _quickEmojis = const ['heart', '+1', 'laughing'];
 
   @override
@@ -2989,7 +2989,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
 
     final entry = OverlayEntry(
       builder: (overlayContext) => Positioned(
-        // Discord 口径:钉整行右上角,半高悬出行顶;Overlay 层永远压不住
+        // 钉整行右上角,半高悬出行顶;Overlay 层永远压不住
         top: rect.top - 14,
         right: screenWidth - rect.right + 12,
         child: MouseRegion(
@@ -3143,7 +3143,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    // Discord 式扁平行:不分左右,自己/别人同为左对齐,靠名字配色区分。
+    // 扁平行:不分左右,自己/别人同为左对齐,靠名字配色区分。
     // 结构 = [64 左沟槽(簇首头像/簇内 hover 时间)][内容列(簇首头行+正文)]
     // 整行 hover 染色;高亮/hover 底色画在全宽行上。
     var rowColor = widget.highlighted
@@ -3190,7 +3190,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
       );
     }
 
-    // 左沟槽:簇首=头像;簇内=hover 时淡入的小时间(Discord 同款)
+    // 左沟槽:簇首=头像;簇内=hover 时淡入的小时间
     final Widget gutter;
     if (!clustered) {
       final avatar = CompositedTransformTarget(
@@ -3312,7 +3312,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
             ),
           );
 
-    // 回复引用:Discord 式引用行(头行上方,细字 + 竖线记号)
+    // 回复引用行:头行上方,细字 + 竖线记号
     final Widget? replyRef = message.inReplyTo == null
         ? null
         : Padding(
@@ -3438,7 +3438,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
     required Widget body,
   }) {
     final row = GestureDetector(
-      // 热区=整行(含空白区),Discord 口径;behavior 透明让内层链接/
+      // 热区=整行(含空白区);behavior 透明让内层链接/
       // 图片等交互照常命中
       onLongPress: PlatformUtils.isDesktop ? null : _openMobileMenu,
       // 按压蓄力反馈:按下即染色,松手/取消/菜单弹出后还原
@@ -3497,7 +3497,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
   Widget _buildBubbleCore(BuildContext context, {required bool interactive}) {
     final theme = Theme.of(context);
 
-    // 纯 emoji 消息:jumbo 大图(Discord/网页同款)
+    // 纯 emoji 消息:jumbo 大图(网页版同款)
     final jumbo = (message.uploads.isEmpty && message.inReplyTo == null)
         ? jumboEmojiUrls(message.cooked)
         : null;
@@ -3531,7 +3531,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
         ).render(
           cookedHtml: message.cooked,
           baseTextStyle: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
-          // 桌面可划词(鼠标拖选);移动端长按已被 TG 菜单占用,
+          // 桌面可划词(鼠标拖选);移动端长按已被消息菜单占用,
           // 划词走长按菜单里的"复制"
           selectionEnabled: interactive && PlatformUtils.isDesktop,
           shrinkWrapWidth: true,
@@ -3586,7 +3586,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
   }
 }
 
-/// 桌面 hover 工具条(Discord 形态):
+/// 桌面 hover 工具条:
 /// [快捷表情×3 一击回应][加表情][回复][更多]
 class _HoverActionBar extends StatelessWidget {
   /// false=删除消息的受限条:只保留收藏+更多(官方口径)
@@ -3630,7 +3630,7 @@ class _HoverActionBar extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 外置快捷表情:最近使用前 3,一击回应(Discord 同款)
+            // 外置快捷表情:最近使用前 3,一击回应
             if (interactive)
               for (final emoji in quickEmojis)
                 Tooltip(

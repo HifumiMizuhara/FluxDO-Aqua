@@ -19,6 +19,9 @@
 //    (边缘/全屏)同样置位 popGestureInProgress,原判定会把跟手平移误
 //    渲染成预测返回的缩放预览。预测返回必经 handleStartBackGesture
 //    (phase → start),以此区分手势来源。
+// 5. 文件尾新增 [buildPredictiveBackPageTransitions](上游没有):给不走
+//    PageTransitionsTheme 的 PageRouteBuilder 自定义转场补挂预测返回,
+//    追加在上游内容之后,不打断上游类排布。
 //
 // Copyright 2014 The Flutter Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
@@ -35,12 +38,15 @@ import 'package:flutter/services.dart';
 ///
 /// 预测返回手势(Android U+)期间与系统手势联动显示 shared-element 预览;
 /// 其余导航(push、按钮/程序化 pop、其它平台)走 Cupertino 滑动转场。
-class PredictiveBackCupertinoPageTransitionsBuilder extends PageTransitionsBuilder {
+class PredictiveBackCupertinoPageTransitionsBuilder
+    extends PageTransitionsBuilder {
   const PredictiveBackCupertinoPageTransitionsBuilder();
 
   @override
-  Duration get transitionDuration =>
-      const Duration(milliseconds: _PredictiveBackSharedElementPageTransitionState._kTransitionMilliseconds);
+  Duration get transitionDuration => const Duration(
+    milliseconds: _PredictiveBackSharedElementPageTransitionState
+        ._kTransitionMilliseconds,
+  );
 
   @override
   Widget buildTransitions<T>(
@@ -79,8 +85,13 @@ class PredictiveBackCupertinoPageTransitionsBuilder extends PageTransitionsBuild
               );
             }
 
-            return const CupertinoPageTransitionsBuilder()
-                .buildTransitions(route, context, animation, secondaryAnimation, child);
+            return const CupertinoPageTransitionsBuilder().buildTransitions(
+              route,
+              context,
+              animation,
+              secondaryAnimation,
+              child,
+            );
           },
     );
   }
@@ -117,16 +128,21 @@ enum _PredictiveBackPhase {
 }
 
 class _PredictiveBackGestureDetector extends StatefulWidget {
-  const _PredictiveBackGestureDetector({required this.route, required this.builder});
+  const _PredictiveBackGestureDetector({
+    required this.route,
+    required this.builder,
+  });
 
   final _PredictiveBackGestureDetectorWidgetBuilder builder;
   final PageRoute<dynamic> route;
 
   @override
-  State<_PredictiveBackGestureDetector> createState() => _PredictiveBackGestureDetectorState();
+  State<_PredictiveBackGestureDetector> createState() =>
+      _PredictiveBackGestureDetectorState();
 }
 
-class _PredictiveBackGestureDetectorState extends State<_PredictiveBackGestureDetector>
+class _PredictiveBackGestureDetectorState
+    extends State<_PredictiveBackGestureDetector>
     with WidgetsBindingObserver {
   /// True when the predictive back gesture is enabled.
   bool get _isEnabled {
@@ -178,7 +194,9 @@ class _PredictiveBackGestureDetectorState extends State<_PredictiveBackGestureDe
   void handleUpdateBackGestureProgress(PredictiveBackEvent backEvent) {
     phase = _PredictiveBackPhase.update;
 
-    widget.route.handleUpdateBackGestureProgress(progress: 1 - backEvent.progress);
+    widget.route.handleUpdateBackGestureProgress(
+      progress: 1 - backEvent.progress,
+    );
     currentBackEvent = backEvent;
   }
 
@@ -243,10 +261,14 @@ class _PredictiveBackGestureDetectorState extends State<_PredictiveBackGestureDe
 
   @override
   Widget build(BuildContext context) {
-    final _PredictiveBackPhase effectivePhase = widget.route.popGestureInProgress
-        ? phase
-        : _PredictiveBackPhase.idle;
-    return widget.builder(context, effectivePhase, startBackEvent, currentBackEvent);
+    final _PredictiveBackPhase effectivePhase =
+        widget.route.popGestureInProgress ? phase : _PredictiveBackPhase.idle;
+    return widget.builder(
+      context,
+      effectivePhase,
+      startBackEvent,
+      currentBackEvent,
+    );
   }
 }
 
@@ -318,7 +340,10 @@ class _PredictiveBackSharedElementPageTransitionState
 
   // Provides a smooth transition between the default radius and the
   // _kDeviceBorderRadius, when the display corner radii are unavailable.
-  final Tween<double> _borderRadiusTween = Tween<double>(begin: 0.0, end: _kDeviceBorderRadius);
+  final Tween<double> _borderRadiusTween = Tween<double>(
+    begin: 0.0,
+    end: _kDeviceBorderRadius,
+  );
 
   // The route fades out after commit.
   final Tween<double> _opacityTween = Tween<double>(begin: 1.0, end: 0.0);
@@ -364,7 +389,9 @@ class _PredictiveBackSharedElementPageTransitionState
     final double rawYShift = currentTouchY - startTouchY;
     final double easedYShift =
         // This curve was eyeballed on a Pixel 9 running Android 16.
-        Curves.easeOut.transform(clampDouble(rawYShift.abs() / screenHeight, 0.0, 1.0)) *
+        Curves.easeOut.transform(
+          clampDouble(rawYShift.abs() / screenHeight, 0.0, 1.0),
+        ) *
         rawYShift.sign *
         yShiftMax;
 
@@ -400,8 +427,14 @@ class _PredictiveBackSharedElementPageTransitionState
         // The y position before commit is given by the vertical drag, not by an
         // animation.
         begin: switch (widget.currentBackEvent?.swipeEdge) {
-          SwipeEdge.left => Offset(xShift, _getYShiftPosition(screenSize.height)),
-          SwipeEdge.right => Offset(-xShift, _getYShiftPosition(screenSize.height)),
+          SwipeEdge.left => Offset(
+            xShift,
+            _getYShiftPosition(screenSize.height),
+          ),
+          SwipeEdge.right => Offset(
+            -xShift,
+            _getYShiftPosition(screenSize.height),
+          ),
           null => Offset(xShift, _getYShiftPosition(screenSize.height)),
         },
         end: Offset.zero,
@@ -412,7 +445,10 @@ class _PredictiveBackSharedElementPageTransitionState
   void _updateCurvedAnimations() {
     _curvedAnimation?.dispose();
     _curvedAnimationReversed?.dispose();
-    _curvedAnimation = CurvedAnimation(parent: widget.animation, curve: _kCommitInterval);
+    _curvedAnimation = CurvedAnimation(
+      parent: widget.animation,
+      curve: _kCommitInterval,
+    );
     _curvedAnimationReversed = CurvedAnimation(
       parent: ReverseAnimation(widget.animation),
       curve: _kCommitInterval,
@@ -426,7 +462,8 @@ class _PredictiveBackSharedElementPageTransitionState
     if (widget.animation != oldWidget.animation) {
       _updateCurvedAnimations();
     }
-    if (widget.phase != oldWidget.phase && widget.phase == _PredictiveBackPhase.commit) {
+    if (widget.phase != oldWidget.phase &&
+        widget.phase == _PredictiveBackPhase.commit) {
       _updateAnimations(MediaQuery.sizeOf(context));
     }
   }
@@ -466,7 +503,9 @@ class _PredictiveBackSharedElementPageTransitionState
               child: ClipRRect(
                 borderRadius:
                     MediaQuery.displayCornerRadiiOf(context) ??
-                    BorderRadius.circular(_borderRadiusTween.evaluate(_bounceAnimation)),
+                    BorderRadius.circular(
+                      _borderRadiusTween.evaluate(_bounceAnimation),
+                    ),
                 child: child,
               ),
             ),
@@ -476,4 +515,64 @@ class _PredictiveBackSharedElementPageTransitionState
       child: widget.child,
     );
   }
+}
+
+// —— 以下为本仓库追加,上游无对应物(差异点 5)——
+
+/// 给 [PageRouteBuilder] 自定义转场补挂 Android 预测返回。
+///
+/// PageRouteBuilder 不走全局 PageTransitionsTheme,其转场树里没有
+/// _PredictiveBackGestureDetector,预测返回手势无人认领 → 系统只能整
+/// app 缩走。本函数在自定义转场外围补挂探测器:预测返回手势期间渲染
+/// shared-element 预览,其余(push、按钮/程序化 pop、其它平台)保持
+/// 路由原有的 [fallbackBuilder] 转场。
+///
+/// 判定与 [PredictiveBackCupertinoPageTransitionsBuilder] 同标准
+/// (popGestureInProgress 且 phase 非 idle,见文件头差异点 4):这些
+/// 路由今天没挂 app 内拖拽返回手势,但 fullscreen_swipe_back 等手势
+/// 源置位的是 Navigator 级 userGestureInProgress,宽松判定会在共存时
+/// 误判,统一收紧避免踩坑。
+Widget buildPredictiveBackPageTransitions(
+  BuildContext context,
+  Animation<double> animation,
+  Animation<double> secondaryAnimation,
+  Widget child, {
+  required Widget Function(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  )
+  fallbackBuilder,
+}) {
+  final route = ModalRoute.of(context);
+  if (route is! PageRoute<dynamic>) {
+    return fallbackBuilder(context, animation, secondaryAnimation, child);
+  }
+
+  return _PredictiveBackGestureDetector(
+    route: route,
+    builder:
+        (
+          BuildContext context,
+          _PredictiveBackPhase phase,
+          PredictiveBackEvent? startBackEvent,
+          PredictiveBackEvent? currentBackEvent,
+        ) {
+          if (route.popGestureInProgress &&
+              phase != _PredictiveBackPhase.idle) {
+            return _PredictiveBackSharedElementPageTransition(
+              isDelegatedTransition: true,
+              animation: animation,
+              phase: phase,
+              secondaryAnimation: secondaryAnimation,
+              startBackEvent: startBackEvent,
+              currentBackEvent: currentBackEvent,
+              child: child,
+            );
+          }
+
+          return fallbackBuilder(context, animation, secondaryAnimation, child);
+        },
+  );
 }

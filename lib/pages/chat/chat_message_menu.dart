@@ -162,9 +162,9 @@ Future<String?> showChatEmojiPicker(
   );
 }
 
-// ======================= 移动端:TG 式长按 overlay =======================
+// ======================= 移动端:长按 overlay =======================
 
-/// Telegram 式长按菜单:背景模糊压暗,被按气泡原位保留(必要时上移
+/// 长按菜单:背景模糊压暗,被按气泡原位保留(必要时上移
 /// 腾出菜单空间),反应条悬浮气泡上方,菜单卡跟在气泡下方。
 Future<ChatMessageMenuResult?> showChatMessageActionsOverlay({
   required BuildContext context,
@@ -231,7 +231,7 @@ class _MessageActionsOverlay extends StatelessWidget {
     final menuHeight = items.length * 46.0 + 12;
     const menuWidth = 224.0;
 
-    // TG 式布局:理想位置=气泡原位;空间不够时整体上移/下移
+    // 布局:理想位置=气泡原位;空间不够时整体上移/下移
     final bubbleHeight = bubbleRect.height;
     final totalHeight = barHeight + gap + bubbleHeight + gap + menuHeight;
     double bubbleTop = bubbleRect.top;
@@ -254,13 +254,13 @@ class _MessageActionsOverlay extends StatelessWidget {
       animation: curved,
       builder: (context, child) {
         final t = curved.value;
-        // 气泡从原位平滑滑到腾挪后的位置(TG 同款),条/菜单跟着走;
+        // 气泡从原位平滑滑到腾挪后的位置,条/菜单跟着走;
         // 关闭时反向滑回原位,与列表里的真气泡无缝衔接
         final animatedBubbleTop =
             bubbleRect.top + (bubbleTop - bubbleRect.top) * t;
         final barTop = animatedBubbleTop - gap - barHeight;
         // 超长气泡(三段总高超屏)时菜单钉屏幕下缘,盖住气泡下半部
-        // (TG 同款取舍;菜单卡带影有层次),不再悬到屏外/叠中间
+        // (菜单卡带影有层次),不再悬到屏外/叠中间
         final menuTop = math.min(
           animatedBubbleTop + bubbleHeight + gap,
           screen.height - bottomSafe - 12 - menuHeight,
@@ -281,7 +281,7 @@ class _MessageActionsOverlay extends StatelessWidget {
               ),
             ),
             // 气泡副本(入场动画中从原位滑向腾挪位):轻微缩放蓄势
-            // (0.97→1,TG 按住弹起的手感);壳的底色/阴影随动画淡入,
+            // (0.97→1,按住弹起的手感);壳的底色/阴影随动画淡入,
             // 起始帧与列表裸正文形态一致,不再"凭空多出个气泡"
             Positioned(
               left: bubbleRect.left,
