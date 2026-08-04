@@ -171,7 +171,6 @@ Future<ChatMessageMenuResult?> showChatMessageActionsOverlay({
   required Rect bubbleRect,
   required WidgetBuilder bubbleBuilder,
   required ChatMessage message,
-  required bool isSelf,
   required ChatMessageCaps caps,
   required List<String> quickReactions,
 }) {
@@ -187,7 +186,6 @@ Future<ChatMessageMenuResult?> showChatMessageActionsOverlay({
         bubbleRect: bubbleRect,
         bubbleBuilder: bubbleBuilder,
         message: message,
-        isSelf: isSelf,
         caps: caps,
         quickReactions: quickReactions,
       ),
@@ -200,7 +198,6 @@ class _MessageActionsOverlay extends StatelessWidget {
   final Rect bubbleRect;
   final WidgetBuilder bubbleBuilder;
   final ChatMessage message;
-  final bool isSelf;
   final ChatMessageCaps caps;
   final List<String> quickReactions;
 
@@ -209,7 +206,6 @@ class _MessageActionsOverlay extends StatelessWidget {
     required this.bubbleRect,
     required this.bubbleBuilder,
     required this.message,
-    required this.isSelf,
     required this.caps,
     required this.quickReactions,
   });
@@ -242,7 +238,15 @@ class _MessageActionsOverlay extends StatelessWidget {
         ? minBubbleTop
         : bubbleTop.clamp(minBubbleTop, maxBubbleTop);
 
-    final alignRight = isSelf;
+    // 水平:消息行是扁平左对齐布局(自己/别人同一侧,靠名字配色区分),
+    // 条与菜单一律跟气泡左缘,再收进屏内安全边距。
+    // 早先按 isSelf 把菜单右对齐到气泡右缘,是左右气泡时代的遗留——
+    // 贴图/短消息的右缘就在屏幕左半区,定宽菜单整块甩出屏外(用户截图)。
+    const edge = 8.0;
+    final maxAnchorLeft = math.max(edge, screen.width - edge - menuWidth);
+    final anchorLeft = math.min(math.max(bubbleRect.left, edge), maxAnchorLeft);
+    // 反应条宽度随 emoji 数量浮动,按锚点右侧余量收口(内部可横滚)
+    final barMaxWidth = math.max(160.0, screen.width - edge - anchorLeft);
 
     final curved = CurvedAnimation(
       parent: animation,
@@ -252,6 +256,10 @@ class _MessageActionsOverlay extends StatelessWidget {
 
     return AnimatedBuilder(
       animation: curved,
+      // 副本内容只构建一次:builder 每帧重建 _buildBubbleCore(markdown/
+      // emoji 渲染)会让副本闪烁(用户点名)。child 参数跨帧复用,外层
+      // Positioned/Transform/Opacity 照常每帧按动画值更新。
+      child: bubbleBuilder(context),
       builder: (context, child) {
         final t = curved.value;
         // 气泡从原位平滑滑到腾挪后的位置,条/菜单跟着走;
@@ -290,13 +298,12 @@ class _MessageActionsOverlay extends StatelessWidget {
               child: IgnorePointer(
                 child: Transform.scale(
                   scale: 0.97 + 0.03 * t,
-                  alignment: alignRight
-                      ? Alignment.centerRight
-                      : Alignment.centerLeft,
+                  alignment: Alignment.centerLeft,
                   child: Opacity(
-                    // 壳体(含底色)整体淡入:0→1 前半段完成
-                    opacity: (0.55 + 0.45 * t).clamp(0.0, 1.0),
-                    child: bubbleBuilder(context),
+                    // 壳体(含底色)整体淡入:0.7 起步(较 0.55 减少半透明
+                    // 叠模糊层的闪烁感),末段补到不透明
+                    opacity: (0.7 + 0.3 * t).clamp(0.0, 1.0),
+                    child: child!,
                   ),
                 ),
               ),
@@ -304,18 +311,16 @@ class _MessageActionsOverlay extends StatelessWidget {
             // 反应条(气泡上方,scale 从贴近气泡处长出)
             Positioned(
               top: barTop,
-              left: alignRight ? null : bubbleRect.left,
-              right: alignRight ? screen.width - bubbleRect.right : null,
+              left: anchorLeft,
               child: Transform.scale(
                 scale: 0.6 + 0.4 * t,
-                alignment: alignRight
-                    ? Alignment.bottomRight
-                    : Alignment.bottomLeft,
+                alignment: Alignment.bottomLeft,
                 child: Opacity(
                   opacity: t,
                   child: _ReactionBar(
                     message: message,
                     quickReactions: quickReactions,
+                    maxWidth: barMaxWidth,
                     onSelect: (emoji) => Navigator.pop(context, (null, emoji)),
                     onMore: () async {
                       final selected = await showChatEmojiPicker(
@@ -333,11 +338,10 @@ class _MessageActionsOverlay extends StatelessWidget {
             // 菜单卡(气泡下方)
             Positioned(
               top: menuTop,
-              left: alignRight ? null : bubbleRect.left,
-              right: alignRight ? screen.width - bubbleRect.right : null,
+              left: anchorLeft,
               child: Transform.scale(
                 scale: 0.6 + 0.4 * t,
-                alignment: alignRight ? Alignment.topRight : Alignment.topLeft,
+                alignment: Alignment.topLeft,
                 child: Opacity(
                   opacity: t,
                   child: Material(
@@ -410,12 +414,16 @@ class _MessageActionsOverlay extends StatelessWidget {
 class _ReactionBar extends StatelessWidget {
   final ChatMessage message;
   final List<String> quickReactions;
+
+  /// 可用宽度上限(由锚点右侧余量算出;超出的 emoji 走横滚)
+  final double maxWidth;
   final void Function(String emoji) onSelect;
   final VoidCallback onMore;
 
   const _ReactionBar({
     required this.message,
     required this.quickReactions,
+    required this.maxWidth,
     required this.onSelect,
     required this.onMore,
   });
@@ -423,7 +431,6 @@ class _ReactionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final maxWidth = MediaQuery.sizeOf(context).width - 32;
     return Material(
       color: theme.colorScheme.surfaceContainerLow,
       elevation: 6,

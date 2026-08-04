@@ -70,6 +70,7 @@ import 'services/log/log_writer.dart';
 import 'services/download_service.dart';
 import 'services/migration_service.dart';
 import 'services/navigation/app_route_observer.dart';
+import 'services/navigation/keyboard_focus_guard.dart';
 import 'services/window_state_service.dart';
 import 'services/webview_settings.dart';
 import 'services/windows_webview_environment_service.dart';
@@ -467,7 +468,8 @@ Future<void> main() async {
   installHashtagHandlers();
 
   // 注入 AI 模型管理包的消息提示实现
-  AiToastDelegate.configure((message, {type = AiToastType.info}) {    switch (type) {
+  AiToastDelegate.configure((message, {type = AiToastType.info}) {
+    switch (type) {
       case AiToastType.success:
         ToastService.showSuccess(message);
       case AiToastType.error:
@@ -760,7 +762,12 @@ class MainApp extends ConsumerWidget {
             builder: (context) => MaterialApp(
               navigatorKey: navigatorKey,
               // JankNavObserver 给 [JANK] 日志加导航归因(debug/profile 观测用)
-              navigatorObservers: [appRouteObserver, JankNavObserver()],
+              // KeyboardFocusGuard 压掉浮层关闭后键盘自弹(移动端)
+              navigatorObservers: [
+                appRouteObserver,
+                keyboardFocusGuard,
+                JankNavObserver(),
+              ],
               title: 'FluxDO',
               locale: TranslationProvider.of(context).flutterLocale,
               localizationsDelegates: const [
@@ -1311,9 +1318,7 @@ class _MainPageState extends ConsumerState<MainPage>
         // 窄屏没有「写栈 → 推详情」的桥（同通知入口的窄屏问题），
         // 和解析失败一样退回深链通道全屏打开
         onAction: () {
-          final topic = DiscourseUrlParser.parseTopic(
-            candidate.uri.toString(),
-          );
+          final topic = DiscourseUrlParser.parseTopic(candidate.uri.toString());
           if (topic != null &&
               MasterDetailLayout.canShowBothPanesFor(context)) {
             ref
