@@ -13,8 +13,7 @@ import '../../services/message_bus_service.dart';
 import '../discourse_providers.dart';
 import '../message_bus/message_bus_service_provider.dart';
 import '../message_bus/topic_tracking_providers.dart';
-import '../bookmarks_repository.dart';
-import '../user_content_providers.dart';
+import '../bookmark_sync_controller.dart';
 import 'chat_channels_provider.dart';
 
 /// 单频道消息窗口状态
@@ -803,18 +802,17 @@ class ChatMessagesNotifier extends AsyncNotifier<ChatMessagesState> {
     if (existing != null) {
       await service.deleteBookmark(existing.id);
       apply(null);
-      // 写穿透:书签列表 Hive 缓存同步删除
-      try {
-        final username = await ref.read(currentUsernameProvider.future);
-        if (username != null) {
-          await ref
-              .read(bookmarksRepositoryProvider)
-              .deleteOne(username, existing.id);
-        }
-      } catch (_) {}
+      // 写穿透:书签列表 Hive 缓存同步删除(全入口统一收口)
+      await ref
+          .read(bookmarkSyncControllerProvider.notifier)
+          .purgeLocal(existing.id);
     } else {
       final id = await service.bookmarkChatMessage(messageId);
       apply(ChatMessageBookmark(id: id));
+      // 写穿透:静默拉书签列表第一页,新书签立刻进本地缓存
+      unawaited(
+        ref.read(bookmarkSyncControllerProvider.notifier).pullFirstPage(),
+      );
     }
   }
 }

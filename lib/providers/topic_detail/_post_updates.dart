@@ -404,6 +404,11 @@ extension PostUpdateMethods on TopicDetailNotifier {
     final newBookmarkId = await service.bookmarkTopic(currentDetail.id);
     if (!ref.mounted) throw Exception(S.current.error_providerDisposed);
 
+    // 写穿透:静默拉书签列表第一页,新书签立刻进本地缓存
+    unawaited(
+      ref.read(bookmarkSyncControllerProvider.notifier).pullFirstPage(),
+    );
+
     state = AsyncValue.data(currentDetail.copyWith(
       bookmarked: true,
       bookmarkId: newBookmarkId,
@@ -411,16 +416,11 @@ extension PostUpdateMethods on TopicDetailNotifier {
     return newBookmarkId;
   }
 
-  Future<void> _purgeBookmarkCache(int bookmarkId) async {
-    try {
-      final username = await ref.read(currentUsernameProvider.future);
-      if (username == null) return;
-      await ref
-          .read(bookmarksRepositoryProvider)
-          .deleteOne(username, bookmarkId);
-    } catch (_) {
-      // 缓存清理失败无害:下次全量对账会纠正
-    }
+  Future<void> _purgeBookmarkCache(int bookmarkId) {
+    // 写穿收口:全入口统一走 BookmarkSyncController.purgeLocal
+    return ref
+        .read(bookmarkSyncControllerProvider.notifier)
+        .purgeLocal(bookmarkId);
   }
 
   /// 删除话题书签

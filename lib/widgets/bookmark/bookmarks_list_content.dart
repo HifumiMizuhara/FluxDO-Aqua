@@ -2,12 +2,14 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:m3e_ui/m3e_ui.dart';
 
 import '../../l10n/s.dart';
 import '../../models/category.dart';
 import '../../models/topic.dart';
 import '../../models/topic_card_style.dart';
 import '../../pages/bookmarks/bookmarks_models.dart';
+import '../../providers/bookmark_sync_controller.dart';
 import '../../providers/category_provider.dart';
 import '../../providers/preferences_provider.dart';
 import '../topic/topic_card_layout.dart';
@@ -43,6 +45,8 @@ class BookmarksListContent extends ConsumerWidget {
     required this.hasMore,
     required this.isLoadMoreFailed,
     required this.isLoadingMore,
+    this.syncState = const BookmarkSyncState(),
+    this.onRetrySync,
     required this.onRetryLoadMore,
     required this.onEditBookmark,
     required this.onQuickRenameBookmark,
@@ -64,6 +68,10 @@ class BookmarksListContent extends ConsumerWidget {
   final bool hasMore;
   final bool isLoadMoreFailed;
   final bool isLoadingMore;
+
+  /// 全局同步状态:空态据此区分「正在同步」「同步失败」「真没有书签」。
+  final BookmarkSyncState syncState;
+  final VoidCallback? onRetrySync;
   final VoidCallback onRetryLoadMore;
   final Future<void> Function(Topic topic) onEditBookmark;
   final Future<bool> Function(Topic topic, String? name) onQuickRenameBookmark;
@@ -196,19 +204,7 @@ class BookmarksListContent extends ConsumerWidget {
     Map<int, Category>? categoryMap,
   ) {
     if (topics.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Symbols.bookmark_rounded, size: 64, color: Colors.grey),
-            const SizedBox(height: 16),
-            Text(
-              context.l10n.bookmarks_empty,
-              style: const TextStyle(color: Colors.grey),
-            ),
-          ],
-        ),
-      );
+      return _buildEmptyState(context);
     }
 
     final summaries = _memoSummaries(topics);
@@ -272,12 +268,16 @@ class BookmarksListContent extends ConsumerWidget {
             layout: layout,
             onTap: () => onTap(topic),
             onMiddleClick: () => onMiddleClick(topic),
-            // chat 书签无话题上下文,长按预览(按话题 id 拉详情)必错,禁用
-            onLongPress: enableLongPress && !topic.isChatMessageBookmark
+            onLongPress: enableLongPress
                 ? () => TopicPreviewDialog.show(
                       context,
                       topic: topic,
                       onOpen: () => onTap(topic),
+                      // chat 书签无话题上下文:正文直接用书签 excerpt,
+                      // 不按话题 id 拉详情(那个 id 是书签 id,必 404)
+                      firstPostLoader: topic.isChatMessageBookmark
+                          ? () async => topic.excerpt ?? ''
+                          : null,
                       actions: topic.bookmarkId != null
                           ? _buildPreviewActions(context, topic)
                           : null,
@@ -399,6 +399,67 @@ class BookmarksListContent extends ConsumerWidget {
         ),
         Expanded(child: swipeRegion),
       ],
+    );
+  }
+
+  /// 空态三分:首次同步进行中 → 「正在同步」;同步失败 → 错误 + 重试;
+  /// 其余 → 真没有书签。此前失败态没有任何 UI 出口,断网首开显示
+  /// 「暂无书签」误导用户。
+  Widget _buildEmptyState(BuildContext context) {
+    final theme = Theme.of(context);
+    if (syncState.isSyncing) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const LoadingSpinner(size: 32),
+            const SizedBox(height: 16),
+            Text(
+              context.l10n.bookmarks_initialSyncing,
+              style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+            ),
+          ],
+        ),
+      );
+    }
+    if (syncState.isFailed) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Symbols.sync_problem_rounded,
+              size: 64,
+              color: theme.colorScheme.outline,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              context.l10n.bookmarks_syncFailed,
+              style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+            ),
+            if (onRetrySync != null) ...[
+              const SizedBox(height: 12),
+              FilledButton.tonal(
+                onPressed: onRetrySync,
+                child: Text(context.l10n.common_retry),
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Symbols.bookmark_rounded, size: 64, color: Colors.grey),
+          const SizedBox(height: 16),
+          Text(
+            context.l10n.bookmarks_empty,
+            style: const TextStyle(color: Colors.grey),
+          ),
+        ],
+      ),
     );
   }
 

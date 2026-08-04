@@ -184,6 +184,15 @@ class _BookmarkEditSheetState extends State<BookmarkEditSheet> {
           resultName: name.isNotEmpty ? name : null,
           hasReminder: reminderAt != null,
         );
+        // 写穿透:静默拉书签列表第一页——书签页入口的调用方会走
+        // updateBookmarkMeta 写穿,但帖子页等入口的书签可能还不在本地
+        // 缓存里(applyMetadataChange 对不存在的条目静默跳过),
+        // 拉一页兜底让列表缓存拿到最新元数据。
+        unawaited(
+          refreshBookmarkListCacheSilently(
+            ProviderScope.containerOf(context, listen: false),
+          ),
+        );
         Navigator.pop(
           context,
           BookmarkEditResult(

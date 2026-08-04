@@ -12,6 +12,7 @@ import '../pages/bookmarks/bookmarks_models.dart';
 import '../providers/bookmark_name_suggestions_provider.dart';
 import '../providers/discourse_providers.dart';
 import '../providers/preferences_provider.dart';
+import '../providers/bookmark_sync_controller.dart';
 import '../providers/bookmarks_reconciler.dart';
 import '../providers/user_content_providers.dart';
 import '../providers/user_content_search_provider.dart';
@@ -158,9 +159,9 @@ class _BookmarksPageState extends ConsumerState<BookmarksPage> {
   }
 
   Future<void> _onManualSync() async {
-    final notifier = ref.read(bookmarksProvider.notifier);
-    if (notifier.isReconciling) return;
-    final report = await notifier.manualFullReconcile();
+    final syncController = ref.read(bookmarkSyncControllerProvider.notifier);
+    if (ref.read(bookmarkSyncControllerProvider).isSyncing) return;
+    final report = await syncController.manualFullSync();
     if (!mounted) return;
     if (report == null) {
       ToastService.showError(S.current.bookmarks_syncFailed);
@@ -599,12 +600,15 @@ class _BookmarksPageState extends ConsumerState<BookmarksPage> {
   }
 
   Widget _buildSyncAction() {
-    final notifier = ref.watch(bookmarksProvider.notifier);
-    final isReconciling = notifier.isReconciling;
+    // 同步状态来自全局 controller:与列表数据/分页 loading 彻底分离,
+    // 静默增量同步只在这里转圈,不再牵动列表 footer。
+    final isSyncing = ref.watch(
+      bookmarkSyncControllerProvider.select((s) => s.isSyncing),
+    );
     return IconButton(
       tooltip: context.l10n.bookmarks_syncBookmarks,
-      onPressed: isReconciling ? null : _onManualSync,
-      icon: isReconciling
+      onPressed: isSyncing ? null : _onManualSync,
+      icon: isSyncing
           ? const LoadingSpinner(size: 18)
           : const Icon(Symbols.sync_rounded),
     );
@@ -703,7 +707,7 @@ class _BookmarksPageState extends ConsumerState<BookmarksPage> {
       final notifier = ref.read(bookmarkNameSuggestionsProvider.notifier);
       final bookmarksState = ref.read(bookmarksProvider.notifier);
       final isCompleteSnapshot =
-          !bookmarksState.isHydratingAll &&
+          !ref.read(bookmarkSyncControllerProvider).isSyncing &&
           !bookmarksState.hasMore &&
           !bookmarksState.isLoadMoreFailed;
       notifier.seedFromTopics(topics, isCompleteSnapshot: isCompleteSnapshot);
@@ -882,7 +886,12 @@ class _BookmarksPageState extends ConsumerState<BookmarksPage> {
             },
             hasMore: bookmarksNotifier.hasMore,
             isLoadMoreFailed: bookmarksNotifier.isLoadMoreFailed,
-            isLoadingMore: bookmarksNotifier.isHydratingAll,
+            // footer 只反映本地分页 hydrate,对账/同步不再牵动列表 loading
+            isLoadingMore: bookmarksNotifier.isLoadingMore,
+            syncState: ref.watch(bookmarkSyncControllerProvider),
+            onRetrySync: () => ref
+                .read(bookmarkSyncControllerProvider.notifier)
+                .ensureFreshness(force: true),
             onRetryLoadMore: bookmarksNotifier.retryLoadMore,
             onEditBookmark: _editBookmark,
             onQuickRenameBookmark: _quickRenameBookmark,
@@ -969,15 +978,19 @@ class _BookmarksPageState extends ConsumerState<BookmarksPage> {
     final bookmarkId = topic.bookmarkId;
     if (bookmarkId == null) return;
 
+    // 乐观删除:先移本地条目让列表立即响应,服务端失败再回滚。
+    final notifier = ref.read(bookmarksProvider.notifier);
+    final backup = await notifier.removeBookmarkOptimistically(bookmarkId);
     try {
       await DiscourseService().deleteBookmark(bookmarkId);
       if (!mounted) return;
-      ref.read(bookmarksProvider.notifier).removeBookmarkById(bookmarkId);
       ref.read(bookmarkNameSuggestionsProvider.notifier).markDirty();
       ToastService.showSuccess(S.current.bookmarks_deleted);
     } on DioException catch (_) {
-      // 网络错误已由 ErrorInterceptor 处理
+      // 网络错误已由 ErrorInterceptor 处理;回滚本地条目
+      await notifier.restoreBookmark(backup);
     } catch (e, s) {
+      await notifier.restoreBookmark(backup);
       AppErrorHandler.handleUnexpected(e, s);
     }
   }
