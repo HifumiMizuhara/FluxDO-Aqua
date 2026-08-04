@@ -22,6 +22,9 @@
 // 5. 文件尾新增 [buildPredictiveBackPageTransitions](上游没有):给不走
 //    PageTransitionsTheme 的 PageRouteBuilder 自定义转场补挂预测返回,
 //    追加在上游内容之后,不打断上游类排布。
+// 6. 预测返回期间冻结下层路由的 Cupertino secondaryAnimation。否则
+//    当前页缩小后,下层页仍停在向左偏移 1/3 屏的位置,右侧会露出
+//    Navigator 的黑色背景。
 //
 // Copyright 2014 The Flutter Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
@@ -33,6 +36,15 @@ import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+final Expando<ValueNotifier<bool>> _predictiveBackGestureStates =
+    Expando<ValueNotifier<bool>>('predictive back gesture state');
+
+ValueNotifier<bool>? _predictiveBackGestureStateFor(PageRoute<dynamic> route) {
+  final navigator = route.navigator;
+  if (navigator == null) return null;
+  return _predictiveBackGestureStates[navigator] ??= ValueNotifier<bool>(false);
+}
 
 /// Android 预测返回 + Cupertino 降级的页面转场。
 ///
@@ -65,32 +77,51 @@ class PredictiveBackCupertinoPageTransitionsBuilder
             PredictiveBackEvent? startBackEvent,
             PredictiveBackEvent? currentBackEvent,
           ) {
-            // Only do a predictive back transition when the user is performing a
-            // pop gesture. Otherwise, for things like button presses or other
-            // programmatic navigation, fall back to
-            // CupertinoPageTransitionsBuilder.
-            //
-            // 差异点(文件头第 4 条):app 内 iOS 式拖拽返回同样置位
-            // popGestureInProgress,但不会触发 handleStartBackGesture,
-            // phase 仍为 idle —— 交给 Cupertino 分支跟手渲染。
-            if (route.popGestureInProgress && phase != _PredictiveBackPhase.idle) {
-              return _PredictiveBackSharedElementPageTransition(
-                isDelegatedTransition: true,
-                animation: animation,
-                phase: phase,
-                secondaryAnimation: secondaryAnimation,
-                startBackEvent: startBackEvent,
-                currentBackEvent: currentBackEvent,
-                child: child,
+            final predictiveBackState = _predictiveBackGestureStateFor(route);
+
+            Widget buildTransition(bool predictiveBackInProgress) {
+              // Cupertino 的 secondaryAnimation 会把上一页向左推出约
+              // 1/3 屏。预测返回缩小当前页时,上一页应作为静态背景铺满。
+              if (predictiveBackInProgress && !route.isCurrent) {
+                return child;
+              }
+
+              // Only do a predictive back transition when the user is performing a
+              // pop gesture. Otherwise, for things like button presses or other
+              // programmatic navigation, fall back to
+              // CupertinoPageTransitionsBuilder.
+              //
+              // 差异点(文件头第 4 条):app 内 iOS 式拖拽返回同样置位
+              // popGestureInProgress,但不会触发 handleStartBackGesture,
+              // phase 仍为 idle —— 交给 Cupertino 分支跟手渲染。
+              if (route.popGestureInProgress &&
+                  phase != _PredictiveBackPhase.idle) {
+                return _PredictiveBackSharedElementPageTransition(
+                  isDelegatedTransition: true,
+                  animation: animation,
+                  phase: phase,
+                  secondaryAnimation: secondaryAnimation,
+                  startBackEvent: startBackEvent,
+                  currentBackEvent: currentBackEvent,
+                  child: child,
+                );
+              }
+
+              return const CupertinoPageTransitionsBuilder().buildTransitions(
+                route,
+                context,
+                animation,
+                secondaryAnimation,
+                child,
               );
             }
 
-            return const CupertinoPageTransitionsBuilder().buildTransitions(
-              route,
-              context,
-              animation,
-              secondaryAnimation,
-              child,
+            if (predictiveBackState == null) {
+              return buildTransition(false);
+            }
+            return ValueListenableBuilder<bool>(
+              valueListenable: predictiveBackState,
+              builder: (_, inProgress, _) => buildTransition(inProgress),
             );
           },
     );
@@ -144,6 +175,8 @@ class _PredictiveBackGestureDetector extends StatefulWidget {
 class _PredictiveBackGestureDetectorState
     extends State<_PredictiveBackGestureDetector>
     with WidgetsBindingObserver {
+  bool _ownsPredictiveBackGesture = false;
+
   /// True when the predictive back gesture is enabled.
   bool get _isEnabled {
     return widget.route.isCurrent && widget.route.popGestureEnabled;
@@ -179,12 +212,14 @@ class _PredictiveBackGestureDetectorState
 
   @override
   bool handleStartBackGesture(PredictiveBackEvent backEvent) {
-    phase = _PredictiveBackPhase.start;
     final bool gestureInProgress = !backEvent.isButtonEvent && _isEnabled;
     if (!gestureInProgress) {
       return false;
     }
 
+    phase = _PredictiveBackPhase.start;
+    _ownsPredictiveBackGesture = true;
+    _predictiveBackGestureStateFor(widget.route)?.value = true;
     widget.route.handleStartBackGesture(progress: 1 - backEvent.progress);
     startBackEvent = currentBackEvent = backEvent;
     return true;
@@ -226,7 +261,14 @@ class _PredictiveBackGestureDetectorState
   void _handleUserGestureChanged() {
     if (_userGestureInProgress?.value == false) {
       phase = _PredictiveBackPhase.idle;
+      _clearPredictiveBackGesture();
     }
+  }
+
+  void _clearPredictiveBackGesture() {
+    if (!_ownsPredictiveBackGesture) return;
+    _ownsPredictiveBackGesture = false;
+    _predictiveBackGestureStateFor(widget.route)?.value = false;
   }
 
   void _subscribeUserGesture() {
@@ -242,6 +284,11 @@ class _PredictiveBackGestureDetectorState
   @override
   void didUpdateWidget(covariant _PredictiveBackGestureDetector oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.route, widget.route) &&
+        _ownsPredictiveBackGesture) {
+      _ownsPredictiveBackGesture = false;
+      _predictiveBackGestureStateFor(oldWidget.route)?.value = false;
+    }
     _subscribeUserGesture();
   }
 
@@ -254,6 +301,7 @@ class _PredictiveBackGestureDetectorState
 
   @override
   void dispose() {
+    _clearPredictiveBackGesture();
     _userGestureInProgress?.removeListener(_handleUserGestureChanged);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -537,6 +585,7 @@ Widget buildPredictiveBackPageTransitions(
   Animation<double> animation,
   Animation<double> secondaryAnimation,
   Widget child, {
+  bool enablePredictiveBack = true,
   required Widget Function(
     BuildContext context,
     Animation<double> animation,
@@ -545,6 +594,13 @@ Widget buildPredictiveBackPageTransitions(
   )
   fallbackBuilder,
 }) {
+  // HeroController 默认不会为 user gesture 启动 Hero 飞行；而预测返回
+  // commit 又会在 user gesture 结束前完成 pop，普通 pop 飞行也不会补发。
+  // 带 Hero 的调用方应关闭这里的认领，让系统 commit 走普通 pop。
+  if (!enablePredictiveBack) {
+    return fallbackBuilder(context, animation, secondaryAnimation, child);
+  }
+
   final route = ModalRoute.of(context);
   if (route is! PageRoute<dynamic>) {
     return fallbackBuilder(context, animation, secondaryAnimation, child);
@@ -559,20 +615,40 @@ Widget buildPredictiveBackPageTransitions(
           PredictiveBackEvent? startBackEvent,
           PredictiveBackEvent? currentBackEvent,
         ) {
-          if (route.popGestureInProgress &&
-              phase != _PredictiveBackPhase.idle) {
-            return _PredictiveBackSharedElementPageTransition(
-              isDelegatedTransition: true,
-              animation: animation,
-              phase: phase,
-              secondaryAnimation: secondaryAnimation,
-              startBackEvent: startBackEvent,
-              currentBackEvent: currentBackEvent,
-              child: child,
+          final predictiveBackState = _predictiveBackGestureStateFor(route);
+
+          Widget buildTransition(bool predictiveBackInProgress) {
+            if (predictiveBackInProgress && !route.isCurrent) {
+              return child;
+            }
+            if (route.popGestureInProgress &&
+                phase != _PredictiveBackPhase.idle) {
+              return _PredictiveBackSharedElementPageTransition(
+                isDelegatedTransition: true,
+                animation: animation,
+                phase: phase,
+                secondaryAnimation: secondaryAnimation,
+                startBackEvent: startBackEvent,
+                currentBackEvent: currentBackEvent,
+                child: child,
+              );
+            }
+
+            return fallbackBuilder(
+              context,
+              animation,
+              secondaryAnimation,
+              child,
             );
           }
 
-          return fallbackBuilder(context, animation, secondaryAnimation, child);
+          if (predictiveBackState == null) {
+            return buildTransition(false);
+          }
+          return ValueListenableBuilder<bool>(
+            valueListenable: predictiveBackState,
+            builder: (_, inProgress, _) => buildTransition(inProgress),
+          );
         },
   );
 }

@@ -1327,6 +1327,9 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
               animation,
               secondaryAnimation,
               child,
+              // 搜索胶囊与图片查看器一样依赖 Hero 返回飞行。Flutter 3.44
+              // 的预测返回 user gesture 不会为默认 Hero 补发 pop 动画。
+              enablePredictiveBack: false,
               fallbackBuilder: (_, animation, _, child) =>
                   FadeTransition(opacity: animation, child: child),
             ),

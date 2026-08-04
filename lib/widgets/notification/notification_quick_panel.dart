@@ -29,6 +29,7 @@ class NotificationQuickPanel {
   static ValueNotifier<bool> get visible => _visible;
   static bool get isVisible => _visible.value;
   static Future<void>? _mobileFuture;
+  static bool _mobileDismissPending = false;
 
   /// 手机 sheet 自身的路由,由 [_MobileNotificationPanelState] 在挂载后
   /// 回填。dismiss 必须锚定这条路由而非「navigator 栈顶」:通知条目的
@@ -45,6 +46,7 @@ class NotificationQuickPanel {
         return existing;
       }
 
+      _mobileDismissPending = false;
       final future = showAppBottomSheet<void>(
         context: context,
         useRootNavigator: true,
@@ -66,6 +68,7 @@ class NotificationQuickPanel {
             if (identical(_mobileFuture, future)) {
               _mobileFuture = null;
               _mobileRoute = null;
+              _mobileDismissPending = false;
             }
           })
           .ignore();
@@ -79,6 +82,12 @@ class NotificationQuickPanel {
   /// 关闭当前通知面板
   static void dismiss() {
     final route = _mobileRoute;
+    if (route == null && _mobileFuture != null) {
+      // show() 已 push 路由、但 sheet 子树还没挂载。记住这次关闭，
+      // 避免首帧前快速二次触发被吞掉。
+      _mobileDismissPending = true;
+      return;
+    }
     if (route != null) {
       final navigator = route.navigator;
       if (navigator != null && route.isActive) {
@@ -511,7 +520,16 @@ class _MobileNotificationPanelState extends State<_MobileNotificationPanel> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     // 回填 sheet 自身路由,供 dismiss 精确锚定(而非盲 pop 栈顶)
-    NotificationQuickPanel._mobileRoute = ModalRoute.of(context);
+    final route = ModalRoute.of(context);
+    NotificationQuickPanel._mobileRoute = route;
+    if (route != null && NotificationQuickPanel._mobileDismissPending) {
+      NotificationQuickPanel._mobileDismissPending = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (identical(NotificationQuickPanel._mobileRoute, route)) {
+          NotificationQuickPanel.dismiss();
+        }
+      });
+    }
   }
 
   @override

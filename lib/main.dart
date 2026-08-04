@@ -70,6 +70,7 @@ import 'services/log/log_writer.dart';
 import 'services/download_service.dart';
 import 'services/migration_service.dart';
 import 'services/navigation/app_route_observer.dart';
+import 'services/navigation/back_exit_guard.dart';
 import 'services/navigation/keyboard_focus_guard.dart';
 import 'services/window_state_service.dart';
 import 'services/webview_settings.dart';
@@ -925,6 +926,7 @@ class _MainPageState extends ConsumerState<MainPage>
   Timer? _pendingSingleTap;
   List<NavEntry> _lastResolvedEntries = const [];
   Timer? _resumeDebounceTimer;
+  final BackExitGuard _backExitGuard = BackExitGuard();
   bool _clipboardCheckInFlight = false;
 
   // 不能是 const，需要传入 isActive
@@ -1513,14 +1515,21 @@ class _MainPageState extends ConsumerState<MainPage>
         (activeEntryId == NavEntryIds.home && topicParallelStacked) ||
         (activeEntryId == NavEntryIds.messages && messageParallelStacked) ||
         (activeEntryId == NavEntryIds.seeking && seekingParallelStacked);
+    final exitOnSingleBack = ref.watch(
+      preferencesProvider.select((preferences) => preferences.exitOnSingleBack),
+    );
+    final requireDoubleBackToExit = Platform.isAndroid && !exitOnSingleBack;
+    final routeCanPopInternally = ModalRoute.canPopOf(context) ?? false;
 
     // 首页的 FAB 由 TopicsScreen 内部处理，避免切换时闪烁。
-    // 根路由允许系统处理 bubble，从而支持 Android 单次返回退出及其
-    // 预测式退出动画；需要优先关闭的面板仍通过 PopScope 拦截。
+    // 单次退出模式允许系统处理 bubble 以支持预测式退出；双击退出模式
+    // 则拦截根路由的第一次返回。面板在两种模式下都拥有更高优先级。
     Widget page = ValueListenableBuilder<bool>(
       valueListenable: NotificationQuickPanel.visible,
       builder: (context, notificationPanelVisible, _) => PopScope(
-        canPop: !notificationPanelVisible,
+        canPop:
+            routeCanPopInternally ||
+            (!notificationPanelVisible && !requireDoubleBackToExit),
         onPopInvokedWithResult: (bool didPop, dynamic result) {
           if (didPop) return;
           // 分类侧栏通过 LocalHistoryEntry 消费返回；这里保留兜底，覆盖
@@ -1532,6 +1541,13 @@ class _MainPageState extends ConsumerState<MainPage>
           if (NotificationQuickPanel.isVisible) {
             NotificationQuickPanel.dismiss();
             return;
+          }
+          if (requireDoubleBackToExit) {
+            if (_backExitGuard.shouldExit()) {
+              SystemNavigator.pop();
+            } else {
+              ToastService.showInfo(S.current.toast_pressAgainToExit);
+            }
           }
         },
         child: AdaptiveScaffold(

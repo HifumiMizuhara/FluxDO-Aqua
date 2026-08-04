@@ -129,7 +129,8 @@ class ControlledCategoryDrawerState extends State<ControlledCategoryDrawer>
   }
 
   void _onPredictiveBackCancel() {
-    if (isOpen) _springTo(1.0);
+    // progress 可能已到 1.0，此时 isOpen 为 false，但取消仍应恢复抽屉。
+    _springTo(1.0);
   }
 
   void _springTo(double target, {double velocity = 0}) {

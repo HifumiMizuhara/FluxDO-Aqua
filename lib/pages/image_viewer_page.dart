@@ -91,6 +91,10 @@ class ImageViewerPage extends ConsumerStatefulWidget {
     );
   }
 
+  static bool _hasHeroTransition(String? heroTag, List<String>? heroTags) {
+    return heroTag != null || (heroTags?.isNotEmpty ?? false);
+  }
+
   /// 使用透明路由打开图片查看器。返回的 Future 在查看器关闭时完成
   /// (调用方可借此恢复被隐藏的浮层等)。
   static Future<void> open(
@@ -135,6 +139,10 @@ class ImageViewerPage extends ConsumerStatefulWidget {
               animation,
               secondaryAnimation,
               child,
+              // Flutter 3.44 的预测返回把 pop 归类为 user gesture，默认
+              // Hero 不参与；commit 期间也不会再补发普通 Hero pop。
+              // 有配对 Hero 时保留原有 fade + Hero 返回动画。
+              enablePredictiveBack: !_hasHeroTransition(heroTag, heroTags),
               fallbackBuilder: (_, animation, _, child) => FadeTransition(
                 opacity: _routeFadeAnimation(animation),
                 child: child,

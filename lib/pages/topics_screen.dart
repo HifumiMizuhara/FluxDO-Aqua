@@ -527,6 +527,8 @@ class _TopicsFabState extends ConsumerState<_TopicsFab>
   final LayerLink _layerLink = LayerLink();
   bool _isExpanded = false;
   OverlayEntry? _overlayEntry;
+  LocalHistoryEntry? _historyEntry;
+  bool _removingHistory = false;
   DynamicContentSuspensionLease? _dynamicContentLease;
 
   @override
@@ -544,6 +546,7 @@ class _TopicsFabState extends ConsumerState<_TopicsFab>
 
   @override
   void dispose() {
+    _removeHistoryEntry();
     _removeOverlay();
     _controller.dispose();
     super.dispose();
@@ -554,13 +557,15 @@ class _TopicsFabState extends ConsumerState<_TopicsFab>
       _close();
     } else {
       setState(() => _isExpanded = true);
+      _addHistoryEntry();
       _showOverlay();
       _controller.forward();
       HapticFeedback.lightImpact();
     }
   }
 
-  void _close({bool immediately = false}) {
+  void _close({bool immediately = false, bool fromHistory = false}) {
+    if (!fromHistory) _removeHistoryEntry();
     if (!_isExpanded) return;
     setState(() => _isExpanded = false);
     if (immediately) {
@@ -572,6 +577,31 @@ class _TopicsFabState extends ConsumerState<_TopicsFab>
     _controller.reverse().then((_) {
       _removeOverlay();
     });
+  }
+
+  void _addHistoryEntry() {
+    if (_historyEntry != null) return;
+    final route = ModalRoute.of(context);
+    if (route == null) return;
+    _historyEntry = LocalHistoryEntry(
+      impliesAppBarDismissal: false,
+      onRemove: () {
+        _historyEntry = null;
+        if (!_removingHistory && mounted) {
+          _close(fromHistory: true);
+        }
+      },
+    );
+    route.addLocalHistoryEntry(_historyEntry!);
+  }
+
+  void _removeHistoryEntry() {
+    final entry = _historyEntry;
+    if (entry == null) return;
+    _historyEntry = null;
+    _removingHistory = true;
+    entry.remove();
+    _removingHistory = false;
   }
 
   void _showOverlay() {
