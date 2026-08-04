@@ -1837,25 +1837,34 @@ class _ChatComposerState extends ConsumerState<_ChatComposer> {
                           ),
                         ),
                       ),
-                    // 表情按钮(桌面锚定弹层,移动底部面板)
+                    // 表情按钮(桌面锚定弹层,移动底部面板);
+                    // 移动端面板开着时换键盘图标(TG 式:示意再点切回键盘)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 1, right: 4),
                       child: _wrapEmojiAnchor(
-                        IconButton(
-                          onPressed: _pickEmoji,
-                          icon: Icon(
-                            Symbols.sentiment_satisfied_rounded,
-                            size: 22,
-                            fill: _emojiPopover?.isOpen == true ? 1 : 0,
-                          ),
-                          style: IconButton.styleFrom(
-                            minimumSize: const Size(36, 36),
-                            padding: EdgeInsets.zero,
-                          ),
-                          color: _emojiPopover?.isOpen == true
-                              ? theme.colorScheme.primary
-                              : theme.colorScheme.onSurfaceVariant,
-                          tooltip: context.l10n.chat_emoji,
+                        Builder(
+                          builder: (context) {
+                            final panelOpen = _emojiPopover?.isOpen == true ||
+                                _intendedPanel == _ComposerPanel.emoji;
+                            return IconButton(
+                              onPressed: _pickEmoji,
+                              icon: Icon(
+                                panelOpen && !PlatformUtils.isDesktop
+                                    ? Symbols.keyboard_alt_rounded
+                                    : Symbols.sentiment_satisfied_rounded,
+                                size: 22,
+                                fill: panelOpen ? 1 : 0,
+                              ),
+                              style: IconButton.styleFrom(
+                                minimumSize: const Size(36, 36),
+                                padding: EdgeInsets.zero,
+                              ),
+                              color: panelOpen
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.onSurfaceVariant,
+                              tooltip: context.l10n.chat_emoji,
+                            );
+                          },
                         ),
                       ),
                     ),
@@ -1899,11 +1908,23 @@ class _ChatComposerState extends ConsumerState<_ChatComposer> {
 
     if (PlatformUtils.isDesktop) return composerCard;
     // 移动端:悬浮卡下挂键盘位面板容器(键盘占位/表情面板等高互换,
-    // 编辑器同款机制;Scaffold 已关 resizeToAvoidBottomInset)
+    // 编辑器同款机制;Scaffold 已关 resizeToAvoidBottomInset)。
+    // 无键盘无面板时容器高 0,卡会贴系统手势条——AnimatedPadding 补
+    // 安全区(键盘/面板起来时归零,由容器占位接管),导航栏全程透明沉浸
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         composerCard,
+        AnimatedPadding(
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOut,
+          padding: EdgeInsets.only(
+            bottom: _currentPanel == _ComposerPanel.none
+                ? MediaQuery.viewPaddingOf(context).bottom
+                : 0,
+          ),
+          child: const SizedBox.shrink(),
+        ),
         ChatBottomPanelContainer<_ComposerPanel>(
           controller: _panelController,
           inputFocusNode: widget.focusNode,
@@ -2016,12 +2037,12 @@ class _ChatComposerState extends ConsumerState<_ChatComposer> {
     }
     if (_intendedPanel == _ComposerPanel.emoji) {
       // 再点=切回键盘
-      _intendedPanel = _ComposerPanel.none;
+      setState(() => _intendedPanel = _ComposerPanel.none);
       _setReadOnly(false);
       _panelController.updatePanelType(ChatBottomPanelType.keyboard);
       widget.focusNode.requestFocus();
     } else {
-      _intendedPanel = _ComposerPanel.emoji;
+      setState(() => _intendedPanel = _ComposerPanel.emoji);
       // 只读防系统键盘;帧末再切面板(编辑器同款时序:readOnly 先生效)
       _setReadOnly(true);
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -3072,6 +3093,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
   }
 
   void _openMobileMenu() {
+    if (_pressing) setState(() => _pressing = false);
     final renderBox =
         _bubbleKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
@@ -3109,6 +3131,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
   /// 行内 hover(移动无效):簇内行左沟槽时间的显隐
   bool _rowHovered = false;
 
+  /// 移动端长按按压中:行底色反馈(菜单弹出前的蓄力提示)
+  bool _pressing = false;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -3118,6 +3143,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
     // 整行 hover 染色;高亮/hover 底色画在全宽行上。
     var rowColor = widget.highlighted
         ? theme.colorScheme.tertiaryContainer.withValues(alpha: 0.35)
+        : _pressing
+        ? theme.colorScheme.onSurface.withValues(alpha: 0.08)
         : _rowHovered && PlatformUtils.isDesktop
         ? theme.colorScheme.onSurface.withValues(alpha: 0.04)
         : Colors.transparent;
@@ -3409,6 +3436,16 @@ class _MessageBubbleState extends State<_MessageBubble> {
       // 热区=整行(含空白区),Discord 口径;behavior 透明让内层链接/
       // 图片等交互照常命中
       onLongPress: PlatformUtils.isDesktop ? null : _openMobileMenu,
+      // 按压蓄力反馈:按下即染色,松手/取消/菜单弹出后还原
+      onLongPressDown: PlatformUtils.isDesktop
+          ? null
+          : (_) => setState(() => _pressing = true),
+      onLongPressCancel: PlatformUtils.isDesktop
+          ? null
+          : () => setState(() => _pressing = false),
+      onLongPressUp: PlatformUtils.isDesktop
+          ? null
+          : () => setState(() => _pressing = false),
       onSecondaryTapDown: PlatformUtils.isDesktop
           ? (d) => _openDesktopMenuAt(d.globalPosition)
           : null,

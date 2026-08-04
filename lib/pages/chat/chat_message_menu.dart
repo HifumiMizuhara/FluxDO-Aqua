@@ -280,12 +280,26 @@ class _MessageActionsOverlay extends StatelessWidget {
                 ),
               ),
             ),
-            // 气泡副本(入场动画中从原位滑向腾挪位)
+            // 气泡副本(入场动画中从原位滑向腾挪位):轻微缩放蓄势
+            // (0.97→1,TG 按住弹起的手感);壳的底色/阴影随动画淡入,
+            // 起始帧与列表裸正文形态一致,不再"凭空多出个气泡"
             Positioned(
               left: bubbleRect.left,
               top: animatedBubbleTop,
               width: bubbleRect.width,
-              child: IgnorePointer(child: bubbleBuilder(context)),
+              child: IgnorePointer(
+                child: Transform.scale(
+                  scale: 0.97 + 0.03 * t,
+                  alignment: alignRight
+                      ? Alignment.centerRight
+                      : Alignment.centerLeft,
+                  child: Opacity(
+                    // 壳体(含底色)整体淡入:0→1 前半段完成
+                    opacity: (0.55 + 0.45 * t).clamp(0.0, 1.0),
+                    child: bubbleBuilder(context),
+                  ),
+                ),
+              ),
             ),
             // 反应条(气泡上方,scale 从贴近气泡处长出)
             Positioned(
