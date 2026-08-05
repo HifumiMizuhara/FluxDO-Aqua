@@ -64,6 +64,19 @@ class ChatComposerController extends TextEditingController {
           ),
         ),
       );
+      // 等长补位(boost 输入条同款):WidgetSpan 只占 1 个字符位,
+      // :shortcode: 是 N 个——不补齐的话渲染层与 value.text 错位,
+      // 每过一个表情累积 N-1 偏差,光标画错位/点按定位错/删除与
+      // 插入落在错误偏移(用户实测三症状同根)。
+      // U+2060 词连接符零宽不可见,transparent 兜底选区高亮
+      if (match.end - match.start > 1) {
+        children.add(
+          TextSpan(
+            text: '⁠' * (match.end - match.start - 1),
+            style: style?.copyWith(color: Colors.transparent),
+          ),
+        );
+      }
       cursor = match.end;
     }
 
