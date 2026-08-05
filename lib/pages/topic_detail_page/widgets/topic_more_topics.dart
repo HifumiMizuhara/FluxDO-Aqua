@@ -322,6 +322,7 @@ class _MoreTopicTile extends StatelessWidget {
         size: 12,
         color: metaColor,
         gap: 3,
+        textStyle: rightStyle,
       ));
       rightSpans.add(TextSpan(
         text: NumberUtils.formatCount(density.replyCount),
