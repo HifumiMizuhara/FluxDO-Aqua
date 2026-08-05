@@ -155,6 +155,16 @@ extension PostUpdateMethods on TopicDetailNotifier {
     ));
   }
 
+  /// 更新帖子的问答投票状态(post-voting 插件,direction null = 已撤票)
+  void updatePostVoting(int postId, int voteCount, String? direction) {
+    _updatePostById(postId, (post) => post.copyWith(
+      postVotingVoteCount: voteCount,
+      postVotingUserVotedDirection: direction,
+      clearPostVotingDirection: direction == null,
+      postVotingHasVotes: voteCount != 0 || direction != null,
+    ));
+  }
+
   /// 更新帖子的解决方案状态
   ///
   /// 单解决方案模式(`solved_allow_multiple_solutions=false`):接受新答案时清空其他;

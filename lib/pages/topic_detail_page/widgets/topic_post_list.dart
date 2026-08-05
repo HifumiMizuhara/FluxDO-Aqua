@@ -18,6 +18,7 @@ import '../../../utils/responsive.dart';
 import '../../../utils/scroll_busy_signal.dart';
 import '../../../utils/time_utils.dart';
 import '../../../widgets/common/anchor_guard_sliver.dart';
+import '../../../widgets/post/post_item/widgets/post_voting_answer_header.dart';
 import 'package:m3e_ui/m3e_ui.dart';
 import 'package:fluxdo_render/fluxdo_render.dart'
     show BlockNode, HtmlChunk, ParagraphWarmup, ParagraphWarmupProbe;
@@ -107,6 +108,11 @@ class TopicPostList extends StatefulWidget {
   final String? highlightBoostUsername;
   final bool hideHeaderTitle;
 
+  /// 问答话题排序(「N 个回答」头部的按票数/按活动 pill):
+  /// null = 非问答话题不渲染头部
+  final bool isActivitySort;
+  final ValueChanged<bool>? onAnswerSortChanged;
+
   const TopicPostList({
     super.key,
     required this.detail,
@@ -154,6 +160,8 @@ class TopicPostList extends StatefulWidget {
     this.onShowPostDetail,
     this.onWithdrawPendingPost,
     this.onWithdrawAndEditPendingPost,
+    this.isActivitySort = false,
+    this.onAnswerSortChanged,
   });
 
   @override
@@ -1349,6 +1357,16 @@ class _TopicPostListState extends State<TopicPostList> {
     final Widget? opSlot = (post.postNumber == 1 && detail.sharedIssueVisible)
         ? SharedIssueButton(topic: detail, onChanged: onSharedIssueChanged)
         : null;
+    // 问答话题:「N 个回答」头部渲染在第一个答案上方(问题帖紧邻其后
+    // 的那一帖;仅问题帖已加载时才有可见的问题/答案分界)。挂在该帖
+    // 首个段(shortPost 或长帖 header)顶部。
+    final bool showAnswerHeader =
+        detail.isPostVoting &&
+        post.postNumber != 1 &&
+        postIndex > 0 &&
+        posts_[postIndex - 1].postNumber == 1 &&
+        (segment.type == _PostRenderSegmentType.shortPost ||
+            segment.type == _PostRenderSegmentType.longHeader);
     final Widget child;
 
     switch (segment.type) {
@@ -1389,6 +1407,8 @@ class _TopicPostListState extends State<TopicPostList> {
               ? () => widget.onShowPostDetail!(post)
               : null,
           opTopSlot: opSlot,
+          isPostVotingTopic: detail.isPostVoting,
+          topicClosed: detail.closed || detail.archived,
         );
 
         // OP 楼的 opSlot 依赖整个 detail 对象,签名无法稳定,不缓存
@@ -1417,6 +1437,8 @@ class _TopicPostListState extends State<TopicPostList> {
           pmNonHuman: detail.pmWithNonHumanUser,
           canShareAsImage: onShareAsImage != null,
           canShowDetail: widget.onShowPostDetail != null,
+          isPostVoting: detail.isPostVoting,
+          topicClosed: detail.closed || detail.archived,
         );
         final cached = _shortPostCache[post.id];
         if (cached != null && cached.signature == signature) {
@@ -1520,6 +1542,8 @@ class _TopicPostListState extends State<TopicPostList> {
               ? () => widget.onShowPostDetail!(post)
               : null,
           opTopSlot: opSlot,
+          isPostVotingTopic: detail.isPostVoting,
+          topicClosed: detail.closed || detail.archived,
         );
         break;
       case _PostRenderSegmentType.gapBefore:
@@ -1548,7 +1572,21 @@ class _TopicPostListState extends State<TopicPostList> {
         // 常驻 DecoratedBoxTransition 包装(项目不用包的 highlight 功能,
         // 楼层高亮是 PostItem 自己的 highlight 参数),每帖少一层
         // transition + tween 求值
-        builder: (context, animation) => child,
+        builder: (context, animation) => showAnswerHeader
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  PostVotingAnswerHeader(
+                    // 答案数 = 总帖数 - 1(减问题帖,官方同口径)
+                    answerCount: (detail.postsCount - 1).clamp(0, 999999),
+                    isActivityMode: widget.isActivitySort,
+                    onSortChanged: (byActivity) =>
+                        widget.onAnswerSortChanged?.call(byActivity),
+                  ),
+                  child,
+                ],
+              )
+            : child,
       ),
     );
 

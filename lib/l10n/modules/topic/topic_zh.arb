@@ -18,6 +18,7 @@
   "topicDetail_exportArticle": "导出文章",
   "topicDetail_filter": "筛选",
   "topicDetail_generateShareImage": "生成分享图片",
+  "topicDetail_sortByActivity": "按活动排序",
   "topicDetail_hotOnly": "只看热门",
   "topicDetail_loadFailedTapRetry": "加载失败，点击重试",
   "topicDetail_loading": "加载中...",

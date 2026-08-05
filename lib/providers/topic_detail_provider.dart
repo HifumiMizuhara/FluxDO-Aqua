@@ -99,6 +99,7 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
   bool get isLoadMoreFailed => _isLoadMoreFailed;
   bool get isLoadPreviousFailed => _isLoadPreviousFailed;
   bool get isSummaryMode => _filter == 'summary';
+  bool get isActivityMode => _filter == 'activity';
   bool get isAuthorOnlyMode => _usernameFilter != null;
   bool get isTopLevelMode => _filterTopLevelReplies;
   bool get _isFilteredMode => _filter != null || _usernameFilter != null || _filterTopLevelReplies;

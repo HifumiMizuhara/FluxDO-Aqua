@@ -280,6 +280,7 @@ mixin _TopicsMixin on _DiscourseServiceBase {
     required String raw,
     required int categoryId,
     List<String>? tags,
+    bool createAsPostVoting = false,
   }) async {
     final data = <String, dynamic>{
       'title': title,
@@ -290,6 +291,11 @@ mixin _TopicsMixin on _DiscourseServiceBase {
 
     if (tags != null && tags.isNotEmpty) {
       data['tags[]'] = tags;
+    }
+
+    // post-voting(问答)话题:插件只认字符串 'true',且仅对新话题生效
+    if (createAsPostVoting) {
+      data['create_as_post_voting'] = 'true';
     }
 
     final response = await _dio.post(

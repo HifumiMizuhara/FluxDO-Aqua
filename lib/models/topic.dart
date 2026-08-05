@@ -144,6 +144,60 @@ class Poll {
   }
 }
 
+/// post-voting(问答)话题里答案帖下的评论(独立模型,非 post;
+/// 帖子 JSON 预载前 5 条,本期只读展示)
+class PostVotingComment {
+  final int id;
+  final int? userId;
+  final String? name;
+  final String username;
+  final DateTime? createdAt;
+  final String raw;
+  final String cooked;
+  final int voteCount;
+  final bool userVoted;
+
+  PostVotingComment({
+    required this.id,
+    this.userId,
+    this.name,
+    required this.username,
+    this.createdAt,
+    required this.raw,
+    required this.cooked,
+    this.voteCount = 0,
+    this.userVoted = false,
+  });
+
+  factory PostVotingComment.fromJson(Map<String, dynamic> json) {
+    return PostVotingComment(
+      id: json['id'] as int? ?? 0,
+      userId: json['user_id'] as int?,
+      name: json['name'] as String?,
+      username: json['username'] as String? ?? '',
+      createdAt: TimeUtils.parseUtcTime(json['created_at'] as String?),
+      raw: json['raw'] as String? ?? '',
+      cooked: json['cooked'] as String? ?? '',
+      voteCount: (json['post_voting_vote_count'] as num?)?.toInt() ?? 0,
+      userVoted: json['user_voted'] as bool? ?? false,
+    );
+  }
+
+  PostVotingComment copyWith({int? voteCount, bool? userVoted}) {
+    return PostVotingComment(
+      id: id,
+      userId: userId,
+      name: name,
+      username: username,
+      createdAt: createdAt,
+      raw: raw,
+      cooked: cooked,
+      voteCount: voteCount ?? this.voteCount,
+      userVoted: userVoted ?? this.userVoted,
+    );
+  }
+}
+
 /// 话题相关的用户信息
 class TopicUser {
   final int id;
@@ -282,6 +336,9 @@ class Topic {
   final bool hasAcceptedAnswer; // 话题是否有被接受的答案
   final bool canHaveAnswer; // 话题是否可以有解决方案（用于显示未解决状态）
 
+  // post-voting(问答)话题标记(插件字段,未装插件时不下发)
+  final bool isPostVoting;
+
   Topic({
     required this.id,
     required this.title,
@@ -314,6 +371,7 @@ class Topic {
     this.bookmarkableUrl,
     this.hasAcceptedAnswer = false,
     this.canHaveAnswer = false,
+    this.isPostVoting = false,
   });
 
   Topic copyWith({
@@ -355,6 +413,7 @@ class Topic {
       bookmarkableUrl: bookmarkableUrl,
       hasAcceptedAnswer: hasAcceptedAnswer,
       canHaveAnswer: canHaveAnswer,
+      isPostVoting: isPostVoting,
     );
   }
 
@@ -411,6 +470,7 @@ class Topic {
           (json['_bookmarkable_url'] ?? json['bookmarkable_url']) as String?,
       hasAcceptedAnswer: json['has_accepted_answer'] as bool? ?? false,
       canHaveAnswer: json['can_have_answer'] as bool? ?? false,
+      isPostVoting: json['is_post_voting'] as bool? ?? false,
     );
   }
 }
@@ -680,6 +740,13 @@ class Post {
   final List<Poll>? polls; // 投票列表
   final Map<String, List<String>>? pollsVotes; // 用户投票记录 {pollName: [optionId]}
 
+  // post-voting(问答)话题字段(仅问答话题下发)
+  final int postVotingVoteCount; // 帖子总票数(up-down,可为负)
+  final String? postVotingUserVotedDirection; // 当前用户投票方向 'up'/'down'/null
+  final bool postVotingHasVotes; // 是否有任何投票(投票人入口显隐)
+  final List<PostVotingComment>? postVotingComments; // 预载评论(前5条)
+  final int postVotingCommentsCount; // 评论总数
+
   // small_action 相关字段
   final String? actionCode; // 操作代码，如 "pinned.enabled", "closed.enabled"
   final String? actionCodeWho; // 操作执行者用户名
@@ -822,6 +889,11 @@ class Post {
     this.currentUserReaction,
     this.polls,
     this.pollsVotes,
+    this.postVotingVoteCount = 0,
+    this.postVotingUserVotedDirection,
+    this.postVotingHasVotes = false,
+    this.postVotingComments,
+    this.postVotingCommentsCount = 0,
     this.actionCode,
     this.actionCodeWho,
     this.actionCodePath,
@@ -925,6 +997,16 @@ class Post {
           (value as List<dynamic>).map((e) => e.toString()).toList(),
         ),
       ),
+      postVotingVoteCount:
+          (json['post_voting_vote_count'] as num?)?.toInt() ?? 0,
+      postVotingUserVotedDirection:
+          json['post_voting_user_voted_direction'] as String?,
+      postVotingHasVotes: json['post_voting_has_votes'] as bool? ?? false,
+      postVotingComments: (json['comments'] as List<dynamic>?)
+          ?.whereType<Map<String, dynamic>>()
+          .map(PostVotingComment.fromJson)
+          .toList(),
+      postVotingCommentsCount: (json['comments_count'] as num?)?.toInt() ?? 0,
       actionCode: json['action_code'] as String?,
       actionCodeWho: json['action_code_who'] as String?,
       actionCodePath: json['action_code_path'] as String?,
@@ -1050,6 +1132,8 @@ class Post {
           currentUserReaction == other.currentUserReaction &&
           listEquals(boosts, other.boosts) &&
           canBoost == other.canBoost &&
+          postVotingVoteCount == other.postVotingVoteCount &&
+          postVotingUserVotedDirection == other.postVotingUserVotedDirection &&
           version == other.version &&
           publicVersion == other.publicVersion &&
           wiki == other.wiki &&
@@ -1103,6 +1187,12 @@ class Post {
     PostReaction? currentUserReaction,
     List<Poll>? polls,
     Map<String, List<String>>? pollsVotes,
+    int? postVotingVoteCount,
+    String? postVotingUserVotedDirection,
+    bool clearPostVotingDirection = false,
+    bool? postVotingHasVotes,
+    List<PostVotingComment>? postVotingComments,
+    int? postVotingCommentsCount,
     String? actionCode,
     String? actionCodeWho,
     String? actionCodePath,
@@ -1190,6 +1280,15 @@ class Post {
           : (currentUserReaction ?? this.currentUserReaction),
       polls: polls ?? this.polls,
       pollsVotes: pollsVotes ?? this.pollsVotes,
+      postVotingVoteCount: postVotingVoteCount ?? this.postVotingVoteCount,
+      postVotingUserVotedDirection: clearPostVotingDirection
+          ? null
+          : (postVotingUserVotedDirection ??
+              this.postVotingUserVotedDirection),
+      postVotingHasVotes: postVotingHasVotes ?? this.postVotingHasVotes,
+      postVotingComments: postVotingComments ?? this.postVotingComments,
+      postVotingCommentsCount:
+          postVotingCommentsCount ?? this.postVotingCommentsCount,
       actionCode: actionCode ?? this.actionCode,
       actionCodeWho: actionCodeWho ?? this.actionCodeWho,
       actionCodePath: actionCodePath ?? this.actionCodePath,
@@ -1673,6 +1772,9 @@ class TopicDetail {
   final String archetype; // 'regular' 或 'private_message'
   final bool pmWithNonHumanUser; // 私信对象是否包含非真人用户
 
+  // post-voting(问答)话题(插件字段,未装插件/普通话题不下发)
+  final bool isPostVoting;
+
   // 话题权限（来自 details）
   final bool canEdit; // 是否可以编辑话题元数据（标题、分类、标签）
 
@@ -1736,6 +1838,7 @@ class TopicDetail {
     this.notificationLevel = TopicNotificationLevel.regular,
     this.archetype = 'regular',
     this.pmWithNonHumanUser = false,
+    this.isPostVoting = false,
     this.canEdit = false,
     this.bookmarked = false,
     this.bookmarkId,
@@ -1908,6 +2011,7 @@ class TopicDetail {
       hasSummary: json['has_summary'] as bool? ?? false,
       archetype: json['archetype'] as String? ?? 'regular',
       pmWithNonHumanUser: json['pm_with_non_human_user'] as bool? ?? false,
+      isPostVoting: json['is_post_voting'] as bool? ?? false,
       notificationLevel: TopicNotificationLevel.fromValue(
         (json['details'] as Map<String, dynamic>?)?['notification_level']
             as int?,
@@ -1959,6 +2063,7 @@ class TopicDetail {
     TopicNotificationLevel? notificationLevel,
     String? archetype,
     bool? pmWithNonHumanUser,
+    bool? isPostVoting,
     bool? canEdit,
     bool? bookmarked,
     int? bookmarkId,
@@ -2002,6 +2107,7 @@ class TopicDetail {
       notificationLevel: notificationLevel ?? this.notificationLevel,
       archetype: archetype ?? this.archetype,
       pmWithNonHumanUser: pmWithNonHumanUser ?? this.pmWithNonHumanUser,
+      isPostVoting: isPostVoting ?? this.isPostVoting,
       canEdit: canEdit ?? this.canEdit,
       bookmarked: bookmarked ?? this.bookmarked,
       bookmarkId: clearBookmarkId ? null : (bookmarkId ?? this.bookmarkId),

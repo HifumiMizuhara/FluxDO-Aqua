@@ -18,6 +18,7 @@
   "topicDetail_exportArticle": "Export article",
   "topicDetail_filter": "Filter",
   "topicDetail_generateShareImage": "Generate share image",
+  "topicDetail_sortByActivity": "Sort by activity",
   "topicDetail_hotOnly": "Hot only",
   "topicDetail_loadFailedTapRetry": "Failed to load, tap to retry",
   "topicDetail_loading": "Loading...",

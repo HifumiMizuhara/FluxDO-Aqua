@@ -22,6 +22,7 @@ import 'widgets/post_footer_section/post_footer_section.dart';
 import 'widgets/post_header_section.dart';
 import 'widgets/post_notice_widget.dart';
 import 'widgets/post_segment_frame.dart';
+import 'widgets/post_voting_control.dart';
 
 class PostItem extends ConsumerStatefulWidget {
   final Post post;
@@ -60,6 +61,12 @@ class PostItem extends ConsumerStatefulWidget {
   /// OP 帖专属插槽: 仅在 postNumber == 1 时生效, 透传给 PostFooterSection
   final Widget? opTopSlot;
 
+  /// post-voting(问答)话题:footer 显示赞成/反对控件与评论区
+  final bool isPostVotingTopic;
+
+  /// 话题 closed/archived(问答投票禁投判定)
+  final bool topicClosed;
+
   const PostItem({
     super.key,
     required this.post,
@@ -91,6 +98,8 @@ class PostItem extends ConsumerStatefulWidget {
     this.onShowPostDetail,
     this.hideRepliesButton = false,
     this.opTopSlot,
+    this.isPostVotingTopic = false,
+    this.topicClosed = false,
   });
 
   @override
@@ -138,6 +147,27 @@ class _PostItemState extends ConsumerState<PostItem> {
       preprocessedCooked: parsed.preprocessed,
       parsedNodes: parsed.nodes,
       callbacks: callbacks,
+    );
+  }
+
+  /// 问答话题:正文左侧挂竖排投票列(官方 .post-voting-post 形态,
+  /// 上箭头/票数/下箭头一列,正文右移让位);普通话题原样返回。
+  Widget _withVotingColumn(Post post, Widget body) {
+    if (!widget.isPostVotingTopic) return body;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: PostVotingControl(
+            post: post,
+            topicId: widget.topicId,
+            topicClosed: widget.topicClosed,
+            axis: Axis.vertical,
+          ),
+        ),
+        Expanded(child: body),
+      ],
     );
   }
 
@@ -244,7 +274,9 @@ class _PostItemState extends ConsumerState<PostItem> {
               padding: isModeratorAction
                   ? const EdgeInsets.all(12)
                   : EdgeInsets.zero,
-              child: Stack(
+              child: _withVotingColumn(
+                post,
+                Stack(
                 clipBehavior: Clip.none,
                 children: [
                   ConstrainedBox(
@@ -320,6 +352,7 @@ class _PostItemState extends ConsumerState<PostItem> {
                     ),
                 ],
               ),
+              ),
             ),
             // 用户签名
             if (PostSignatureBlock.shouldRender(
@@ -383,6 +416,10 @@ class _PostItemState extends ConsumerState<PostItem> {
               onShowPostDetail: widget.onShowPostDetail,
               hideRepliesButton: widget.hideRepliesButton,
               opTopSlot: widget.opTopSlot,
+              isPostVotingTopic: widget.isPostVotingTopic,
+              topicClosed: widget.topicClosed,
+              // 短帖正文左侧已有竖排投票列,footer 不再放横排胶囊
+              showVotingControl: false,
               onAcceptedAnswerChanged: (accepted) {
                 if (!mounted) return;
                 setState(() {

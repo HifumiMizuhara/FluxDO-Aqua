@@ -17,6 +17,7 @@
   "topicDetail_editTopic": "編輯話題",
   "topicDetail_exportArticle": "導出文章",
   "topicDetail_generateShareImage": "生成分享圖片",
+  "topicDetail_sortByActivity": "按活動排序",
   "topicDetail_hotOnly": "只看熱門",
   "topicDetail_loadFailedTapRetry": "加載失敗，點擊重試",
   "topicDetail_loading": "加載中...",

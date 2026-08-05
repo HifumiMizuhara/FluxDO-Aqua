@@ -237,6 +237,42 @@
   "smallAction_visibleEnabled": "公开了话题",
   "vote_cancelled": "已取消投票",
   "vote_closed": "已关闭",
+  "postVoting_answer": "回答",
+  "postVoting_answerCount": "{count} 个回答",
+  "@postVoting_answerCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "postVoting_sortVotes": "按票数",
+  "postVoting_sortActivity": "按活动",
+  "postVoting_commentAdd": "添加评论",
+  "postVoting_commentSheetTitle": "评论 @{username} 的帖子",
+  "@postVoting_commentSheetTitle": {
+    "placeholders": {
+      "username": {"type": "String"}
+    }
+  },
+  "postVoting_commentSubmit": "发表",
+  "postVoting_commentHint": "写下评论…",
+  "postVoting_cannotVoteOwn": "不能给自己的帖子投票",
+  "postVoting_commentsMore": "还有 {count} 条评论",
+  "@postVoting_commentsMore": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "postVoting_noVoters": "暂无投票",
+  "postVoting_topicClosed": "话题已关闭,无法投票",
+  "postVoting_votersDown": "反对",
+  "postVoting_votersMore": "共 {count} 人投票,仅显示最近 20 人",
+  "@postVoting_votersMore": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "postVoting_votersTitle": "投票用户",
+  "postVoting_votersUp": "赞成",
   "vote_label": "投票",
   "vote_pleaseLogin": "请先登录",
   "vote_success": "投票成功",
