@@ -1327,9 +1327,10 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
               animation,
               secondaryAnimation,
               child,
-              // 搜索胶囊与图片查看器一样依赖 Hero 返回飞行。Flutter 3.44
-              // 的预测返回 user gesture 不会为默认 Hero 补发 pop 动画。
-              enablePredictiveBack: false,
+              // 搜索胶囊依赖 Hero 返回飞行:不用缩放预览,但认领手势
+              // (两端 Hero 已置 transitionOnUserGestures),fade +
+              // 胶囊 morph 由手势进度驱动。
+              useSharedElementPreview: false,
               fallbackBuilder: (_, animation, _, child) =>
                   FadeTransition(opacity: animation, child: child),
             ),
@@ -1911,6 +1912,8 @@ class _CollapsibleHeader extends StatelessWidget {
                   rect: capsuleRect,
                   child: Hero(
                     tag: kSearchCapsuleHeroTag,
+                    // 预测返回(user gesture)时胶囊也要 morph 回来
+                    transitionOnUserGestures: true,
                     flightShuttleBuilder: searchCapsuleFlightShuttle,
                     child: SearchCapsule(
                       onTap: onSearchTap,

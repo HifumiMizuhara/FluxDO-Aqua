@@ -822,6 +822,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     final Widget titleField = widget.heroCapsule
         ? Hero(
             tag: kSearchCapsuleHeroTag,
+            // 预测返回(user gesture)时胶囊也要 morph 回首页
+            transitionOnUserGestures: true,
             flightShuttleBuilder: searchCapsuleFlightShuttle,
             child: MediaQuery.withClampedTextScaling(
               maxScaleFactor: 1.2,

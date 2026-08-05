@@ -581,6 +581,13 @@ class _PredictiveBackSharedElementPageTransitionState
 /// shared-element 预览,其余(push、按钮/程序化 pop、其它平台)保持
 /// 路由原有的 [fallbackBuilder] 转场。
 ///
+/// [useSharedElementPreview] = false 时仍认领手势(路由动画由手势进度
+/// 驱动),但视觉沿用 [fallbackBuilder] —— 供 Hero 路由使用:预览的
+/// 缩放/裁切会跟 Hero 飞行体打架,而认领手势恰恰是 Hero 跟手飞行的
+/// 前提(HeroController 只为 user gesture 转场启动带
+/// transitionOnUserGestures 标记的 Hero;不认领则系统整 app 缩走,
+/// Hero 完全不飞)。两端 Hero 都需置 transitionOnUserGestures: true。
+///
 /// 判定与 [PredictiveBackCupertinoPageTransitionsBuilder] 同标准
 /// (popGestureInProgress 且 phase 非 idle,见文件头差异点 4):这些
 /// 路由今天没挂 app 内拖拽返回手势,但 fullscreen_swipe_back 等手势
@@ -591,7 +598,7 @@ Widget buildPredictiveBackPageTransitions(
   Animation<double> animation,
   Animation<double> secondaryAnimation,
   Widget child, {
-  bool enablePredictiveBack = true,
+  bool useSharedElementPreview = true,
   required Widget Function(
     BuildContext context,
     Animation<double> animation,
@@ -600,13 +607,6 @@ Widget buildPredictiveBackPageTransitions(
   )
   fallbackBuilder,
 }) {
-  // HeroController 默认不会为 user gesture 启动 Hero 飞行；而预测返回
-  // commit 又会在 user gesture 结束前完成 pop，普通 pop 飞行也不会补发。
-  // 带 Hero 的调用方应关闭这里的认领，让系统 commit 走普通 pop。
-  if (!enablePredictiveBack) {
-    return fallbackBuilder(context, animation, secondaryAnimation, child);
-  }
-
   final route = ModalRoute.of(context);
   if (route is! PageRoute<dynamic>) {
     return fallbackBuilder(context, animation, secondaryAnimation, child);
@@ -631,7 +631,8 @@ Widget buildPredictiveBackPageTransitions(
                 phase == _PredictiveBackPhase.idle) {
               return child;
             }
-            if (route.popGestureInProgress &&
+            if (useSharedElementPreview &&
+                route.popGestureInProgress &&
                 phase != _PredictiveBackPhase.idle) {
               return _PredictiveBackSharedElementPageTransition(
                 isDelegatedTransition: true,
@@ -644,6 +645,8 @@ Widget buildPredictiveBackPageTransitions(
               );
             }
 
+            // 手势期间落到这里(useSharedElementPreview: false):路由
+            // 动画已被手势进度驱动,fallback 转场自然跟手。
             return fallbackBuilder(
               context,
               animation,

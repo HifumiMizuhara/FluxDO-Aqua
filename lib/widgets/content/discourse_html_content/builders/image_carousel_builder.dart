@@ -339,6 +339,8 @@ class _CarouselSlideState extends State<_CarouselSlide>
       onTap: () => widget.onTap(context, widget.index, url),
       child: Hero(
         tag: heroTag,
+        // Android 预测返回是 user gesture 转场,须显式开启才有飞行
+        transitionOnUserGestures: true,
         child: Image(
           image: ResizeImage(
             discourseImageProvider(url),

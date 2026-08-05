@@ -139,10 +139,11 @@ class ImageViewerPage extends ConsumerStatefulWidget {
               animation,
               secondaryAnimation,
               child,
-              // Flutter 3.44 的预测返回把 pop 归类为 user gesture，默认
-              // Hero 不参与；commit 期间也不会再补发普通 Hero pop。
-              // 有配对 Hero 时保留原有 fade + Hero 返回动画。
-              enablePredictiveBack: !_hasHeroTransition(heroTag, heroTags),
+              // 有配对 Hero 时不用缩放预览(会跟 Hero 飞行体打架),但
+              // 仍认领手势:HeroController 只为 user gesture 转场启动
+              // 飞行,认领 + 两端 transitionOnUserGestures 才有跟手
+              // Hero 返回;fade 由手势进度驱动。
+              useSharedElementPreview: !_hasHeroTransition(heroTag, heroTags),
               fallbackBuilder: (_, animation, _, child) => FadeTransition(
                 opacity: _routeFadeAnimation(animation),
                 child: child,
@@ -260,6 +261,9 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
         thumbUrl != null;
     return Hero(
       tag: tag,
+      // 预测返回是 user gesture 转场,不开这个标记 Hero 不飞
+      // (与所有源端 Hero 配对开启,见 hero_image/discourse_image 等)
+      transitionOnUserGestures: true,
       flightShuttleBuilder: !coverSource
           ? (_, _, _, _, _) => child
           : (flightContext, animation, direction, fromContext, toContext) {

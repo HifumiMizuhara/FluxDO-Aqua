@@ -2909,7 +2909,12 @@ class _MessageUploads extends StatelessWidget {
         initialIndex: i,
         filenames: [for (final u in images) u.originalFilename],
       ),
-      child: Hero(tag: heroTag, child: image),
+      // transitionOnUserGestures:预测返回(user gesture)时也要飞回
+      child: Hero(
+        tag: heroTag,
+        transitionOnUserGestures: true,
+        child: image,
+      ),
     );
   }
 }
