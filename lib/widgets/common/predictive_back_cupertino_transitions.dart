@@ -278,6 +278,13 @@ class _PredictiveBackGestureDetectorState
   // 渲染成静态背景。这里代打 cancel 把手势态完整归零。
   // hidden/paused 会先后各触发一次,_gestureForceCancelled 防重入
   // (_ownsPredictiveBackGesture 要等取消动画播完才清,挡不住)。
+  //
+  // 只在 phase 为 start/update(手势活跃未收尾)时代打:commit/cancel
+  // 之后 _ownsPredictiveBackGesture 仍为 true(等收尾动画),这个窗口
+  // 内锁屏若再代打 cancel,会与 commit/cancel 自己挂的动画完成回调
+  // 各触发一次 didStopUserGesture → 计数下溢(release 无 assert,
+  // 计数变 -1),之后 userGestureInProgress 永久 off-by-one 恒 false,
+  // 预测返回全局静默失效 —— 恰是本修复要防的症状,别自己造一遍。
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
@@ -286,6 +293,10 @@ class _PredictiveBackGestureDetectorState
       return;
     }
     if (!_ownsPredictiveBackGesture || _gestureForceCancelled) return;
+    if (phase != _PredictiveBackPhase.start &&
+        phase != _PredictiveBackPhase.update) {
+      return;
+    }
 
     _gestureForceCancelled = true;
     phase = _PredictiveBackPhase.cancel;
