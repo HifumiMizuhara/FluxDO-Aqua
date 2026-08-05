@@ -154,6 +154,94 @@ void main() {
   );
 
   testWidgets(
+    'backgrounding mid-gesture cancels it and keeps predictive back usable',
+    (tester) async {
+      final navigatorKey = GlobalKey<NavigatorState>();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navigatorKey,
+          theme: ThemeData(
+            pageTransitionsTheme: const PageTransitionsTheme(
+              builders: {
+                TargetPlatform.android:
+                    PredictiveBackCupertinoPageTransitionsBuilder(),
+              },
+            ),
+          ),
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => Navigator.of(context).push<void>(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const Scaffold(body: Text('next page')),
+                  ),
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      Future<void> sendGesture(String method, [Map<String, Object?>? args]) {
+        return binding.defaultBinaryMessenger.handlePlatformMessage(
+          'flutter/backgesture',
+          const StandardMethodCodec().encodeMethodCall(
+            MethodCall(method, args),
+          ),
+          (_) {},
+        );
+      }
+
+      await sendGesture('startBackGesture', {
+        'touchOffset': <double>[0, 300],
+        'progress': 0.0,
+        'swipeEdge': 0,
+      });
+      await tester.pump();
+      await sendGesture('updateBackGestureProgress', {
+        'touchOffset': <double>[100, 300],
+        'progress': 0.4,
+        'swipeEdge': 0,
+      });
+      await tester.pump();
+      expect(navigatorKey.currentState!.userGestureInProgress, isTrue);
+
+      // 手势进行中锁屏/挂后台:系统不补发 commit/cancel
+      binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+
+      binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      // 代打 cancel 的恢复动画在回前台后播完,didStopUserGesture
+      // 挂在动画完成回调上 → settle 后手势态归零,页面留在原地
+      await tester.pumpAndSettle();
+      expect(navigatorKey.currentState!.userGestureInProgress, isFalse);
+      expect(find.text('next page'), findsOneWidget);
+
+      // 回前台后新手势仍可认领并正常 commit(卡死时这里无人认领,
+      // handleStartBackGesture 全员返回 false)
+      await sendGesture('startBackGesture', {
+        'touchOffset': <double>[0, 300],
+        'progress': 0.0,
+        'swipeEdge': 0,
+      });
+      await tester.pump();
+      expect(navigatorKey.currentState!.userGestureInProgress, isTrue);
+
+      await sendGesture('commitBackGesture');
+      await tester.pumpAndSettle();
+      expect(find.text('next page'), findsNothing);
+      expect(find.text('open'), findsOneWidget);
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.android}),
+  );
+
+  testWidgets(
     'rejected button event does not poison a later app back gesture',
     (tester) async {
       final navigatorKey = GlobalKey<NavigatorState>();

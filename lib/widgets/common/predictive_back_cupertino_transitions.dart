@@ -25,6 +25,10 @@
 // 6. 预测返回期间冻结下层路由的 Cupertino secondaryAnimation。否则
 //    当前页缩小后,下层页仍停在向左偏移 1/3 屏的位置,右侧会露出
 //    Navigator 的黑色背景。
+// 7. 手势中途 Activity 进后台(挂后台/锁屏)时代打 cancel。系统不为
+//    被打断的手势补发 commit/cancel,否则 userGestureInProgress 计数
+//    永不归零 → popGestureEnabled 恒 false,回前台后预测返回永久失效
+//    (手势无人认领,退场无动画),手势期 flag 也卡死。
 //
 // Copyright 2014 The Flutter Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
@@ -183,6 +187,11 @@ class _PredictiveBackGestureDetectorState
     with WidgetsBindingObserver {
   bool _ownsPredictiveBackGesture = false;
 
+  // 差异点(文件头第 7 条):后台/锁屏打断手势后,系统不会为这条
+  // 手势补发 commit/cancel。置位后忽略迟到的收尾事件,直到下一次
+  // startBackGesture 重新认领。
+  bool _gestureForceCancelled = false;
+
   /// True when the predictive back gesture is enabled.
   bool get _isEnabled {
     return widget.route.isCurrent && widget.route.popGestureEnabled;
@@ -223,6 +232,7 @@ class _PredictiveBackGestureDetectorState
       return false;
     }
 
+    _gestureForceCancelled = false;
     phase = _PredictiveBackPhase.start;
     _ownsPredictiveBackGesture = true;
     _predictiveBackGestureStateFor(widget.route)?.value = true;
@@ -233,6 +243,7 @@ class _PredictiveBackGestureDetectorState
 
   @override
   void handleUpdateBackGestureProgress(PredictiveBackEvent backEvent) {
+    if (_gestureForceCancelled) return;
     phase = _PredictiveBackPhase.update;
 
     widget.route.handleUpdateBackGestureProgress(
@@ -243,6 +254,7 @@ class _PredictiveBackGestureDetectorState
 
   @override
   void handleCancelBackGesture() {
+    if (_gestureForceCancelled) return;
     phase = _PredictiveBackPhase.cancel;
 
     widget.route.handleCancelBackGesture();
@@ -251,9 +263,33 @@ class _PredictiveBackGestureDetectorState
 
   @override
   void handleCommitBackGesture() {
+    if (_gestureForceCancelled) return;
     phase = _PredictiveBackPhase.commit;
 
     widget.route.handleCommitBackGesture();
+    startBackEvent = currentBackEvent = null;
+  }
+
+  // 差异点(文件头第 7 条):Activity 进后台(挂后台/锁屏)会打断
+  // 进行中的预测返回手势,且系统不再补发 commit/cancel。若不收尾,
+  // navigator.userGestureInProgress 计数永不归零 → popGestureEnabled
+  // 恒 false,回前台后所有预测返回被静默拒绝(手势无人认领,系统
+  // 只能整 app 缩走/无动画),且手势期 flag 卡 true 让下层路由永远
+  // 渲染成静态背景。这里代打 cancel 把手势态完整归零。
+  // hidden/paused 会先后各触发一次,_gestureForceCancelled 防重入
+  // (_ownsPredictiveBackGesture 要等取消动画播完才清,挡不住)。
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state != AppLifecycleState.hidden &&
+        state != AppLifecycleState.paused) {
+      return;
+    }
+    if (!_ownsPredictiveBackGesture || _gestureForceCancelled) return;
+
+    _gestureForceCancelled = true;
+    phase = _PredictiveBackPhase.cancel;
+    widget.route.handleCancelBackGesture();
     startBackEvent = currentBackEvent = null;
   }
 

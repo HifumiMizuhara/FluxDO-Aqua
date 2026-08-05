@@ -24,6 +24,8 @@ class PredictiveBackOverlayHandler with WidgetsBindingObserver {
   final VoidCallback onCancel;
   final VoidCallback onCommit;
 
+  bool _gestureActive = false;
+
   void attach() => WidgetsBinding.instance.addObserver(this);
 
   void dispose() => WidgetsBinding.instance.removeObserver(this);
@@ -31,18 +33,42 @@ class PredictiveBackOverlayHandler with WidgetsBindingObserver {
   @override
   bool handleStartBackGesture(PredictiveBackEvent backEvent) {
     if (backEvent.isButtonEvent || !isEnabled()) return false;
+    _gestureActive = true;
     onStart();
     return true;
   }
 
   @override
   void handleUpdateBackGestureProgress(PredictiveBackEvent backEvent) {
+    if (!_gestureActive) return;
     onUpdate(backEvent.progress.clamp(0.0, 1.0));
   }
 
   @override
-  void handleCancelBackGesture() => onCancel();
+  void handleCancelBackGesture() {
+    if (!_gestureActive) return;
+    _gestureActive = false;
+    onCancel();
+  }
 
   @override
-  void handleCommitBackGesture() => onCommit();
+  void handleCommitBackGesture() {
+    if (!_gestureActive) return;
+    _gestureActive = false;
+    onCommit();
+  }
+
+  // 手势中途 Activity 进后台(挂后台/锁屏):系统不补发 commit/cancel,
+  // 不收尾的话浮层卡在半开进度。代打 cancel 弹回原位。
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state != AppLifecycleState.hidden &&
+        state != AppLifecycleState.paused) {
+      return;
+    }
+    if (!_gestureActive) return;
+    _gestureActive = false;
+    onCancel();
+  }
 }
