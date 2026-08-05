@@ -6,15 +6,17 @@ import 'package:flutter/services.dart';
 import 'package:app_icons/app_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../l10n/s.dart';
-import '../../models/chat/chat_channel.dart';
-import '../../models/chat/chat_message.dart';
-import '../../services/discourse/discourse_service.dart';
-import '../../services/discourse_cache_manager.dart';
-import '../../services/emoji_handler.dart';
-import '../../services/toast_service.dart';
-import '../../widgets/common/app_bottom_sheet.dart';
-import '../../widgets/markdown_editor/emoji_picker.dart';
+import '../../../l10n/s.dart';
+import '../../../models/chat/chat_channel.dart';
+import '../../../models/chat/chat_message.dart';
+import '../../../services/discourse/discourse_service.dart';
+import '../../../services/discourse_cache_manager.dart';
+import '../../../services/emoji_handler.dart';
+import '../../../services/toast_service.dart';
+import '../../../utils/time_utils.dart';
+import '../../../widgets/common/smart_avatar.dart';
+import '../../../widgets/common/app_bottom_sheet.dart';
+import '../../../widgets/markdown_editor/emoji_picker.dart';
 import 'package:common_ui/common_ui.dart';
 
 /// 菜单动作(对齐网页版 chat-message-interactor 的 secondaryActions)
@@ -164,8 +166,9 @@ Future<String?> showChatEmojiPicker(
 
 // ======================= 移动端:长按 overlay =======================
 
-/// 长按菜单:背景模糊压暗,被按气泡原位保留(必要时上移
-/// 腾出菜单空间),反应条悬浮气泡上方,菜单卡跟在气泡下方。
+/// 长按菜单:背景模糊压暗,反应条/消息卡/菜单跟随长按位置就地
+/// 展开(消息原地长出头部与卡壳,仅屏缘时最小位移让条/菜单放得下),
+/// 关闭时收回原位与列表衔接。
 Future<ChatMessageMenuResult?> showChatMessageActionsOverlay({
   required BuildContext context,
   required Rect bubbleRect,
@@ -179,8 +182,8 @@ Future<ChatMessageMenuResult?> showChatMessageActionsOverlay({
     PageRouteBuilder(
       opaque: false,
       barrierColor: Colors.transparent,
-      transitionDuration: const Duration(milliseconds: 220),
-      reverseTransitionDuration: const Duration(milliseconds: 160),
+      transitionDuration: const Duration(milliseconds: 320),
+      reverseTransitionDuration: const Duration(milliseconds: 190),
       pageBuilder: (routeContext, animation, _) => _MessageActionsOverlay(
         animation: animation,
         bubbleRect: bubbleRect,
@@ -222,105 +225,245 @@ class _MessageActionsOverlay extends StatelessWidget {
     final bottomSafe = media.padding.bottom;
 
     final items = _menuItems(context);
+    final mainItems = items.where((i) => !i.destructive).toList();
+    final destItems = items.where((i) => i.destructive).toList();
+
+    const edge = 12.0;
+    const gap = 10.0;
     const barHeight = 48.0;
-    const gap = 8.0;
-    final menuHeight = items.length * 46.0 + 12;
-    const menuWidth = 224.0;
+    const menuWidth = 252.0;
+    const rowHeight = 46.0;
+    const hairline = 0.5;
 
-    // 布局:理想位置=气泡原位;空间不够时整体上移/下移
-    final bubbleHeight = bubbleRect.height;
-    final totalHeight = barHeight + gap + bubbleHeight + gap + menuHeight;
-    double bubbleTop = bubbleRect.top;
-    final maxBubbleTop =
-        screen.height - bottomSafe - 12 - menuHeight - gap - bubbleHeight;
-    final minBubbleTop = topSafe + 12 + barHeight + gap;
-    bubbleTop = totalHeight > screen.height - topSafe - bottomSafe - 24
-        ? minBubbleTop
-        : bubbleTop.clamp(minBubbleTop, maxBubbleTop);
+    // 菜单:主动作卡 + 危险动作独立卡(双卡分组,红字自成一岛),
+    // 行内 label 左/icon 右,行间发丝线
+    double cardHeightOf(int n) =>
+        n == 0 ? 0.0 : n * rowHeight + 12 + (n - 1) * hairline;
+    final mainMenuHeight = cardHeightOf(mainItems.length);
+    final destMenuHeight = cardHeightOf(destItems.length);
+    var menuHeight =
+        mainMenuHeight +
+        (destItems.isEmpty || mainItems.isEmpty ? 0 : gap) +
+        destMenuHeight;
+    final menuMaxHeight = screen.height * 0.5;
+    final menuScrollable = menuHeight > menuMaxHeight;
+    if (menuScrollable) menuHeight = menuMaxHeight;
 
-    // 水平:消息行是扁平左对齐布局(自己/别人同一侧,靠名字配色区分),
-    // 条与菜单一律跟气泡左缘,再收进屏内安全边距。
-    // 早先按 isSelf 把菜单右对齐到气泡右缘,是左右气泡时代的遗留——
-    // 贴图/短消息的右缘就在屏幕左半区,定宽菜单整块甩出屏外(用户截图)。
-    const edge = 8.0;
-    final maxAnchorLeft = math.max(edge, screen.width - edge - menuWidth);
-    final anchorLeft = math.min(math.max(bubbleRect.left, edge), maxAnchorLeft);
-    // 反应条宽度随 emoji 数量浮动,按锚点右侧余量收口(内部可横滚)
-    final barMaxWidth = math.max(160.0, screen.width - edge - anchorLeft);
+    // 消息卡:头部(头像+昵称+时间)在飞行中显形。
+    // 目标宽:量测宽装不下头部行(纯 emoji/短消息几十 px)时按头部
+    // 最小需求扩,封顶屏宽;宽度随飞行插值,第 0 帧仍与列表对齐
+    const headerHeight = 40.0;
+    const headerMinWidth = 232.0;
+    final targetWidth = math.min(
+      screen.width - edge * 2,
+      math.max(bubbleRect.width, headerMinWidth),
+    );
+    final cardHeight = headerHeight + bubbleRect.height;
 
-    final curved = CurvedAnimation(
+    // 纵向:跟随长按位置(屏底固定簇被否——长按上半屏消息、菜单却
+    // 在屏底出现,手眼脱节)。理想位 = 消息原地不动(头部向上长出),
+    // 仅在条放不下(太靠顶)或菜单放不下(太靠底)时最小位移 clamp;
+    // 整簇高过屏(超长消息)时卡顶钉在条下方,菜单钉屏底盖住卡下半部
+    // (菜单不透明,天然分层)
+    final bottomLimit = screen.height - bottomSafe - 16;
+    final desiredCardTop = bubbleRect.top - headerHeight;
+    final minCardTop = topSafe + 12 + barHeight + gap;
+    final maxCardTop = bottomLimit - menuHeight - gap - cardHeight;
+    final double cardTop;
+    final double menuTop;
+    if (maxCardTop < minCardTop) {
+      cardTop = minCardTop;
+      menuTop = bottomLimit - menuHeight;
+    } else {
+      cardTop = desiredCardTop.clamp(minCardTop, maxCardTop);
+      menuTop = cardTop + cardHeight + gap;
+    }
+    final barTop = cardTop - gap - barHeight;
+
+    // 横向:也跟随消息左缘(clamp 进屏),条/卡/菜单共享这条构图线
+    final targetLeft = bubbleRect.left
+        .clamp(edge, math.max(edge, screen.width - edge - targetWidth))
+        .toDouble();
+    final menuLeft = math.max(
+      edge,
+      math.min(targetLeft, screen.width - edge - menuWidth),
+    );
+    final barMaxWidth = screen.width - targetLeft - edge;
+
+    // 第 0 帧正文对齐列表原文:卡顶 = 原文顶 - 头部高(头部透明不可见)。
+    // 未被 clamp 时 startTop == cardTop,消息原地不动,只有头部长出
+    final startTop = bubbleRect.top - headerHeight;
+
+    // 编排:只有消息在飞(被拎到聚光灯下),条/菜单在簇位原地长出
+    // ——条 15% 起弹(easeOutBack 回弹),菜单 22% 跟进;退场全员
+    // easeIn 快收,消息飞回原位与列表衔接
+    final moveT = CurvedAnimation(
       parent: animation,
       curve: Curves.easeOutCubic,
       reverseCurve: Curves.easeInCubic,
     );
+    final barScaleT = CurvedAnimation(
+      parent: animation,
+      curve: const Interval(0.15, 0.85, curve: Curves.easeOutBack),
+      reverseCurve: Curves.easeInCubic,
+    );
+    final barFadeT = CurvedAnimation(
+      parent: animation,
+      curve: const Interval(0.15, 0.50, curve: Curves.easeOut),
+      reverseCurve: Curves.easeInCubic,
+    );
+    final menuScaleT = CurvedAnimation(
+      parent: animation,
+      curve: const Interval(0.22, 1.0, curve: Curves.easeOutBack),
+      reverseCurve: Curves.easeInCubic,
+    );
+    final menuFadeT = CurvedAnimation(
+      parent: animation,
+      curve: const Interval(0.22, 0.60, curve: Curves.easeOut),
+      reverseCurve: Curves.easeInCubic,
+    );
 
     return AnimatedBuilder(
-      animation: curved,
+      animation: animation,
       // 副本内容只构建一次:builder 每帧重建 _buildBubbleCore(markdown/
-      // emoji 渲染)会让副本闪烁(用户点名)。child 参数跨帧复用,外层
-      // Positioned/Transform/Opacity 照常每帧按动画值更新。
+      // emoji 渲染)会让副本闪烁。child 跨帧复用,每帧只更新外围装饰。
       child: bubbleBuilder(context),
       builder: (context, child) {
-        final t = curved.value;
-        // 气泡从原位平滑滑到腾挪后的位置,条/菜单跟着走;
-        // 关闭时反向滑回原位,与列表里的真气泡无缝衔接
-        final animatedBubbleTop =
-            bubbleRect.top + (bubbleTop - bubbleRect.top) * t;
-        final barTop = animatedBubbleTop - gap - barHeight;
-        // 超长气泡(三段总高超屏)时菜单钉屏幕下缘,盖住气泡下半部
-        // (菜单卡带影有层次),不再悬到屏外/叠中间
-        final menuTop = math.min(
-          animatedBubbleTop + bubbleHeight + gap,
-          screen.height - bottomSafe - 12 - menuHeight,
-        );
+        final t = moveT.value;
+        final left = bubbleRect.left + (targetLeft - bubbleRect.left) * t;
+        final top = startTop + (cardTop - startTop) * t;
+        final width = bubbleRect.width + (targetWidth - bubbleRect.width) * t;
         return Stack(
           children: [
-            // 背景:模糊 + 压暗,点击关闭
+            // 背景:重模糊 + 压暗聚焦,点击关闭
             Positioned.fill(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () => Navigator.pop(context),
                 child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 8 * t, sigmaY: 8 * t),
+                  filter: ImageFilter.blur(sigmaX: 16 * t, sigmaY: 16 * t),
                   child: ColoredBox(
-                    color: Colors.black.withValues(alpha: 0.25 * t),
+                    color: Colors.black.withValues(alpha: 0.32 * t),
                   ),
                 ),
               ),
             ),
-            // 气泡副本(入场动画中从原位滑向腾挪位):轻微缩放蓄势
-            // (0.97→1,按住弹起的手感);壳的底色/阴影随动画淡入,
-            // 起始帧与列表裸正文形态一致,不再"凭空多出个气泡"
+            // 消息卡:第 0 帧与列表原文逐像素一致(正文全程不透明、
+            // 壳全透明),飞行途中底色/投影/头部渐次显形
             Positioned(
-              left: bubbleRect.left,
-              top: animatedBubbleTop,
-              width: bubbleRect.width,
+              left: left,
+              top: top,
+              width: width,
               child: IgnorePointer(
-                child: Transform.scale(
-                  scale: 0.97 + 0.03 * t,
-                  alignment: Alignment.centerLeft,
-                  child: Opacity(
-                    // 壳体(含底色)整体淡入:0.7 起步(较 0.55 减少半透明
-                    // 叠模糊层的闪烁感),末段补到不透明
-                    opacity: (0.7 + 0.3 * t).clamp(0.0, 1.0),
-                    child: child!,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      if (t > 0)
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.25 * t),
+                          blurRadius: 24 * t,
+                          offset: Offset(0, 8 * t),
+                        ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHigh
+                            .withValues(alpha: t),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            height: headerHeight,
+                            child: Opacity(
+                              opacity: t,
+                              // 头部恒按目标宽布局(OverflowBox 解除窄卡
+                              // 约束),ClipRect 裁到当前动画宽——展开即
+                              // 逐渐揭示;此前 Row 在窄约束下布局,debug
+                              // 溢出条纹照画(ClipRect 只裁不了布局溢出)
+                              child: ClipRect(
+                                child: OverflowBox(
+                                  alignment: Alignment.centerLeft,
+                                  minWidth: targetWidth,
+                                  maxWidth: targetWidth,
+                                  child: Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      10,
+                                      10,
+                                      12,
+                                      0,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        SmartAvatar(
+                                          imageUrl: message.user?.getAvatarUrl(
+                                            size: 64,
+                                          ),
+                                          radius: 11,
+                                          fallbackText: message.user?.username,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Flexible(
+                                          child: Text(
+                                            message.user?.name?.isNotEmpty ==
+                                                    true
+                                                ? message.user!.name!
+                                                : (message.user?.username ??
+                                                      ''),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: theme.textTheme.labelMedium
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          TimeUtils.formatDetailTime(
+                                            message.createdAt,
+                                          ),
+                                          maxLines: 1,
+                                          style: theme.textTheme.labelSmall
+                                              ?.copyWith(
+                                                color:
+                                                    theme.colorScheme.outline,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          child!,
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
-            // 反应条(气泡上方,scale 从贴近气泡处长出)
+            // 反应条:簇顶原地弹出,emoji 逐个瀑布跟进
             Positioned(
+              left: targetLeft,
               top: barTop,
-              left: anchorLeft,
               child: Transform.scale(
-                scale: 0.6 + 0.4 * t,
+                scale: 0.92 + 0.08 * barScaleT.value,
                 alignment: Alignment.bottomLeft,
                 child: Opacity(
-                  opacity: t,
+                  opacity: barFadeT.value.clamp(0.0, 1.0),
                   child: _ReactionBar(
                     message: message,
                     quickReactions: quickReactions,
                     maxWidth: barMaxWidth,
+                    progress: animation.value,
                     onSelect: (emoji) => Navigator.pop(context, (null, emoji)),
                     onMore: () async {
                       final selected = await showChatEmojiPicker(
@@ -335,70 +478,24 @@ class _MessageActionsOverlay extends StatelessWidget {
                 ),
               ),
             ),
-            // 菜单卡(气泡下方)
+            // 菜单双卡:簇底原地长出(scale 从顶缘展开)
             Positioned(
+              left: menuLeft,
               top: menuTop,
-              left: anchorLeft,
               child: Transform.scale(
-                scale: 0.6 + 0.4 * t,
+                scale: 0.94 + 0.06 * menuScaleT.value,
                 alignment: Alignment.topLeft,
                 child: Opacity(
-                  opacity: t,
-                  child: Material(
-                    color: theme.colorScheme.surfaceContainerLow,
-                    elevation: 6,
-                    shadowColor: Colors.black.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(16),
-                    clipBehavior: Clip.antiAlias,
-                    child: SizedBox(
-                      width: menuWidth,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const SizedBox(height: 6),
-                          for (final item in items)
-                            InkWell(
-                              onTap: () =>
-                                  Navigator.pop(context, (item.action, null)),
-                              child: SizedBox(
-                                height: 46,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          item.label,
-                                          style: theme.textTheme.bodyMedium
-                                              ?.copyWith(
-                                                color: item.destructive
-                                                    ? theme.colorScheme.error
-                                                    : theme
-                                                          .colorScheme
-                                                          .onSurface,
-                                              ),
-                                        ),
-                                      ),
-                                      Icon(
-                                        item.icon,
-                                        size: 20,
-                                        color: item.destructive
-                                            ? theme.colorScheme.error
-                                            : theme
-                                                  .colorScheme
-                                                  .onSurfaceVariant,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          const SizedBox(height: 6),
-                        ],
-                      ),
-                    ),
+                  opacity: menuFadeT.value.clamp(0.0, 1.0),
+                  child: _buildMenuCards(
+                    context,
+                    theme,
+                    mainItems,
+                    destItems,
+                    width: menuWidth,
+                    gap: gap,
+                    maxHeight: menuHeight,
+                    scrollable: menuScrollable,
                   ),
                 ),
               ),
@@ -408,15 +505,116 @@ class _MessageActionsOverlay extends StatelessWidget {
       },
     );
   }
+
+  /// 菜单双卡:主动作一卡,危险动作(删除等)独立红卡;
+  /// 行 = label 左 + icon 右,行间发丝线
+  Widget _buildMenuCards(
+    BuildContext context,
+    ThemeData theme,
+    List<ChatMenuItemSpec> mainItems,
+    List<ChatMenuItemSpec> destItems, {
+    required double width,
+    required double gap,
+    required double maxHeight,
+    required bool scrollable,
+  }) {
+    Widget row(ChatMenuItemSpec item) {
+      final color = item.destructive
+          ? theme.colorScheme.error
+          : theme.colorScheme.onSurface;
+      return InkWell(
+        onTap: () => Navigator.pop(context, (item.action, null)),
+        child: SizedBox(
+          height: 46,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    item.label,
+                    style: theme.textTheme.bodyMedium?.copyWith(color: color),
+                  ),
+                ),
+                Icon(
+                  item.icon,
+                  size: 20,
+                  color: item.destructive
+                      ? theme.colorScheme.error
+                      : theme.colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    Widget card(List<ChatMenuItemSpec> list) => Material(
+      color: theme.colorScheme.surfaceContainerHigh,
+      elevation: 8,
+      shadowColor: Colors.black.withValues(alpha: 0.25),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.25),
+          width: 0.5,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < list.length; i++) ...[
+              if (i > 0)
+                Divider(
+                  height: 0.5,
+                  thickness: 0.5,
+                  indent: 16,
+                  endIndent: 16,
+                  color: theme.colorScheme.outlineVariant.withValues(
+                    alpha: 0.2,
+                  ),
+                ),
+              row(list[i]),
+            ],
+          ],
+        ),
+      ),
+    );
+
+    Widget column = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (mainItems.isNotEmpty) card(mainItems),
+        if (mainItems.isNotEmpty && destItems.isNotEmpty) SizedBox(height: gap),
+        if (destItems.isNotEmpty) card(destItems),
+      ],
+    );
+    if (scrollable) {
+      column = SizedBox(
+        height: maxHeight,
+        child: SingleChildScrollView(child: column),
+      );
+    }
+    return SizedBox(width: width, child: column);
+  }
 }
 
-/// 悬浮反应条:横排 emoji(可滚) + "+"
+/// 悬浮反应条:横排 emoji(可滚) + "+";入场时 emoji 逐个瀑布弹入
 class _ReactionBar extends StatelessWidget {
   final ChatMessage message;
   final List<String> quickReactions;
 
-  /// 可用宽度上限(由锚点右侧余量算出;超出的 emoji 走横滚)
+  /// 可用宽度上限(由簇左缘右侧余量算出;超出的 emoji 走横滚)
   final double maxWidth;
+
+  /// 路由动画原始进度:驱动 emoji 逐个弹入的瀑布(每个错 5%,
+  /// easeOutBack 带回弹;退场反向瀑布收拢)
+  final double progress;
   final void Function(String emoji) onSelect;
   final VoidCallback onMore;
 
@@ -424,44 +622,70 @@ class _ReactionBar extends StatelessWidget {
     required this.message,
     required this.quickReactions,
     required this.maxWidth,
+    required this.progress,
     required this.onSelect,
     required this.onMore,
   });
+
+  Widget _staggered(int index, Widget child) {
+    final start = math.min(0.20 + index * 0.05, 0.62);
+    final end = math.min(start + 0.34, 1.0);
+    final t = Interval(
+      start,
+      end,
+      curve: Curves.easeOutBack,
+    ).transform(progress.clamp(0.0, 1.0));
+    return Transform.scale(
+      scale: 0.4 + 0.6 * t,
+      child: Opacity(opacity: t.clamp(0.0, 1.0), child: child),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Material(
-      color: theme.colorScheme.surfaceContainerLow,
-      elevation: 6,
-      shadowColor: Colors.black.withValues(alpha: 0.3),
-      shape: const StadiumBorder(),
+      color: theme.colorScheme.surfaceContainerHigh,
+      elevation: 8,
+      shadowColor: Colors.black.withValues(alpha: 0.25),
+      shape: StadiumBorder(
+        side: BorderSide(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.25),
+          width: 0.5,
+        ),
+      ),
       clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: maxWidth),
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              for (final emoji in quickReactions)
-                _ReactionBarButton(
-                  emoji: emoji,
-                  reacted: message.reactions.any(
-                    (r) => r.emoji == emoji && r.reacted,
+              for (var i = 0; i < quickReactions.length; i++)
+                _staggered(
+                  i,
+                  _ReactionBarButton(
+                    emoji: quickReactions[i],
+                    reacted: message.reactions.any(
+                      (r) => r.emoji == quickReactions[i] && r.reacted,
+                    ),
+                    onTap: () => onSelect(quickReactions[i]),
                   ),
-                  onTap: () => onSelect(emoji),
                 ),
-              InkWell(
-                onTap: onMore,
-                customBorder: const CircleBorder(),
-                child: Padding(
-                  padding: const EdgeInsets.all(7),
-                  child: Icon(
-                    Symbols.add_rounded,
-                    size: 24,
-                    color: theme.colorScheme.onSurfaceVariant,
+              _staggered(
+                quickReactions.length,
+                InkWell(
+                  onTap: onMore,
+                  customBorder: const CircleBorder(),
+                  child: Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: Icon(
+                      Symbols.add_rounded,
+                      size: 24,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
               ),

@@ -21,7 +21,7 @@ import '../../widgets/desktop_refresh_indicator.dart';
 import '../../widgets/layout/master_detail_layout.dart';
 import 'chat_browse_channels_page.dart';
 import 'chat_search_page.dart';
-import 'chat_channel_page.dart';
+import 'channel/chat_channel_page.dart';
 import 'new_chat_sheet.dart';
 
 /// 桌面双栏下当前选中的会话(仅聊天页内部,不进平行视界栈体系——

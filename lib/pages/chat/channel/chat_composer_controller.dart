@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../services/discourse_cache_manager.dart';
-import '../../services/emoji_handler.dart';
-import '../../utils/emoji_shortcodes.dart';
+import '../../../services/discourse_cache_manager.dart';
+import '../../../services/emoji_handler.dart';
+import '../../../utils/emoji_shortcodes.dart';
 
 /// 聊天输入框控制器:把 :shortcode: 内联渲染成 emoji 图
 ///

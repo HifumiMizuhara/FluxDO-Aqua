@@ -11,7 +11,7 @@ import '../../providers/chat/chat_channels_provider.dart';
 import '../../providers/discourse_providers.dart';
 import '../../services/toast_service.dart';
 import '../../widgets/common/error_view.dart';
-import 'chat_channel_page.dart';
+import 'channel/chat_channel_page.dart';
 import 'chat_list_page.dart' show ChatChannelAvatar;
 
 /// 频道浏览器:全部公共频道(含未加入),搜索 + 加入/进入

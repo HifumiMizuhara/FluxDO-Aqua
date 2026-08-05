@@ -7,7 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../config/site_customization.dart';
 import '../constants.dart';
-import '../pages/chat/chat_channel_page.dart';
+import '../pages/chat/channel/chat_channel_page.dart';
 import '../pages/image_viewer_page.dart';
 import '../pages/webview_page.dart';
 import '../providers/preferences_provider.dart';

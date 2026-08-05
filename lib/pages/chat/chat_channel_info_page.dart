@@ -15,7 +15,7 @@ import '../../widgets/common/app_bottom_sheet.dart';
 import '../../widgets/common/smart_avatar.dart';
 import '../user_profile_page.dart';
 import 'chat_list_page.dart' show ChatChannelAvatar;
-import 'chat_channel_page.dart';
+import 'channel/chat_channel_page.dart';
 import 'chat_channel_members_page.dart';
 import 'new_chat_sheet.dart' show showUserPickerSheet;
 

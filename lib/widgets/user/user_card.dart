@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/s.dart';
 import '../../models/user.dart';
-import '../../pages/chat/chat_channel_page.dart';
+import '../../pages/chat/channel/chat_channel_page.dart';
 import '../../providers/discourse_providers.dart';
 import '../../providers/selected_topic_provider.dart';
 import '../../services/app_error_handler.dart';

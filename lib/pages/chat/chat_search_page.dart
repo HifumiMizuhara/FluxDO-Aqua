@@ -12,7 +12,7 @@ import '../../widgets/common/emoji_text.dart';
 import '../../widgets/common/error_view.dart';
 import '../../widgets/common/relative_time_text.dart';
 import '../../widgets/common/smart_avatar.dart';
-import 'chat_channel_page.dart';
+import 'channel/chat_channel_page.dart';
 import 'chat_list_page.dart' show chatPreviewText;
 
 /// 聊天消息搜索:[channelId] 非空=会话内搜索,空=全部会话
