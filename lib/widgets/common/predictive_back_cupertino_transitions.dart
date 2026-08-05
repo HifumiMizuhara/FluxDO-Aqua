@@ -82,7 +82,13 @@ class PredictiveBackCupertinoPageTransitionsBuilder
             Widget buildTransition(bool predictiveBackInProgress) {
               // Cupertino 的 secondaryAnimation 会把上一页向左推出约
               // 1/3 屏。预测返回缩小当前页时,上一页应作为静态背景铺满。
-              if (predictiveBackInProgress && !route.isCurrent) {
+              // 判定「未参与手势」必须用 phase == idle(下层路由的
+              // detector 从未认领手势,phase 恒为 idle),不能用
+              // !route.isCurrent:commit 的 navigator.pop() 同步把被弹
+              // 路由翻成非 current,而手势 flag 要等收尾动画播完才清,
+              // 按 isCurrent 判定会把 commit 收尾动画整段吞成静态贴图。
+              if (predictiveBackInProgress &&
+                  phase == _PredictiveBackPhase.idle) {
                 return child;
               }
 
@@ -618,7 +624,11 @@ Widget buildPredictiveBackPageTransitions(
           final predictiveBackState = _predictiveBackGestureStateFor(route);
 
           Widget buildTransition(bool predictiveBackInProgress) {
-            if (predictiveBackInProgress && !route.isCurrent) {
+            // 同上方主题 builder:判定「未参与手势」用 phase == idle,
+            // 不能用 !isCurrent(commit 的 pop 同步翻非 current,会把
+            // 被弹路由自己的 commit 收尾动画吞掉)。
+            if (predictiveBackInProgress &&
+                phase == _PredictiveBackPhase.idle) {
               return child;
             }
             if (route.popGestureInProgress &&
