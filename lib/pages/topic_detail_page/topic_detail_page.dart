@@ -223,6 +223,9 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
   bool _isSwitchingMode = false; // 切换热门回复模式
   bool _isNestedView = false; // 嵌套视图模式
   bool _defaultNestedViewApplied = false; // 默认嵌套视图配置是否已应用（依赖 detail 加载后判定）
+  int? _nestedTargetPostNumber; // 树形 context 定位的目标楼层（通知等带楼层进入）
+  bool _nestedAutoEnabled = false; // 树形视图是否为默认配置自动开启（失败时静默回落平铺）
+  bool _nestedFallbackNotified = false; // 回落提示只弹一次
   // 搜索相关
   final TextEditingController _searchController = TextEditingController();
   late final FocusNode _searchFocusNode;
@@ -980,6 +983,11 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
   }
 
   Future<void> _handleExternalScrollTargetUpdate(int postNumber) async {
+    // 树形视图下不走平铺跳转,切到 context 定位视图
+    if (_isNestedView && postNumber > 1) {
+      setState(() => _nestedTargetPostNumber = postNumber);
+      return;
+    }
     final detail = ref.read(topicDetailProvider(_params)).value;
     final notifier = ref.read(topicDetailProvider(_params).notifier);
     if (detail == null) {
@@ -1969,11 +1977,32 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
         _defaultNestedViewApplied = true;
         if (!detail.isPrivateMessage &&
             ref.read(preferencesProvider).defaultNestedView) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              setState(() => _isNestedView = true);
-            }
-          });
+          // 预检:一楼被软删时树形接口必 500(服务端 op_post 未处理
+          // default_scope 过滤),已知场景直接跳过,省一次注定失败的请求。
+          // 只有从头加载(无目标楼层)时平铺流的首帖缺失/被删才是可靠信号;
+          // 带楼层进入时流从中间开始,一楼不在首块属正常。
+          final target = widget.scrollToPostNumber;
+          final fromTop = target == null || target <= 1;
+          final streamPosts = detail.postStream.posts;
+          final opMissingOrDeleted =
+              fromTop &&
+              streamPosts.isNotEmpty &&
+              (streamPosts.first.postNumber != 1 ||
+                  streamPosts.first.isDeleted);
+          if (!opMissingOrDeleted) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                setState(() {
+                  _isNestedView = true;
+                  _nestedAutoEnabled = true;
+                  // 通知等带楼层进入:树形下走 context 定位视图
+                  _nestedTargetPostNumber = (target != null && target > 1)
+                      ? target
+                      : null;
+                });
+              }
+            });
+          }
         }
       }
       // 与 _buildPostListContent 一致，用过滤后列表判断 1 楼是否存在
@@ -2548,16 +2577,41 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
 
     // 嵌套视图模式
     if (_isNestedView) {
-      final nestedParams = NestedTopicParams(topicId: widget.topicId);
+      final nestedParams = NestedTopicParams(
+        topicId: widget.topicId,
+        targetPostNumber: _nestedTargetPostNumber,
+      );
       final nestedAsync = ref.watch(nestedTopicProvider(nestedParams));
+
+      // 默认配置自动开启的树形加载失败(如一楼被删的 500):静默回落平铺,
+      // 平铺流本来就在底下加载着,scrollToPostNumber 定位链路自然接管。
+      // 手动切换失败仍显示错误页可重试。
+      if (nestedAsync.hasError && _nestedAutoEnabled) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || !_isNestedView || !_nestedAutoEnabled) return;
+          setState(() {
+            _isNestedView = false;
+            _nestedTargetPostNumber = null;
+          });
+          _scheduleCheckTitleVisibility();
+          if (!_nestedFallbackNotified) {
+            _nestedFallbackNotified = true;
+            ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+              SnackBar(content: Text(context.l10n.nested_fallbackToFlat)),
+            );
+          }
+        });
+      }
 
       Widget nestedView = nestedAsync.when(
         loading: () => PostListSkeleton(withHeader: true),
-        error: (e, s) => ErrorView(
-          error: e,
-          stackTrace: s,
-          onRetry: () => ref.invalidate(nestedTopicProvider(nestedParams)),
-        ),
+        error: (e, s) => _nestedAutoEnabled
+            ? PostListSkeleton(withHeader: true)
+            : ErrorView(
+                error: e,
+                stackTrace: s,
+                onRetry: () => ref.invalidate(nestedTopicProvider(nestedParams)),
+              ),
         data: (nestedState) => NestedPostList(
           nestedState: nestedState,
           params: nestedParams,
@@ -2577,8 +2631,14 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
           onNotificationLevelChanged: (level) =>
               _handleNotificationLevelChanged(notifier, level),
           onSolutionChanged: _handleSolutionChanged,
+          onQuoteSelection: isLoggedIn ? _handleQuoteSelection : null,
           onScrollNotification: _controller.handleScrollNotification,
           onVisiblePostsChanged: _updateVisiblePosts,
+          onViewFullTopic: _nestedTargetPostNumber != null
+              ? () => setState(() => _nestedTargetPostNumber = null)
+              : null,
+          onViewParentContext: (postNumber) =>
+              setState(() => _nestedTargetPostNumber = postNumber),
         ),
       );
 
