@@ -646,8 +646,11 @@ class _PollWidgetState extends State<_PollWidget> {
 
   Widget _buildResults(ThemeData theme) {
     // chartType=pie(官方 poll 插件的饼图形态):结果区换饼图 + 图例。
+    // 判定主源是 API poll.chart_type(serializer 直接下发,可靠);
+    // cooked 的 data-poll-charttype 只作兜底(旧缓存数据无此字段时)。
     // 无人投票时饼图无意义,回落条形列表(显示 0 票选项)。
-    if (widget.chartType == 'pie' && _poll.voters > 0) {
+    final chartType = _poll.chartType ?? widget.chartType;
+    if (chartType == 'pie' && _poll.voters > 0) {
       return _buildPieResults(theme);
     }
     return _buildBarResults(theme);

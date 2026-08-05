@@ -116,6 +116,8 @@ class Poll {
   final String results;
   final List<PollOption> options;
   final int voters;
+  final String? chartType; // 'bar' | 'pie'(API 直接下发,饼图判定主源)
+  final String? title;
 
   Poll({
     required this.id,
@@ -125,6 +127,8 @@ class Poll {
     required this.results,
     required this.options,
     required this.voters,
+    this.chartType,
+    this.title,
   });
 
   factory Poll.fromJson(Map<String, dynamic> json) {
@@ -140,6 +144,8 @@ class Poll {
               .toList() ??
           [],
       voters: json['voters'] as int? ?? 0,
+      chartType: json['chart_type'] as String?,
+      title: json['title'] as String?,
     );
   }
 }
