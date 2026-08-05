@@ -1590,6 +1590,9 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                                     flairColor: _user?.flairColor,
                                     avatar: Hero(
                                       tag: 'user_avatar_${_user?.username ?? ''}',
+                                      // 预测返回是 user gesture 转场,
+                                      // 不开此标记头像不飞(查看器侧已开)
+                                      transitionOnUserGestures: true,
                                       child: SmartAvatar(
                                         imageUrl: avatarUrl,
                                         radius: 36,
