@@ -25,6 +25,7 @@ import 'package:fluxdo_render/fluxdo_render.dart'
         CalloutKind,
         CodeBlockNode,
         OneboxNode,
+        PollNode,
         QuoteCardNode,
         EmojiRun,
         ImageRun,
@@ -66,6 +67,7 @@ import '../emoji_popover.dart';
 import '../emoji_sticker_panel.dart';
 import '../image_upload_dialog.dart';
 import '../link_insert_dialog.dart';
+import '../poll_builder_dialog.dart';
 import '../template_insert_dialog.dart';
 import '../composer_shortcuts.dart' show composerShortcutHint;
 import '../markdown_toolbar.dart' show MarkdownToolbarState;
@@ -96,6 +98,9 @@ NodeFactory buildComposerNodeFactory(BuildContext context) {
     mathBlockBuilder: callbacks.mathBlockBuilder,
     mathInlineBuilder: callbacks.mathInlineBuilder,
     svgBuilder: callbacks.svgBuilder,
+    // poll 岛:generic 场景是静态预览卡(从 rawHtml 解选项/属性),
+    // 编辑器里插入投票后所见即所发,而非「接入主项目」fallback 占位
+    pollBuilder: callbacks.pollBuilder,
   );
 }
 
@@ -663,6 +668,12 @@ class RichComposerEditorState extends State<RichComposerEditor> {
       '语音消息',
       Icons.mic_rounded,
       () async => _recordAndInsertVoice(),
+    ),
+    (
+      ['poll', '投票', 'vote', 'tp2'],
+      '投票',
+      Icons.poll_rounded,
+      () async => _insertPoll(),
     ),
     (
       ['template', '模板', 'mb'],
@@ -1814,6 +1825,8 @@ class RichComposerEditorState extends State<RichComposerEditor> {
         item('__link__', Icons.link_rounded, '插入链接'),
         // 日期时间:弹属性对话框选时间再插原子(不再是死模板)
         item('__date__', Icons.event_rounded, '日期时间'),
+        // 投票:构建对话框生成 [poll] BBCode(经 cook 成岛)
+        item('__poll__', Icons.poll_rounded, '投票'),
         // 音视频:选文件改名 .xz 上传后插 <audio>/<video> 标签
         item('__audio__', Icons.audiotrack_rounded, '上传音频'),
         item('__video__', Icons.videocam_outlined, '上传视频'),
@@ -1830,6 +1843,8 @@ class RichComposerEditorState extends State<RichComposerEditor> {
       await _insertCustomMarkdown();
     } else if (selected == '__date__') {
       await _insertLocalDate();
+    } else if (selected == '__poll__') {
+      await _insertPoll();
     } else if (selected == '__audio__' || selected == '__video__') {
       await _pickAndInsertMedia(isAudio: selected == '__audio__');
     } else if (selected == '__voice__') {
@@ -1898,6 +1913,23 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     if (editor == null) return;
 
     final source = serializeIslandNode(island.node);
+
+    // poll 岛优先走表单编辑(创建同款构建器,BBCode 反解析预填);
+    // 解析不了(嵌套块/ranked_choice 等表单不建模)回退源码编辑
+    if (island.node is PollNode) {
+      final spec = PollSpec.tryParse(source);
+      if (spec != null) {
+        final edited = await showPollBuilderDialog(context, initial: spec);
+        if (edited == null || !mounted) return;
+        final markdown = edited.toBBCode();
+        if (markdown == source) return; // 没改
+        final fragment = await markdownToDoc(markdown);
+        if (!mounted || fragment == null) return;
+        editor.replaceIsland(island.id, fragment);
+        return;
+      }
+    }
+
     final text = await _showMarkdownDialog(
       title: '编辑源码',
       confirmLabel: '应用',
@@ -2838,6 +2870,20 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     final spec = await showCalloutEditDialog(context);
     if (spec == null || !mounted) return;
     await insertMarkdownSnippet('> ${spec.headerMarkdown}\n> 内容');
+  }
+
+  /// 插入投票:构建对话框 → [poll] BBCode 经 cook 成岛。同帖多投票时
+  /// name 必须唯一,先 flush 后按现有 raw 统计 poll 数决定 name=pollN。
+  Future<void> _insertPoll() async {
+    flushToController();
+    final existing =
+        RegExp(r'\[poll[\s\]]').allMatches(widget.controller.text).length;
+    final spec = await showPollBuilderDialog(
+      context,
+      existingPollCount: existing,
+    );
+    if (spec == null || !mounted) return;
+    await insertMarkdownSnippet(spec.toBBCode(existingPollCount: existing));
   }
 
   /// markdown 多行输入对话框(插入片段/岛编辑共用;showAppDialog 统一

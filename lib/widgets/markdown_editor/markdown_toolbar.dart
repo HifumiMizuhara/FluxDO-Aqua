@@ -29,6 +29,7 @@ import 'media_upload_helper.dart';
 import 'voice_recorder_sheet.dart';
 import 'image_upload_dialog.dart';
 import 'link_insert_dialog.dart';
+import 'poll_builder_dialog.dart';
 import 'template_insert_dialog.dart';
 import 'package:common_ui/common_ui.dart';
 import '../../../../../l10n/s.dart';
@@ -967,6 +968,19 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
         text[selection.start - 1] != '\n';
     final prefix = needsLeadingNewline ? '\n' : '';
     insertText('$prefix$snippet\n');
+  }
+
+  /// 插入投票:构建对话框 → [poll] BBCode 块级插入。同帖多投票时
+  /// name 必须唯一,按现有文本统计 poll 数决定 name=pollN。
+  Future<void> insertPoll(BuildContext context) async {
+    final existing =
+        RegExp(r'\[poll[\s\]]').allMatches(widget.controller.text).length;
+    final spec = await showPollBuilderDialog(
+      context,
+      existingPollCount: existing,
+    );
+    if (spec == null || !mounted) return;
+    insertBlockSnippet(spec.toBBCode(existingPollCount: existing));
   }
 
   /// 语音消息:录音面板 → 上传([wrap=voice] 语音条标签)→ 插入。
