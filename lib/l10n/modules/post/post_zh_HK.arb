@@ -203,6 +203,12 @@
   "postVoting_commentSubmit": "發表",
   "postVoting_commentHint": "寫下評論…",
   "postVoting_cannotVoteOwn": "不能給自己的帖子投票",
+  "postVoting_commentTooShort": "至少需要 {count} 個字符",
+  "@postVoting_commentTooShort": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
   "postVoting_commentsMore": "還有 {count} 條評論",
   "@postVoting_commentsMore": {
     "placeholders": {

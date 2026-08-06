@@ -256,6 +256,12 @@
   "postVoting_commentSubmit": "发表",
   "postVoting_commentHint": "写下评论…",
   "postVoting_cannotVoteOwn": "不能给自己的帖子投票",
+  "postVoting_commentTooShort": "至少需要 {count} 个字符",
+  "@postVoting_commentTooShort": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
   "postVoting_commentsMore": "还有 {count} 条评论",
   "@postVoting_commentsMore": {
     "placeholders": {

@@ -183,6 +183,12 @@
   "postVoting_commentSubmit": "Post",
   "postVoting_commentHint": "Write a comment…",
   "postVoting_cannotVoteOwn": "You can't vote on your own post",
+  "postVoting_commentTooShort": "At least {count} characters required",
+  "@postVoting_commentTooShort": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
   "postVoting_commentsMore": "{count} more comments",
   "@postVoting_commentsMore": {
     "placeholders": {
