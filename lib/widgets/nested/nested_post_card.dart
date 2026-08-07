@@ -17,6 +17,7 @@ import '../../utils/time_utils.dart';
 import '../post/post_item/quote_selection_helper.dart';
 import '../post/post_item/widgets/post_footer_section/post_footer_section.dart';
 import '../post/post_signature_block.dart';
+import '../post/small_action_item.dart';
 import '../common/radial_long_press_menu.dart';
 import '../common/smart_avatar.dart';
 import '../user/avatar_action_menu.dart';
@@ -264,6 +265,15 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
     // 已删除帖子
     final bool isDeletedPlaceholder = widget.node.isDeletedPlaceholder;
 
+    // discourse-assign 等插件产生的指定/取消指定系统帖(post_type=small_action
+    // 或 whisper,带 action_code)——这条树状嵌套视图是跟 post_item.dart 完全
+    // 独立的第二套渲染管线,之前没做这个判断,系统帖会被当成普通帖子走完整的
+    // header+正文+点赞/回复/更多操作栏,而这些系统帖根本不支持这些互动。
+    final bool isSmallAction =
+        !isDeletedPlaceholder &&
+        (post.postType == PostTypes.smallAction ||
+            (post.actionCode?.isNotEmpty ?? false));
+
     // 帖子内容列
     final Widget contentColumn = isDeletedPlaceholder
         ? _buildDeletedLabel(theme)
@@ -272,6 +282,14 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
             username: post.username,
             replyCount: _replyCount,
             onTap: _toggleExpanded,
+          )
+        : isSmallAction
+        ? SmallActionItem(
+            post: post,
+            topicId: widget.topicId,
+            onEdit: widget.isLoggedIn && post.canEdit
+                ? () => widget.onEdit(post)
+                : null,
           )
         : _buildArticle(theme, post, isMobile: isMobile);
 

@@ -79,6 +79,11 @@ class User {
   final bool admin;
   final bool moderator;
 
+  /// discourse-assign 插件加的字段(add_to_serializer(:current_user, :can_assign))
+  /// 只在 CurrentUserSerializer 里有,/u/username.json 这种公开资料接口没有——
+  /// 见 core_providers.dart _mergeUser 里用预加载数据兜底。
+  final bool canAssign;
+
   /// 隐私:隐藏公开资料与在线状态(user_option.hide_presence)。
   /// true 时客户端不得上报 presence(正在输入/在线)——对齐网页版
   /// chat.js 的前置判断。
@@ -139,6 +144,7 @@ class User {
     this.silencedTill,
     this.admin = false,
     this.moderator = false,
+    this.canAssign = false,
     this.hidePresence = false,
     this.chatDrafts = const [],
   });
@@ -151,6 +157,7 @@ class User {
     int? notificationChannelPosition,
     bool? muted,
     bool? ignored,
+    bool? canAssign,
   }) {
     return User(
       id: id,
@@ -205,6 +212,7 @@ class User {
       silencedTill: silencedTill,
       admin: admin,
       moderator: moderator,
+      canAssign: canAssign ?? this.canAssign,
       hidePresence: hidePresence,
       chatDrafts: chatDrafts,
     );
@@ -273,6 +281,7 @@ class User {
       silencedTill: TimeUtils.parseUtcTime(json['silenced_till'] as String?),
       admin: json['admin'] as bool? ?? false,
       moderator: json['moderator'] as bool? ?? false,
+      canAssign: json['can_assign'] as bool? ?? false,
       hidePresence:
           (json['user_option'] as Map<String, dynamic>?)?['hide_presence']
                   as bool? ??
@@ -299,6 +308,7 @@ class User {
     'gamification_score': gamificationScore,
     'admin': admin,
     'moderator': moderator,
+    'can_assign': canAssign,
   };
 
   /// 从缓存 JSON 恢复（不再调用 resolveUrl/fixHtml，直接读取）
@@ -318,6 +328,7 @@ class User {
       gamificationScore: json['gamification_score'] as int?,
       admin: json['admin'] as bool? ?? false,
       moderator: json['moderator'] as bool? ?? false,
+      canAssign: json['can_assign'] as bool? ?? false,
     );
   }
 

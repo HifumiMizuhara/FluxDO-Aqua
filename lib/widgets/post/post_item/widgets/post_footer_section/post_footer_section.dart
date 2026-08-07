@@ -82,6 +82,12 @@ class PostFooterSection extends ConsumerStatefulWidget {
   /// "+ Boost" 火箭按钮出现在 action bar。
   final bool? danmakuActive;
 
+  /// 当前用户是否有指定权限且这条帖子还没被指定——控制"更多"菜单
+  /// 是否显示"指定帖子"这一项(已指定的话走正文下方那个标签的
+  /// 编辑/取消,不在这里重复放)。
+  final bool canAssignPost;
+  final VoidCallback? onAssignPost;
+
   /// post-voting(问答)话题:操作栏加赞成/反对控件 + 评论只读区
   final bool isPostVotingTopic;
 
@@ -116,6 +122,8 @@ class PostFooterSection extends ConsumerStatefulWidget {
     this.highlightBoostUsername,
     this.opTopSlot,
     this.danmakuActive,
+    this.canAssignPost = false,
+    this.onAssignPost,
     this.isPostVotingTopic = false,
     this.topicClosed = false,
     this.showVotingControl = true,

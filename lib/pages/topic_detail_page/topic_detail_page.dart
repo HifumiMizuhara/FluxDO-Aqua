@@ -37,6 +37,7 @@ import '../../providers/discourse_providers.dart';
 import '../../providers/message_bus_providers.dart';
 import '../../providers/pinned_categories_provider.dart';
 import '../../services/discourse/discourse_service.dart';
+import '../../services/preloaded_data_service.dart';
 import '../../services/screen_track.dart';
 import '../../services/toast_service.dart';
 import '../../services/log/log_writer.dart';
@@ -81,6 +82,7 @@ import '../../utils/platform_utils.dart';
 import '../../models/shortcut_binding.dart';
 import '../../providers/shortcut_provider.dart';
 import '../../widgets/desktop_refresh_indicator.dart';
+import '../../widgets/topic/assign_sheet.dart';
 
 part 'actions/_scroll_actions.dart';
 part 'actions/_user_actions.dart';
@@ -1375,6 +1377,12 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
     final isInReadLater = ref
         .read(readLaterProvider.notifier)
         .contains(widget.topicId);
+    // 指定入口双闸:assign_enabled 是插件总开关(未装插件时该键不存在),
+    // can_assign 是当前用户权限——只看后者的话,没权限的人点了直接吃
+    // 服务端 403;只看前者的话,普通用户会看到自己用不了的入口。
+    final canAssignTopic =
+        PreloadedDataService().assignEnabled &&
+        (ref.read(currentUserProvider).value?.canAssign ?? false);
     final hasFilter =
         notifier.isSummaryMode ||
         notifier.isActivityMode ||
@@ -1568,6 +1576,17 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
           }
           return;
         }
+        if (value == 'assign') {
+          // 弹菜单本身的关闭动画(PopupMenuButton onSelected 触发时它还没
+          // 收完)跟紧接着开的新 modal route 同一帧抢 GPU 合成——聊天那边
+          // 悬浮面板同款场景(_runPanelAction)踩过一次原生层崩溃,靠隔一
+          // 个 tick 再开新 UI 避开两段转场重叠,这里抄同样的套路。
+          Future<void>.delayed(Duration.zero, () {
+            if (!mounted) return;
+            unawaited(showAssignSheet(context, ref, topicId: widget.topicId));
+          });
+          return;
+        }
         final bookmarkTraceTarget = value == 'bookmark'
             ? _bookmarkEditTarget(detail)
             : null;
@@ -1683,6 +1702,28 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
             ],
           ),
         ),
+        if (canAssignTopic)
+          PopupMenuItem(
+            value: 'assign',
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.assignment_ind_outlined,
+                  size: 20,
+                  color: detail.isAssigned
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurface,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  detail.isAssigned
+                      ? '已指定 · ${detail.assignedToUser?.displayName ?? detail.assignedToGroupName ?? ''}'
+                      : '指定',
+                ),
+              ],
+            ),
+          ),
         if (ref.read(currentUserProvider).value != null)
           ExpandablePopupMenuEntry<String>(
             icon: Symbols.mark_email_unread_rounded,
@@ -2709,6 +2750,9 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
               viewportAnchor: _viewportAnchor,
               headerKey: _headerKey,
               hideHeaderTitle: widget.hideInlineHeaderTitle,
+              canAssignPost:
+                  PreloadedDataService().assignEnabled &&
+                  (ref.read(currentUserProvider).value?.canAssign ?? false),
               selectedPostNumber: selectedPostNumber,
               highlightPostNumber: highlightPostNumber,
               highlightBoostUsername: widget.highlightBoostUsername,

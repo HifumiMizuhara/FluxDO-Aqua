@@ -1810,6 +1810,20 @@ class TopicDetail {
   final List<Topic> suggestedTopics;
   final List<Topic> relatedTopics;
 
+  // 指定(discourse-assign 插件)相关字段。站点未装插件时恒为 null。
+  final TopicUser? assignedToUser;
+  final String? assignedToGroupName;
+  final String? assignmentNote;
+  final String? assignmentStatus;
+
+  /// 帖子级(非整个话题)的指定——key 是 post.id。插件的
+  /// `indirectly_assigned_to` 字段(见 DiscourseAssign::Helpers.
+  /// build_indirectly_assigned_to),官方 Web 端"三个点→指定帖子"
+  /// 指定的就是这个,跟上面几个话题级字段是两回事。
+  final Map<int, PostAssignmentInfo> indirectlyAssignedTo;
+
+  bool get isAssigned => assignedToUser != null || assignedToGroupName != null;
+
   bool get hasAcceptedAnswer => acceptedAnswers.isNotEmpty;
   int? get acceptedAnswerPostNumber =>
       acceptedAnswers.isEmpty ? null : acceptedAnswers.first.postNumber;
@@ -1859,6 +1873,11 @@ class TopicDetail {
     this.pendingPosts = const [],
     this.suggestedTopics = const [],
     this.relatedTopics = const [],
+    this.assignedToUser,
+    this.assignedToGroupName,
+    this.assignmentNote,
+    this.assignmentStatus,
+    this.indirectlyAssignedTo = const {},
   });
 
   factory TopicDetail.fromJson(Map<String, dynamic> json) {
@@ -2042,7 +2061,74 @@ class TopicDetail {
           .toList(),
       suggestedTopics: parseSuggestedTopicList(json['suggested_topics']),
       relatedTopics: parseSuggestedTopicList(json['related_topics']),
+      assignedToUser: _tryParseAssignedToUser(json['assigned_to_user']),
+      assignedToGroupName: _tryParseAssignedToGroupName(
+        json['assigned_to_group'],
+      ),
+      assignmentNote: json['assignment_note'] as String?,
+      assignmentStatus: json['assignment_status'] as String?,
+      indirectlyAssignedTo: _tryParseIndirectlyAssignedTo(
+        json['indirectly_assigned_to'],
+      ),
     );
+  }
+
+  /// discourse-assign 插件的 DiscourseAssign::Helpers.build_assigned_to_user
+  /// 只吐 {username, name, avatar_template} 三个字段,没有 id——之前直接
+  /// 套用通用的 TopicUser.fromJson(要求 json['id'] as int)必炸,炸了又被
+  /// try/catch 悄悄吞掉,导致界面上"指定了但什么都不显示"。这里按插件
+  /// 实际响应形状手动解析,id 该字段本来就拿不到,给个占位值。
+  static TopicUser? _tryParseAssignedToUser(dynamic raw) {
+    if (raw is! Map) return null;
+    final username = raw['username'];
+    if (username is! String || username.isEmpty) return null;
+    return TopicUser(
+      id: -1,
+      username: username,
+      name: raw['name'] as String?,
+      avatarTemplate: raw['avatar_template'] as String? ?? '',
+    );
+  }
+
+  static String? _tryParseAssignedToGroupName(dynamic raw) {
+    if (raw is! Map) return null;
+    final name = raw['name'];
+    return name is String ? name : null;
+  }
+
+  /// `indirectly_assigned_to` 是个 {post_id字符串: {assigned_to, post_number,
+  /// assignment_note, assignment_status}} 的 map(见插件 Helpers.
+  /// build_indirectly_assigned_to),key 是字符串形式的 post id。
+  static Map<int, PostAssignmentInfo> _tryParseIndirectlyAssignedTo(
+    dynamic raw,
+  ) {
+    if (raw is! Map) return const {};
+    final result = <int, PostAssignmentInfo>{};
+    for (final entry in raw.entries) {
+      final postId = int.tryParse(entry.key.toString());
+      final value = entry.value;
+      if (postId == null || value is! Map) continue;
+      final assignedRaw = value['assigned_to'];
+      TopicUser? assignedToUser;
+      String? assignedToGroupName;
+      if (assignedRaw is Map) {
+        if (assignedRaw.containsKey('username')) {
+          assignedToUser = _tryParseAssignedToUser(assignedRaw);
+        } else {
+          assignedToGroupName = _tryParseAssignedToGroupName(assignedRaw);
+        }
+      }
+      if (assignedToUser == null && assignedToGroupName == null) continue;
+      result[postId] = PostAssignmentInfo(
+        postId: postId,
+        postNumber: value['post_number'] as int?,
+        assignedToUser: assignedToUser,
+        assignedToGroupName: assignedToGroupName,
+        note: value['assignment_note'] as String?,
+        status: value['assignment_status'] as String?,
+      );
+    }
+    return result;
   }
 
   /// 创建修改后的副本
@@ -2135,8 +2221,37 @@ class TopicDetail {
       pendingPosts: pendingPosts ?? this.pendingPosts,
       suggestedTopics: suggestedTopics ?? this.suggestedTopics,
       relatedTopics: relatedTopics ?? this.relatedTopics,
+      // 指定字段不提供 copyWith 覆写(始终透传旧值):指定/取消指定后
+      // 一律整页重拉(assign_sheet _refetch),本地不拼状态。
+      assignedToUser: assignedToUser,
+      assignedToGroupName: assignedToGroupName,
+      assignmentNote: assignmentNote,
+      assignmentStatus: assignmentStatus,
+      indirectlyAssignedTo: indirectlyAssignedTo,
     );
   }
+}
+
+/// 帖子级指定信息(discourse-assign 插件,`indirectly_assigned_to`)。
+class PostAssignmentInfo {
+  final int postId;
+  final int? postNumber;
+  final TopicUser? assignedToUser;
+  final String? assignedToGroupName;
+  final String? note;
+  final String? status;
+
+  const PostAssignmentInfo({
+    required this.postId,
+    this.postNumber,
+    this.assignedToUser,
+    this.assignedToGroupName,
+    this.note,
+    this.status,
+  });
+
+  String get displayName =>
+      assignedToUser?.displayName ?? assignedToGroupName ?? '';
 }
 
 /// 话题 AI 摘要
