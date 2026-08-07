@@ -581,9 +581,17 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
     // Esc 优先退出页内搜索/AI，再按当前布局执行嵌入返回或路由返回。
     // （_handleCloseShortcut 的嵌入分支会调 onEmbeddedBack——压栈时退回
     // 上一层,基础层清空右栏回空态,与返回按钮一致。）
+    //
+    // 预览位例外:master 槽里的"上一层预览"(embeddedMode 且
+    // onEmbeddedBack 为 null)不注册 closeOverlay——嵌入分支的关闭动作
+    // 就是 onEmbeddedBack,为 null 时回调是空操作,却会在 detail scope
+    // 合并时以更晚的注册序(本页滚动等事件会反复重注册)盖掉真正 detail
+    // 面板的关闭回调,表现为 ESC 被吃掉但什么都不发生(时灵时不灵取决
+    // 于两个面板谁后注册)。
     final registeredShortcuts = {
       ...shortcuts,
-      ShortcutAction.closeOverlay: _handleCloseShortcut,
+      if (!widget.embeddedMode || widget.onEmbeddedBack != null)
+        ShortcutAction.closeOverlay: _handleCloseShortcut,
     };
     _shortcutScopeBinding.registerForRoute(_route, registeredShortcuts);
   }

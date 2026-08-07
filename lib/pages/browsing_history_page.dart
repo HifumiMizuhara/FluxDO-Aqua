@@ -23,11 +23,6 @@ import '../l10n/s.dart';
 import '../widgets/desktop_refresh_indicator.dart';
 import 'topic_detail_page/topic_detail_page.dart';
 
-/// 「浏览历史」右栏的平行视界栈。
-final selectedHistoryPaneProvider = SelectedTopicProvider((ref) {
-  return SelectedTopicNotifier();
-});
-
 /// 浏览历史页面
 class BrowsingHistoryPage extends ConsumerStatefulWidget {
   const BrowsingHistoryPage({super.key, this.isActive = true});

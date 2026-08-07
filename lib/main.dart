@@ -103,7 +103,9 @@ import 'widgets/preheat_gate.dart';
 import 'widgets/onboarding_gate.dart';
 import 'widgets/layout/adaptive_scaffold.dart';
 import 'widgets/layout/adaptive_navigation.dart';
+import 'widgets/esc_fallback_observer.dart';
 import 'widgets/layout/master_detail_layout.dart';
+import 'widgets/layout/pane_projection_back_scope.dart';
 import 'widgets/notification/notification_quick_panel.dart';
 import 'widgets/topic/category_drawer.dart' show CategoryDrawerHost;
 import 'widgets/render_signet/render_signet_layer.dart';
@@ -771,10 +773,12 @@ class MainApp extends ConsumerWidget {
               navigatorKey: navigatorKey,
               // JankNavObserver 给 [JANK] 日志加导航归因(debug/profile 观测用)
               // KeyboardFocusGuard 压掉浮层关闭后键盘自弹(移动端)
+              // EscFallbackObserver 登记全屏页,桌面 ESC 路由级自动兜底
               navigatorObservers: [
                 appRouteObserver,
                 keyboardFocusGuard,
                 JankNavObserver(),
+                EscFallbackObserver(),
               ],
               title: 'FluxDO',
               locale: TranslationProvider.of(context).flutterLocale,
@@ -1514,14 +1518,11 @@ class _MainPageState extends ConsumerState<MainPage>
     final hasNotificationEntry = entries.any(
       (e) => e.id == NavEntryIds.notifications,
     );
-    final activeEntryId = pageEntries[safePageIndex].id;
-    final topicParallelStacked = ref.watch(selectedTopicProvider).isStacked;
-    final messageParallelStacked = ref.watch(selectedMessageProvider).isStacked;
-    final seekingParallelStacked = ref.watch(selectedSeekingProvider).isStacked;
-    final hideNavigationRail =
-        (activeEntryId == NavEntryIds.home && topicParallelStacked) ||
-        (activeEntryId == NavEntryIds.messages && messageParallelStacked) ||
-        (activeEntryId == NavEntryIds.seeking && seekingParallelStacked);
+    // 深层平行视界隐藏 Rail 的旧联动已砍:抽掉 72px 侧栏 = 内容区
+    // 瞬间变宽,这发生在布局动画体系之外,快照底板盖不住,是压/退栈
+    // "必闪"的外部几何跳变源(还会触发编排撞帧取消)。Rail 恒定,
+    // 栏宽恒定,层间过渡才是纯内容平移(iPad 三栏同款前提)。
+    const hideNavigationRail = false;
     final exitOnSingleBack = ref.watch(
       preferencesProvider.select((preferences) => preferences.exitOnSingleBack),
     );
@@ -1533,56 +1534,73 @@ class _MainPageState extends ConsumerState<MainPage>
     // 则拦截根路由的第一次返回。面板在两种模式下都拥有更高优先级。
     Widget page = ValueListenableBuilder<bool>(
       valueListenable: NotificationQuickPanel.visible,
-      builder: (context, notificationPanelVisible, _) => PopScope(
-        canPop:
-            routeCanPopInternally ||
-            (!notificationPanelVisible && !requireDoubleBackToExit),
-        onPopInvokedWithResult: (bool didPop, dynamic result) {
-          if (didPop) return;
-          // 分类侧栏通过 LocalHistoryEntry 消费返回；这里保留兜底，覆盖
-          // 抽屉正在收尾动画等 LocalHistory 尚未同步的短暂状态。
-          if (CategoryDrawerHost.isOpen) {
-            CategoryDrawerHost.close();
-            return;
-          }
-          if (NotificationQuickPanel.isVisible) {
-            NotificationQuickPanel.dismiss();
-            return;
-          }
-          if (requireDoubleBackToExit) {
-            if (_backExitGuard.shouldExit()) {
-              SystemNavigator.pop();
-            } else {
-              ToastService.showInfo(S.current.toast_pressAgainToExit);
+      builder: (context, notificationPanelVisible, _) =>
+          ValueListenableBuilder<bool>(
+        // 平行视界投影态(窄屏详情全宽盖在 tab 体内)开着时返回由
+        // PaneProjectionBackScope 消费,根层完全让位:不弹退出 toast。
+        valueListenable: PaneProjectionBackScope.hasActiveProjection,
+        builder: (context, paneProjectionOpen, _) => PopScope(
+          canPop:
+              routeCanPopInternally ||
+              (!notificationPanelVisible &&
+                  !paneProjectionOpen &&
+                  !requireDoubleBackToExit),
+          onPopInvokedWithResult: (bool didPop, dynamic result) {
+            if (didPop) return;
+            // 分类侧栏通过 LocalHistoryEntry 消费返回；这里保留兜底，覆盖
+            // 抽屉正在收尾动画等 LocalHistory 尚未同步的短暂状态。
+            if (CategoryDrawerHost.isOpen) {
+              CategoryDrawerHost.close();
+              return;
             }
-          }
-        },
-        child: AdaptiveScaffold(
-          selectedIndex: selectedBottomIndex,
-          onDestinationSelected: _onDestinationSelected,
-          destinations: destinations,
-          railBottomLeading: (user != null && !hasNotificationEntry)
-              ? const NotificationIconButton()
-              : null,
-          hideNavigationRail: hideNavigationRail,
-          body: IndexedStack(
-            index: safePageIndex,
-            children: [
-              for (int i = 0; i < pageEntries.length; i++)
-                KeyedSubtree(
-                  key: ValueKey('nav-entry-${pageEntries[i].id}'),
-                  child: TickerMode(
-                    enabled: safePageIndex == i,
-                    child: ExcludeFocus(
-                      excluding: safePageIndex != i,
-                      child: pageEntries[i].pageBuilder!(
-                        context,
-                        safePageIndex == i,
+            if (NotificationQuickPanel.isVisible) {
+              NotificationQuickPanel.dismiss();
+              return;
+            }
+            // 投影态:PaneProjectionBackScope 的 PopEntry 自己消费本次
+            // 返回(关投影层),根层不做双击退出。
+            if (PaneProjectionBackScope.hasActiveProjection.value) {
+              return;
+            }
+            if (requireDoubleBackToExit) {
+              if (_backExitGuard.shouldExit()) {
+                SystemNavigator.pop();
+              } else {
+                ToastService.showInfo(S.current.toast_pressAgainToExit);
+              }
+            }
+          },
+          child: AdaptiveScaffold(
+            selectedIndex: selectedBottomIndex,
+            onDestinationSelected: _onDestinationSelected,
+            destinations: destinations,
+            railBottomLeading: (user != null && !hasNotificationEntry)
+                ? const NotificationIconButton()
+                : null,
+            hideNavigationRail: hideNavigationRail,
+            // 投影态底栏隐藏:详情全宽盖在 tab 体内,底栏还留着会像
+            // "详情页悬在 tab 骨架上";合成路由时代盖住一切,投影态
+            // 用显式谓词达成同样观感。
+            hideBottomNavigation: paneProjectionOpen,
+            body: IndexedStack(
+              index: safePageIndex,
+              children: [
+                for (int i = 0; i < pageEntries.length; i++)
+                  KeyedSubtree(
+                    key: ValueKey('nav-entry-${pageEntries[i].id}'),
+                    child: TickerMode(
+                      enabled: safePageIndex == i,
+                      child: ExcludeFocus(
+                        excluding: safePageIndex != i,
+                        child: pageEntries[i].pageBuilder!(
+                          context,
+                          safePageIndex == i,
+                        ),
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

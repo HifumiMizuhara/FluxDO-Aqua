@@ -21,11 +21,6 @@ import '../l10n/s.dart';
 import '../widgets/desktop_refresh_indicator.dart';
 import 'topic_detail_page/topic_detail_page.dart';
 
-/// 「我的话题」右栏的平行视界栈。
-final selectedMyTopicsPaneProvider = SelectedTopicProvider((ref) {
-  return SelectedTopicNotifier();
-});
-
 /// 我的话题页面
 class MyTopicsPage extends ConsumerStatefulWidget {
   const MyTopicsPage({super.key});

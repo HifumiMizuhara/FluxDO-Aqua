@@ -6,7 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
 import '../providers/discourse_providers.dart';
 import '../providers/selected_topic_provider.dart';
-import 'topics_screen.dart' show PaneContentWidget;
 import '../providers/shortcut_provider.dart';
 import '../widgets/desktop_refresh_indicator.dart';
 import '../services/discourse_cache_manager.dart';
@@ -375,7 +374,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       }
     });
 
-    return Scaffold(
+    final scaffold = Scaffold(
       appBar: AppBar(
         title: !showWideLayout && _showTitle && displayName.isNotEmpty
             ? GestureDetector(
@@ -436,15 +435,22 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             ),
         ] : null,
       ),
-      // 宽屏才提供平行视界栈：窄屏没有右栏可承载，openDrafts/openSettings
-      // 必须走全屏 push（有 scope 却没人渲染 = 点了没反应）。
+      // 「我的」页是**导航枢纽**:所有入口(话题/设置/资料…)一律开
+      // 新页面,不做右栏平行视界(曾接过 panes 宿主,用户拍板退役:
+      // 本页不存在"切换别的页面"的语义)。宽屏纯静态双栏(左资料卡
+      // 右功能卡),窄屏单列。
       body: showWideLayout
-          ? EmbeddedStackScope(
-              stackProvider: selectedProfilePaneProvider,
-              child: _buildWideBody(theme),
+          ? MasterDetailLayout(
+              // 左栏是定宽资料卡,保持固定 360:不可拖拽、不随窗口
+              // 比例放宽。
+              masterWidth: 360,
+              resizableMaster: false,
+              master: _buildLeftPanel(theme),
+              emptyDetail: _buildRightPanel(theme),
             )
           : _buildMobileBody(theme),
     );
+    return scaffold;
   }
 
   /// 手机端：保持原有单列布局
@@ -501,38 +507,6 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           const SizedBox(height: 48),
         ],
       ),
-    );
-  }
-
-  /// 平板/桌面端：左右双栏布局
-  Widget _buildWideBody(ThemeData theme) {
-    // 右半边：栈为空时是原来的卡片列表，压了内容（草稿/设置）就顶替掉。
-    final selected = ref.watch(selectedProfilePaneProvider);
-    final entry = selected.topEntry;
-    final notifier = ref.read(selectedProfilePaneProvider.notifier);
-    return Row(
-      children: [
-        SizedBox(
-          width: 360,
-          child: _buildLeftPanel(theme),
-        ),
-        VerticalDivider(width: 1, thickness: 0.5, color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3)),
-        Expanded(
-          child: entry == null
-              ? _buildRightPanel(theme)
-              : PaneContentWidget(
-                  key: ValueKey(
-                    'profile_pane_${entry.kind}_'
-                    '${entry.instanceId ?? entry.username ?? entry.topicId}',
-                  ),
-                  entry: entry,
-                  stackProvider: selectedProfilePaneProvider,
-                  parentActive: widget.isActive,
-                  onBack: () =>
-                      selected.isStacked ? notifier.pop() : notifier.clear(),
-                ),
-        ),
-      ],
     );
   }
 
@@ -900,6 +874,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           icon: Symbols.settings_rounded,
           iconColor: Colors.blueGrey,
           title: context.l10n.profile_settings,
+          // 导航枢纽语义:开新页面(本页无 EmbeddedStackScope,
+          // openSettings 自然走全屏 push,与其他入口一致)。
           onTap: () => EmbeddedStackScope.openSettings(context),
         ),
       ],
