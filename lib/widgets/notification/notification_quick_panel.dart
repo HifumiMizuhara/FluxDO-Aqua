@@ -14,6 +14,7 @@ import '../../utils/responsive.dart';
 import '../../utils/notification_navigation.dart';
 import '../../utils/blocked_user_filter.dart';
 import '../common/predictive_back_overlay_handler.dart';
+import '../layout/master_detail_layout.dart';
 import '../topic/category_drawer.dart' show CategoryDrawerHost;
 import 'notification_item.dart';
 import 'notification_list_skeleton.dart';
@@ -712,17 +713,21 @@ class _NotificationBodyState extends ConsumerState<_NotificationBody> {
                 notification: notification,
                 systemAvatarTemplate: systemAvatarTemplate,
                 onTap: () {
-                  // 先派发跳转再关面板:跳转在本帧同步读取
-                  // context/provider,面板收起动画导致的子树卸载不影响
-                  // 已打开的弹窗/路由。siblings = 当前可见列表,弹窗内
-                  // 可上一条/下一条快速切换。
+                  // 先派发跳转再处理面板:跳转在本帧同步读取
+                  // context/provider。siblings = 当前可见列表,大屏弹窗
+                  // 内可上一条/下一条快速切换。
                   handleNotificationTap(
                     context,
                     ref,
                     notification,
                     siblings: visibleNotifications,
                   );
-                  NotificationQuickPanel.dismiss();
+                  // 大屏(弹窗落点,自带通知列表侧栏)关面板;窄屏推的
+                  // 是全屏详情路由,sheet 留在栈里垫底——返回即回到
+                  // 面板继续看下一条,不用重新拉开。
+                  if (MasterDetailLayout.canShowBothPanesFor(context)) {
+                    NotificationQuickPanel.dismiss();
+                  }
                 },
               );
             },

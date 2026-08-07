@@ -74,8 +74,14 @@ class AdaptiveScaffold extends ConsumerWidget {
     // NavChromeMetrics 注释)。写形态宽而非可见宽:hideNavigationRail
     // 临时隐藏不改判定,避免 pop→Rail 回来→塌成投影的反馈环。
     NavChromeMetrics.railWidth = railWidth;
+    // 左缘覆盖层(通知面板)的让位宽。Rail 内部套着 SafeArea:异形屏
+    // 横屏(挖孔/刘海转到左侧)时它实际占宽 = 左安全区 + 形态宽,这里
+    // 必须扣同一口径——只扣形态宽会让面板左缘劈在 Rail 身上(盖住
+    // 选中 pill 右半,实测横屏截图踩中)。
     final overlayLeftInset = showRail
-        ? railWidth + (useAcrylicRail ? 0.0 : 1.0)
+        ? MediaQuery.paddingOf(context).left +
+              railWidth +
+              (useAcrylicRail ? 0.0 : 1.0)
         : 0.0;
 
     return Stack(

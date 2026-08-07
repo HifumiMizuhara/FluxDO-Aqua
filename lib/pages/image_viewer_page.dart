@@ -113,6 +113,17 @@ class ImageViewerPage extends ConsumerStatefulWidget {
     double heroSourceRadius = 0,
     bool heroSourceCircular = false,
   }) {
+    // Hero 飞行是框架级硬条件:只发生在同一 Navigator 的两个 PageRoute
+    // 之间(HeroController._maybeStartHeroTransition 对非 PageRoute 直接
+    // 返回)。从弹窗(PopupRoute,如通知页面弹窗/用户卡片)里打开时
+    // from 端不是 PageRoute,飞行永远不启动——但查看器拿着 heroTag 会
+    // 走"配对 Hero"的开合/退场路径(禁用缩放预览、退场等归位飞行),
+    // 表现为闪烁/贴片静止。此时一律退化为纯淡入淡出(缩略图占位仍然
+    // 生效,只是不飞)。
+    if (ModalRoute.of(context) is! PageRoute) {
+      heroTag = null;
+      heroTags = null;
+    }
     return Navigator.push(
       context,
       PageRouteBuilder(
