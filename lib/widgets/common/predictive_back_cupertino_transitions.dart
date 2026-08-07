@@ -29,6 +29,11 @@
 //    被打断的手势补发 commit/cancel,否则 userGestureInProgress 计数
 //    永不归零 → popGestureEnabled 恒 false,回前台后预测返回永久失效
 //    (手势无人认领,退场无动画),手势期 flag 也卡死。
+// 8. 转场期静默认领:上一次 pop 退场动画未完时快速再划,
+//    popGestureEnabled 因 !animation.isCompleted 全员拒绝,引擎
+//    fallback 把整个 FlutterView 缩小露出 windowBackground 黑边。
+//    栈顶 detector 此时认领但不驱动路由动画,commit 排队 maybePop,
+//    连划=连续返回。
 //
 // Copyright 2014 The Flutter Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
@@ -197,6 +202,23 @@ class _PredictiveBackGestureDetectorState
     return widget.route.isCurrent && widget.route.popGestureEnabled;
   }
 
+  /// 差异点(文件头第 8 条):上一次 pop 的退场动画未播完时快速再划,
+  /// popGestureEnabled 因 !animation.isCompleted 拒绝,全员不认领 →
+  /// 引擎 fallback 把整个 FlutterView 缩小、露出 windowBackground
+  /// 黑边。此时静默认领:不驱动路由动画(转场进行中不能碰),
+  /// commit 时排队再退一层,连划语义自然。
+  bool get _shouldClaimDuringTransition {
+    final route = widget.route;
+    return route.isCurrent &&
+        !route.isFirst &&
+        !route.willHandlePopInternally &&
+        route.popDisposition != RoutePopDisposition.doNotPop &&
+        !route.animation!.isCompleted;
+  }
+
+  /// 本次认领是「转场期静默认领」(不驱动路由动画,commit 只 pop)
+  bool _silentClaim = false;
+
   _PredictiveBackPhase get phase => _phase;
   _PredictiveBackPhase _phase = _PredictiveBackPhase.idle;
   set phase(_PredictiveBackPhase phase) {
@@ -227,12 +249,21 @@ class _PredictiveBackGestureDetectorState
 
   @override
   bool handleStartBackGesture(PredictiveBackEvent backEvent) {
-    final bool gestureInProgress = !backEvent.isButtonEvent && _isEnabled;
-    if (!gestureInProgress) {
+    if (backEvent.isButtonEvent) {
+      return false;
+    }
+    if (!_isEnabled) {
+      // 差异点 8:转场期静默认领,防引擎 fallback 黑边
+      if (_shouldClaimDuringTransition) {
+        _gestureForceCancelled = false;
+        _silentClaim = true;
+        return true;
+      }
       return false;
     }
 
     _gestureForceCancelled = false;
+    _silentClaim = false;
     phase = _PredictiveBackPhase.start;
     _ownsPredictiveBackGesture = true;
     _predictiveBackGestureStateFor(widget.route)?.value = true;
@@ -243,7 +274,7 @@ class _PredictiveBackGestureDetectorState
 
   @override
   void handleUpdateBackGestureProgress(PredictiveBackEvent backEvent) {
-    if (_gestureForceCancelled) return;
+    if (_gestureForceCancelled || _silentClaim) return;
     phase = _PredictiveBackPhase.update;
 
     widget.route.handleUpdateBackGestureProgress(
@@ -255,6 +286,10 @@ class _PredictiveBackGestureDetectorState
   @override
   void handleCancelBackGesture() {
     if (_gestureForceCancelled) return;
+    if (_silentClaim) {
+      _silentClaim = false;
+      return;
+    }
     phase = _PredictiveBackPhase.cancel;
 
     widget.route.handleCancelBackGesture();
@@ -264,6 +299,16 @@ class _PredictiveBackGestureDetectorState
   @override
   void handleCommitBackGesture() {
     if (_gestureForceCancelled) return;
+    if (_silentClaim) {
+      _silentClaim = false;
+      // 转场期 commit:排队再退一层(等本帧转场态结算后执行,直接
+      // pop 会撞上仍在 popping 的上一路由)
+      final navigator = widget.route.navigator;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        navigator?.maybePop();
+      });
+      return;
+    }
     phase = _PredictiveBackPhase.commit;
 
     widget.route.handleCommitBackGesture();
@@ -290,6 +335,11 @@ class _PredictiveBackGestureDetectorState
     super.didChangeAppLifecycleState(state);
     if (state != AppLifecycleState.hidden &&
         state != AppLifecycleState.paused) {
+      return;
+    }
+    // 转场期静默认领没碰路由动画,锁屏只需弃掉认领
+    if (_silentClaim) {
+      _silentClaim = false;
       return;
     }
     if (!_ownsPredictiveBackGesture || _gestureForceCancelled) return;
@@ -354,7 +404,16 @@ class _PredictiveBackGestureDetectorState
 
   @override
   void dispose() {
-    _clearPredictiveBackGesture();
+    // dispose 可能发生在树锁定期间(被弹路由退场动画结束帧),同步
+    // notify 手势 flag 会命中 markNeedsBuild-when-locked 断言;
+    // 延迟到帧后清理。
+    if (_ownsPredictiveBackGesture) {
+      _ownsPredictiveBackGesture = false;
+      final route = widget.route;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _predictiveBackGestureStateFor(route)?.value = false;
+      });
+    }
     _userGestureInProgress?.removeListener(_handleUserGestureChanged);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
