@@ -581,6 +581,69 @@ extension _UserActions on _TopicDetailPageState {
     }
   }
 
+  /// 标记话题为未读并退出话题页(对齐官方 deferTopic 链路:
+  /// 1. abandon 阅读追踪——丢弃未上报的 timings,并抑制在途请求的
+  ///    onTimingsSent 回调,否则本地积攒的阅读时间会立刻把话题标回已读;
+  /// 2. DELETE /t/:id/timings(带 last=1 回退一层;[all] 时不带,
+  ///    服务端删全部 PostTiming + TopicUser,话题回 NEW 态从头读);
+  /// 3. 本地 tracking + 已挂载的列表 provider 两头显式回退游标
+  ///    (双游标单调合并只认前进方向,回退必须直写);
+  /// 4. 离开话题页(留在页内继续滚动会立即重新上报已读)。
+  Future<void> _handleMarkUnread(TopicDetail detail, {bool all = false}) async {
+    _screenTrack.abandon();
+    try {
+      await ref
+          .read(discourseServiceProvider)
+          .markTopicUnread(widget.topicId, all: all);
+    } on DioException catch (e) {
+      debugPrint('[TopicDetail] 标记未读失败: ${e.response?.statusCode}');
+      // 恢复追踪,页面还在
+      if (mounted && _controller.trackEnabled) {
+        _screenTrack.start(widget.topicId);
+      }
+      return;
+    } catch (e, s) {
+      if (mounted && _controller.trackEnabled) {
+        _screenTrack.start(widget.topicId);
+      }
+      AppErrorHandler.handleUnexpected(e, s);
+      return;
+    }
+
+    if (!mounted) return;
+
+    // 服务端回退基准:优先 highest_post_number(与 destroy_last_for 同
+    // 口径,含小动作楼层),缺失时退回 postsCount
+    final highest = detail.highestPostNumber > 0
+        ? detail.highestPostNumber
+        : detail.postsCount;
+    final container = _providerContainer;
+    container.read(topicTrackingStateProvider.notifier).markTopicUnread(
+          widget.topicId,
+          highestPostNumber: highest,
+          categoryId: detail.categoryId,
+          notificationLevel: detail.notificationLevel.value,
+          all: all,
+        );
+    // 只回写已挂载的列表 provider(与 onTimingsSent 同一取用纪律:
+    // 绝不为本地字段更新触发未打开分类的网络初始化)
+    final pinnedIds = container.read(pinnedCategoriesProvider);
+    for (final categoryId in [null, ...pinnedIds]) {
+      final provider = topicListProvider(categoryId);
+      if (!container.exists(provider)) continue;
+      container.read(provider.notifier).markUnread(widget.topicId, all: all);
+    }
+
+    ToastService.showSuccess(S.current.topicDetail_markUnreadSuccess);
+    // 直接离开话题页(不走 _handleCloseShortcut:搜索态下它只退搜索)。
+    // 嵌入模式语义同 ESC:压栈时 pop 一层,基础层清空右栏回空态。
+    if (widget.embeddedMode) {
+      widget.onEmbeddedBack?.call();
+    } else {
+      unawaited(Navigator.of(context).maybePop());
+    }
+  }
+
   void _shareTopic() {
     final user = ref.read(currentUserProvider).value;
     final username = user?.username ?? '';

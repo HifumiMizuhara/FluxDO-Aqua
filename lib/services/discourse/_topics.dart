@@ -366,6 +366,16 @@ mixin _TopicsMixin on _DiscourseServiceBase {
     );
   }
 
+  /// 标记话题为未读（对齐官方 deferTopic:DELETE /t/:id/timings?last=1,
+  /// 服务端把 last_read_post_number 回退到最高楼层号 - 1)。
+  /// [all] = true 时不带 last=1,服务端 destroy_for 删除全部 PostTiming
+  /// 和 TopicUser,话题回到「从没读过」的 NEW 态,再进从头读。
+  Future<void> markTopicUnread(int topicId, {bool all = false}) async {
+    await _dio.delete(
+      all ? '/t/$topicId/timings.json' : '/t/$topicId/timings.json?last=1',
+    );
+  }
+
   /// 设置话题订阅级别
   Future<void> setTopicNotificationLevel(int topicId, TopicNotificationLevel level) async {
     await _dio.post(

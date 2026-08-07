@@ -1604,6 +1604,9 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
           ),
           onReadLater: _handleReadLater,
           onSubscribe: doSubscribe,
+          onMarkUnread: () => unawaited(_handleMarkUnread(detail)),
+          onMarkUnreadAll: () =>
+              unawaited(_handleMarkUnread(detail, all: true)),
           onShareLink: _shareTopic,
           onShareImage: _shareAsImage,
           onExport: _showExportSheet,
@@ -1680,6 +1683,25 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
             ],
           ),
         ),
+        if (ref.read(currentUserProvider).value != null)
+          ExpandablePopupMenuEntry<String>(
+            icon: Symbols.mark_email_unread_rounded,
+            label: context.l10n.topicDetail_markUnread,
+            children: [
+              ExpandableMenuChild(
+                value: 'mark_unread',
+                icon: Symbols.remove_done_rounded,
+                label: context.l10n.topicDetail_markUnreadLast,
+                subtitle: context.l10n.topicDetail_markUnreadLastDesc,
+              ),
+              ExpandableMenuChild(
+                value: 'mark_unread_all',
+                icon: Symbols.restart_alt_rounded,
+                label: context.l10n.topicDetail_markUnreadAll,
+                subtitle: context.l10n.topicDetail_markUnreadAllDesc,
+              ),
+            ],
+          ),
         const PopupMenuDivider(),
         PopupMenuItem(
           value: 'reading_settings',
