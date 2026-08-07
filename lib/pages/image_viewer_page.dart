@@ -1,5 +1,6 @@
 import 'dart:async' show unawaited;
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
 import 'package:common_ui/common_ui.dart';
@@ -209,6 +210,15 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   /// 中的交互(如下滑关闭)不再随载体销毁。
   final Map<int, ImageGestureController> _gestureControllers = {};
 
+  /// 退场缩放归位的两路钩子(路由动画反转 = 按钮/程序化 pop;
+  /// userGestureInProgress = 预测返回/iOS 拖拽)。缩放是
+  /// RawGestureImage 的画布级变换,Hero 飞行只收缩布局盒子,飞行中
+  /// 逐帧拿「全屏布局的缩放裁切」往小盒子里画,内容乱跳;落地换回
+  /// 源端正常图又突变一次 —— 放大后返回的闪烁即此。pop 启动瞬间
+  /// (飞行测量前)把缩放归位,飞行全程 contain,与源端无缝。
+  ModalRoute<dynamic>? _route;
+  ValueListenable<bool>? _navUserGesture;
+
   ImageGestureController _obtainGestureController(
     int index, {
     required bool inPageView,
@@ -372,7 +382,49 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (!identical(route, _route)) {
+      _route?.animation?.removeStatusListener(_onRouteAnimationStatus);
+      _route = route;
+      _route?.animation?.addStatusListener(_onRouteAnimationStatus);
+    }
+    final userGesture = route?.navigator?.userGestureInProgressNotifier;
+    if (!identical(userGesture, _navUserGesture)) {
+      _navUserGesture?.removeListener(_onNavUserGestureChanged);
+      _navUserGesture = userGesture;
+      _navUserGesture?.addListener(_onNavUserGestureChanged);
+    }
+  }
+
+  /// 按钮/程序化 pop:路由动画转 reverse 的第一帧归位缩放,
+  /// 早于 HeroController 对 to 路由的测量与飞行起跳。
+  void _onRouteAnimationStatus(AnimationStatus status) {
+    if (status == AnimationStatus.reverse) {
+      _resetZoomForExit();
+    }
+  }
+
+  /// 预测返回/iOS 拖拽:手势置位即预归位。手势期间查看器整页被
+  /// 转场层拖动,画布级缩放对跟手观感无增益,提前归位换飞行无缝。
+  void _onNavUserGestureChanged() {
+    if (_navUserGesture?.value == true && (_route?.isCurrent ?? false)) {
+      _resetZoomForExit();
+    }
+  }
+
+  void _resetZoomForExit() {
+    final controller = _gestureControllers[currentIndex];
+    final scale = controller?.details?.totalScale ?? 1.0;
+    if (scale == 1.0) return;
+    controller?.reset();
+  }
+
+  @override
   void dispose() {
+    _route?.animation?.removeStatusListener(_onRouteAnimationStatus);
+    _navUserGesture?.removeListener(_onNavUserGestureChanged);
     _dynamicContentLease.release();
     HeroVisibilityController.instance.clear();
     _activeHeroPage.dispose();
