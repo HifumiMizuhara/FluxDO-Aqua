@@ -16,10 +16,11 @@ import 'package:fluxdo/widgets/render_signet/render_signet_layer.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  const size = 168; // 2 个块周期
+  const size = 336; // 2 个 v2 超周期(kSignetTilePeriod=168)
   const id = 998244353;
-  // 4 个块 x 49 格 x 5x6 点 = 5880 个点像素
-  const expectedDots = 4 * kSignetGridRows * kSignetGridCols * 30;
+  // 4 个超块 x 4 变体 x 49 格 x 5x6 点 = 23520 个点像素
+  const expectedDots = 4 * kSignetSuperBlocks * kSignetSuperBlocks *
+      kSignetGridRows * kSignetGridCols * 30;
 
   Future<ByteData> paintOnColor(Color bg) async {
     final recorder = ui.PictureRecorder();
@@ -64,9 +65,10 @@ void main() {
       // R/G:全屏单一取值(均匀缩放),任何第二取值都意味着空间图案
       expect(stats.r.length, 1, reason: 'R 通道出现空间图案: ${stats.r}');
       expect(stats.g.length, 1, reason: 'G 通道出现空间图案: ${stats.g}');
-      // 消饱和幅度契约:恰为 (255-δ)/255 缩放(四舍五入)
+      // 消饱和幅度契约:恰为 (255-2δ)/255 缩放(四舍五入)——α=2δ
+      // 是外流增强放大案的饱和避让,见 kSignetDesatAlpha
       final bgC = (bg.r * 255).round();
-      final expectScaled = (bgC * (255 - kSignetPlusDelta) / 255).round();
+      final expectScaled = (bgC * (255 - kSignetDesatAlpha) / 255).round();
       expect(stats.r.single, expectScaled, reason: 'R 消饱和幅度不符');
       // B:恰好两档,高档 = 低档+δ 且计数 = 点像素数
       expect(stats.b.length, 2, reason: 'B 通道取值异常: ${stats.b.keys}');

@@ -21,6 +21,64 @@ function dotY(row, col) {
   return (3 * row + 5 * col) % 7;
 }
 
+// ---- v2 形态层(2026-08 超周期去周期化,与 Dart/Python 严格一致) ----
+const SUPER = 2;
+const V2_PERIOD = PERIOD * SUPER; // 168
+
+// 32 位乘法(JS 数值是 double,直乘超 2^53 失精度,16 位分段)
+function mul32(a, b) {
+  return ((((a & 0xFFFF) * b) >>> 0) + (((((a >>> 16) & 0xFFFF) * b) & 0xFFFF) << 16)) >>> 0;
+}
+
+function v2Hash(variant, row, col, salt) {
+  let x = (mul32(variant, 2654435761) + row * 40503 + col * 10859 + salt * 97 + 0x5EED) >>> 0;
+  x = (x ^ (x >>> 13)) >>> 0;
+  x = mul32(x, 2246822519);
+  x = (x ^ (x >>> 11)) >>> 0;
+  return x;
+}
+
+// 格表 [{bit, flip, y0, xl}]:一个折叠周期内的全部采样格。
+// v1:49 格折叠 84;v2:196 格(2x2 变体)折叠 168。
+function buildCells(v2) {
+  const cells = [];
+  if (!v2) {
+    for (let row = 0; row < GRID; row++) {
+      for (let col = 0; col < GRID; col++) {
+        cells.push({
+          bit: row * GRID + col, flip: false,
+          y0: row * CELL + dotY(row, col),
+          xl: col * CELL + LEFT_COLS[0],
+        });
+      }
+    }
+    return cells;
+  }
+  for (let qy = 0; qy < SUPER; qy++) {
+    for (let qx = 0; qx < SUPER; qx++) {
+      const variant = qy * SUPER + qx;
+      for (let row = 0; row < GRID; row++) {
+        for (let col = 0; col < GRID; col++) {
+          cells.push({
+            bit: row * GRID + col,
+            flip: row > 0 && v2Hash(variant, row, col, 3) % 2 === 1,
+            y0: qy * PERIOD + row * CELL + v2Hash(variant, row, col, 1) % 7,
+            xl: qx * PERIOD + col * CELL + LEFT_COLS[0] + v2Hash(variant, row, col, 2) % 2,
+          });
+        }
+      }
+    }
+  }
+  return cells;
+}
+
+const CELLS_V1 = buildCells(false);
+const CELLS_V2 = buildCells(true);
+const GEOM = {
+  false: { cells: CELLS_V1, fold: PERIOD },
+  true: { cells: CELLS_V2, fold: V2_PERIOD },
+};
+
 const DPR_CANDIDATES = [1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.625, 2.75, 3.0, 3.5, 4.0];
 const MAX_CANDIDATES = 4000;
 const CLIP = 2.0;
@@ -127,11 +185,13 @@ function boxBlur(a, w, h, r) {
 
 // RGBA(物理px) → 极性归一的加权通道 O·w(匹配滤波最优加权),同时
 // 按 (sx, sy) 各向异性面积平均降采样到逻辑像素(与 PIL BOX 等价)。
-// O = B-(R+G)/2 承载印记(渲染端 modulate+plus 双笔只动 B,故
-// ΔO = ΔB = DELTA·(1-2B/255));w = 1-2·blur(B)/255 是由局部底色
-// 估计的逐像素期望极性(黑底 +1、白底 -1)。乘 w 后印记信号恒为
-// 正,同屏明暗混排统一成单极性提取;中灰死区 w≈0 自动降权。
-function weightedChannelLogical(rgba, w, h, sx, sy) {
+// O = B-(R+G)/2 承载印记(渲染端只动 B,故 ΔO = ΔB)。两代混合
+// 模型对应两种通道(与 Python weighted_channel 一致):
+// - unipolar=true(消饱和+plus 内联方案):ΔO 恒 +δ,直接返回 O;
+// - unipolar=false(modulate+plus 双极性,原生后端):ΔO = ±δ 随
+//   底色翻转,w = 1-2·blur(B)/255 是逐像素期望极性(黑底 +1、白底
+//   -1),乘 w 后信号恒正;中灰死区 w≈0 自动降权。
+function weightedChannelLogical(rgba, w, h, sx, sy, unipolar) {
   const tw = Math.max(1, Math.round(w / sx));
   const th = Math.max(1, Math.round(h / sy));
   const oCh = new Float64Array(tw * th);
@@ -159,95 +219,107 @@ function weightedChannelLogical(rgba, w, h, sx, sy) {
       bCh[ty * tw + tx] = sumB / area;
     }
   }
-  const blurred = boxBlur(bCh, tw, th, WEIGHT_BLUR);
-  for (let i = 0; i < oCh.length; i++) {
-    oCh[i] *= 1 - (2 * blurred[i]) / 255;
+  if (!unipolar) {
+    const blurred = boxBlur(bCh, tw, th, WEIGHT_BLUR);
+    for (let i = 0; i < oCh.length; i++) {
+      oCh[i] *= 1 - (2 * blurred[i]) / 255;
+    }
   }
   return { data: oCh, w: tw, h: th };
 }
 
-// 84x84 块 → diff[cell*7056 + phase]:每格"左位均值-右位均值"在
-// 全部相位下的取值(2x2 平铺 + 积分图)
-function diffFields(tile) {
-  const T = PERIOD * 2;
+// 折叠瓦片(fold x fold)→ diff[cell*fold² + phase]:每格"左位均值-
+// 右位均值"在全部相位下的取值(2x2 平铺 + 积分图);扰码格(flip)
+// 已翻回原位极性。cells/fold 由 GEOM[v2] 提供。
+function diffFields(tile, cells, fold) {
+  const T = fold * 2;
   const S = new Float64Array((T + 1) * (T + 1));
   for (let y = 0; y < T; y++) {
     let rowSum = 0;
     for (let x = 0; x < T; x++) {
-      rowSum += tile[(y % PERIOD) * PERIOD + (x % PERIOD)];
+      rowSum += tile[(y % fold) * fold + (x % fold)];
       S[(y + 1) * (T + 1) + (x + 1)] = S[y * (T + 1) + (x + 1)] + rowSum;
     }
   }
   const rect = (y0, y1, x0, x1) =>
     S[y1 * (T + 1) + x1] - S[y0 * (T + 1) + x1] - S[y1 * (T + 1) + x0] + S[y0 * (T + 1) + x0];
 
-  const diff = new Float64Array(N_CELLS * N_PHASE);
-  const lArea = DOT_H * (LEFT_COLS[1] - LEFT_COLS[0]);
-  const rArea = DOT_H * (RIGHT_COLS[1] - RIGHT_COLS[0]);
-  for (let row = 0; row < GRID; row++) {
-    for (let col = 0; col < GRID; col++) {
-      const cell = row * GRID + col;
-      const y0 = row * CELL + dotY(row, col), y1 = y0 + DOT_H;
-      const xl0 = col * CELL + LEFT_COLS[0], xl1 = col * CELL + LEFT_COLS[1];
-      const xr0 = col * CELL + RIGHT_COLS[0], xr1 = col * CELL + RIGHT_COLS[1];
-      const base = cell * N_PHASE;
-      for (let py = 0; py < PERIOD; py++) {
-        for (let px = 0; px < PERIOD; px++) {
-          const l = rect(y0 + py, y1 + py, xl0 + px, xl1 + px) / lArea;
-          const r = rect(y0 + py, y1 + py, xr0 + px, xr1 + px) / rArea;
-          diff[base + py * PERIOD + px] = l - r;
-        }
+  const nPhase = fold * fold;
+  const dotW = LEFT_COLS[1] - LEFT_COLS[0];
+  const area = DOT_H * dotW;
+  const diff = new Float64Array(cells.length * nPhase);
+  for (let c = 0; c < cells.length; c++) {
+    const { flip, y0, xl } = cells[c];
+    const y1 = y0 + DOT_H;
+    const base = c * nPhase;
+    const sign = flip ? -1 : 1;
+    for (let py = 0; py < fold; py++) {
+      for (let px = 0; px < fold; px++) {
+        const l = rect(y0 + py, y1 + py, xl + px, xl + dotW + px) / area;
+        const r = rect(y0 + py, y1 + py, xl + dotW + px, xl + 2 * dotW + px) / area;
+        diff[base + py * fold + px] = sign * (l - r);
       }
     }
   }
   return diff;
 }
 
-function tryExtract(chan, dpr, onBlock) {
+function tryExtract(chan, dpr, v2, onBlock) {
+  const { cells, fold } = GEOM[v2];
+  const nPhase = fold * fold;
   const { data, w, h } = chan;
-  const bx = Math.floor(w / PERIOD), by = Math.floor(h / PERIOD);
+  const bx = Math.floor(w / fold), by = Math.floor(h / fold);
   if (bx < 1 || by < 1) return null;
   const n = bx * by;
+  const nCells = cells.length;
+  const variants = nCells / N_CELLS; // v1=1 / v2=4
 
-  // 逐块差分、限幅后累计
-  const vAll = new Float64Array(N_CELLS * N_PHASE);
-  const tile = new Float64Array(N_PHASE);
+  // 逐块差分、限幅后累计(格级),再位级聚合(v2 每位 4 变体格)
+  const cAll = new Float64Array(nCells * nPhase);
+  const tile = new Float64Array(nPhase);
   for (let b = 0; b < n; b++) {
-    const oy = Math.floor(b / bx) * PERIOD, ox = (b % bx) * PERIOD;
-    for (let y = 0; y < PERIOD; y++) {
-      for (let x = 0; x < PERIOD; x++) tile[y * PERIOD + x] = data[(oy + y) * w + ox + x];
+    const oy = Math.floor(b / bx) * fold, ox = (b % bx) * fold;
+    for (let y = 0; y < fold; y++) {
+      for (let x = 0; x < fold; x++) tile[y * fold + x] = data[(oy + y) * w + ox + x];
     }
-    const d = diffFields(tile);
+    const d = diffFields(tile, cells, fold);
     for (let i = 0; i < d.length; i++) {
-      vAll[i] += d[i] > CLIP ? CLIP : d[i] < -CLIP ? -CLIP : d[i];
+      cAll[i] += d[i] > CLIP ? CLIP : d[i] < -CLIP ? -CLIP : d[i];
     }
     if (onBlock) onBlock();
   }
+  const vAll = new Float64Array(N_CELLS * nPhase);
+  for (let c = 0; c < nCells; c++) {
+    const bit = cells[c].bit;
+    const src = c * nPhase, dst = bit * nPhase;
+    for (let p = 0; p < nPhase; p++) vAll[dst + p] += cAll[src + p];
+  }
 
   // 候选相位:同步行符号精确匹配,margin = 最弱格净票强度
+  const voteScale = n * CLIP * variants;
   const cands = [];
-  for (let ph = 0; ph < N_PHASE; ph++) {
+  for (let ph = 0; ph < nPhase; ph++) {
     let okSync = true;
     for (let i = 0; i < GRID; i++) {
-      const positive = vAll[i * N_PHASE + ph] > 0;
+      const positive = vAll[i * nPhase + ph] > 0;
       if (positive !== (SYNC_ROW[i] === 1)) { okSync = false; break; }
     }
     if (!okSync) continue;
     let minAbs = Infinity;
     for (let c = 0; c < N_CELLS; c++) {
-      const a = Math.abs(vAll[c * N_PHASE + ph]);
+      const a = Math.abs(vAll[c * nPhase + ph]);
       if (a < minAbs) minAbs = a;
     }
-    cands.push({ ph, margin: minAbs / (n * CLIP) });
+    cands.push({ ph, margin: minAbs / voteScale });
   }
   if (!cands.length) return null;
   cands.sort((a, b) => b.margin - a.margin);
 
   let best = null;
   const v = new Float64Array(N_CELLS);
-  const score = new Float64Array(N_PHASE);
+  const score = new Float64Array(nPhase);
   for (const { ph, margin } of cands.slice(0, MAX_CANDIDATES)) {
-    for (let c = 0; c < N_CELLS; c++) v[c] = vAll[c * N_PHASE + ph];
+    for (let c = 0; c < N_CELLS; c++) v[c] = vAll[c * nPhase + ph];
     const result = softDecode(v);
     if (!result) continue;
     // 匹配滤波复核:解码位模板(±1)对所有相位的票数打分。真印记
@@ -257,27 +329,29 @@ function tryExtract(chan, dpr, onBlock) {
     score.fill(0);
     for (let c = 0; c < N_CELLS; c++) {
       const t = result.bits[c] ? 1 : -1;
-      const base = c * N_PHASE;
-      for (let p = 0; p < N_PHASE; p++) score[p] += t * vAll[base + p];
+      const base = c * nPhase;
+      for (let p = 0; p < nPhase; p++) score[p] += t * vAll[base + p];
     }
     const sorted = Float64Array.from(score).sort();
-    const med = sorted[N_PHASE >> 1];
-    const py = Math.floor(ph / PERIOD), px = ph % PERIOD;
+    const med = sorted[nPhase >> 1];
+    const py = Math.floor(ph / fold), px = ph % fold;
     let second = -Infinity;
-    for (let p = 0; p < N_PHASE; p++) {
-      const yy = Math.floor(p / PERIOD), xx = p % PERIOD;
-      const dy = Math.min(Math.abs(yy - py), PERIOD - Math.abs(yy - py));
-      const dx = Math.min(Math.abs(xx - px), PERIOD - Math.abs(xx - px));
+    for (let p = 0; p < nPhase; p++) {
+      const yy = Math.floor(p / fold), xx = p % fold;
+      const dy = Math.min(Math.abs(yy - py), fold - Math.abs(yy - py));
+      const dx = Math.min(Math.abs(xx - px), fold - Math.abs(xx - px));
       if (dy <= PEAK_MASK_RADIUS && dx <= PEAK_MASK_RADIUS) continue;
       if (score[p] > second) second = score[p];
     }
     const ratio = (score[ph] - med) / (second - med + 1e-12);
-    const verified = n >= 4 &&
+    // 块数下限按面积换算:1 个 v2 块 ≙ 4 个 v1 块
+    const minBlocks = v2 ? 1 : 4;
+    const verified = n >= minBlocks &&
       ((ratio >= VERIFY_RATIO_STRONG && margin >= VERIFY_STRONG_MIN_MARGIN) ||
        (ratio >= VERIFY_RATIO_WEAK && margin >= VERIFY_MIN_MARGIN));
     const hit = {
       uid: result.uid, dpr, margin, nBlocks: n, verified, ratio,
-      phase: [py, px],
+      phase: [py, px], v2,
     };
     if (!best || (hit.verified ? 1 : 0) > (best.verified ? 1 : 0) ||
         (hit.verified === best.verified && hit.ratio > best.ratio)) {
@@ -336,53 +410,63 @@ function combPeriodSeeds(chan) {
 
 // 爬山度量:同步行匹配相位上的最弱格净票强度峰值(无需已知 uid)。
 // 只取前 BLIND_METRIC_BLOCKS 块控制成本。
-function blindMetric(rgba, w, h, sx, sy) {
-  const chan = weightedChannelLogical(rgba, w, h, sx, sy);
-  const bx = Math.floor(chan.w / PERIOD), by = Math.floor(chan.h / PERIOD);
-  const n = Math.min(bx * by, BLIND_METRIC_BLOCKS);
-  if (bx < 1 || by < 1 || bx * by < 4) return -1;
+function blindMetric(rgba, w, h, sx, sy, v2, unipolar) {
+  const { cells, fold } = GEOM[v2];
+  const nPhase = fold * fold;
+  const nCells = cells.length;
+  const variants = nCells / N_CELLS;
+  const chan = weightedChannelLogical(rgba, w, h, sx, sy, unipolar);
+  const bx = Math.floor(chan.w / fold), by = Math.floor(chan.h / fold);
+  // 最低块数按面积换算(v1 4 块 ≙ v2 1 块)
+  if (bx < 1 || by < 1 || bx * by * variants < 4) return -1;
+  const n = Math.min(bx * by, Math.max(1, Math.floor(BLIND_METRIC_BLOCKS / variants)));
 
-  const vAll = new Float64Array(N_CELLS * N_PHASE);
-  const tile = new Float64Array(N_PHASE);
+  const cAll = new Float64Array(nCells * nPhase);
+  const tile = new Float64Array(nPhase);
   for (let b = 0; b < n; b++) {
-    const oy = Math.floor(b / bx) * PERIOD, ox = (b % bx) * PERIOD;
-    for (let y = 0; y < PERIOD; y++) {
-      for (let x = 0; x < PERIOD; x++) tile[y * PERIOD + x] = chan.data[(oy + y) * chan.w + ox + x];
+    const oy = Math.floor(b / bx) * fold, ox = (b % bx) * fold;
+    for (let y = 0; y < fold; y++) {
+      for (let x = 0; x < fold; x++) tile[y * fold + x] = chan.data[(oy + y) * chan.w + ox + x];
     }
-    const d = diffFields(tile);
+    const d = diffFields(tile, cells, fold);
     for (let i = 0; i < d.length; i++) {
-      vAll[i] += d[i] > CLIP ? CLIP : d[i] < -CLIP ? -CLIP : d[i];
+      cAll[i] += d[i] > CLIP ? CLIP : d[i] < -CLIP ? -CLIP : d[i];
     }
+  }
+  const vAll = new Float64Array(N_CELLS * nPhase);
+  for (let c = 0; c < nCells; c++) {
+    const src = c * nPhase, dst = cells[c].bit * nPhase;
+    for (let p = 0; p < nPhase; p++) vAll[dst + p] += cAll[src + p];
   }
   let best = 0;
   // 加权通道极性已归一,单极性扫描即可
-  for (let ph = 0; ph < N_PHASE; ph++) {
+  for (let ph = 0; ph < nPhase; ph++) {
     let okSync = true;
     for (let i = 0; i < GRID; i++) {
-      if ((vAll[i * N_PHASE + ph] > 0) !== (SYNC_ROW[i] === 1)) { okSync = false; break; }
+      if ((vAll[i * nPhase + ph] > 0) !== (SYNC_ROW[i] === 1)) { okSync = false; break; }
     }
     if (!okSync) continue;
     let minAbs = Infinity;
     for (let c = 0; c < N_CELLS; c++) {
-      const a = Math.abs(vAll[c * N_PHASE + ph]);
+      const a = Math.abs(vAll[c * nPhase + ph]);
       if (a < minAbs) minAbs = a;
     }
-    const m = minAbs / (n * CLIP);
+    const m = minAbs / (n * CLIP * variants);
     if (m > best) best = m;
   }
   return best;
 }
 
 // 坐标轮换爬山
-function hillClimb(rgba, w, h, sx0, sy0) {
+function hillClimb(rgba, w, h, sx0, sy0, v2, unipolar) {
   let sx = sx0, sy = sy0;
-  let best = blindMetric(rgba, w, h, sx, sy);
+  let best = blindMetric(rgba, w, h, sx, sy, v2, unipolar);
   for (const step of BLIND_HILL_STEPS) {
     for (let iter = 0; iter < BLIND_HILL_MAX_ITER; iter++) {
       let improved = false;
       for (const [dx, dy] of [[step, 0], [-step, 0], [0, step], [0, -step]]) {
         const nx = sx * (1 + dx), ny = sy * (1 + dy);
-        const m = blindMetric(rgba, w, h, nx, ny);
+        const m = blindMetric(rgba, w, h, nx, ny, v2, unipolar);
         if (m > best) { sx = nx; sy = ny; best = m; improved = true; }
       }
       if (!improved) break;
@@ -391,13 +475,13 @@ function hillClimb(rgba, w, h, sx0, sy0) {
   return { sx, sy, metric: best };
 }
 
-function blindExtract(rgba, w, h, report) {
-  let seeds = combPeriodSeeds(weightedChannelLogical(rgba, w, h, 1, 1)).map((sy) => [sy, sy]);
+function blindExtract(rgba, w, h, v2, unipolar, report) {
+  let seeds = combPeriodSeeds(weightedChannelLogical(rgba, w, h, 1, 1, unipolar)).map((sy) => [sy, sy]);
   if (!seeds.length) {
     // 兜底:等比粗扫
     const coarse = [];
     for (let s = 0.8; s < 4.2; s += 0.03) {
-      coarse.push([s, blindMetric(rgba, w, h, s, s)]);
+      coarse.push([s, blindMetric(rgba, w, h, s, s, v2, unipolar)]);
     }
     coarse.sort((a, b) => b[1] - a[1]);
     seeds = coarse.slice(0, 3).filter(([, m]) => m > 0).map(([s]) => [s, s]);
@@ -405,9 +489,9 @@ function blindExtract(rgba, w, h, report) {
   let bestHit = null;
   for (const [sx0, sy0] of seeds) {
     if (report) report(`盲搜:细化 ${sx0.toFixed(3)} 附近`);
-    const { sx, sy, metric } = hillClimb(rgba, w, h, sx0, sy0);
+    const { sx, sy, metric } = hillClimb(rgba, w, h, sx0, sy0, v2, unipolar);
     if (metric <= 0) continue;
-    const hit = tryExtract(weightedChannelLogical(rgba, w, h, sx, sy), Math.round(sx * 1e4) / 1e4, null);
+    const hit = tryExtract(weightedChannelLogical(rgba, w, h, sx, sy, unipolar), Math.round(sx * 1e4) / 1e4, v2, null);
     if (hit) {
       hit.dprY = Math.round(sy * 1e4) / 1e4;
       if (!bestHit || (hit.verified ? 1 : 0) > (bestHit.verified ? 1 : 0) ||
@@ -438,21 +522,33 @@ self.onmessage = (e) => {
   const hits = [];
   for (const dpr of opps) {
     self.postMessage({ type: "progress", done, total: totalBlocks, label: `dpr=${dpr} 重采样` });
-    const chan = weightedChannelLogical(rgba, width, height, dpr, dpr);
-    const hit = tryExtract(chan, dpr, () => {
-      done++;
-      if (done % 4 === 0) {
-        self.postMessage({ type: "progress", done, total: totalBlocks, label: `dpr=${dpr} 分析中` });
+    // 四组合:形态 v2/v1 x 混合模型 unipolar(内联)/bipolar(原生),
+    // 与 Python extract() 一致;verified 复核天然去伪
+    for (const unipolar of [true, false]) {
+      const chan = weightedChannelLogical(rgba, width, height, dpr, dpr, unipolar);
+      for (const v2 of [true, false]) {
+        const hit = tryExtract(chan, dpr, v2, (unipolar && v2) ? () => {
+          done++;
+          if (done % 4 === 0) {
+            self.postMessage({ type: "progress", done, total: totalBlocks, label: `dpr=${dpr} 分析中` });
+          }
+        } : null);
+        if (hit) hits.push(hit);
       }
-    });
-    if (hit) hits.push(hit);
+    }
   }
   if (!hits.some((h) => h.verified)) {
     // 快路径失败:捕获帧可能被连续比例/非等比缩放,转盲搜
     self.postMessage({ type: "progress", done, total: totalBlocks, label: "盲缩放搜索中(可能需要十几秒)" });
-    const blind = blindExtract(rgba, width, height, (label) =>
-      self.postMessage({ type: "progress", done, total: totalBlocks, label }));
-    if (blind) hits.push(blind);
+    outer:
+    for (const unipolar of [true, false]) {
+      for (const v2 of [true, false]) {
+        const blind = blindExtract(rgba, width, height, v2, unipolar, (label) =>
+          self.postMessage({ type: "progress", done, total: totalBlocks, label }));
+        if (blind) hits.push(blind);
+        if (blind && blind.verified) break outer;
+      }
+    }
   }
   hits.sort((a, b) =>
     (b.verified ? 1 : 0) - (a.verified ? 1 : 0) || b.ratio - a.ratio,

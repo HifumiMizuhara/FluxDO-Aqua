@@ -76,6 +76,8 @@ PERIOD = GRID * CELL           # 块周期 84
 SYNC_ROW = [1, 0, 1, 1, 0, 0, 1]
 DELTA = 1                      # plus 笔 B 通道抬升量,自检模式使用
 DROP = 2 * DELTA               # modulate 笔 B 通道乘性压降,自检模式使用
+DESAT_ALPHA = 2 * DELTA        # 单极性方案消饱和笔 α(饱和避让加固,
+                               # 与 Dart kSignetDesatAlpha 一致)
 # 点位采样区域(逻辑 px,整数几何,采样区=完整点)
 LEFT_COLS = (1, 6)             # bit=1 点位 x∈[1,6)
 RIGHT_COLS = (6, 11)           # bit=0 点位 x∈[6,11)
@@ -83,10 +85,73 @@ DOT_H = 6                      # 点高
 
 
 def dot_y(row: int, col: int) -> int:
-    """单元格内点 y 偏移,逐格打散(0~6)。若所有格同 y,整屏每 12
+    """v1 单元格内点 y 偏移,逐格打散(0~6)。若所有格同 y,整屏每 12
     逻辑 px 形成一条同符号"点带",人眼沿线积分使阈值降 2~4 倍,
-    整屏"发脏"。与 Dart wmDotYOffset 严格一致。"""
+    整屏"发脏"。与 Dart signetDotYOffset 严格一致。"""
     return (3 * row + 5 * col) % 7
+
+
+# ---- v2 形态层(2026-08 外流放大案组合拳,与 Dart codec 严格一致) ----
+#
+# 编码结构(49 位/块、位置差分、δ 幅度)与 v1 完全相同,只把「像素
+# 长相」去周期:相邻 SUPER x SUPER 个块为一组变体,点 y 偏移/位对
+# x 滑移/payload 位翻转由密钥哈希决定——位值仍按 84 周期平铺,像素
+# 图案周期变 168 且块间互不相同(残迹自相关峰 0.91 → 0.40)。
+# 密钥是公开常量,目的是去周期,不是保密。
+
+SUPER = 2                      # 超周期(块)
+V2_PERIOD = PERIOD * SUPER     # v2 像素图案周期 168
+
+
+def v2_hash(variant: int, row: int, col: int, salt: int) -> int:
+    """与 Dart signetV2Hash 严格同式(xorshift 洗匀低位)。"""
+    x = (
+        variant * 2654435761 + row * 40503 + col * 10859 + salt * 97 + 0x5EED
+    ) & 0xFFFFFFFF
+    x ^= x >> 13
+    x = (x * 2246822519) & 0xFFFFFFFF
+    x ^= x >> 11
+    return x
+
+
+def _build_cells(v2: bool) -> list[tuple[int, bool, int, int]]:
+    """格表 [(bit_idx, flip, y0, xl)]:一个折叠周期内的全部采样格。
+    bit_idx∈[0,49) 指向编码位;flip=该格位值被扰码 XOR;y0/xl 为点
+    竖直起点与左位 x 起点(左位 [xl,xl+5)、右位 [xl+5,xl+10))。
+    v1:49 格,折叠 84;v2:196 格(4 变体),折叠 168。"""
+    cells = []
+    if not v2:
+        for row in range(GRID):
+            for col in range(GRID):
+                cells.append((
+                    row * GRID + col,
+                    False,
+                    row * CELL + dot_y(row, col),
+                    col * CELL + LEFT_COLS[0],
+                ))
+        return cells
+    for qy in range(SUPER):
+        for qx in range(SUPER):
+            variant = qy * SUPER + qx
+            for row in range(GRID):
+                for col in range(GRID):
+                    flip = row > 0 and v2_hash(variant, row, col, 3) % 2 == 1
+                    cells.append((
+                        row * GRID + col,
+                        flip,
+                        qy * PERIOD + row * CELL + v2_hash(variant, row, col, 1) % 7,
+                        qx * PERIOD + col * CELL + LEFT_COLS[0]
+                        + v2_hash(variant, row, col, 2) % 2,
+                    ))
+    return cells
+
+
+CELLS_V1 = _build_cells(False)
+CELLS_V2 = _build_cells(True)
+
+
+def _mode_geometry(v2: bool) -> tuple[list[tuple[int, bool, int, int]], int]:
+    return (CELLS_V2, V2_PERIOD) if v2 else (CELLS_V1, PERIOD)
 
 
 # 极性权重估计:B 通道盒模糊半径(逻辑 px)。核 13x13 覆盖整个单元
@@ -100,6 +165,10 @@ DPR_CANDIDATES = [1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.625, 2.75, 3.0, 3.5, 4
 
 MAX_CANDIDATES = 4000      # 每个 dpr 最多复核的候选相位数
 CLIP = 2.0                 # 单块差分限幅:压制 JPEG 块效应等重尾离群值
+SAT_RATIO = 0.25           # 票场饱和率上限:|v|≥clip 的相位占比超过它
+                           # 即判定为增强放大图,按实测幅度重设限幅。
+                           # 正常帧真相位 |v|≈δ=1、其余≈0,该比率近 0;
+                           # 直方图拉伸类增强把 δ 放大百倍后可达 0.8+
 SOFT_FLIP_POOL = 8         # 软判决:参与穷举翻转的最弱位数量
 SOFT_FLIP_MAX = 3          # 软判决:最多同时翻转的位数
 VERIFY_RATIO_STRONG = 2.0  # 复核:凭相位集中度即可信的 ratio 下限
@@ -163,6 +232,7 @@ class Hit:
     verified: bool  # 匹配滤波复核通过(ratio ≥ VERIFY_MIN_RATIO)
     ratio: float    # 匹配滤波主峰/次峰超出比,越大越可信
     dpr_y: float | None = None  # 盲搜命中时的垂直缩放(与 dpr 不同则为各向异性)
+    v2: bool = False  # v2 形态(超周期去周期化)命中
 
     @property
     def scale_desc(self) -> str:
@@ -171,27 +241,33 @@ class Hit:
         return f"{self.dpr}x{self.dpr_y}"
 
 
-def split_blocks(gray: np.ndarray) -> np.ndarray | None:
-    """裁到 PERIOD 整数倍并切块 → (n, PERIOD, PERIOD)。"""
+def split_blocks(gray: np.ndarray, period: int = PERIOD) -> np.ndarray | None:
+    """裁到 period 整数倍并切块 → (n, period, period)。"""
     h, w = gray.shape
-    by, bx = h // PERIOD, w // PERIOD
+    by, bx = h // period, w // period
     if by < 1 or bx < 1:
         return None
-    g = gray[: by * PERIOD, : bx * PERIOD]
+    g = gray[: by * period, : bx * period]
     return (
-        g.reshape(by, PERIOD, bx, PERIOD)
+        g.reshape(by, period, bx, period)
         .transpose(0, 2, 1, 3)
-        .reshape(by * bx, PERIOD, PERIOD)
+        .reshape(by * bx, period, period)
     )
 
 
-def diff_fields(tile: np.ndarray, with_var: bool = False):
-    """84x84 折叠瓦片 → diff[cell, py, px]:每格"左点均值-右点均值"
-    在全部 PERIOD² 个相位下的取值(2x2 平铺 + 积分图向量化)。
+def diff_fields(
+    tile: np.ndarray,
+    cells: list[tuple[int, bool, int, int]] = CELLS_V1,
+    with_var: bool = False,
+):
+    """折叠瓦片 → diff[cell, py, px]:每个采样格"左点均值-右点均值"
+    在全部相位下的取值(2x2 平铺 + 积分图向量化),扰码格(flip)已
+    翻回原位极性。折叠周期取 tile 边长(v1=84 / v2=168)。
 
     with_var=True 时同时返回 var[cell, py, px]:左右两采样区的像素
     方差之和,用作内容活跃度——文字/图片边缘穿过采样区时方差飙升,
     聚合端以 1/(var+ε) 加权,把票权集中到平坦干净的块。"""
+    p = tile.shape[0]
     t = np.tile(tile, (2, 2))
     s = np.zeros((t.shape[0] + 1, t.shape[1] + 1))
     s[1:, 1:] = t.cumsum(0).cumsum(1)
@@ -199,7 +275,6 @@ def diff_fields(tile: np.ndarray, with_var: bool = False):
         t2 = t * t
         s2 = np.zeros((t2.shape[0] + 1, t2.shape[1] + 1))
         s2[1:, 1:] = t2.cumsum(0).cumsum(1)
-    p = PERIOD
 
     def rect(src, y0, y1, x0, x1):
         return (
@@ -217,17 +292,16 @@ def diff_fields(tile: np.ndarray, with_var: bool = False):
         var = rect(s2, y0, y1, x0, x1) / area - mean * mean
         return mean, var
 
-    diff = np.empty((GRID * GRID, p, p))
-    var_sum = np.empty((GRID * GRID, p, p)) if with_var else None
-    for row in range(GRID):
-        for col in range(GRID):
-            dy = row * CELL + dot_y(row, col)
-            y0, y1 = dy, dy + DOT_H
-            ml, vl = region_stats(y0, y1, col * CELL + LEFT_COLS[0], col * CELL + LEFT_COLS[1])
-            mr, vr = region_stats(y0, y1, col * CELL + RIGHT_COLS[0], col * CELL + RIGHT_COLS[1])
-            diff[row * GRID + col] = ml - mr
-            if with_var:
-                var_sum[row * GRID + col] = vl + vr
+    dot_w = LEFT_COLS[1] - LEFT_COLS[0]
+    diff = np.empty((len(cells), p, p))
+    var_sum = np.empty((len(cells), p, p)) if with_var else None
+    for i, (_, flip, dy, xl) in enumerate(cells):
+        ml, vl = region_stats(dy, dy + DOT_H, xl, xl + dot_w)
+        mr, vr = region_stats(dy, dy + DOT_H, xl + dot_w, xl + 2 * dot_w)
+        d = ml - mr
+        diff[i] = -d if flip else d
+        if with_var:
+            var_sum[i] = vl + vr
     return (diff, var_sum) if with_var else diff
 
 
@@ -287,11 +361,23 @@ def weighted_channel(rgb: np.ndarray, unipolar: bool = False) -> np.ndarray:
     return o * w
 
 
-def try_extract(chan_logical: np.ndarray, dpr: float) -> Hit | None:
-    blocks = split_blocks(chan_logical)
+def try_extract(chan_logical: np.ndarray, dpr: float, v2: bool = False) -> Hit | None:
+    cells, fold = _mode_geometry(v2)
+    blocks = split_blocks(chan_logical, fold)
     if blocks is None:
         return None
     n = len(blocks)
+    area_scale = (fold // PERIOD) ** 2
+    # 共识复核仅 v1:它的 ratio/score 门槛按 7056 相位空间定标,v2
+    # 相位空间 x4,噪声 ratio 尾部自然突破 WEAK 档(实测阴性对照
+    # 1.52~1.63 误报);且 v2 单块即 4 个变体块的票量,3 块小裁剪
+    # 主复核 STRONG 直接通过(实测 margin 0.21 / ratio 2.99),共识
+    # 分支无存在必要
+    consensus_max = CONSENSUS_MAX_BLOCKS if area_scale == 1 else 0
+    # 格 → 编码位映射:v1 恒等(49 格 49 位);v2 每位 4 个变体格,
+    # 票在位级聚合(加权和相加)后再判决
+    bit_of = np.array([c[0] for c in cells])
+    n_cells = len(cells)
 
     # 内容自适应加权投票:每格每块的票以 w=1/(var+ε) 加权(var=左右
     # 采样区像素方差和,文字/图片边缘穿过时飙升)。等权方案下小截图
@@ -300,25 +386,50 @@ def try_extract(chan_logical: np.ndarray, dpr: float) -> Hit | None:
     # 块拖后腿"。v 归一到 [-1,1] 量纲(权重和为分母),margin 直接
     # 可比;CLIP 限幅逻辑由权重取代——大方差票权重自然趋零。
     VAR_EPS = 1.0
-    v_num = np.zeros((GRID * GRID, PERIOD, PERIOD))
-    v_den = np.zeros((GRID * GRID, PERIOD, PERIOD))
-    # 小图保留逐块 (diff, w),供共识复核逐块打分
-    per_block = [] if n <= CONSENSUS_MAX_BLOCKS else None
-    for block in blocks:
-        diff, var = diff_fields(block, with_var=True)
-        w = 1.0 / (var + VAR_EPS)
-        v_num += np.clip(diff, -CLIP, CLIP) * w
-        v_den += w
-        if per_block is not None:
-            per_block.append((np.clip(diff, -CLIP, CLIP), w))
-    v_all = v_num / v_den
+
+    def accumulate(clip: float):
+        """跨块加权投票 + 饱和统计 + 原始幅度采样(自适应重限幅用)。"""
+        v_num = np.zeros((n_cells, fold, fold))
+        v_den = np.zeros((n_cells, fold, fold))
+        per_block = [] if n <= consensus_max else None
+        sat = 0
+        raw_abs = []
+        for block in blocks:
+            diff, var = diff_fields(block, cells, with_var=True)
+            w = 1.0 / (var + VAR_EPS)
+            clipped = np.clip(diff, -clip, clip)
+            sat += int((np.abs(diff) >= clip).sum())
+            raw_abs.append(np.abs(diff).ravel()[::197])  # 稀疏采样,估幅度足够
+            v_num += clipped * w
+            v_den += w
+            if per_block is not None:
+                per_block.append((clipped, w))
+        sat_ratio = sat / (n * n_cells * fold * fold)
+        # 位级聚合:同位的变体格加权票合并(v1 恒等映射,零开销)
+        b_num = np.zeros((GRID * GRID, fold, fold))
+        b_den = np.zeros((GRID * GRID, fold, fold))
+        np.add.at(b_num, bit_of, v_num)
+        np.add.at(b_den, bit_of, v_den)
+        return b_num / b_den, per_block, sat_ratio, np.concatenate(raw_abs)
+
+    v_all, per_block, sat_ratio, raw_abs = accumulate(CLIP)
+    clip_eff = CLIP
+    if sat_ratio > SAT_RATIO:
+        # 增强放大图(2026-08 外流案):直方图拉伸把 δ=1 放大百倍,
+        # 固定限幅让错误相位的部分重叠差分与真相位一样饱和到边界,
+        # 相位判别力(matched-filter ratio)崩塌,饱和错误候选反以
+        # margin=1 通过复核=假阳性。按实测幅度重设限幅恢复线性:
+        # P99.5 覆盖被放大的信号本体,真相位满幅、部分重叠减半,
+        # 判别力回归。正常帧 sat_ratio≈0 不走此路径,行为不变。
+        clip_eff = max(CLIP, float(np.percentile(raw_abs, 99.5)))
+        v_all, per_block, _, _ = accumulate(clip_eff)
 
     # 候选相位:同步行精确匹配,按最弱格净票强度排序。(不容错:
     # 软翻转已大幅放宽 CRC,同步行是剩余的强判别项,放宽会引入
     # 系统性色度纹理的假阳性)
     sync_sign = np.where(np.array(SYNC_ROW) == 1, 1, -1)
     cand = (np.sign(v_all[:GRID]) == sync_sign[:, None, None]).all(axis=0)
-    margin_all = np.abs(v_all).min(axis=0) / CLIP
+    margin_all = np.abs(v_all).min(axis=0) / clip_eff
     ys, xs = np.nonzero(cand)
     if len(ys) == 0:
         return None
@@ -335,13 +446,13 @@ def try_extract(chan_logical: np.ndarray, dpr: float) -> Hit | None:
         # 打分。真印记只在唯一正确相位有能量,主峰远超次峰;噪声候选
         # 的"峰"本就来自相位分布尾部,主峰次峰同量级。
         template = np.where(decoded, 1.0, -1.0)
-        score = np.tensordot(template, v_all, axes=1)  # (P, P)
+        score = np.tensordot(template, v_all, axes=1)  # (fold, fold)
         med = float(np.median(score))
         peak = float(score[py, px])
         # 屏蔽主峰邻域(环绕距离)后取次峰
-        yy, xx = np.mgrid[0:PERIOD, 0:PERIOD]
-        dy = np.minimum(np.abs(yy - py), PERIOD - np.abs(yy - py))
-        dx = np.minimum(np.abs(xx - px), PERIOD - np.abs(xx - px))
+        yy, xx = np.mgrid[0:fold, 0:fold]
+        dy = np.minimum(np.abs(yy - py), fold - np.abs(yy - py))
+        dx = np.minimum(np.abs(xx - px), fold - np.abs(xx - px))
         masked = np.where(
             (dy <= PEAK_MASK_RADIUS) & (dx <= PEAK_MASK_RADIUS), med, score
         )
@@ -362,13 +473,14 @@ def try_extract(chan_logical: np.ndarray, dpr: float) -> Hit | None:
         # (0.9~1.2 vs 真信号 1.75+),WEAK 档下限即可判别
         if not verified and per_block is not None and n >= CONSENSUS_MIN_BLOCKS:
             if ratio >= VERIFY_RATIO_WEAK:
+                cell_template = template[bit_of]
                 block_scores = [
-                    float((template * d[:, py, px] * w[:, py, px]).sum()
+                    float((cell_template * d[:, py, px] * w[:, py, px]).sum()
                           / w[:, py, px].sum())
                     for d, w in per_block
                 ]
                 verified = min(block_scores) >= CONSENSUS_MIN_SCORE
-        hit = Hit(uid, dpr, (py, px), margin, n, verified, ratio)
+        hit = Hit(uid, dpr, (py, px), margin, n, verified, ratio, v2=v2)
         if best is None or (hit.verified, hit.ratio) > (best.verified, best.ratio):
             best = hit
     return best
@@ -416,38 +528,43 @@ def _comb_period_seeds(chan: np.ndarray) -> list[float]:
     return [t / CELL for _, t in peaks[:3]]
 
 
-def _blind_metric(rgb: np.ndarray, sx: float, sy: float, unipolar: bool) -> float:
+def _blind_metric(rgb: np.ndarray, sx: float, sy: float, unipolar: bool, v2: bool) -> float:
     """爬山度量:重采样后,同步行匹配相位上的最弱格净票强度峰值。
     无需已知 uid;缩放正确时块间相位对齐,度量出现陡峰(实测正确
     点 ~0.18,偏 3% 即跌回 ~0.02 本底)。为控制成本只取前
     BLIND_METRIC_BLOCKS 块投票。"""
+    cells, fold = _mode_geometry(v2)
     chan = weighted_channel(_resample(rgb, sx, sy), unipolar)
-    blocks = split_blocks(chan)
+    blocks = split_blocks(chan, fold)
     if blocks is None or len(blocks) < 4:
         return -1.0
     blocks = blocks[:BLIND_METRIC_BLOCKS]
-    v = np.zeros((GRID * GRID, PERIOD, PERIOD))
+    v = np.zeros((len(cells), fold, fold))
     for block in blocks:
-        v += np.clip(diff_fields(block), -CLIP, CLIP)
+        v += np.clip(diff_fields(block, cells), -CLIP, CLIP)
     sync_sign = np.where(np.array(SYNC_ROW) == 1, 1, -1)
-    # 加权通道极性已归一,单极性扫描即可
-    margin = np.abs(v).min(axis=0) / (len(blocks) * CLIP)
-    cand = (np.sign(v[:GRID]) == sync_sign[:, None, None]).all(axis=0)
+    # 位级聚合后再判同步行(v2 每位 4 变体格票合并)
+    bit_of = np.array([c[0] for c in cells])
+    b = np.zeros((GRID * GRID, fold, fold))
+    np.add.at(b, bit_of, v)
+    scale = len(blocks) * CLIP * (len(cells) // (GRID * GRID))
+    margin = np.abs(b).min(axis=0) / scale
+    cand = (np.sign(b[:GRID]) == sync_sign[:, None, None]).all(axis=0)
     return float((margin * cand).max()) if cand.any() else 0.0
 
 
 def _hill_climb(
-    rgb: np.ndarray, sx0: float, sy0: float, unipolar: bool
+    rgb: np.ndarray, sx0: float, sy0: float, unipolar: bool, v2: bool
 ) -> tuple[float, float, float]:
     """从 (sx0, sy0) 出发按坐标轮换爬山,返回 (sx, sy, metric)。"""
     sx, sy = sx0, sy0
-    best = _blind_metric(rgb, sx, sy, unipolar)
+    best = _blind_metric(rgb, sx, sy, unipolar, v2)
     for step in BLIND_HILL_STEPS:
         for _ in range(BLIND_HILL_MAX_ITER):
             improved = False
             for dsx, dsy in ((step, 0), (-step, 0), (0, step), (0, -step)):
                 nx, ny = sx * (1 + dsx), sy * (1 + dsy)
-                m = _blind_metric(rgb, nx, ny, unipolar)
+                m = _blind_metric(rgb, nx, ny, unipolar, v2)
                 if m > best:
                     sx, sy, best = nx, ny, m
                     improved = True
@@ -456,9 +573,10 @@ def _hill_climb(
     return sx, sy, best
 
 
-def blind_extract(img: Image.Image, unipolar: bool) -> Hit | None:
+def blind_extract(img: Image.Image, unipolar: bool, v2: bool = False) -> Hit | None:
     """盲缩放搜索:梳状周期盲测 sy 种子(等比粗扫兜底),各向异性
-    爬山细化,在最优 (sx,sy) 处完整解码。"""
+    爬山细化,在最优 (sx,sy) 处完整解码。(v2 点 y 密钥抖动同样遍历
+    0~6,行投影梳状信号的周期结构不变,种子检测两形态通用)"""
     rgb = np.asarray(img.convert("RGB"), dtype=np.float64)
 
     seeds: list[tuple[float, float]] = []
@@ -467,7 +585,7 @@ def blind_extract(img: Image.Image, unipolar: bool) -> Hit | None:
     if not seeds:
         # 兜底:等比粗扫 0.8~4.2(步长 3%,与爬山首档衔接)
         coarse = [
-            (s, _blind_metric(rgb, s, s, unipolar))
+            (s, _blind_metric(rgb, s, s, unipolar, v2))
             for s in np.arange(0.8, 4.2, 0.03)
         ]
         coarse.sort(key=lambda kv: -kv[1])
@@ -477,11 +595,11 @@ def blind_extract(img: Image.Image, unipolar: bool) -> Hit | None:
 
     best_hit: Hit | None = None
     for sx0, sy0 in seeds:
-        sx, sy, metric = _hill_climb(rgb, sx0, sy0, unipolar)
+        sx, sy, metric = _hill_climb(rgb, sx0, sy0, unipolar, v2)
         if metric <= 0:
             continue
         hit = try_extract(
-            weighted_channel(_resample(rgb, sx, sy), unipolar), round(sx, 4)
+            weighted_channel(_resample(rgb, sx, sy), unipolar), round(sx, 4), v2=v2
         )
         if hit:
             hit.dpr_y = round(sy, 4)
@@ -498,19 +616,20 @@ def blind_extract(img: Image.Image, unipolar: bool) -> Hit | None:
 def extract(img: Image.Image, dprs: list[float]) -> list[Hit]:
     rgb = np.asarray(img.convert("RGB"), dtype=np.float64)
     hits: list[Hit] = []
-    # 两代嵌入模型都试(unipolar=新内联方案 / bipolar=原生后端与历史
-    # 版本),verified 复核天然去伪,两模型互不误报
+    # 四种嵌入形态组合都试:形态 v2(2026-08 起,超周期去周期化)x
+    # 混合模型(unipolar=内联消饱和方案 / bipolar=原生后端),外加
+    # v1 两组合(历史版本)。verified 复核天然去伪,多模型互不误报。
     for dpr in dprs:
         # BOX = 面积平均,降采样时最忠实保留低幅度信号
         logical = _resample(rgb, dpr, dpr)
-        for unipolar in (True, False):
-            hit = try_extract(weighted_channel(logical, unipolar), dpr)
+        for unipolar, v2 in ((True, True), (False, True), (True, False), (False, False)):
+            hit = try_extract(weighted_channel(logical, unipolar), dpr, v2=v2)
             if hit:
                 hits.append(hit)
     if not any(h.verified for h in hits):
         # 快路径失败:捕获帧可能被连续比例/非等比缩放,转盲搜
-        for unipolar in (True, False):
-            blind = blind_extract(img, unipolar)
+        for unipolar, v2 in ((True, True), (False, True), (True, False), (False, False)):
+            blind = blind_extract(img, unipolar, v2=v2)
             if blind:
                 hits.append(blind)
                 if blind.verified:
@@ -529,19 +648,26 @@ def encode_bits(uid: int) -> list[int]:
     return bits
 
 
-def stamp(bg: np.ndarray, uid: int, dpr: float, unipolar: bool = False) -> np.ndarray:
+def stamp(
+    bg: np.ndarray, uid: int, dpr: float, unipolar: bool = False, v2: bool = True
+) -> np.ndarray:
     """在物理分辨率 RGB 背景上按位置编码叠加印记。像素中心落入矩形
     才着色,与 Flutter 关闭抗锯齿的 drawRect 栅格规则一致。
 
-    unipolar=False:复现 modulate+plus 双笔(原生后端/历史版本),
+    unipolar=False:复现 modulate+plus 双笔(原生后端),
       点位 B' = B·(255-DROP)/255 + DELTA,R/G 不动;
-    unipolar=True:复现消饱和+plus 内联方案(2026-07 起),
-      全屏三通道先乘 (255-DELTA)/255,点位 B 再 +DELTA。"""
+    unipolar=True:复现消饱和+plus 内联方案(2026-07 起,2026-08 起
+      消饱和 α=DESAT_ALPHA 饱和避让):全屏三通道先乘
+      (255-DESAT_ALPHA)/255,点位 B 再 +DELTA。
+    v2=True(默认,与 Dart 现行一致):超周期去周期化点几何;
+    v2=False 复现 v1 形态(历史版本回归用)。"""
     out = bg.astype(np.float64).copy()
     if unipolar:
-        out *= (255 - DELTA) / 255
+        out *= (255 - DESAT_ALPHA) / 255
     bits = encode_bits(uid)
     h, w = out.shape[:2]
+    cells, fold = _mode_geometry(v2)
+    dot_w = LEFT_COLS[1] - LEFT_COLS[0]
 
     def blend(y0f, y1f, x0f, x1f):
         # 像素 k 中心 k+0.5 ∈ [lo, hi) ⇔ k ∈ [ceil(lo-0.5), ceil(hi-0.5))
@@ -557,21 +683,14 @@ def stamp(bg: np.ndarray, uid: int, dpr: float, unipolar: bool = False) -> np.nd
         else:
             out[y0:y1, x0:x1, 2] = b * (255 - DROP) / 255 + DELTA
 
-    for by in range(int(h / dpr / PERIOD) + 1):
-        for bx in range(int(w / dpr / PERIOD) + 1):
-            oy, ox = by * PERIOD, bx * PERIOD
-            for row in range(GRID):
-                for col in range(GRID):
-                    bit = bits[row * GRID + col]
-                    cy, cx = oy + row * CELL, ox + col * CELL
-                    x_off = LEFT_COLS[0] if bit else RIGHT_COLS[0]
-                    y_off = dot_y(row, col)
-                    blend(
-                        cy + y_off,
-                        cy + y_off + DOT_H,
-                        cx + x_off,
-                        cx + x_off + (LEFT_COLS[1] - LEFT_COLS[0]),
-                    )
+    for by in range(int(h / dpr / fold) + 1):
+        for bx in range(int(w / dpr / fold) + 1):
+            oy, ox = by * fold, bx * fold
+            for bit_idx, flip, dy, xl in cells:
+                bit = bits[bit_idx] ^ flip
+                # cells 的 xl 是左位起点;bit=0 时点在右位(+dot_w)
+                x = xl if bit else xl + dot_w
+                blend(oy + dy, oy + dy + DOT_H, ox + x, ox + x + dot_w)
     return out
 
 
@@ -635,14 +754,18 @@ def self_test() -> int:
     light = _make_ui_bg(rng, w_px, h_px, dark=False)
     dark = _make_ui_bg(rng, w_px, h_px, dark=True)
     mixed = _make_mixed_bg(rng, w_px, h_px)
-    # modulate+plus 混合逐像素自适应:浅/深/混合背景同一嵌入路径
+    # v2 形态(现行):双极性(原生后端)与单极性(内联)两种混合模型
     st_light = np.clip(stamp(light, uid, dpr), 0, 255).astype(np.uint8)
     st_dark = np.clip(stamp(dark, uid, dpr), 0, 255).astype(np.uint8)
     st_mixed = np.clip(stamp(mixed, uid, dpr), 0, 255).astype(np.uint8)
-    # 消饱和+plus 单极性(内联新方案)
     su_light = np.clip(stamp(light, uid, dpr, unipolar=True), 0, 255).astype(np.uint8)
     su_dark = np.clip(stamp(dark, uid, dpr, unipolar=True), 0, 255).astype(np.uint8)
     su_mixed = np.clip(stamp(mixed, uid, dpr, unipolar=True), 0, 255).astype(np.uint8)
+    # v1 形态(历史版本,双极性/单极性各留一浅色回归)
+    v1_bi = np.clip(stamp(light, uid, dpr, v2=False), 0, 255).astype(np.uint8)
+    v1_uni = np.clip(
+        stamp(light, uid, dpr, unipolar=True, v2=False), 0, 255
+    ).astype(np.uint8)
 
     cases = [
         # δ=1 契约:无损 PNG(系统捕获帧本体)必须稳过;JPEG 重压缩为
@@ -662,6 +785,9 @@ def self_test() -> int:
         ("单极性 明暗混排 PNG 无损", Image.fromarray(su_mixed), True),
         ("单极性 裁剪 60% PNG", Image.fromarray(su_light[300:2000, 200:1000]), True),
         ("单极性 浅色 JPEG q85", _jpeg_roundtrip(su_light, 85), False),
+        # v1 历史形态回归(已发版本的外流帧仍须可解)
+        ("v1 双极性 浅色 PNG 无损", Image.fromarray(v1_bi), True),
+        ("v1 单极性 浅色 PNG 无损", Image.fromarray(v1_uni), True),
     ]
     # 边界情报:全屏彩色照片背景,色度纹理淹没印记属预期,不计入结果
     yy, xx = np.mgrid[0:h_px, 0:w_px]
@@ -693,7 +819,7 @@ def self_test() -> int:
         tag = "PASS" if passed else ("FAIL" if required else "INFO")
         detail = (
             f"uid={got.uid} scale={got.scale_desc} ratio={got.ratio:.2f} margin={got.margin:.2f} "
-            f"blocks={got.n_blocks} verified={got.verified}"
+            f"blocks={got.n_blocks} verified={got.verified} v2={got.v2}"
             if got
             else "未提取到"
         )

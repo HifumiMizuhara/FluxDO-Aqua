@@ -24,9 +24,11 @@ import 'render_signet_codec.dart';
 /// - iOS / Android / Linux:Flutter 内联绘制,「消饱和 + 单极性点阵」
 ///   两笔,全部为 Porter-Duff 系数混合(固定管线,不依赖 framebuffer
 ///   fetch,任何 GPU 上都无离屏回退):
-///   1. 消饱和笔:全屏 srcATop 纯色 (0,0,0)@α=δ,把所有色通道均匀乘
-///      (255-δ)/255——纯白像素降到 255-δ,全屏不再存在饱和像素。
-///      均匀无对比的 0.4% 变化低于面板校准差异,物理不可见;
+///   1. 消饱和笔:全屏 srcATop 纯色 (0,0,0)@α=2δ,把所有色通道均匀
+///      乘 (255-2δ)/255——纯白像素降到 253,全屏不再存在饱和像素,
+///      且点位 +δ 后也不触顶(外流增强放大案加固,见
+///      kSignetDesatAlpha)。均匀无对比的 0.8% 变化低于面板校准
+///      差异,物理不可见;
 ///   2. 信号笔:点阵图块(预乘 (0,0,δ,δ))配 plus。因已无饱和,
 ///      +δ 处处满效——含旧双极性方案信号过零的中灰死区,SNR 更优。
 ///
@@ -142,13 +144,17 @@ class _RenderSignetLayerState extends ConsumerState<RenderSignetLayer> {
   }
 }
 
-/// 把一个印记块(kSignetBlockPeriod 见方)按 dpr 栅格成一张信号笔
-/// 图块:透明底,点位为预乘 (0,0,δ,δ)(直通色 (0,0,255)@α=δ)。
-/// 关闭抗锯齿 + 整数几何,保证点边缘落在整物理像素上,解码端才能按
-/// 同款网格精确采样。
+/// 把一个 v2 超周期图块(kSignetTilePeriod 见方)按 dpr 栅格成一张
+/// 信号笔图块:透明底,点位为预乘 (0,0,δ,δ)(直通色 (0,0,255)@α=δ)。
+/// 点几何由 [signetV2DotOrigins] 枚举(v2 形态单一真相);关闭抗锯齿
+/// + 整数几何,保证点边缘落在整物理像素上,解码端才能按同款网格
+/// 精确采样。(点缘半密度打散已试验并撤销:1px 棋盘环是全图最高频
+/// 结构,小半径锐化下过冲反升 4 倍,台架数据见 kSignetDesatAlpha
+/// 注释;v2 改走超周期去周期化,见 codec 库注释)
 ///
 /// 与消饱和笔(painter 内联的全屏 srcATop)配合:
-///   1. srcATop (0,0,0)@α=δ → 全通道乘 (255-δ)/255,饱和消失;
+///   1. srcATop (0,0,0)@α=2δ → 全通道乘 (255-2δ)/255,饱和消失,且
+///      点位 +δ 后仍不触顶(见 kSignetDesatAlpha 注释);
 ///   2. 本图块 plus → 点位 B 恒 +δ(无 clamp,处处满效)。
 /// 单极性信号,解码端以位置差分(左位-右位)提取,极性权重恒 1。
 ///
@@ -157,32 +163,16 @@ class _RenderSignetLayerState extends ConsumerState<RenderSignetLayer> {
 /// 离屏烘焙)的视觉残余都在 δ≈1/255 量级——结构上无可见坏帧;且
 /// 两笔均为 Porter-Duff 系数混合,任何 GPU 走固定管线,无性能分层。
 ui.Image buildSignetSignalTile(int id, double dpr) {
-  final bits = encodeSignetBits(id);
-  final tilePx = (kSignetBlockPeriod * dpr).round().clamp(1, 1 << 12);
-  final scale = tilePx / kSignetBlockPeriod;
+  final tilePx = (kSignetTilePeriod * dpr).round().clamp(1, 1 << 12);
+  final scale = tilePx / kSignetTilePeriod;
 
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder)..scale(scale.toDouble());
   final dot = Paint()
     ..color = const Color.fromARGB(kSignetPlusDelta, 0, 0, 255)
     ..isAntiAlias = false;
-  for (var row = 0; row < kSignetGridRows; row++) {
-    for (var col = 0; col < kSignetGridCols; col++) {
-      final bit = bits[row * kSignetGridCols + col];
-      final x = col * kSignetCellSize;
-      // y 逐格打散消除条纹感,见 signetDotYOffset 注释
-      final y = row * kSignetCellSize + signetDotYOffset(row, col);
-      // 位置编码:bit=1 点画在左位,bit=0 画在右位
-      canvas.drawRect(
-        Rect.fromLTWH(
-          x + (bit ? kSignetDotLeftX : kSignetDotRightX),
-          y.toDouble(),
-          kSignetDotW,
-          kSignetDotH,
-        ),
-        dot,
-      );
-    }
+  for (final (x, y) in signetV2DotOrigins(id)) {
+    canvas.drawRect(Rect.fromLTWH(x, y, kSignetDotW, kSignetDotH), dot);
   }
   final picture = recorder.endRecording();
   final image = picture.toImageSync(tilePx, tilePx);
@@ -190,9 +180,10 @@ ui.Image buildSignetSignalTile(int id, double dpr) {
   return image;
 }
 
-/// 把一个印记块(kSignetBlockPeriod 见方)按 dpr 栅格成两张物理像素
-/// 图块(modulate 笔白底 / plus 笔透明底)。关闭抗锯齿 + 整数几何,
-/// 保证点边缘落在整物理像素上,解码端才能按同款网格精确采样。
+/// 把一个 v2 超周期图块(kSignetTilePeriod 见方)按 dpr 栅格成两张
+/// 物理像素图块(modulate 笔白底 / plus 笔透明底)。点几何与内联
+/// 信号笔同源([signetV2DotOrigins]);关闭抗锯齿 + 整数几何,保证
+/// 点边缘落在整物理像素上,解码端才能按同款网格精确采样。
 /// 公开供混合语义像素回读测试使用。
 ///
 /// [opaquePlusPen] 供原生 CA 混合后端使用:CA 的 linearDodge 是
@@ -207,16 +198,16 @@ ui.Image buildSignetSignalTile(int id, double dpr) {
   double dpr, {
   bool opaquePlusPen = false,
 }) {
-  final bits = encodeSignetBits(id);
-  final tilePx = (kSignetBlockPeriod * dpr).round().clamp(1, 1 << 12);
-  final scale = tilePx / kSignetBlockPeriod;
+  final tilePx = (kSignetTilePeriod * dpr).round().clamp(1, 1 << 12);
+  final scale = tilePx / kSignetTilePeriod;
+  final dots = signetV2DotOrigins(id);
 
   ui.Image raster(Color? background, Color dotColor) {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder)..scale(scale.toDouble());
     if (background != null) {
       canvas.drawRect(
-        const Rect.fromLTWH(0, 0, kSignetBlockPeriod, kSignetBlockPeriod),
+        const Rect.fromLTWH(0, 0, kSignetTilePeriod, kSignetTilePeriod),
         Paint()
           ..color = background
           ..isAntiAlias = false,
@@ -225,23 +216,8 @@ ui.Image buildSignetSignalTile(int id, double dpr) {
     final dot = Paint()
       ..color = dotColor
       ..isAntiAlias = false;
-    for (var row = 0; row < kSignetGridRows; row++) {
-      for (var col = 0; col < kSignetGridCols; col++) {
-        final bit = bits[row * kSignetGridCols + col];
-        final x = col * kSignetCellSize;
-        // y 逐格打散消除条纹感,见 signetDotYOffset 注释
-        final y = row * kSignetCellSize + signetDotYOffset(row, col);
-        // 位置编码:bit=1 点画在左位,bit=0 画在右位
-        canvas.drawRect(
-          Rect.fromLTWH(
-            x + (bit ? kSignetDotLeftX : kSignetDotRightX),
-            y.toDouble(),
-            kSignetDotW,
-            kSignetDotH,
-          ),
-          dot,
-        );
-      }
+    for (final (x, y) in dots) {
+      canvas.drawRect(Rect.fromLTWH(x, y, kSignetDotW, kSignetDotH), dot);
     }
     final picture = recorder.endRecording();
     final image = picture.toImageSync(tilePx, tilePx);
@@ -276,14 +252,16 @@ class RenderSignetPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
-    // 笔 1 消饱和:srcATop (0,0,0)@α=δ → 全通道乘 (255-δ)/255。
+    // 笔 1 消饱和:srcATop (0,0,0)@α=2δ → 全通道乘 (255-2δ)/255。
     // 必须先于信号笔:消除 B=255 饱和,plus 的 +δ 才处处满效。
-    // 该笔退化成 srcOver 时输出与正常完全相同(0 + d·(1-δ/255)),
+    // α 取 2δ 而非功能所需的 1δ:留出余量,点位 +δ 后不回到饱和,
+    // 消灭「全屏唯一饱和像素」身份(见 kSignetDesatAlpha 注释)。
+    // 该笔退化成 srcOver 时输出与正常完全相同(0 + d·(1-α)),
     // 连失败形态都不存在
     canvas.drawRect(
       rect,
       Paint()
-        ..color = const Color.fromARGB(kSignetPlusDelta, 0, 0, 0)
+        ..color = const Color.fromARGB(kSignetDesatAlpha, 0, 0, 0)
         ..blendMode = BlendMode.srcATop,
     );
     // 笔 2 信号:点阵 plus,B 恒 +δ,单极性
@@ -291,8 +269,8 @@ class RenderSignetPainter extends CustomPainter {
   }
 
   void _drawTiled(Canvas canvas, Rect rect, ui.Image tile, BlendMode mode) {
-    // 图块物理 px → 逻辑 px:平铺周期精确回到 kSignetBlockPeriod
-    final scale = kSignetBlockPeriod / tile.width;
+    // 图块物理 px → 逻辑 px:平铺周期精确回到 kSignetTilePeriod
+    final scale = kSignetTilePeriod / tile.width;
     final shader = ui.ImageShader(
       tile,
       TileMode.repeated,

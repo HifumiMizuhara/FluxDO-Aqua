@@ -96,7 +96,8 @@ class NativeSignetOverlay {
           plusBytes.lengthInBytes,
         ),
         'tilePx': mod.width,
-        'period': kSignetBlockPeriod,
+        // v2 图块含 2x2 变体,平铺周期 = 超周期(原生侧只管按此平铺)
+        'period': kSignetTilePeriod,
       };
     } finally {
       mod.dispose();
