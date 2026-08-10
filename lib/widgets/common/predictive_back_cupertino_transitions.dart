@@ -29,11 +29,16 @@
 //    被打断的手势补发 commit/cancel,否则 userGestureInProgress 计数
 //    永不归零 → popGestureEnabled 恒 false,回前台后预测返回永久失效
 //    (手势无人认领,退场无动画),手势期 flag 也卡死。
-// 8. 转场期静默认领:上一次 pop 退场动画未完时快速再划,
-//    popGestureEnabled 因 !animation.isCompleted 全员拒绝,引擎
-//    fallback 把整个 FlutterView 缩小露出 windowBackground 黑边。
-//    栈顶 detector 此时认领但不驱动路由动画,commit 排队 maybePop,
-//    连划=连续返回。
+// 8. 转场期静默认领:入场未完成、或根路由压着退场中的上一划
+//    (isFirst 被 popGestureEnabled 排除)时,快速再划全员拒绝,引擎
+//    fallback 整树缩小露黑边;回调若仍注册,commit 还会兜到
+//    SystemNavigator.pop 关 app。栈顶 detector 静默认领:不驱动路由
+//    动画,commit 非根排队 maybePop、根路由吞掉,cancel 弃认领。
+// 9. 收尾事件按 phase 门控:binding 的认领者列表 commit/cancel 后不
+//    清空(下次 start 才清),原生 onStop 每次锁屏广播的
+//    cancelBackGesture 会打到上一次手势的陈旧认领者,无配对 start 的
+//    handleCancelBackGesture 令 userGesture 计数下溢,预测返回全局
+//    静默失效(浮层不查计数故独活)。phase 非 start/update 一律忽略。
 //
 // Copyright 2014 The Flutter Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
@@ -202,18 +207,30 @@ class _PredictiveBackGestureDetectorState
     return widget.route.isCurrent && widget.route.popGestureEnabled;
   }
 
-  /// 差异点(文件头第 8 条):上一次 pop 的退场动画未播完时快速再划,
-  /// popGestureEnabled 因 !animation.isCompleted 拒绝,全员不认领 →
-  /// 引擎 fallback 把整个 FlutterView 缩小、露出 windowBackground
-  /// 黑边。此时静默认领:不驱动路由动画(转场进行中不能碰),
-  /// commit 时排队再退一层,连划语义自然。
+  /// 差异点(文件头第 8 条,修订):退场转场窗口内的兜底认领。
+  ///
+  /// 非根路由不需要:B 压着退场中的 C 时,B 自己的 animation 已
+  /// completed,popGestureEnabled 为 true,正常路径即可认领。
+  /// 真正无人认领的是两种窗口:
+  /// - 当前路由自己的入场动画未完成(push 进行中再划);
+  /// - **根路由 + 上方路由退场中**(secondaryAnimation 非 dismissed):
+  ///   isFirst 被 popGestureEnabled 排除,全员拒绝 → 引擎/系统接管
+  ///   出黑边;若回调仍注册,commit 还会兜底到 SystemNavigator.pop
+  ///   直接关 app。
+  /// 静默认领:不驱动路由动画;commit 时根路由吞掉(退场中的第二划
+  /// 意图是"回上一页",上一页已在退场,不该再退成关 app),非根排队
+  /// maybePop;cancel 弃认领。
   bool get _shouldClaimDuringTransition {
     final route = widget.route;
-    return route.isCurrent &&
-        !route.isFirst &&
-        !route.willHandlePopInternally &&
-        route.popDisposition != RoutePopDisposition.doNotPop &&
-        !route.animation!.isCompleted;
+    if (!route.isCurrent ||
+        route.willHandlePopInternally ||
+        route.popDisposition == RoutePopDisposition.doNotPop) {
+      return false;
+    }
+    final bool ownEntranceInFlight = !route.animation!.isCompleted;
+    final bool aboveExitInFlight =
+        route.secondaryAnimation!.status != AnimationStatus.dismissed;
+    return ownEntranceInFlight || aboveExitInFlight;
   }
 
   /// 本次认领是「转场期静默认领」(不驱动路由动画,commit 只 pop)
@@ -290,6 +307,17 @@ class _PredictiveBackGestureDetectorState
       _silentClaim = false;
       return;
     }
+    // 差异点 9:只在手势活跃期收 cancel。binding 的认领者列表在
+    // commit/cancel 后不清空(仅下次 start 时清),原生 onStop 每次
+    // 锁屏广播的 cancelBackGesture 会打到上一次手势的认领者上;
+    // 不设门则 route.handleCancelBackGesture → didStopUserGesture
+    // 无配对 start,计数器下溢成负,userGestureInProgress 永久
+    // false,预测返回渲染全灭(浮层 handler 有 _gestureActive 同款
+    // 门控,故「全 app 坏、唯独浮层活」)。
+    if (phase != _PredictiveBackPhase.start &&
+        phase != _PredictiveBackPhase.update) {
+      return;
+    }
     phase = _PredictiveBackPhase.cancel;
 
     widget.route.handleCancelBackGesture();
@@ -301,12 +329,19 @@ class _PredictiveBackGestureDetectorState
     if (_gestureForceCancelled) return;
     if (_silentClaim) {
       _silentClaim = false;
-      // 转场期 commit:排队再退一层(等本帧转场态结算后执行,直接
-      // pop 会撞上仍在 popping 的上一路由)
+      // 转场期 commit:非根排队再退一层(等本帧转场态结算,直接 pop
+      // 会撞上仍在 popping 的上一路由);根路由吞掉 —— 上一页已在
+      // 退场,此划意图是「回上一页」,再往下退就成关 app 了。
+      if (widget.route.isFirst) return;
       final navigator = widget.route.navigator;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         navigator?.maybePop();
       });
+      return;
+    }
+    // 差异点 9:同 cancel,陈旧认领者不得响应伪事件
+    if (phase != _PredictiveBackPhase.start &&
+        phase != _PredictiveBackPhase.update) {
       return;
     }
     phase = _PredictiveBackPhase.commit;
