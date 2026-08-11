@@ -1,0 +1,22 @@
+{
+  "@@locale": "ko",
+  "nav_bookmarks": "북마크",
+  "nav_drafts": "임시 저장",
+  "nav_history": "기록",
+  "nav_home": "홈",
+  "nav_messages": "메시지",
+  "nav_mine": "내 정보",
+  "nav_notifications": "알림",
+  "toast_authorizationFailed": "인증 실패: {error}",
+  "toast_credentialCleared": "인증 정보를 지웠습니다",
+  "toast_credentialIncomplete": "인증 정보를 모두 입력해 주세요",
+  "toast_credentialSaved": "인증 정보를 저장했습니다",
+  "toast_networkDisconnected": "네트워크가 끊겼습니다",
+  "toast_networkRestored": "네트워크가 복구되었습니다",
+  "toast_operationFailedRetry": "작업에 실패했습니다. 다시 시도해 주세요",
+  "toast_pressAgainToExit": "뒤로 버튼을 한 번 더 누르면 종료됩니다",
+  "toast_rewardError": "후원 실패: {error}",
+  "toast_rewardFailed": "후원에 실패했습니다",
+  "toast_rewardNotConfigured": "먼저 후원 인증 정보를 설정해 주세요",
+  "toast_rewardSuccess": "후원을 보냈습니다!"
+}
