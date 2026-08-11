@@ -575,6 +575,10 @@ String _localeLabel(AppLocalizations l10n, Locale? locale) {
       return l10n.appearance_languageZhHK;
     case 'en_US':
       return l10n.appearance_languageEn;
+    case 'ja_JP':
+      return l10n.appearance_languageJa;
+    case 'ko_KR':
+      return l10n.appearance_languageKo;
     default:
       return l10n.appearance_languageSystem;
   }
