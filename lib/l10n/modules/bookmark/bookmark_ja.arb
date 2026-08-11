@@ -1,0 +1,65 @@
+{
+  "@@locale": "ja",
+  "bookmark_deleteConfirm": "このブックマークを削除しますか？",
+  "bookmark_editBookmark": "ブックマークを編集",
+  "bookmark_nameHint": "メモを追加...",
+  "bookmark_nameLabel": "ブックマーク名 (任意)",
+  "bookmark_reminderCustom": "カスタム",
+  "bookmark_reminderExpired": "リマインダーの期限切れ",
+  "bookmark_reminderNextWeek": "来週",
+  "bookmark_reminderThreeDays": "3 日後",
+  "bookmark_reminderTime": "リマインダー: {time}",
+  "bookmark_reminderTomorrow": "明日",
+  "bookmark_reminderTwoHours": "2 時間後",
+  "bookmark_removed": "ブックマークを削除しました",
+  "bookmark_setReminder": "リマインダーを設定",
+  "bookmarks_cancelReminder": "リマインダーを解除",
+  "bookmarks_deleted": "ブックマークを削除しました",
+  "bookmarks_initialSyncing": "ブックマークを同期中…",
+  "bookmarks_empty": "ブックマークはありません",
+  "bookmarks_emptySearchHint": "キーワードを入力してブックマークを検索",
+  "bookmarks_expired": " 期限切れ",
+  "bookmarks_reminderCancelled": "リマインダーを解除しました",
+  "bookmarks_searchHint": "ブックマークを検索...",
+  "bookmarks_title": "自分のブックマーク",
+  "bookmarks_workspaceOpenedCount": "{count} 件を開いています",
+  "@bookmarks_workspaceOpenedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bookmarks_syncBookmarks": "ブックマークを同期",
+  "bookmarks_syncCompleted": "同期完了: 新規・更新 {upserted} 件、削除 {deleted} 件",
+  "@bookmarks_syncCompleted": {
+    "placeholders": {
+      "upserted": {
+        "type": "int"
+      },
+      "deleted": {
+        "type": "int"
+      }
+    }
+  },
+  "bookmarks_syncUpToDate": "ブックマークは最新です",
+  "bookmarks_syncFailed": "同期に失敗しました。しばらくしてからお試しください",
+  "readLater_title": "後で読む",
+  "readLater_continueReading": "読書を再開",
+  "readLater_readAt": "#{postNumber} まで",
+  "@readLater_readAt": {
+    "placeholders": {
+      "postNumber": {
+        "type": "int"
+      }
+    }
+  },
+  "readLater_addedTime": "{time} に追加",
+  "@readLater_addedTime": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  }
+}
