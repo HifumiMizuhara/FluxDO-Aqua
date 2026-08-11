@@ -387,6 +387,7 @@ class Topic {
     int? lastReadPostNumber,
     bool clearLastRead = false,
     int? highestPostNumber,
+    DateTime? lastPostedAt,
   }) {
     return Topic(
       id: id,
@@ -398,7 +399,7 @@ class Topic {
       likeCount: likeCount,
       excerpt: excerpt,
       createdAt: createdAt,
-      lastPostedAt: lastPostedAt,
+      lastPostedAt: lastPostedAt ?? this.lastPostedAt,
       lastPosterUsername: lastPosterUsername,
       categoryId: categoryId,
       pinned: pinned,
