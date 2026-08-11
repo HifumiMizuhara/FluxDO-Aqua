@@ -63,5 +63,22 @@
   "oauth_noRedirectResponse": "授權服務未返回重定向",
   "onboarding_guestAccess": "遊客訪問",
   "onboarding_networkSettings": "網絡設置",
-  "onboarding_slogan": "真誠 · 友善 · 團結 · 專業"
+  "onboarding_slogan": "真誠 · 友善 · 團結 · 專業",
+  "auth_usernameOrEmail": "用戶名 / 電郵",
+  "auth_password": "密碼",
+  "auth_showPassword": "顯示密碼",
+  "auth_hidePassword": "隱藏密碼",
+  "auth_rememberPassword": "記住密碼",
+  "auth_forgotPassword": "忘記密碼？",
+  "auth_login": "登入",
+  "auth_twoFactorTitle": "兩步驗證",
+  "auth_twoFactorHint": "請輸入驗證器 App 顯示的 6 位驗證碼",
+  "auth_useBackupCode": "改用備用碼 / 安全金鑰",
+  "auth_cancel": "取消",
+  "auth_verify": "驗證",
+  "auth_back": "返回",
+  "auth_clearSavedAccount": "清除已儲存的帳戶",
+  "auth_or": "或",
+  "auth_browserAuthLogin": "使用瀏覽器授權登入",
+  "auth_otherLoginMethods": "其他登入方式 (OAuth / Passkey / 註冊)"
 }

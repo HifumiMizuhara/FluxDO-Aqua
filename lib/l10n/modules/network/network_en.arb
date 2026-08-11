@@ -115,5 +115,9 @@
   "webviewAdapter_disabledDesc": "Use browser engine for requests, may improve login stability",
   "webviewAdapter_enabledDesc": "Main site API requests sent via browser engine",
   "webviewAdapter_hint": "Only main site API requests go through WebView; images and push notifications are not affected",
-  "webviewAdapter_title": "WebView Network Engine"
+  "webviewAdapter_title": "WebView Network Engine",
+  "network_erudaConsole": "Eruda developer console",
+  "network_erudaEnabled": "Enabled: tap ⚙ in the lower-right corner to view Console / Network / Elements",
+  "network_erudaDisabled": "Off by default. Enable it to inspect Network / Console / Elements in the page",
+  "network_erudaRestartHint": "Reopen the relevant page or restart the app for changes to take effect"
 }

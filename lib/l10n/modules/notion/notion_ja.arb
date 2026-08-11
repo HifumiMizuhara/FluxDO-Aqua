@@ -1,6 +1,7 @@
 {
   "@@locale": "ja",
   "notion_title": "Notion 同期",
+  "notion_exportTitle": "FluxDO エクスポート",
   "notion_subtitle": "トピックを丸ごと Notion のデータベースに同期します",
   "notion_configured": "設定済み",
   "notion_editConfig": "編集",

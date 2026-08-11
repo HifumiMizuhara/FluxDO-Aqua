@@ -11,6 +11,7 @@ import '../services/toast_service.dart';
 import '../utils/frame_jank_monitor.dart';
 import '../utils/jank_profiler.dart';
 import '../widgets/common/perf_overlay.dart';
+import '../l10n/s.dart';
 
 /// 性能诊断页:查看/导出 [FrameJankMonitor] 采集的掉帧记录与场景事件,
 /// 不依赖 adb/logcat。开发者向工具页,文案暂不接入 l10n。
@@ -45,24 +46,22 @@ class _PerfDiagnosticsPageState extends State<PerfDiagnosticsPage> {
   }
 
   Future<void> _copy() async {
-    await Clipboard.setData(
-      ClipboardData(text: FrameJankMonitor.exportText()),
-    );
-    ToastService.showSuccess('诊断报告已复制');
+    await Clipboard.setData(ClipboardData(text: FrameJankMonitor.exportText()));
+    ToastService.showSuccess(S.current.perf_reportCopied);
   }
 
   Future<void> _share() async {
     await SharePlus.instance.share(
       ShareParams(
         text: FrameJankMonitor.exportText(),
-        subject: 'FluxDO 性能诊断报告',
+        subject: S.current.perf_reportSubject,
       ),
     );
   }
 
   void _clear() {
     FrameJankMonitor.clear();
-    ToastService.showInfo('已清空记录');
+    ToastService.showInfo(S.current.perf_recordsCleared);
   }
 
   Future<void> _shareSnapshot() async {
@@ -71,10 +70,10 @@ class _PerfDiagnosticsPageState extends State<PerfDiagnosticsPage> {
     try {
       final text = await file.readAsString();
       await SharePlus.instance.share(
-        ShareParams(text: text, subject: 'FluxDO 性能诊断快照(上次会话)'),
+        ShareParams(text: text, subject: S.current.perf_snapshotSubject),
       );
     } catch (e) {
-      ToastService.showError('读取快照失败: $e');
+      ToastService.showError(S.current.perf_snapshotReadFailed('$e'));
     }
   }
 
@@ -83,22 +82,23 @@ class _PerfDiagnosticsPageState extends State<PerfDiagnosticsPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('性能诊断'),
+        title: Text(l10n.perf_title),
         actions: [
           IconButton(
-            tooltip: '复制报告',
+            tooltip: l10n.perf_copyReport,
             icon: const Icon(Symbols.content_copy_rounded),
             onPressed: _copy,
           ),
           IconButton(
-            tooltip: '分享报告',
+            tooltip: l10n.perf_shareReport,
             icon: const Icon(Symbols.share_rounded),
             onPressed: _share,
           ),
           IconButton(
-            tooltip: '清空记录',
+            tooltip: l10n.perf_clearRecords,
             icon: const Icon(Symbols.delete_sweep_rounded),
             onPressed: _clear,
           ),
@@ -120,7 +120,7 @@ class _PerfDiagnosticsPageState extends State<PerfDiagnosticsPage> {
           return ListView(
             padding: const EdgeInsets.all(12),
             children: [
-              _summaryCard(theme),
+              _summaryCard(theme, l10n),
               const SizedBox(height: 12),
               if (entries.isEmpty)
                 Padding(
@@ -128,8 +128,8 @@ class _PerfDiagnosticsPageState extends State<PerfDiagnosticsPage> {
                   child: Center(
                     child: Text(
                       FrameJankMonitor.isRunning
-                          ? '暂无掉帧记录,去滚动几屏试试'
-                          : '监控未启用',
+                          ? l10n.perf_noJankRecords
+                          : l10n.perf_monitoringDisabled,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -145,7 +145,7 @@ class _PerfDiagnosticsPageState extends State<PerfDiagnosticsPage> {
     );
   }
 
-  Widget _summaryCard(ThemeData theme) {
+  Widget _summaryCard(ThemeData theme, AppLocalizations l10n) {
     final frames = FrameJankMonitor.sessionFrames;
     final janks = FrameJankMonitor.sessionJanks;
     final rate = frames == 0 ? 0.0 : janks / frames * 100;
@@ -160,22 +160,19 @@ class _PerfDiagnosticsPageState extends State<PerfDiagnosticsPage> {
           children: [
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('启用监控'),
+              title: Text(l10n.perf_enableMonitoring),
               subtitle: Text(
                 kReleaseMode
-                    ? '记录掉帧与场景事件(重启后保持)'
-                    : 'debug/profile 构建自动启用',
+                    ? l10n.perf_monitoringReleaseDesc
+                    : l10n.perf_monitoringDebugDesc,
               ),
               value: FrameJankMonitor.isRunning,
               onChanged: _toggle,
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('悬浮监控面板'),
-              subtitle: const Text(
-                '全局悬浮显示掉帧率,可随时清零做局部统计、'
-                '手动线程 CPU 采样、复制导出(重启后保持)',
-              ),
+              title: Text(l10n.perf_floatingOverlay),
+              subtitle: Text(l10n.perf_floatingOverlayDesc),
               value: PerfOverlay.isShowing,
               onChanged: (v) async {
                 await PerfOverlay.setEnabled(v);
@@ -185,29 +182,34 @@ class _PerfDiagnosticsPageState extends State<PerfDiagnosticsPage> {
             const Divider(height: 1),
             const SizedBox(height: 8),
             Text(
-              '本次会话:$frames 帧,掉帧 $janks 次'
-              '(${rate.toStringAsFixed(1)}%)',
+              l10n.perf_sessionSummary(frames, janks, rate.toStringAsFixed(1)),
               style: theme.textTheme.bodyMedium,
             ),
             const SizedBox(height: 4),
             Text(
-              'worst build ${_ms(FrameJankMonitor.sessionWorstBuild)}ms / '
-              'worst raster ${_ms(FrameJankMonitor.sessionWorstRaster)}ms',
+              l10n.perf_worstFrame(
+                _ms(FrameJankMonitor.sessionWorstBuild),
+                _ms(FrameJankMonitor.sessionWorstRaster),
+              ),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 4),
             Text(
-              '刷新率 ${refresh?.toStringAsFixed(0) ?? '?'}Hz · '
-              '语义树 ${semanticsNodes < 0 ? '未启用' : '$semanticsNodes 节点'}',
+              l10n.perf_refreshSemantics(
+                refresh?.toStringAsFixed(0) ?? '?',
+                semanticsNodes < 0
+                    ? l10n.perf_semanticsDisabled
+                    : l10n.perf_semanticsNodes(semanticsNodes),
+              ),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 4),
             Text(
-              '现场抓取 ${JankProfiler.status}',
+              l10n.perf_captureStatus(JankProfiler.status),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -218,15 +220,16 @@ class _PerfDiagnosticsPageState extends State<PerfDiagnosticsPage> {
                 children: [
                   Expanded(
                     child: Text(
-                      '上次会话快照 '
-                      '(${_fmtSnapshotTime(_snapshotFile!.lastModifiedSync())})',
+                      l10n.perf_lastSnapshot(
+                        _fmtSnapshotTime(_snapshotFile!.lastModifiedSync()),
+                      ),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),
                   IconButton(
-                    tooltip: '分享上次会话快照',
+                    tooltip: l10n.perf_shareLastSnapshot,
                     visualDensity: VisualDensity.compact,
                     icon: const Icon(Symbols.share_rounded, size: 18),
                     onPressed: _shareSnapshot,
@@ -246,8 +249,7 @@ class _PerfDiagnosticsPageState extends State<PerfDiagnosticsPage> {
       '${t.minute.toString().padLeft(2, '0')}:'
       '${t.second.toString().padLeft(2, '0')}';
 
-  String _fmtSnapshotTime(DateTime t) =>
-      '${t.month}/${t.day} ${_fmtTime(t)}';
+  String _fmtSnapshotTime(DateTime t) => '${t.month}/${t.day} ${_fmtTime(t)}';
 
   Widget _jankTile(ThemeData theme, JankRecord j) {
     final heavy = j.total.inMilliseconds >= 20;
@@ -257,8 +259,12 @@ class _PerfDiagnosticsPageState extends State<PerfDiagnosticsPage> {
       contentPadding: const EdgeInsets.symmetric(horizontal: 4),
       leading: Icon(Symbols.warning_rounded, size: 18, color: color),
       title: Text(
-        '${_ms(j.total)}ms · build ${_ms(j.buildDuration)} / '
-        'raster ${_ms(j.rasterDuration)} / ov ${_ms(j.vsyncOverhead)}',
+        S.current.perf_jankDetail(
+          _ms(j.total),
+          _ms(j.buildDuration),
+          _ms(j.rasterDuration),
+          _ms(j.vsyncOverhead),
+        ),
         style: theme.textTheme.bodySmall?.copyWith(
           fontFeatures: const [FontFeature.tabularFigures()],
         ),

@@ -6,6 +6,7 @@ import 'package:popover/popover.dart';
 
 import '../../../models/topic.dart';
 import '../../../utils/emoji_shortcodes.dart';
+import '../../../l10n/s.dart';
 import 'boost_bubble.dart';
 import 'boost_content.dart';
 
@@ -526,7 +527,9 @@ class _InlineControlChip extends StatelessWidget {
     final theme = Theme.of(context);
     return Semantics(
       button: true,
-      label: icon == Symbols.chevron_left_rounded ? '收起' : '展开',
+      label: icon == Symbols.chevron_left_rounded
+          ? context.l10n.post_collapse
+          : context.l10n.post_expand,
       child: GestureDetector(
         onTap: onTap,
         child: Container(

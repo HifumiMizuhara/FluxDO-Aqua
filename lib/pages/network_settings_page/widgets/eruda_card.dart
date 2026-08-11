@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
 
 import '../../../services/eruda_settings_service.dart';
+import '../../../l10n/s.dart';
 import 'package:m3e_ui/m3e_ui.dart';
 
 /// Eruda 设备内 DevTools 开关卡片（调试用）。
@@ -26,11 +27,11 @@ class ErudaCard extends StatelessWidget {
               : null,
           children: [
             SwitchListTile(
-              title: const Text('Eruda 调试控制台'),
+              title: Text(context.l10n.network_erudaConsole),
               subtitle: Text(
                 enabled
-                    ? '已开启：页面右下角 ⚙ 可看 Console / Network / Elements'
-                    : '关闭（默认）。开启后可在页面内查看网络 / 控制台 / 元素',
+                    ? context.l10n.network_erudaEnabled
+                    : context.l10n.network_erudaDisabled,
               ),
               secondary: Icon(Symbols.terminal_rounded, fill: enabled ? 1 : 0,
                 color: enabled ? theme.colorScheme.primary : null,
@@ -54,7 +55,7 @@ class ErudaCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        '切换后需重新打开相关页面 / 重启应用才生效',
+                        context.l10n.network_erudaRestartHint,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                           fontSize: 11,

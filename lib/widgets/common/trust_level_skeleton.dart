@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
 import '../common/skeleton.dart';
+import '../../l10n/s.dart';
 
 /// 信任级别要求页骨架屏
 class TrustLevelSkeleton extends StatelessWidget {
@@ -16,7 +17,7 @@ class TrustLevelSkeleton extends StatelessWidget {
         slivers: [
           // AppBar 骨架
           SliverAppBar.large(
-            title: const Text('信任要求'),
+            title: Text(context.l10n.trustLevel_appBarTitle),
             centerTitle: false,
             expandedHeight: 200,
             flexibleSpace: FlexibleSpaceBar(

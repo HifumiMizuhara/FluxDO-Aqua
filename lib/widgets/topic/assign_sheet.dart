@@ -13,6 +13,7 @@ import '../../services/toast_service.dart';
 import '../common/smart_avatar.dart';
 import '../markdown_editor/markdown_editor.dart';
 import '../../services/preloaded_data_service.dart';
+import '../../l10n/s.dart';
 
 /// 状态下拉的可选值——assign_statuses 是 client:true 的站点设置,
 /// 随预加载 siteSettings 下发(官方 Web 端就是读
@@ -325,7 +326,10 @@ class _AssignSheetState extends ConsumerState<_AssignSheet> {
                 children: [
                   Icon(Icons.assignment_ind_outlined, color: scheme.primary),
                   const SizedBox(width: 8),
-                  Text('指定', style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    context.l10n.topic_assignTitle,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                 ],
               ),
             ),
@@ -358,7 +362,7 @@ class _AssignSheetState extends ConsumerState<_AssignSheet> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.edit_outlined, size: 20),
-                      tooltip: '编辑备注/状态',
+                      tooltip: context.l10n.topic_assignEditNoteStatus,
                       onPressed: _busy
                           ? null
                           : () => _showAssignDetailsDialog(
@@ -370,26 +374,29 @@ class _AssignSheetState extends ConsumerState<_AssignSheet> {
                     ),
                     TextButton(
                       onPressed: _busy ? null : _unassign,
-                      child: const Text('取消指定'),
+                      child: Text(context.l10n.topic_assignUnassign),
                     ),
                   ],
                 ),
               )
             else
-              const Padding(
+              Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Text('尚未指定给任何人', style: TextStyle(color: Colors.grey)),
+                child: Text(
+                  context.l10n.topic_assignUnassigned,
+                  style: TextStyle(color: Colors.grey),
+                ),
               ),
             const Divider(height: 1),
             ListTile(
               leading: const Icon(Icons.person_pin_circle_outlined),
-              title: const Text('指定给我'),
+              title: Text(context.l10n.topic_assignToMe),
               enabled: !_busy,
               onTap: _assignToMe,
             ),
             ListTile(
               leading: const Icon(Icons.person_add_alt_outlined),
-              title: const Text('指定给其他用户…'),
+              title: Text(context.l10n.topic_assignToOtherUser),
               enabled: !_busy,
               onTap: () => _showAssignDetailsDialog(),
             ),
@@ -438,7 +445,7 @@ class _AssignSheetState extends ConsumerState<_AssignSheet> {
               for (final group in _suggestions!.assignAllowedForGroups)
                 ListTile(
                   leading: const Icon(Icons.group_outlined),
-                  title: Text('指定给群组 $group'),
+                  title: Text(context.l10n.topic_assignToGroup(group)),
                   enabled: !_busy,
                   onTap: () => _assignToGroup(group),
                 ),
@@ -508,7 +515,11 @@ class _AssignDetailsDialogState extends State<_AssignDetailsDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return AlertDialog(
-      title: Text(_isEditMode ? '编辑指定' : '指定给用户'),
+      title: Text(
+        _isEditMode
+            ? context.l10n.topic_assignEdit
+            : context.l10n.topic_assignToUser,
+      ),
       content: SizedBox(
         width: 360,
         child: Column(
@@ -555,9 +566,9 @@ class _AssignDetailsDialogState extends State<_AssignDetailsDialog> {
                     controller: controller,
                     focusNode: focusNode,
                     autofocus: true,
-                    decoration: const InputDecoration(
-                      labelText: '受理人',
-                      hintText: '搜索用户名/昵称',
+                    decoration: InputDecoration(
+                      labelText: context.l10n.topic_assignRecipient,
+                      hintText: context.l10n.topic_assignSearchUser,
                       suffixIcon: Icon(Icons.search_rounded),
                     ),
                   );
@@ -613,9 +624,14 @@ class _AssignDetailsDialogState extends State<_AssignDetailsDialog> {
             if (_assignStatusEnabled) ...[
               DropdownButtonFormField<String>(
                 initialValue: _status,
-                decoration: const InputDecoration(labelText: '状态(可选)'),
+                decoration: InputDecoration(
+                  labelText: context.l10n.topic_assignStatusOptional,
+                ),
                 items: [
-                  const DropdownMenuItem(value: null, child: Text('不设置')),
+                  DropdownMenuItem(
+                    value: null,
+                    child: Text(context.l10n.topic_assignStatusUnset),
+                  ),
                   // 现有指定的状态值可能已被站点从配置里删掉——仍要出现在
                   // 列表里,否则 Dropdown 对不上 value 直接断言崩溃。
                   if (_status != null &&
@@ -633,13 +649,15 @@ class _AssignDetailsDialogState extends State<_AssignDetailsDialog> {
               onTap: _editNote,
               borderRadius: BorderRadius.circular(4),
               child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: '备注(可选)',
+                decoration: InputDecoration(
+                  labelText: context.l10n.topic_assignNoteOptional,
                   border: OutlineInputBorder(),
                   suffixIcon: Icon(Icons.edit_note_rounded),
                 ),
                 child: Text(
-                  _noteText.isEmpty ? '点击用编辑器填写' : _noteText,
+                  _noteText.isEmpty
+                      ? context.l10n.topic_assignNoteHint
+                      : _noteText,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   style: _noteText.isEmpty
@@ -656,7 +674,7 @@ class _AssignDetailsDialogState extends State<_AssignDetailsDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
+          child: Text(context.l10n.common_cancel),
         ),
         FilledButton(
           onPressed: () {
@@ -674,12 +692,12 @@ class _AssignDetailsDialogState extends State<_AssignDetailsDialog> {
                     status: _status,
                   );
             if (!_isEditMode && result.user == null) {
-              ToastService.showError('请先从搜索结果里选择一个用户');
+              ToastService.showError(context.l10n.topic_assignSelectUser);
               return;
             }
             Navigator.of(context).pop(result);
           },
-          child: const Text('指定'),
+          child: Text(context.l10n.topic_assignTitle),
         ),
       ],
     );
@@ -716,7 +734,7 @@ class _AssignNoteEditorPageState extends State<_AssignNoteEditorPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('编辑备注'),
+        title: Text(context.l10n.topic_assignEditNote),
         leading: IconButton(
           icon: const Icon(Icons.close_rounded),
           onPressed: () => Navigator.of(context).pop(),
@@ -724,14 +742,14 @@ class _AssignNoteEditorPageState extends State<_AssignNoteEditorPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(_controller.text),
-            child: const Text('完成'),
+            child: Text(context.l10n.common_done),
           ),
         ],
       ),
       body: SafeArea(
         child: MarkdownEditor(
           controller: _controller,
-          hintText: '指定备注',
+          hintText: context.l10n.topic_assignNote,
           expands: true,
         ),
       ),

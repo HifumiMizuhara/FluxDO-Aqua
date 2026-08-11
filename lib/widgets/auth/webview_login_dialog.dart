@@ -7,6 +7,7 @@ import 'package:app_icons/app_icons.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../../constants.dart';
+import '../../l10n/s.dart';
 import '../../services/auth_session.dart';
 import '../../services/cf_challenge_service.dart';
 import '../../services/discourse/discourse_service.dart';
@@ -863,7 +864,7 @@ class _Header extends StatelessWidget {
           ),
           IconButton(
             icon: const Icon(Symbols.close_rounded, size: 22),
-            tooltip: '取消',
+            tooltip: context.l10n.common_cancel,
             onPressed: onClose,
             visualDensity: VisualDensity.compact,
           ),

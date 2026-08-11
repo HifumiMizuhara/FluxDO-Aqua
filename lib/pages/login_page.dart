@@ -301,7 +301,7 @@ class _LoginPageState extends State<LoginPage>
                     0,
                     AmbientIconButton(
                       icon: Symbols.arrow_back_rounded,
-                      tooltip: '返回',
+                      tooltip: context.l10n.auth_back,
                       onPressed: () => Navigator.of(context).maybePop(),
                     ),
                   ),
@@ -315,7 +315,7 @@ class _LoginPageState extends State<LoginPage>
                       0,
                       AmbientIconButton(
                         icon: Symbols.delete_rounded,
-                        tooltip: '清除保存的账号',
+                        tooltip: context.l10n.auth_clearSavedAccount,
                         onPressed: _clearSavedCredentials,
                       ),
                     ),
@@ -444,7 +444,7 @@ class _LoginPageState extends State<LoginPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _DividerWithLabel(label: '或'),
+        _DividerWithLabel(label: context.l10n.auth_or),
         const SizedBox(height: 16),
         OutlinedButton.icon(
           onPressed: _loginWithQrScan,
@@ -470,7 +470,7 @@ class _LoginPageState extends State<LoginPage>
                   child: LoadingSpinner(size: 20),
                 )
               : const Icon(Symbols.verified_user_rounded, size: 20),
-          label: const Text('浏览器授权登录'),
+          label: Text(context.l10n.auth_browserAuthLogin),
           style: OutlinedButton.styleFrom(
             minimumSize: const Size(double.infinity, 52),
             shape: RoundedRectangleBorder(
@@ -485,7 +485,7 @@ class _LoginPageState extends State<LoginPage>
         OutlinedButton.icon(
           onPressed: () => _loginWithWebView(),
           icon: const Icon(Symbols.open_in_browser_rounded, size: 20),
-          label: const Text('其他方式登录 (OAuth / Passkey / 注册)'),
+          label: Text(context.l10n.auth_otherLoginMethods),
           style: OutlinedButton.styleFrom(
             minimumSize: const Size(double.infinity, 52),
             shape: RoundedRectangleBorder(

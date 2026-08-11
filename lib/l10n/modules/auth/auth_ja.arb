@@ -56,5 +56,22 @@
   "oauth_noRedirectResponse": "認証サービスからリダイレクトが返されませんでした",
   "onboarding_guestAccess": "ゲストとして利用",
   "onboarding_networkSettings": "ネットワーク設定",
-  "onboarding_slogan": "誠実 · 友好 · 団結 · プロフェッショナル"
+  "onboarding_slogan": "誠実 · 友好 · 団結 · プロフェッショナル",
+  "auth_usernameOrEmail": "ユーザー名 / メールアドレス",
+  "auth_password": "パスワード",
+  "auth_showPassword": "パスワードを表示",
+  "auth_hidePassword": "パスワードを非表示",
+  "auth_rememberPassword": "パスワードを記憶",
+  "auth_forgotPassword": "パスワードを忘れた場合",
+  "auth_login": "ログイン",
+  "auth_twoFactorTitle": "2段階認証",
+  "auth_twoFactorHint": "認証アプリに表示された6桁のコードを入力してください",
+  "auth_useBackupCode": "バックアップコード / セキュリティキーを使用",
+  "auth_cancel": "キャンセル",
+  "auth_verify": "認証",
+  "auth_back": "戻る",
+  "auth_clearSavedAccount": "保存したアカウントを消去",
+  "auth_or": "または",
+  "auth_browserAuthLogin": "ブラウザ認証でログイン",
+  "auth_otherLoginMethods": "その他のログイン方法（OAuth / Passkey / 新規登録）"
 }

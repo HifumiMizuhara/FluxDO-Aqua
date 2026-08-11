@@ -99,6 +99,8 @@
   "reading_showSuggestedTopics": "顯示推薦話題",
   "reading_showSuggestedTopicsDesc": "話題讀到底部時顯示相關話題與建議話題",
   "reading_title": "閱讀設定",
+  "reading_signatureSvgWebView": "使用 WebView 繪製 SVG 簽名",
+  "reading_signatureSvgWebViewDesc": "使用系統 WebView 繪製 SVG 簽名（實驗性）",
   "schemeVariant_content": "內容",
   "schemeVariant_expressive": "表現力",
   "schemeVariant_fidelity": "高保真",

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../l10n/s.dart';
 
 /// 二步验证 (TOTP) 输入对话框。返回用户输入的 6 位 code,取消返 null。
 ///
@@ -60,14 +61,15 @@ class _TwoFactorDialogState extends State<_TwoFactorDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return AlertDialog(
-      title: const Text('二步验证'),
+      title: Text(l10n.auth_twoFactorTitle),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            widget.hint ?? '请输入身份验证器 App 显示的 6 位验证码',
+            widget.hint ?? l10n.auth_twoFactorHint,
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 16),
@@ -100,7 +102,7 @@ class _TwoFactorDialogState extends State<_TwoFactorDialog> {
                   Navigator.of(context).pop();
                   widget.onUseBackupCode!();
                 },
-                child: const Text('改用备用码 / 安全密钥'),
+                child: Text(l10n.auth_useBackupCode),
               ),
             ),
           ],
@@ -109,7 +111,7 @@ class _TwoFactorDialogState extends State<_TwoFactorDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
+          child: Text(l10n.auth_cancel),
         ),
         ValueListenableBuilder<TextEditingValue>(
           valueListenable: _controller,
@@ -117,7 +119,7 @@ class _TwoFactorDialogState extends State<_TwoFactorDialog> {
             final enabled = value.text.trim().length == 6;
             return FilledButton(
               onPressed: enabled ? _submit : null,
-              child: const Text('验证'),
+              child: Text(l10n.auth_verify),
             );
           },
         ),

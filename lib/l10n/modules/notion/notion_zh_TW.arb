@@ -1,6 +1,7 @@
 {
   "@@locale": "zh_TW",
   "notion_title": "Notion 同步",
+  "notion_exportTitle": "FluxDO 匯出",
   "notion_subtitle": "把帖子完整同步到你的 Notion Database",
   "notion_configured": "已設定完成",
   "notion_editConfig": "修改設定",

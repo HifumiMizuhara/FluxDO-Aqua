@@ -337,11 +337,10 @@ class _AboutPageState extends State<AboutPage> {
                     MaterialPageRoute(builder: (_) => const AppLogsPage()),
                   ),
                 ),
-                // 性能诊断(开发者向工具,文案暂不接入 l10n)
                 _buildListTile(
                   context,
                   icon: Symbols.speed_rounded,
-                  title: '性能诊断',
+                  title: context.l10n.perf_title,
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(

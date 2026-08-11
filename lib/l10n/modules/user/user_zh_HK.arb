@@ -96,6 +96,20 @@
     }
   },
   "trustLevel_title": "信任級別要求",
+  "trustLevel_requirementTopicsViewed": "瀏覽話題",
+  "trustLevel_requirementPostsRead": "已讀帖子",
+  "trustLevel_requirementReadingTime": "閱讀時間",
+  "trustLevel_requirementDaysVisited": "訪問天數",
+  "trustLevel_requirementLikesGiven": "送出讚",
+  "trustLevel_requirementLikesReceived": "獲讚",
+  "trustLevel_requirementReplies": "回覆",
+  "trustLevel_requirementVisits": "訪問次數",
+  "trustLevel_requirementReportedPosts": "被舉報帖子",
+  "trustLevel_requirementReportedUsers": "發起舉報用戶",
+  "trustLevel_requirementSilenced": "被禁言",
+  "trustLevel_requirementSuspended": "被封禁",
+  "trustLevel_unitMinutes": "分鐘",
+  "trustLevel_unitDays": "天",
   "userProfile_actionCreatedTopic": "發佈了話題",
   "userProfile_actionDefault": "動態",
   "userProfile_actionLike": "點贊",
@@ -272,5 +286,6 @@
         "type": "int"
       }
     }
-  }
+  },
+  "profile_myBrowser": "網頁瀏覽"
 }

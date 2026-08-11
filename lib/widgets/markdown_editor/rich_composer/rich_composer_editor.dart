@@ -14,8 +14,7 @@ import 'dart:io' show File;
 import 'dart:math' show max;
 
 import 'package:chat_bottom_container/chat_bottom_container.dart';
-import 'package:flutter/foundation.dart'
-    show Uint8List, debugPrint, kDebugMode;
+import 'package:flutter/foundation.dart' show Uint8List, debugPrint, kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:app_icons/app_icons.dart';
@@ -466,7 +465,8 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     // 块完成规则(回车触发):```围栏 / $$公式 / |表格| / 成对 HTML。
     // 这些结构的收尾时机天然是回车 —— 其余块级规则(`# `/`- `/`> `)
     // 敲空格即可判定,围栏后面还要打语言名,不能一见第三个反引号就转。
-    final isEnterKey = event.logicalKey == LogicalKeyboardKey.enter ||
+    final isEnterKey =
+        event.logicalKey == LogicalKeyboardKey.enter ||
         event.logicalKey == LogicalKeyboardKey.numpadEnter;
     // Cmd/Ctrl+Enter 是宿主的**发送**快捷键,这里一个字节都不能碰 ——
     // 内核的回车分支本来就有 `when !primary` 放行它冒泡,宿主拦截层
@@ -548,60 +548,60 @@ class RichComposerEditorState extends State<RichComposerEditor> {
   }
 
   /// 候选:(关键字集, 标签, 图标, 动作)。关键字含中文与英文别名。
-  late final List<(List<String>, String, IconData, Future<void> Function())>
-  _slashItems = [
+  List<(List<String>, String, IconData, Future<void> Function())>
+  get _slashItems => [
     (
       ['h1', 'heading', '标题', 'bt'],
-      '标题 1',
+      S.current.rich_headingLevel(1),
       Icons.title_rounded,
       () async => _applySlashBlock((s) => s.setHeading(1)),
     ),
     (
       ['h2', '标题2'],
-      '标题 2',
+      S.current.rich_headingLevel(2),
       Icons.title_rounded,
       () async => _applySlashBlock((s) => s.setHeading(2)),
     ),
     (
       ['h3', '标题3'],
-      '标题 3',
+      S.current.rich_headingLevel(3),
       Icons.title_rounded,
       () async => _applySlashBlock((s) => s.setHeading(3)),
     ),
     (
       ['ul', 'list', '列表', 'lb', 'wxlb'],
-      '无序列表',
+      S.current.rich_unorderedList,
       Icons.format_list_bulleted_rounded,
       () async => _applySlashBlock((s) => s.toggleList(ordered: false)),
     ),
     (
       ['ol', '有序', 'yxlb'],
-      '有序列表',
+      S.current.rich_orderedList,
       Icons.format_list_numbered_rounded,
       () async => _applySlashBlock((s) => s.toggleList(ordered: true)),
     ),
     (
       ['quote', '引用', 'yy'],
-      '引用',
+      S.current.rich_quote,
       Icons.format_quote_rounded,
       () async => _applySlashBlock((s) => s.toggleQuote()),
     ),
     (
       ['table', '表格', 'bg'],
-      '表格',
+      S.current.rich_table,
       Icons.table_chart_outlined,
       () async =>
           insertMarkdownSnippet('| 列 1 | 列 2 |\n|---|---|\n| 内容 | 内容 |'),
     ),
     (
       ['code', '代码', 'dm'],
-      '代码块',
+      S.current.rich_codeBlock,
       Icons.code_rounded,
       () async => insertMarkdownSnippet('```dart\n// 代码\n```'),
     ),
     (
       ['math', '公式', 'gs'],
-      '公式块',
+      S.current.rich_mathBlock,
       Icons.functions_rounded,
       () async => insertMarkdownSnippet(
         r'$$'
@@ -611,73 +611,73 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     ),
     (
       ['hr', 'divider', '分隔', 'fgx'],
-      '分隔线',
+      S.current.rich_horizontalRule,
       Icons.horizontal_rule_rounded,
       () async => insertMarkdownSnippet('---'),
     ),
     (
       ['details', '折叠', 'zd'],
-      '折叠详情',
+      S.current.rich_details,
       Icons.expand_circle_down_outlined,
       () async => insertMarkdownSnippet('[details="点开看"]\n折叠内容\n[/details]'),
     ),
     (
       ['spoiler', '剧透', 'jt'],
-      '剧透遮罩',
+      S.current.rich_spoiler,
       Icons.blur_on_rounded,
       () async => insertMarkdownSnippet('[spoiler]\n剧透内容\n[/spoiler]'),
     ),
     (
       ['date', '日期', '时间', 'rq', 'sj'],
-      '日期时间',
+      S.current.rich_dateTime,
       Icons.event_rounded,
       () async => _insertLocalDate(),
     ),
     (
       ['image', '图片', 'tp'],
-      '上传图片',
+      S.current.rich_uploadImage,
       Icons.image_outlined,
       () async => _pickAndUploadImages(),
     ),
     (
       ['callout', '标注', 'bz', 'note'],
-      '标注 Callout',
+      S.current.rich_callout,
       Icons.sticky_note_2_outlined,
       () async => _insertCallout(),
     ),
     (
       ['link', '链接', 'lj'],
-      '插入链接',
+      S.current.rich_insertLink,
       Icons.link_rounded,
       () async => _insertLink(),
     ),
     (
       ['audio', '音频', 'yp'],
-      '上传音频',
+      S.current.editor_uploadAudio,
       Icons.audiotrack_rounded,
       () async => _pickAndInsertMedia(isAudio: true),
     ),
     (
       ['video', '视频', 'sp'],
-      '上传视频',
+      S.current.editor_uploadVideo,
       Icons.videocam_outlined,
       () async => _pickAndInsertMedia(isAudio: false),
     ),
     (
       ['voice', '语音', 'luyin'],
-      '语音消息',
+      S.current.editor_voiceMessage,
       Icons.mic_rounded,
       () async => _recordAndInsertVoice(),
     ),
     (
       ['poll', '投票', 'vote', 'tp2'],
-      '投票',
+      S.current.toolPanel_poll,
       Icons.poll_rounded,
       () async => _insertPoll(),
     ),
     (
       ['template', '模板', 'mb'],
-      '我的模板',
+      S.current.rich_myTemplates,
       Icons.assignment_outlined,
       () async => _insertTemplate(),
     ),
@@ -1030,16 +1030,17 @@ class RichComposerEditorState extends State<RichComposerEditor> {
   /// 回车软换行偏好。本 State 不是 ConsumerState(改继承会牵动整个
   /// 编辑器),按项目既有做法从容器直读,不订阅重建 —— 这个值只在建
   /// EditorState 和按下回车的瞬间用到,不需要响应式。
-  bool get _enterSoftBreakPref => ProviderScope.containerOf(context,
-          listen: false)
-      .read(preferencesProvider)
-      .composerEnterSoftBreak;
+  bool get _enterSoftBreakPref => ProviderScope.containerOf(
+    context,
+    listen: false,
+  ).read(preferencesProvider).composerEnterSoftBreak;
 
   /// 即时渲染偏好。与 [_enterSoftBreakPref] 同理非响应式直读:只在建
   /// EditorState 时用一次,切换开关后下次打开 composer 生效。
-  bool get _liveRenderPref => ProviderScope.containerOf(context, listen: false)
-      .read(preferencesProvider)
-      .composerLiveRender;
+  bool get _liveRenderPref => ProviderScope.containerOf(
+    context,
+    listen: false,
+  ).read(preferencesProvider).composerLiveRender;
 
   /// 回车键的换行语义。返回 true = 已接管。
   ///
@@ -1673,7 +1674,8 @@ class RichComposerEditorState extends State<RichComposerEditor> {
       final uploadResult = await DiscourseService().uploadFile(path);
       if (!mounted) return;
       final size = uploadResult.humanFilesize;
-      final snippet = '[${uploadResult.originalFilename}|attachment]'
+      final snippet =
+          '[${uploadResult.originalFilename}|attachment]'
           '(${uploadResult.shortUrl})'
           '${size != null ? ' ($size)' : ''}';
       await insertMarkdownSnippet(snippet);
@@ -1884,8 +1886,8 @@ class RichComposerEditorState extends State<RichComposerEditor> {
   /// 走 cook 后所见即所得 —— 相当于局部源码模式)。
   Future<void> _insertCustomMarkdown() async {
     final text = await _showMarkdownDialog(
-      title: '插入 Markdown 片段',
-      confirmLabel: '插入',
+      title: S.current.rich_insertMarkdownTitle,
+      confirmLabel: S.current.rich_insert,
     );
     if (text == null || text.trim().isEmpty || !mounted) return;
     await insertMarkdownSnippet(text);
@@ -1931,8 +1933,8 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     }
 
     final text = await _showMarkdownDialog(
-      title: '编辑源码',
-      confirmLabel: '应用',
+      title: S.current.rich_editSourceTitle,
+      confirmLabel: S.current.rich_apply,
       initialText: source,
     );
     if (text == null || !mounted) return;
@@ -2178,21 +2180,29 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        btn(Icons.edit_rounded, '编辑链接', _editLinkAtCaret),
-                        btn(Icons.copy_rounded, '复制链接', () {
+                        btn(
+                          Icons.edit_rounded,
+                          S.current.rich_editLink,
+                          _editLinkAtCaret,
+                        ),
+                        btn(Icons.copy_rounded, S.current.rich_copyLink, () {
                           Clipboard.setData(ClipboardData(text: href));
                           ScaffoldMessenger.maybeOf(this.context)?.showSnackBar(
-                            const SnackBar(
-                              content: Text('链接已复制'),
+                            SnackBar(
+                              content: Text(S.current.rich_linkCopied),
                               duration: Duration(seconds: 1),
                             ),
                           );
                         }),
-                        btn(Icons.link_off_rounded, '移除链接', _unlinkAtCaret),
+                        btn(
+                          Icons.link_off_rounded,
+                          S.current.rich_removeLink,
+                          _unlinkAtCaret,
+                        ),
                         if (_linkIsWholeParagraph(info))
                           btn(
                             Icons.expand_rounded,
-                            '加载预览',
+                            S.current.rich_loadPreview,
                             _convertLinkToPreview,
                           ),
                         Container(
@@ -2202,7 +2212,7 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                         ),
                         // 访问:图标 + href 缩略标签
                         Tooltip(
-                          message: '访问链接',
+                          message: S.current.rich_openLink,
                           child: InkWell(
                             onTap: href.isEmpty
                                 ? null
@@ -2351,11 +2361,11 @@ class RichComposerEditorState extends State<RichComposerEditor> {
   /// 岛的 onebox 身份:OneboxNode(外链卡)恒有 url;QuoteCardNode 仅
   /// oneboxUrl 标记非空(站内话题 onebox 展开物)时算 —— 真引用卡不出。
   String? _oneboxUrlOf(IslandBlock island) => switch (island.node) {
-        OneboxNode(:final url) => (url == null || url.isEmpty) ? null : url,
-        QuoteCardNode(:final oneboxUrl) =>
-          (oneboxUrl == null || oneboxUrl.isEmpty) ? null : oneboxUrl,
-        _ => null,
-      };
+    OneboxNode(:final url) => (url == null || url.isEmpty) ? null : url,
+    QuoteCardNode(:final oneboxUrl) =>
+      (oneboxUrl == null || oneboxUrl.isEmpty) ? null : oneboxUrl,
+    _ => null,
+  };
 
   void _onIslandSelected(IslandSelection? sel) {
     _islandSel = sel;
@@ -2373,72 +2383,82 @@ class RichComposerEditorState extends State<RichComposerEditor> {
   }
 
   void _showOneboxToolbar() {
-    _oneboxToolbarOverlay = OverlayEntry(builder: (context) {
-      final sel = _islandSel;
-      final url = sel == null ? null : _oneboxUrlOf(sel.island);
-      if (sel == null || url == null) return const SizedBox.shrink();
-      final scheme = Theme.of(context).colorScheme;
-      final screen = MediaQuery.sizeOf(context);
+    _oneboxToolbarOverlay = OverlayEntry(
+      builder: (context) {
+        final sel = _islandSel;
+        final url = sel == null ? null : _oneboxUrlOf(sel.island);
+        if (sel == null || url == null) return const SizedBox.shrink();
+        final scheme = Theme.of(context).colorScheme;
+        final screen = MediaQuery.sizeOf(context);
 
-      Widget btn(IconData icon, String tooltip, VoidCallback onTap) =>
-          Tooltip(
-            message: tooltip,
-            waitDuration: const Duration(milliseconds: 600),
-            child: InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Icon(icon, size: 17, color: scheme.onSurfaceVariant),
+        Widget btn(IconData icon, String tooltip, VoidCallback onTap) =>
+            Tooltip(
+              message: tooltip,
+              waitDuration: const Duration(milliseconds: 600),
+              child: InkWell(
+                onTap: onTap,
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Icon(icon, size: 17, color: scheme.onSurfaceVariant),
+                ),
+              ),
+            );
+
+        const barH = 40.0;
+        final rect = sel.globalRect;
+        final top = rect.top - barH - 6 < kToolbarHeight
+            ? rect.bottom + 6
+            : rect.top - barH - 6;
+        final availW = screen.width - 24;
+        final anchorX = rect.center.dx.clamp(12.0, screen.width - 12.0);
+        final alignX = availW <= 0 ? 0.0 : (((anchorX - 12) / availW) * 2 - 1);
+
+        return Positioned(
+          left: 12,
+          right: 12,
+          top: top.clamp(8.0, screen.height - barH - 8),
+          child: Align(
+            alignment: Alignment(alignX.clamp(-1.0, 1.0), 0),
+            child: TapRegion(
+              groupId: 'rich-composer-onebox-toolbar',
+              child: _FloatingPanel(
+                maxHeight: barH + 4,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    btn(Icons.copy_rounded, S.current.rich_copyLink, () {
+                      Clipboard.setData(ClipboardData(text: url));
+                      ScaffoldMessenger.maybeOf(this.context)?.showSnackBar(
+                        SnackBar(
+                          content: Text(S.current.rich_linkCopied),
+                          duration: Duration(seconds: 1),
+                        ),
+                      );
+                    }),
+                    btn(
+                      Icons.close_fullscreen_rounded,
+                      S.current.rich_removePreview,
+                      _removeOneboxPreview,
+                    ),
+                    Container(
+                      width: 1,
+                      height: 20,
+                      color: scheme.outlineVariant.withValues(alpha: 0.5),
+                    ),
+                    btn(
+                      Icons.open_in_new_rounded,
+                      S.current.rich_visitLink,
+                      () => launchContentLink(this.context, url),
+                    ),
+                  ],
+                ),
               ),
             ),
-          );
-
-      const barH = 40.0;
-      final rect = sel.globalRect;
-      final top = rect.top - barH - 6 < kToolbarHeight
-          ? rect.bottom + 6
-          : rect.top - barH - 6;
-      final availW = screen.width - 24;
-      final anchorX = rect.center.dx.clamp(12.0, screen.width - 12.0);
-      final alignX =
-          availW <= 0 ? 0.0 : (((anchorX - 12) / availW) * 2 - 1);
-
-      return Positioned(
-        left: 12,
-        right: 12,
-        top: top.clamp(8.0, screen.height - barH - 8),
-        child: Align(
-          alignment: Alignment(alignX.clamp(-1.0, 1.0), 0),
-          child: TapRegion(
-            groupId: 'rich-composer-onebox-toolbar',
-            child: _FloatingPanel(
-              maxHeight: barH + 4,
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                btn(Icons.copy_rounded, '复制链接', () {
-                  Clipboard.setData(ClipboardData(text: url));
-                  ScaffoldMessenger.maybeOf(this.context)?.showSnackBar(
-                    const SnackBar(
-                      content: Text('链接已复制'),
-                      duration: Duration(seconds: 1),
-                    ),
-                  );
-                }),
-                btn(Icons.close_fullscreen_rounded, '移除预览',
-                    _removeOneboxPreview),
-                Container(
-                  width: 1,
-                  height: 20,
-                  color: scheme.outlineVariant.withValues(alpha: 0.5),
-                ),
-                btn(Icons.open_in_new_rounded, '访问链接',
-                    () => launchContentLink(this.context, url)),
-              ]),
-            ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
     Overlay.of(context).insert(_oneboxToolbarOverlay!);
   }
 
@@ -2675,8 +2695,8 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                           minLines: 3,
                           maxLines: 3,
                           style: const TextStyle(fontSize: 13, height: 1.5),
-                          decoration: const InputDecoration(
-                            hintText: '替代文本',
+                          decoration: InputDecoration(
+                            hintText: S.current.rich_altText,
                             contentPadding: EdgeInsets.symmetric(
                               horizontal: 10,
                               vertical: 8,
@@ -2855,8 +2875,10 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     if (frame is! DetailsFrame) return;
     final text = await showAppDialog<String>(
       context: context,
-      builder: (ctx) =>
-          _SingleLineInputDialog(title: '折叠标题', initialText: frame.summary),
+      builder: (ctx) => _SingleLineInputDialog(
+        title: S.current.rich_detailsTitle,
+        initialText: frame.summary,
+      ),
     );
     if (text == null || text == frame.summary || !mounted) return;
     editor.updateContainerFrame(
@@ -2876,8 +2898,9 @@ class RichComposerEditorState extends State<RichComposerEditor> {
   /// name 必须唯一,先 flush 后按现有 raw 统计 poll 数决定 name=pollN。
   Future<void> _insertPoll() async {
     flushToController();
-    final existing =
-        RegExp(r'\[poll[\s\]]').allMatches(widget.controller.text).length;
+    final existing = RegExp(
+      r'\[poll[\s\]]',
+    ).allMatches(widget.controller.text).length;
     final spec = await showPollBuilderDialog(
       context,
       existingPollCount: existing,
@@ -3022,7 +3045,11 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                                 // 水平 20 = 与 header 标题对齐(源码模式
                                 // 同值);垂直 12 兼吸收表格悬挂柄溢出
                                 padding: const EdgeInsets.fromLTRB(
-                                    20, 12, 20, 12),
+                                  20,
+                                  12,
+                                  20,
+                                  12,
+                                ),
                                 child: FluxdoEditor(
                                   state: editor,
                                   autofocus: true,
@@ -3659,7 +3686,7 @@ class _RichToolbarState extends State<_RichToolbar> {
   Widget _headingBtn(ThemeData theme) {
     final active = _sig.headingLevel > 0;
     return PopupMenuButton<int>(
-      tooltip: '标题',
+      tooltip: S.current.rich_headingTooltip,
       position: PopupMenuPosition.over,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -3675,7 +3702,7 @@ class _RichToolbarState extends State<_RichToolbar> {
             child: Row(
               children: [
                 Text(
-                  '标题 $level',
+                  S.current.rich_headingLevel(level),
                   style: TextStyle(
                     fontSize: 18.0 - level * 1.5,
                     fontWeight: FontWeight.w600,
@@ -3695,7 +3722,7 @@ class _RichToolbarState extends State<_RichToolbar> {
               ],
             ),
           ),
-        const PopupMenuItem(value: 0, child: Text('正文')),
+        PopupMenuItem(value: 0, child: Text(S.current.rich_body)),
       ],
       onSelected: (level) => widget.state.setHeading(level == 0 ? null : level),
       child: Padding(
@@ -3778,8 +3805,8 @@ class _MarkdownInputDialogState extends State<_MarkdownInputDialog> {
           autofocus: true,
           maxLines: 10,
           style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
-          decoration: const InputDecoration(
-            hintText: '任意 Discourse markdown/bbcode…',
+          decoration: InputDecoration(
+            hintText: S.current.rich_markdownHint,
             border: OutlineInputBorder(),
           ),
         ),
@@ -3787,7 +3814,7 @@ class _MarkdownInputDialogState extends State<_MarkdownInputDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(S.current.common_cancel),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(context, _controller.text),
@@ -3836,11 +3863,11 @@ class _SingleLineInputDialogState extends State<_SingleLineInputDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(S.current.common_cancel),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(context, _controller.text),
-          child: const Text('应用'),
+          child: Text(S.current.rich_apply),
         ),
       ],
     );

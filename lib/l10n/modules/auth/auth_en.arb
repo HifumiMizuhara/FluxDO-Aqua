@@ -56,5 +56,22 @@
   "oauth_noRedirectResponse": "Authorization service did not return a redirect",
   "onboarding_guestAccess": "Guest access",
   "onboarding_networkSettings": "Network settings",
-  "onboarding_slogan": "Sincere · Friendly · United · Professional"
+  "onboarding_slogan": "Sincere · Friendly · United · Professional",
+  "auth_usernameOrEmail": "Username / email",
+  "auth_password": "Password",
+  "auth_showPassword": "Show password",
+  "auth_hidePassword": "Hide password",
+  "auth_rememberPassword": "Remember password",
+  "auth_forgotPassword": "Forgot password?",
+  "auth_login": "Log in",
+  "auth_twoFactorTitle": "Two-factor authentication",
+  "auth_twoFactorHint": "Enter the 6-digit code shown in your authenticator app",
+  "auth_useBackupCode": "Use a backup code / security key",
+  "auth_cancel": "Cancel",
+  "auth_verify": "Verify",
+  "auth_back": "Back",
+  "auth_clearSavedAccount": "Clear saved account",
+  "auth_or": "Or",
+  "auth_browserAuthLogin": "Log in with browser authorization",
+  "auth_otherLoginMethods": "Other login methods (OAuth / Passkey / sign up)"
 }
