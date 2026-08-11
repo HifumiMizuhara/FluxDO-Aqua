@@ -54,6 +54,12 @@ List<SettingsGroup> buildPreferencesGroups(BuildContext context) {
               .read(preferencesProvider.notifier)
               .setClipboardTopicLinkDetection(v),
         ),
+      ],
+    ),
+    SettingsGroup(
+      title: l10n.preferences_contentFilter,
+      icon: Symbols.filter_alt_rounded,
+      items: [
         ActionModel(
           id: 'topicFilterKeywords',
           title: l10n.preferences_topicFilterKeywords,
@@ -84,6 +90,12 @@ List<SettingsGroup> buildPreferencesGroups(BuildContext context) {
           },
           onTap: (context, ref) => showBlockedUsernamesDialog(context, ref),
         ),
+      ],
+    ),
+    SettingsGroup(
+      title: l10n.preferences_interaction,
+      icon: Symbols.gesture_rounded,
+      items: [
         PlatformConditionalModel(
           inner: SwitchModel(
             id: 'portraitLock',
@@ -171,6 +183,20 @@ List<SettingsGroup> buildPreferencesGroups(BuildContext context) {
           // 即时渲染(ir)是富文本编辑器的模式,源码编辑器无显形概念
           enabledWhen: (ref) => ref.watch(preferencesProvider).useRichComposer,
         ),
+        ActionModel(
+          id: 'stickerSource',
+          title: l10n.preferences_stickerSource,
+          icon: Symbols.sticky_note_2_rounded,
+          getDynamicSubtitle: (ref) =>
+              ref.watch(stickerMarketServiceProvider).baseUrl,
+          onTap: (context, ref) => _showStickerBaseUrlDialog(context, ref),
+        ),
+      ],
+    ),
+    SettingsGroup(
+      title: l10n.preferences_ai,
+      icon: Symbols.psychology_rounded,
+      items: [
         SwitchModel(
           id: 'aiPostReview',
           title: l10n.preferences_aiPostReview,
@@ -255,14 +281,6 @@ List<SettingsGroup> buildPreferencesGroups(BuildContext context) {
             return '${selected.provider.name} / $modelName';
           },
           onTap: (context, ref) => _showAiTranslationModelSheet(context, ref),
-        ),
-        ActionModel(
-          id: 'stickerSource',
-          title: l10n.preferences_stickerSource,
-          icon: Symbols.sticky_note_2_rounded,
-          getDynamicSubtitle: (ref) =>
-              ref.watch(stickerMarketServiceProvider).baseUrl,
-          onTap: (context, ref) => _showStickerBaseUrlDialog(context, ref),
         ),
       ],
     ),
