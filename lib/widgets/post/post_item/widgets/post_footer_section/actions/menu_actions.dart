@@ -258,7 +258,7 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
                     Icons.assignment_ind_outlined,
                     color: theme.colorScheme.onSurface,
                   ),
-                  title: const Text('指定帖子'),
+                  title: Text(context.l10n.topic_assignTitle),
                   onTap: () {
                     Navigator.pop(ctx);
                     widget.onAssignPost!();

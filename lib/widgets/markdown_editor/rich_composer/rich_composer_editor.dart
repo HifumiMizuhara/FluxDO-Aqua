@@ -548,60 +548,60 @@ class RichComposerEditorState extends State<RichComposerEditor> {
   }
 
   /// 候选:(关键字集, 标签, 图标, 动作)。关键字含中文与英文别名。
-  late final List<(List<String>, String, IconData, Future<void> Function())>
-  _slashItems = [
+  List<(List<String>, String, IconData, Future<void> Function())>
+  get _slashItems => [
     (
       ['h1', 'heading', '标题', 'bt'],
-      '标题 1',
+      S.current.rich_headingLevel(1),
       Icons.title_rounded,
       () async => _applySlashBlock((s) => s.setHeading(1)),
     ),
     (
       ['h2', '标题2'],
-      '标题 2',
+      S.current.rich_headingLevel(2),
       Icons.title_rounded,
       () async => _applySlashBlock((s) => s.setHeading(2)),
     ),
     (
       ['h3', '标题3'],
-      '标题 3',
+      S.current.rich_headingLevel(3),
       Icons.title_rounded,
       () async => _applySlashBlock((s) => s.setHeading(3)),
     ),
     (
       ['ul', 'list', '列表', 'lb', 'wxlb'],
-      '无序列表',
+      S.current.rich_unorderedList,
       Icons.format_list_bulleted_rounded,
       () async => _applySlashBlock((s) => s.toggleList(ordered: false)),
     ),
     (
       ['ol', '有序', 'yxlb'],
-      '有序列表',
+      S.current.rich_orderedList,
       Icons.format_list_numbered_rounded,
       () async => _applySlashBlock((s) => s.toggleList(ordered: true)),
     ),
     (
       ['quote', '引用', 'yy'],
-      '引用',
+      S.current.rich_quote,
       Icons.format_quote_rounded,
       () async => _applySlashBlock((s) => s.toggleQuote()),
     ),
     (
       ['table', '表格', 'bg'],
-      '表格',
+      S.current.rich_table,
       Icons.table_chart_outlined,
       () async =>
           insertMarkdownSnippet('| 列 1 | 列 2 |\n|---|---|\n| 内容 | 内容 |'),
     ),
     (
       ['code', '代码', 'dm'],
-      '代码块',
+      S.current.rich_codeBlock,
       Icons.code_rounded,
       () async => insertMarkdownSnippet('```dart\n// 代码\n```'),
     ),
     (
       ['math', '公式', 'gs'],
-      '公式块',
+      S.current.rich_mathBlock,
       Icons.functions_rounded,
       () async => insertMarkdownSnippet(
         r'$$'
@@ -611,73 +611,73 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     ),
     (
       ['hr', 'divider', '分隔', 'fgx'],
-      '分隔线',
+      S.current.rich_horizontalRule,
       Icons.horizontal_rule_rounded,
       () async => insertMarkdownSnippet('---'),
     ),
     (
       ['details', '折叠', 'zd'],
-      '折叠详情',
+      S.current.rich_details,
       Icons.expand_circle_down_outlined,
       () async => insertMarkdownSnippet('[details="点开看"]\n折叠内容\n[/details]'),
     ),
     (
       ['spoiler', '剧透', 'jt'],
-      '剧透遮罩',
+      S.current.rich_spoiler,
       Icons.blur_on_rounded,
       () async => insertMarkdownSnippet('[spoiler]\n剧透内容\n[/spoiler]'),
     ),
     (
       ['date', '日期', '时间', 'rq', 'sj'],
-      '日期时间',
+      S.current.rich_dateTime,
       Icons.event_rounded,
       () async => _insertLocalDate(),
     ),
     (
       ['image', '图片', 'tp'],
-      '上传图片',
+      S.current.rich_uploadImage,
       Icons.image_outlined,
       () async => _pickAndUploadImages(),
     ),
     (
       ['callout', '标注', 'bz', 'note'],
-      '标注 Callout',
+      S.current.rich_callout,
       Icons.sticky_note_2_outlined,
       () async => _insertCallout(),
     ),
     (
       ['link', '链接', 'lj'],
-      '插入链接',
+      S.current.rich_insertLink,
       Icons.link_rounded,
       () async => _insertLink(),
     ),
     (
       ['audio', '音频', 'yp'],
-      '上传音频',
+      S.current.editor_uploadAudio,
       Icons.audiotrack_rounded,
       () async => _pickAndInsertMedia(isAudio: true),
     ),
     (
       ['video', '视频', 'sp'],
-      '上传视频',
+      S.current.editor_uploadVideo,
       Icons.videocam_outlined,
       () async => _pickAndInsertMedia(isAudio: false),
     ),
     (
       ['voice', '语音', 'luyin'],
-      '语音消息',
+      S.current.editor_voiceMessage,
       Icons.mic_rounded,
       () async => _recordAndInsertVoice(),
     ),
     (
       ['poll', '投票', 'vote', 'tp2'],
-      '投票',
+      S.current.toolPanel_poll,
       Icons.poll_rounded,
       () async => _insertPoll(),
     ),
     (
       ['template', '模板', 'mb'],
-      '我的模板',
+      S.current.rich_myTemplates,
       Icons.assignment_outlined,
       () async => _insertTemplate(),
     ),
@@ -1886,8 +1886,8 @@ class RichComposerEditorState extends State<RichComposerEditor> {
   /// 走 cook 后所见即所得 —— 相当于局部源码模式)。
   Future<void> _insertCustomMarkdown() async {
     final text = await _showMarkdownDialog(
-      title: '插入 Markdown 片段',
-      confirmLabel: '插入',
+      title: S.current.rich_insertMarkdownTitle,
+      confirmLabel: S.current.rich_insert,
     );
     if (text == null || text.trim().isEmpty || !mounted) return;
     await insertMarkdownSnippet(text);
@@ -1933,8 +1933,8 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     }
 
     final text = await _showMarkdownDialog(
-      title: '编辑源码',
-      confirmLabel: '应用',
+      title: S.current.rich_editSourceTitle,
+      confirmLabel: S.current.rich_apply,
       initialText: source,
     );
     if (text == null || !mounted) return;
@@ -2180,21 +2180,29 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        btn(Icons.edit_rounded, '编辑链接', _editLinkAtCaret),
-                        btn(Icons.copy_rounded, '复制链接', () {
+                        btn(
+                          Icons.edit_rounded,
+                          S.current.rich_editLink,
+                          _editLinkAtCaret,
+                        ),
+                        btn(Icons.copy_rounded, S.current.rich_copyLink, () {
                           Clipboard.setData(ClipboardData(text: href));
                           ScaffoldMessenger.maybeOf(this.context)?.showSnackBar(
-                            const SnackBar(
-                              content: Text('链接已复制'),
+                            SnackBar(
+                              content: Text(S.current.rich_linkCopied),
                               duration: Duration(seconds: 1),
                             ),
                           );
                         }),
-                        btn(Icons.link_off_rounded, '移除链接', _unlinkAtCaret),
+                        btn(
+                          Icons.link_off_rounded,
+                          S.current.rich_removeLink,
+                          _unlinkAtCaret,
+                        ),
                         if (_linkIsWholeParagraph(info))
                           btn(
                             Icons.expand_rounded,
-                            '加载预览',
+                            S.current.rich_loadPreview,
                             _convertLinkToPreview,
                           ),
                         Container(
@@ -2204,7 +2212,7 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                         ),
                         // 访问:图标 + href 缩略标签
                         Tooltip(
-                          message: 'Open link',
+                          message: S.current.rich_openLink,
                           child: InkWell(
                             onTap: href.isEmpty
                                 ? null
@@ -2419,18 +2427,18 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    btn(Icons.copy_rounded, '复制链接', () {
+                    btn(Icons.copy_rounded, S.current.rich_copyLink, () {
                       Clipboard.setData(ClipboardData(text: url));
                       ScaffoldMessenger.maybeOf(this.context)?.showSnackBar(
-                        const SnackBar(
-                          content: Text('链接已复制'),
+                        SnackBar(
+                          content: Text(S.current.rich_linkCopied),
                           duration: Duration(seconds: 1),
                         ),
                       );
                     }),
                     btn(
                       Icons.close_fullscreen_rounded,
-                      '移除预览',
+                      S.current.rich_removePreview,
                       _removeOneboxPreview,
                     ),
                     Container(
@@ -2440,7 +2448,7 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                     ),
                     btn(
                       Icons.open_in_new_rounded,
-                      '访问链接',
+                      S.current.rich_visitLink,
                       () => launchContentLink(this.context, url),
                     ),
                   ],
@@ -2687,8 +2695,8 @@ class RichComposerEditorState extends State<RichComposerEditor> {
                           minLines: 3,
                           maxLines: 3,
                           style: const TextStyle(fontSize: 13, height: 1.5),
-                          decoration: const InputDecoration(
-                            hintText: '替代文本',
+                          decoration: InputDecoration(
+                            hintText: S.current.rich_altText,
                             contentPadding: EdgeInsets.symmetric(
                               horizontal: 10,
                               vertical: 8,
@@ -2867,8 +2875,10 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     if (frame is! DetailsFrame) return;
     final text = await showAppDialog<String>(
       context: context,
-      builder: (ctx) =>
-          _SingleLineInputDialog(title: '折叠标题', initialText: frame.summary),
+      builder: (ctx) => _SingleLineInputDialog(
+        title: S.current.rich_detailsTitle,
+        initialText: frame.summary,
+      ),
     );
     if (text == null || text == frame.summary || !mounted) return;
     editor.updateContainerFrame(
@@ -3676,7 +3686,7 @@ class _RichToolbarState extends State<_RichToolbar> {
   Widget _headingBtn(ThemeData theme) {
     final active = _sig.headingLevel > 0;
     return PopupMenuButton<int>(
-      tooltip: '标题',
+      tooltip: S.current.rich_headingTooltip,
       position: PopupMenuPosition.over,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -3692,7 +3702,7 @@ class _RichToolbarState extends State<_RichToolbar> {
             child: Row(
               children: [
                 Text(
-                  '标题 $level',
+                  S.current.rich_headingLevel(level),
                   style: TextStyle(
                     fontSize: 18.0 - level * 1.5,
                     fontWeight: FontWeight.w600,
@@ -3712,7 +3722,7 @@ class _RichToolbarState extends State<_RichToolbar> {
               ],
             ),
           ),
-        const PopupMenuItem(value: 0, child: Text('正文')),
+        PopupMenuItem(value: 0, child: Text(S.current.rich_body)),
       ],
       onSelected: (level) => widget.state.setHeading(level == 0 ? null : level),
       child: Padding(
@@ -3795,8 +3805,8 @@ class _MarkdownInputDialogState extends State<_MarkdownInputDialog> {
           autofocus: true,
           maxLines: 10,
           style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
-          decoration: const InputDecoration(
-            hintText: '任意 Discourse markdown/bbcode…',
+          decoration: InputDecoration(
+            hintText: S.current.rich_markdownHint,
             border: OutlineInputBorder(),
           ),
         ),
@@ -3804,7 +3814,7 @@ class _MarkdownInputDialogState extends State<_MarkdownInputDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(S.current.common_cancel),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(context, _controller.text),
@@ -3853,11 +3863,11 @@ class _SingleLineInputDialogState extends State<_SingleLineInputDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(S.current.common_cancel),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(context, _controller.text),
-          child: const Text('应用'),
+          child: Text(S.current.rich_apply),
         ),
       ],
     );

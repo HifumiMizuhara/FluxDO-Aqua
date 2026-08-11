@@ -580,13 +580,79 @@ Future<void> main() async {
   );
 }
 
-/// 只给 textTheme/primaryTextTheme 注入中文 fallback，保留 ThemeData 原本的
-/// fontFamily 与 weight 配置（避免覆盖 Android OEM 字体导致视觉变粗）。
-ThemeData _withChineseFallback(ThemeData base) {
-  final fallback = SystemChineseFont.fontFamilyFallback;
+/// 根据应用语言为 CJK 文本优先选择对应地区的系统字体，再回退到中文字体。
+/// 保留 ThemeData 原本的 fontFamily 与 weight 配置，避免覆盖 Android OEM
+/// 字体导致视觉变粗。
+List<String> _fontFamilyFallbackFor(Locale? locale) {
+  final localeFallback = switch (locale?.languageCode) {
+    'ja' => const [
+      'Noto Sans CJK JP',
+      'Noto Sans JP',
+      'Yu Gothic UI',
+      'Yu Gothic',
+      'Meiryo',
+      'Hiragino Sans',
+      'Hiragino Kaku Gothic ProN',
+    ],
+    'ko' => const [
+      'Noto Sans CJK KR',
+      'Noto Sans KR',
+      'Malgun Gothic',
+      'Apple SD Gothic Neo',
+    ],
+    'zh' when locale?.countryCode == 'HK' || locale?.countryCode == 'TW' =>
+      const [
+        'Noto Sans CJK TC',
+        'Noto Sans TC',
+        'Microsoft JhengHei UI',
+        'Microsoft JhengHei',
+        'PingFang TC',
+        'Hiragino Sans TC',
+        'Hiragino Kaku Gothic ProN',
+      ],
+    _ => const <String>[],
+  };
+  return [
+    ...localeFallback,
+    ...SystemChineseFont.fontFamilyFallback.where(
+      (font) => !localeFallback.contains(font),
+    ),
+  ];
+}
+
+TextTheme _withTextLocale(TextTheme textTheme, Locale? locale) {
+  if (locale == null) return textTheme;
+  TextStyle? localized(TextStyle? style) => style?.copyWith(locale: locale);
+  return textTheme.copyWith(
+    displayLarge: localized(textTheme.displayLarge),
+    displayMedium: localized(textTheme.displayMedium),
+    displaySmall: localized(textTheme.displaySmall),
+    headlineLarge: localized(textTheme.headlineLarge),
+    headlineMedium: localized(textTheme.headlineMedium),
+    headlineSmall: localized(textTheme.headlineSmall),
+    titleLarge: localized(textTheme.titleLarge),
+    titleMedium: localized(textTheme.titleMedium),
+    titleSmall: localized(textTheme.titleSmall),
+    bodyLarge: localized(textTheme.bodyLarge),
+    bodyMedium: localized(textTheme.bodyMedium),
+    bodySmall: localized(textTheme.bodySmall),
+    labelLarge: localized(textTheme.labelLarge),
+    labelMedium: localized(textTheme.labelMedium),
+    labelSmall: localized(textTheme.labelSmall),
+  );
+}
+
+ThemeData _withLocaleFontFallback(ThemeData base, Locale? locale) {
+  final fallback = _fontFamilyFallbackFor(locale);
   return base.copyWith(
-    textTheme: base.textTheme.apply(fontFamilyFallback: fallback),
-    primaryTextTheme: base.primaryTextTheme.apply(fontFamilyFallback: fallback),
+    textTheme: _withTextLocale(
+      base.textTheme.apply(fontFamilyFallback: fallback),
+      locale,
+    ),
+    primaryTextTheme: _withTextLocale(
+      base.primaryTextTheme.apply(fontFamilyFallback: fallback),
+      locale,
+    ),
   );
 }
 
@@ -769,129 +835,137 @@ class MainApp extends ConsumerWidget {
 
         return TranslationProvider(
           child: Builder(
-            builder: (context) => MaterialApp(
-              navigatorKey: navigatorKey,
-              // JankNavObserver 给 [JANK] 日志加导航归因(debug/profile 观测用)
-              // KeyboardFocusGuard 压掉浮层关闭后键盘自弹(移动端)
-              // EscFallbackObserver 登记全屏页,桌面 ESC 路由级自动兜底
-              navigatorObservers: [
-                appRouteObserver,
-                keyboardFocusGuard,
-                JankNavObserver(),
-                EscFallbackObserver(),
-              ],
-              title: 'FluxDO',
-              locale: TranslationProvider.of(context).flutterLocale,
-              localizationsDelegates: const [
-                GlobalMaterialLocalizations.delegate,
-                GlobalWidgetsLocalizations.delegate,
-                GlobalCupertinoLocalizations.delegate,
-              ],
-              supportedLocales: AppLocaleUtils.supportedLocales,
-              themeMode: themeState.mode,
-              // 仅注入 fontFamilyFallback，不替换 textTheme，避免覆盖 Android OEM
-              // 系统字体（chinese_font_library 自带的 ThemeData.useSystemChineseFont
-              // 会强制改为 Roboto，导致字体显得比之前粗）。
-              theme: _withChineseFallback(
-                _buildAppTheme(
-                  lightScheme,
-                  themeState,
-                  fullscreenSwipeBack: fullscreenSwipeBack,
+            builder: (context) {
+              final appLocale = TranslationProvider.of(context).flutterLocale;
+              return MaterialApp(
+                navigatorKey: navigatorKey,
+                // JankNavObserver 给 [JANK] 日志加导航归因(debug/profile 观测用)
+                // KeyboardFocusGuard 压掉浮层关闭后键盘自弹(移动端)
+                // EscFallbackObserver 登记全屏页,桌面 ESC 路由级自动兜底
+                navigatorObservers: [
+                  appRouteObserver,
+                  keyboardFocusGuard,
+                  JankNavObserver(),
+                  EscFallbackObserver(),
+                ],
+                title: 'FluxDO',
+                locale: TranslationProvider.of(context).flutterLocale,
+                localizationsDelegates: const [
+                  GlobalMaterialLocalizations.delegate,
+                  GlobalWidgetsLocalizations.delegate,
+                  GlobalCupertinoLocalizations.delegate,
+                ],
+                supportedLocales: AppLocaleUtils.supportedLocales,
+                themeMode: themeState.mode,
+                // 仅注入 fontFamilyFallback，不替换 textTheme，避免覆盖 Android OEM
+                // 系统字体（chinese_font_library 自带的 ThemeData.useSystemChineseFont
+                // 会强制改为 Roboto，导致字体显得比之前粗）。
+                theme: _withLocaleFontFallback(
+                  _buildAppTheme(
+                    lightScheme,
+                    themeState,
+                    fullscreenSwipeBack: fullscreenSwipeBack,
+                  ),
+                  appLocale,
                 ),
-              ),
-              darkTheme: _withChineseFallback(
-                _buildAppTheme(
-                  darkScheme,
-                  themeState,
-                  fullscreenSwipeBack: fullscreenSwipeBack,
+                darkTheme: _withLocaleFontFallback(
+                  _buildAppTheme(
+                    darkScheme,
+                    themeState,
+                    fullscreenSwipeBack: fullscreenSwipeBack,
+                  ),
+                  appLocale,
                 ),
-              ),
-              builder: (context, child) {
-                final brightness = Theme.of(context).brightness;
-                final iconBrightness = brightness == Brightness.light
-                    ? Brightness.dark
-                    : Brightness.light;
-                // 桌面平台：跟随应用主题明暗切换窗口效果
-                if (Platform.isMacOS ||
-                    Platform.isWindows ||
-                    Platform.isLinux) {
-                  final isDark = brightness == Brightness.dark;
-                  acrylic.Window.setEffect(
-                    effect: Platform.isMacOS
-                        ? acrylic.WindowEffect.sidebar
-                        : Platform.isWindows
-                        ? acrylic.WindowEffect.mica
-                        : acrylic.WindowEffect.disabled,
-                    dark: isDark,
-                  );
-                  if (Platform.isMacOS) {
-                    acrylic.Window.overrideMacOSBrightness(dark: isDark);
+                builder: (context, child) {
+                  final brightness = Theme.of(context).brightness;
+                  final iconBrightness = brightness == Brightness.light
+                      ? Brightness.dark
+                      : Brightness.light;
+                  // 桌面平台：跟随应用主题明暗切换窗口效果
+                  if (Platform.isMacOS ||
+                      Platform.isWindows ||
+                      Platform.isLinux) {
+                    final isDark = brightness == Brightness.dark;
+                    acrylic.Window.setEffect(
+                      effect: Platform.isMacOS
+                          ? acrylic.WindowEffect.sidebar
+                          : Platform.isWindows
+                          ? acrylic.WindowEffect.mica
+                          : acrylic.WindowEffect.disabled,
+                      dark: isDark,
+                    );
+                    if (Platform.isMacOS) {
+                      acrylic.Window.overrideMacOSBrightness(dark: isDark);
+                    }
                   }
-                }
-                Widget result = AnnotatedRegion<SystemUiOverlayStyle>(
-                  value: SystemUiOverlayStyle(
-                    statusBarColor: Colors.transparent,
-                    statusBarIconBrightness: iconBrightness,
-                    systemNavigationBarIconBrightness: iconBrightness,
-                    systemNavigationBarColor: Colors.transparent,
-                    // Android 28 上 dividerColor 不能完全透明，用 withAlpha(1) 兼容
-                    systemNavigationBarDividerColor: Colors.transparent
-                        .withAlpha(1),
-                    // 关闭系统自动 scrim，实现完全沉浸
-                    systemNavigationBarContrastEnforced: false,
-                  ),
-                  child: Stack(
-                    fit: StackFit.passthrough,
-                    children: [
-                      child!,
-                      const ReadLaterBubble(),
-                      // 渲染帧标识印记:置于最顶层保证捕获帧必含点阵
-                      const RenderSignetLayer(),
-                    ],
-                  ),
-                );
+                  Widget result = AnnotatedRegion<SystemUiOverlayStyle>(
+                    value: SystemUiOverlayStyle(
+                      statusBarColor: Colors.transparent,
+                      statusBarIconBrightness: iconBrightness,
+                      systemNavigationBarIconBrightness: iconBrightness,
+                      systemNavigationBarColor: Colors.transparent,
+                      // Android 28 上 dividerColor 不能完全透明，用 withAlpha(1) 兼容
+                      systemNavigationBarDividerColor: Colors.transparent
+                          .withAlpha(1),
+                      // 关闭系统自动 scrim，实现完全沉浸
+                      systemNavigationBarContrastEnforced: false,
+                    ),
+                    child: Stack(
+                      fit: StackFit.passthrough,
+                      children: [
+                        child!,
+                        const ReadLaterBubble(),
+                        // 渲染帧标识印记:置于最顶层保证捕获帧必含点阵
+                        const RenderSignetLayer(),
+                      ],
+                    ),
+                  );
 
-                result = Listener(
-                  behavior: HitTestBehavior.translucent,
-                  onPointerDown: (event) {
-                    UserPresenceService().markUserActivity();
-                    // 鼠标侧键返回（第 4 按钮，bit flag 0x08）
-                    if (PlatformUtils.isDesktop && event.buttons & 0x08 != 0) {
-                      navigatorKey.currentState?.maybePop();
-                    }
-                  },
-                  onPointerMove: (_) =>
-                      UserPresenceService().markUserActivity(),
-                  onPointerSignal: (_) =>
-                      UserPresenceService().markUserActivity(),
-                  child: result,
-                );
-
-                // 全局滚动繁忙信号:后台维护任务(WebView cookie 轮询等
-                // 平台主线程 IPC)据此在滚动中让路,见 ScrollBusySignal
-                result = NotificationListener<ScrollNotification>(
-                  onNotification: (notification) {
-                    if (notification is ScrollUpdateNotification ||
-                        notification is ScrollStartNotification) {
-                      ScrollBusySignal.touch();
-                    }
-                    return false;
-                  },
-                  child: result,
-                );
-
-                // 桌面端：全局键盘快捷键（HardwareKeyboard）
-                if (PlatformUtils.isDesktop) {
-                  result = KeyboardShortcutHandler(
-                    navigatorKey: navigatorKey,
+                  result = Listener(
+                    behavior: HitTestBehavior.translucent,
+                    onPointerDown: (event) {
+                      UserPresenceService().markUserActivity();
+                      // 鼠标侧键返回（第 4 按钮，bit flag 0x08）
+                      if (PlatformUtils.isDesktop &&
+                          event.buttons & 0x08 != 0) {
+                        navigatorKey.currentState?.maybePop();
+                      }
+                    },
+                    onPointerMove: (_) =>
+                        UserPresenceService().markUserActivity(),
+                    onPointerSignal: (_) =>
+                        UserPresenceService().markUserActivity(),
                     child: result,
                   );
-                }
 
-                return result;
-              },
-              home: const OnboardingGate(child: PreheatGate(child: MainPage())),
-            ),
+                  // 全局滚动繁忙信号:后台维护任务(WebView cookie 轮询等
+                  // 平台主线程 IPC)据此在滚动中让路,见 ScrollBusySignal
+                  result = NotificationListener<ScrollNotification>(
+                    onNotification: (notification) {
+                      if (notification is ScrollUpdateNotification ||
+                          notification is ScrollStartNotification) {
+                        ScrollBusySignal.touch();
+                      }
+                      return false;
+                    },
+                    child: result,
+                  );
+
+                  // 桌面端：全局键盘快捷键（HardwareKeyboard）
+                  if (PlatformUtils.isDesktop) {
+                    result = KeyboardShortcutHandler(
+                      navigatorKey: navigatorKey,
+                      child: result,
+                    );
+                  }
+
+                  return result;
+                },
+                home: const OnboardingGate(
+                  child: PreheatGate(child: MainPage()),
+                ),
+              );
+            },
           ),
         );
       },

@@ -102,7 +102,7 @@ List<SettingsGroup> buildNetworkGroups(BuildContext context) {
         ),
         CustomModel(
           id: 'erudaConsole',
-          title: 'Eruda 调试控制台',
+          title: l10n.network_erudaConsole,
           subtitle: l10n.networkSettings_debug,
           builder: (context, ref) => const ErudaCard(),
         ),

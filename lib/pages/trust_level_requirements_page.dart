@@ -283,66 +283,67 @@ class _TrustLevelRequirementsPageState
     int? level,
     UserSummary? summary,
   ) {
+    final l10n = S.current;
     final readingMinutes = summary == null ? null : summary.timeRead ~/ 60;
 
     switch (level) {
       case 0:
         return [
           TlFallbackRequirement(
-            label: '浏览话题',
+            label: l10n.trustLevel_requirementTopicsViewed,
             currentValue: summary?.topicsEntered,
             requiredValue: 5,
           ),
           TlFallbackRequirement(
-            label: '已读帖子',
+            label: l10n.trustLevel_requirementPostsRead,
             currentValue: summary?.postsReadCount,
             requiredValue: 30,
           ),
           TlFallbackRequirement(
-            label: '阅读时间',
+            label: l10n.trustLevel_requirementReadingTime,
             currentValue: readingMinutes,
             requiredValue: 10,
-            unit: '分钟',
+            unit: l10n.trustLevel_unitMinutes,
           ),
         ];
       case 1:
         return [
           TlFallbackRequirement(
-            label: '访问天数',
+            label: l10n.trustLevel_requirementDaysVisited,
             currentValue: summary?.daysVisited,
             requiredValue: 15,
-            unit: '天',
+            unit: l10n.trustLevel_unitDays,
           ),
           TlFallbackRequirement(
-            label: '送出赞',
+            label: l10n.trustLevel_requirementLikesGiven,
             currentValue: summary?.likesGiven,
             requiredValue: 1,
           ),
           TlFallbackRequirement(
-            label: '获赞',
+            label: l10n.trustLevel_requirementLikesReceived,
             currentValue: summary?.likesReceived,
             requiredValue: 1,
           ),
           TlFallbackRequirement(
-            label: '回复',
+            label: l10n.trustLevel_requirementReplies,
             currentValue: summary?.postCount,
             requiredValue: 3,
           ),
           TlFallbackRequirement(
-            label: '浏览话题',
+            label: l10n.trustLevel_requirementTopicsViewed,
             currentValue: summary?.topicsEntered,
             requiredValue: 20,
           ),
           TlFallbackRequirement(
-            label: '已读帖子',
+            label: l10n.trustLevel_requirementPostsRead,
             currentValue: summary?.postsReadCount,
             requiredValue: 100,
           ),
           TlFallbackRequirement(
-            label: '阅读时间',
+            label: l10n.trustLevel_requirementReadingTime,
             currentValue: readingMinutes,
             requiredValue: 60,
-            unit: '分钟',
+            unit: l10n.trustLevel_unitMinutes,
           ),
         ];
       case 2:
@@ -350,55 +351,55 @@ class _TrustLevelRequirementsPageState
       case 4:
         return [
           TlFallbackRequirement(
-            label: '访问次数',
+            label: l10n.trustLevel_requirementVisits,
             currentValue: summary?.daysVisited,
             requiredValue: 50,
           ),
           TlFallbackRequirement(
-            label: '回复',
+            label: l10n.trustLevel_requirementReplies,
             currentValue: summary?.postCount,
             requiredValue: 10,
           ),
           TlFallbackRequirement(
-            label: '浏览话题',
+            label: l10n.trustLevel_requirementTopicsViewed,
             currentValue: summary?.topicsEntered,
             requiredValue: 500,
           ),
           TlFallbackRequirement(
-            label: '已读帖子',
+            label: l10n.trustLevel_requirementPostsRead,
             currentValue: summary?.postsReadCount,
             requiredValue: 20000,
           ),
           TlFallbackRequirement(
-            label: '点赞',
+            label: l10n.trustLevel_requirementLikesGiven,
             currentValue: summary?.likesGiven,
             requiredValue: 30,
           ),
           TlFallbackRequirement(
-            label: '获赞',
+            label: l10n.trustLevel_requirementLikesReceived,
             currentValue: summary?.likesReceived,
             requiredValue: 20,
           ),
-          const TlFallbackRequirement(
-            label: '被举报帖子',
+          TlFallbackRequirement(
+            label: l10n.trustLevel_requirementReportedPosts,
             currentValue: 0,
             requiredValue: 5,
             isReverse: true,
           ),
-          const TlFallbackRequirement(
-            label: '发起举报用户',
+          TlFallbackRequirement(
+            label: l10n.trustLevel_requirementReportedUsers,
             currentValue: 0,
             requiredValue: 5,
             isReverse: true,
           ),
-          const TlFallbackRequirement(
-            label: '被禁言',
+          TlFallbackRequirement(
+            label: l10n.trustLevel_requirementSilenced,
             currentValue: 0,
             requiredValue: 0,
             isReverse: true,
           ),
-          const TlFallbackRequirement(
-            label: '被封禁',
+          TlFallbackRequirement(
+            label: l10n.trustLevel_requirementSuspended,
             currentValue: 0,
             requiredValue: 0,
             isReverse: true,

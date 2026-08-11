@@ -12,6 +12,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:fluxdo_render/fluxdo_render.dart' show LocalDateRun;
 
+import '../../../l10n/s.dart';
 import '../../../utils/dialog_utils.dart';
 
 /// 弹日期编辑对话框。返回新 [LocalDateRun];取消返回 null。
@@ -113,7 +114,11 @@ class _LocalDateEditDialogState extends State<_LocalDateEditDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.initial == null ? '插入日期时间' : '编辑日期时间'),
+      title: Text(
+        widget.initial == null
+            ? context.l10n.dateTime_insertTitle
+            : context.l10n.dateTime_editTitle,
+      ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -131,13 +136,13 @@ class _LocalDateEditDialogState extends State<_LocalDateEditDialog> {
               Expanded(
                 child: OutlinedButton.icon(
                   icon: const Icon(Icons.schedule_outlined, size: 16),
-                  label: Text(_timeStr ?? '全天'),
+                  label: Text(_timeStr ?? context.l10n.dateTime_allDay),
                   onPressed: _pickTime,
                 ),
               ),
               if (_time != null)
                 IconButton(
-                  tooltip: '清除时间',
+                  tooltip: context.l10n.dateTime_clearTime,
                   icon: const Icon(Icons.close, size: 16),
                   onPressed: () => setState(() => _time = null),
                 ),
@@ -146,9 +151,9 @@ class _LocalDateEditDialogState extends State<_LocalDateEditDialog> {
           const SizedBox(height: 12),
           TextField(
             controller: _timezoneController,
-            decoration: const InputDecoration(
-              labelText: '时区',
-              hintText: 'Asia/Shanghai',
+            decoration: InputDecoration(
+              labelText: context.l10n.dateTime_timezone,
+              hintText: context.l10n.dateTime_timezoneHint,
               isDense: true,
               border: OutlineInputBorder(),
             ),
@@ -157,7 +162,10 @@ class _LocalDateEditDialogState extends State<_LocalDateEditDialog> {
           CheckboxListTile(
             value: _countdown,
             onChanged: (v) => setState(() => _countdown = v ?? false),
-            title: const Text('倒计时', style: TextStyle(fontSize: 14)),
+            title: Text(
+              context.l10n.dateTime_countdown,
+              style: const TextStyle(fontSize: 14),
+            ),
             dense: true,
             contentPadding: EdgeInsets.zero,
             controlAffinity: ListTileControlAffinity.leading,
@@ -167,11 +175,11 @@ class _LocalDateEditDialogState extends State<_LocalDateEditDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(context.l10n.common_cancel),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(context, _build()),
-          child: const Text('应用'),
+          child: Text(context.l10n.rich_apply),
         ),
       ],
     );

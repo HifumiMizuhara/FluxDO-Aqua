@@ -129,7 +129,9 @@ class _LinkInsertDialogState extends State<LinkInsertDialog> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return AlertDialog(
-      title: Text(widget.editing ? '编辑链接' : S.current.link_insertTitle),
+      title: Text(
+        widget.editing ? S.current.link_editTitle : S.current.link_insertTitle,
+      ),
       content: Form(
         key: _formKey,
         child: SizedBox(
@@ -141,8 +143,8 @@ class _LinkInsertDialogState extends State<LinkInsertDialog> {
               TextFormField(
                 controller: _urlController,
                 decoration: InputDecoration(
-                  labelText: 'URL / 搜索站内话题',
-                  hintText: 'https://… 或输入关键词搜话题',
+                  labelText: S.current.link_urlSearchLabel,
+                  hintText: S.current.link_urlSearchHint,
                   border: const OutlineInputBorder(),
                   suffixIcon: _searching
                       ? const Padding(
@@ -221,7 +223,7 @@ class _LinkInsertDialogState extends State<LinkInsertDialog> {
                 controller: _textController,
                 decoration: InputDecoration(
                   labelText: S.current.link_textLabel,
-                  hintText: '可空,默认用 URL',
+                  hintText: S.current.link_textUrlHint,
                   border: const OutlineInputBorder(),
                 ),
                 textInputAction: TextInputAction.done,
@@ -238,7 +240,9 @@ class _LinkInsertDialogState extends State<LinkInsertDialog> {
         ),
         FilledButton(
           onPressed: _submit,
-          child: Text(widget.editing ? '保存' : S.current.common_confirm),
+          child: Text(
+            widget.editing ? S.current.common_save : S.current.common_confirm,
+          ),
         ),
       ],
     );

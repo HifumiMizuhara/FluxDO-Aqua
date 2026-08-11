@@ -66,11 +66,11 @@ final List<EditorTool> editorTools = [
   EditorTool(
     id: 'media',
     icon: const FaIcon(FontAwesomeIcons.film),
-    label: (s) => '音视频',
-    menuItems: (s) => const [
-      PopupMenuItem(value: 'audio', child: Text('上传音频')),
-      PopupMenuItem(value: 'video', child: Text('上传视频')),
-      PopupMenuItem(value: 'voice', child: Text('语音消息')),
+    label: (s) => s.toolPanel_media,
+    menuItems: (s) => [
+      PopupMenuItem(value: 'audio', child: Text(s.editor_uploadAudio)),
+      PopupMenuItem(value: 'video', child: Text(s.editor_uploadVideo)),
+      PopupMenuItem(value: 'voice', child: Text(s.editor_voiceMessage)),
     ],
     onMenuSelected: (t, value) => value == 'voice'
         ? t.recordAndInsertVoice()
@@ -184,12 +184,12 @@ final List<EditorTool> editorTools = [
   EditorTool(
     id: 'insertBlock',
     icon: const FaIcon(FontAwesomeIcons.squarePlus),
-    label: (s) => '插入块',
-    menuItems: (s) => const [
-      PopupMenuItem(value: 'table', child: Text('表格')),
-      PopupMenuItem(value: 'math', child: Text('公式块')),
-      PopupMenuItem(value: 'hr', child: Text('分隔线')),
-      PopupMenuItem(value: 'details', child: Text('折叠详情')),
+    label: (s) => s.toolPanel_insertBlock,
+    menuItems: (s) => [
+      PopupMenuItem(value: 'table', child: Text(s.editor_table)),
+      PopupMenuItem(value: 'math', child: Text(s.editor_mathBlock)),
+      PopupMenuItem(value: 'hr', child: Text(s.editor_horizontalRule)),
+      PopupMenuItem(value: 'details', child: Text(s.editor_details)),
     ],
     onMenuSelected: (t, value) => t.insertBlockSnippet(switch (value) {
       'table' => '| 列 1 | 列 2 |\n|---|---|\n| 内容 | 内容 |',
@@ -207,7 +207,7 @@ final List<EditorTool> editorTools = [
   EditorTool(
     id: 'poll',
     icon: const FaIcon(FontAwesomeIcons.squarePollVertical),
-    label: (s) => '投票',
+    label: (s) => s.toolPanel_poll,
     action: (t) => t.insertPoll(t.context),
   ),
   EditorTool(

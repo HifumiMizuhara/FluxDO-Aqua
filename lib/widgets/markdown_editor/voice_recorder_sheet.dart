@@ -18,6 +18,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
 import '../../services/media_transcoder/media_transcoder.dart';
+import '../../l10n/s.dart';
 import 'debug_voice_sample.dart';
 
 /// 弹出录音面板;完成返回录音文件路径(m4a),取消返回 null。
@@ -235,13 +236,16 @@ class _VoiceRecorderSheetState extends State<_VoiceRecorderSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('语音消息', style: theme.textTheme.titleMedium),
+            Text(
+              context.l10n.editor_voiceMessageTitle,
+              style: theme.textTheme.titleMedium,
+            ),
             const SizedBox(height: 4),
             Text(
               switch (_phase) {
-                _Phase.idle => '点击开始录制(最长 10 分钟)',
-                _Phase.recording => '录制中…',
-                _Phase.recorded => '试听确认后发送',
+                _Phase.idle => context.l10n.editor_voiceIdle,
+                _Phase.recording => context.l10n.editor_voiceRecording,
+                _Phase.recorded => context.l10n.editor_voiceRecorded,
               },
               style: theme.textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
@@ -318,8 +322,8 @@ class _VoiceRecorderSheetState extends State<_VoiceRecorderSheet> {
               const SizedBox(height: 10),
               TextButton.icon(
                 icon: const Icon(Icons.science_outlined, size: 16),
-                label: const Text(
-                  '生成测试音频(debug)',
+                label: Text(
+                  context.l10n.editor_voiceDebugSample,
                   style: TextStyle(fontSize: 12),
                 ),
                 onPressed: _debugSynthesize,
@@ -328,14 +332,20 @@ class _VoiceRecorderSheetState extends State<_VoiceRecorderSheet> {
             const SizedBox(height: 24),
             Row(
               children: [
-                TextButton(onPressed: _cancel, child: const Text('取消')),
+                TextButton(
+                  onPressed: _cancel,
+                  child: Text(context.l10n.common_cancel),
+                ),
                 const Spacer(),
                 if (_phase == _Phase.recorded) ...[
-                  TextButton(onPressed: _retake, child: const Text('重录')),
+                  TextButton(
+                    onPressed: _retake,
+                    child: Text(context.l10n.editor_voiceRetake),
+                  ),
                   const SizedBox(width: 8),
                   FilledButton.icon(
                     icon: const Icon(Icons.send_rounded, size: 18),
-                    label: const Text('发送'),
+                    label: Text(context.l10n.common_send),
                     onPressed: () => Navigator.of(context).pop(_path),
                   ),
                 ],

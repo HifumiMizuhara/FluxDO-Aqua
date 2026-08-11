@@ -21,6 +21,7 @@ import '../../services/discourse/discourse_service.dart';
 import '../../services/media_transcoder/media_compressor.dart';
 import '../../services/media_transcoder/media_transcoder.dart';
 import '../../services/preloaded_data_service.dart';
+import '../../l10n/s.dart';
 
 /// 站点允许上传的扩展名 —— 从 preloaded siteSettings 的
 /// `authorized_extensions`(staff 追加 `authorized_extensions_for_staff`)
@@ -168,9 +169,9 @@ Future<String?> compressMediaWithDialog(
 }) async {
   final transcoder = MediaTranscoder.forCurrentPlatform();
   if (transcoder == null) {
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(const SnackBar(content: Text('当前平台不支持压缩,请压到 4MB 内再上传')));
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(content: Text(context.l10n.editor_compressUnsupported)),
+    );
     return null;
   }
   final tempDir = await getTemporaryDirectory();
@@ -247,7 +248,7 @@ class _CompressProgressDialogState extends State<_CompressProgressDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('压缩媒体'),
+      title: Text(context.l10n.editor_compressMedia),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -267,7 +268,7 @@ class _CompressProgressDialogState extends State<_CompressProgressDialog> {
       actions: [
         TextButton(
           onPressed: () => widget.transcoder.cancel(),
-          child: const Text('取消'),
+          child: Text(context.l10n.common_cancel),
         ),
       ],
     );

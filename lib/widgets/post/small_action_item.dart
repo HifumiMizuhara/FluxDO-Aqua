@@ -219,24 +219,26 @@ class SmallActionItem extends ConsumerWidget {
     final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('删除这条记录'),
-        content: const Text('确定删除吗?删除后可以撤销(权限允许的话)。'),
+        title: Text(context.l10n.post_deleteRecordTitle),
+        content: Text(context.l10n.post_deleteRecordConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
+            child: Text(context.l10n.common_cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(ctx).colorScheme.error,
             ),
-            child: const Text('删除'),
+            child: Text(context.l10n.common_delete),
           ),
         ],
       ),
     );
     if (confirmed != true) return;
+    final deletedText = S.current.post_deleted;
+    final undoText = S.current.post_undo;
     try {
       final service = ref.read(discourseServiceProvider);
       await service.deletePost(post.id);
@@ -248,22 +250,22 @@ class SmallActionItem extends ConsumerWidget {
       notifier?.markPostDeleted(post.id);
       if (post.canRecover) {
         ToastService.show(
-          '已删除',
-          actionLabel: '撤销',
+          deletedText,
+          actionLabel: undoText,
           onAction: () async {
             try {
               await service.recoverPost(post.id);
               notifier?.markPostRecovered(post.id);
             } catch (e) {
-              ToastService.showError('撤销失败: $e');
+              ToastService.showError(S.current.post_undoFailed('$e'));
             }
           },
         );
       } else {
-        ToastService.showSuccess('已删除');
+        ToastService.showSuccess(deletedText);
       }
     } catch (e) {
-      ToastService.showError('删除失败: $e');
+      ToastService.showError(S.current.post_deleteFailed('$e'));
     }
   }
 
@@ -409,7 +411,7 @@ class SmallActionItem extends ConsumerWidget {
                       if (post.canEdit && onEdit != null)
                         IconButton(
                           icon: const Icon(Icons.edit_outlined, size: 16),
-                          tooltip: '编辑',
+                          tooltip: context.l10n.common_edit,
                           visualDensity: VisualDensity.compact,
                           onPressed: onEdit,
                         ),
@@ -420,7 +422,7 @@ class SmallActionItem extends ConsumerWidget {
                             size: 16,
                             color: theme.colorScheme.error,
                           ),
-                          tooltip: '删除',
+                          tooltip: context.l10n.common_delete,
                           visualDensity: VisualDensity.compact,
                           onPressed: () => _confirmDelete(context, ref),
                         ),

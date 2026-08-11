@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
 
 import 'package:m3e_ui/m3e_ui.dart';
+import '../../l10n/s.dart';
 
 /// username/email + password 输入表单。提交逻辑 (调 DiscourseService 登录 +
 /// 处理 hcaptcha/2FA/跳转) 由父组件持有,form 本身只负责 UI 和数据校验。
@@ -108,6 +109,7 @@ class _LoginFormState extends State<LoginForm> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final l10n = context.l10n;
 
     return AutofillGroup(
       child: Column(
@@ -123,7 +125,7 @@ class _LoginFormState extends State<LoginForm> {
             autocorrect: false,
             decoration: _inputDecoration(
               scheme,
-              label: '用户名 / 邮箱',
+              label: l10n.auth_usernameOrEmail,
               icon: Symbols.person_rounded,
             ),
             onSubmitted: (_) => _passwordFocus.requestFocus(),
@@ -138,10 +140,12 @@ class _LoginFormState extends State<LoginForm> {
             obscureText: _obscure,
             decoration: _inputDecoration(
               scheme,
-              label: '密码',
+              label: l10n.auth_password,
               icon: Symbols.lock_rounded,
               suffixIcon: IconButton(
-                tooltip: _obscure ? '显示密码' : '隐藏密码',
+                tooltip: _obscure
+                    ? l10n.auth_showPassword
+                    : l10n.auth_hidePassword,
                 icon: Icon(
                   _obscure
                       ? Symbols.visibility_rounded
@@ -167,13 +171,13 @@ class _LoginFormState extends State<LoginForm> {
                   onTap: _submitting
                       ? null
                       : () => setState(() => _remember = !_remember),
-                  child: const Text('记住密码'),
+                  child: Text(l10n.auth_rememberPassword),
                 ),
               ),
               if (widget.onForgotPassword != null)
                 TextButton(
                   onPressed: _submitting ? null : widget.onForgotPassword,
-                  child: const Text('忘记密码?'),
+                  child: Text(l10n.auth_forgotPassword),
                 ),
             ],
           ),
@@ -190,8 +194,8 @@ class _LoginFormState extends State<LoginForm> {
             ),
             child: _submitting
                 ? LoadingSpinner(size: 24, color: scheme.onPrimary)
-                : const Text(
-                    '登录',
+                : Text(
+                    l10n.auth_login,
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,

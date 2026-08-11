@@ -19,6 +19,7 @@ import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:app_icons/app_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../l10n/s.dart';
 
 class CursorSwipeControl extends StatefulWidget {
   const CursorSwipeControl({
@@ -248,7 +249,9 @@ class _CursorSwipeControlState extends State<CursorSwipeControl> {
       // 不用 Tooltip:其长按触发与「按住拖动」手势冲突(按住先弹提示,
       // 拖不起来)。说明留给 Semantics(无障碍)。
       child: Semantics(
-        label: _selecting ? '选择模式:滑动选择文本,单击退出' : '按住滑动移动光标,单击进入选择模式',
+        label: _selecting
+            ? context.l10n.editor_cursorSelectMode
+            : context.l10n.editor_cursorMoveMode,
         child: Container(
           key: const ValueKey('cursor-swipe-knob'),
           width: 44,

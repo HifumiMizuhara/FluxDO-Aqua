@@ -5,6 +5,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:m3e_ui/m3e_ui.dart';
 
+import '../../../l10n/s.dart';
 import '../../../utils/dialog_utils.dart';
 
 /// 官方常用类型(与 MD 工具栏 callout 菜单一致;渲染端 CalloutKind
@@ -106,7 +107,7 @@ class _CalloutEditDialogState extends State<_CalloutEditDialog> {
         ? kCalloutTypes
         : [_type, ...kCalloutTypes];
     return AlertDialog(
-      title: const Text('标注(Callout)'),
+      title: Text(context.l10n.callout_title),
       content: SizedBox(
         width: 340,
         child: SingleChildScrollView(
@@ -130,17 +131,26 @@ class _CalloutEditDialogState extends State<_CalloutEditDialog> {
               const SizedBox(height: 12),
               TextField(
                 controller: _title,
-                decoration: const InputDecoration(
-                  labelText: '标题(可空,默认按类型名)',
+                decoration: InputDecoration(
+                  labelText: context.l10n.callout_titleOptional,
                   isDense: true,
                 ),
               ),
               const SizedBox(height: 12),
               M3eButtonGroup<int>(
-                items: const [
-                  M3eButtonGroupItem(value: 0, label: Text('静态')),
-                  M3eButtonGroupItem(value: 1, label: Text('可折叠')),
-                  M3eButtonGroupItem(value: 2, label: Text('默认折叠')),
+                items: [
+                  M3eButtonGroupItem(
+                    value: 0,
+                    label: Text(context.l10n.callout_static),
+                  ),
+                  M3eButtonGroupItem(
+                    value: 1,
+                    label: Text(context.l10n.callout_collapsible),
+                  ),
+                  M3eButtonGroupItem(
+                    value: 2,
+                    label: Text(context.l10n.callout_defaultCollapsed),
+                  ),
                 ],
                 selected: switch (_foldable) {
                   null => 0,
@@ -157,7 +167,7 @@ class _CalloutEditDialogState extends State<_CalloutEditDialog> {
               ),
               const SizedBox(height: 4),
               Text(
-                '可折叠 = [!$_type]+ / 默认折叠 = [!$_type]-',
+                context.l10n.callout_syntax(_type),
                 style: Theme.of(
                   context,
                 ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
@@ -169,13 +179,13 @@ class _CalloutEditDialogState extends State<_CalloutEditDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
+          child: Text(context.l10n.common_cancel),
         ),
         FilledButton(
           onPressed: () => Navigator.of(context).pop(
             CalloutSpec(type: _type, title: _title.text, foldable: _foldable),
           ),
-          child: const Text('确定'),
+          child: Text(context.l10n.common_confirm),
         ),
       ],
     );

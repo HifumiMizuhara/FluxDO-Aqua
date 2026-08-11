@@ -563,9 +563,15 @@ class _PostAssignmentBadge extends ConsumerWidget {
                     unassignPost(ref, topicId: topicId, postId: info.postId);
                   }
                 },
-                itemBuilder: (context) => const [
-                  PopupMenuItem(value: 'edit', child: Text('编辑指定')),
-                  PopupMenuItem(value: 'cancel', child: Text('取消指定')),
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'edit',
+                    child: Text(context.l10n.topic_assignEdit),
+                  ),
+                  PopupMenuItem(
+                    value: 'cancel',
+                    child: Text(context.l10n.topic_assignUnassign),
+                  ),
                 ],
               ),
             ],

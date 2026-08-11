@@ -131,12 +131,14 @@ List<SettingsGroup> buildReadingGroups(BuildContext context) {
         if (PreloadedDataService().signaturesEnabled)
           SwitchModel(
             id: 'signatureSvgWebView',
-            title: '使用 WebView 绘制 SVG 签名',
-            subtitle: '使用系统 WebView 绘制 SVG 签名（实验性）',
+            title: l10n.reading_signatureSvgWebView,
+            subtitle: l10n.reading_signatureSvgWebViewDesc,
             icon: Symbols.language_rounded,
-            getValue: (ref) => ref.watch(preferencesProvider).signatureSvgWebView,
-            onChanged: (ref, v) =>
-                ref.read(preferencesProvider.notifier).setSignatureSvgWebView(v),
+            getValue: (ref) =>
+                ref.watch(preferencesProvider).signatureSvgWebView,
+            onChanged: (ref, v) => ref
+                .read(preferencesProvider.notifier)
+                .setSignatureSvgWebView(v),
           ),
         CustomModel(
           id: 'bookmarksOpenMode',
