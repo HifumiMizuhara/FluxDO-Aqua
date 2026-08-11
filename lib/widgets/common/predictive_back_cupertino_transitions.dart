@@ -234,9 +234,13 @@ class _PredictiveBackGestureDetectorState
   /// maybePop;cancel 弃认领。
   bool get _shouldClaimDuringTransition {
     final route = widget.route;
-    if (!route.isCurrent ||
-        route.willHandlePopInternally ||
-        route.popDisposition == RoutePopDisposition.doNotPop) {
+    // 注意:不检查 popDisposition。双击退出模式下根路由 PopScope
+    // canPop:false → popDisposition == doNotPop,若以此拒绝武装,
+    // 退场窗口的第二划全员不认领 → 系统直接关 Activity(黑边+app
+    // 进后台,logcat 实证 2026-08-11)。静默认领的 commit 走
+    // maybePop,PopScope 的拦截语义在 maybePop 里天然生效,认领
+    // 本身不需要这个前置。
+    if (!route.isCurrent || route.willHandlePopInternally) {
       return false;
     }
     final bool ownEntranceInFlight = !route.animation!.isCompleted;
@@ -345,10 +349,10 @@ class _PredictiveBackGestureDetectorState
     if (_gestureForceCancelled) return;
     if (_silentClaim) {
       _silentClaim = false;
-      // 转场期 commit:非根排队再退一层(等本帧转场态结算,直接 pop
-      // 会撞上仍在 popping 的上一路由);根路由吞掉 —— 上一页已在
-      // 退场,此划意图是「回上一页」,再往下退就成关 app 了。
-      if (widget.route.isFirst) return;
+      // 转场期 commit:排队再退一层(等本帧转场态结算,直接 pop 会
+      // 撞上仍在 popping 的上一路由)。用 maybePop:PopScope 的
+      // doNotPop(双击退出拦截等)在此天然生效;根路由 maybePop 是
+      // no-op(除 LocalHistory 外),自动退化为「吞掉」。
       final navigator = widget.route.navigator;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         navigator?.maybePop();
