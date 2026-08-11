@@ -1,6 +1,7 @@
 {
   "@@locale": "ko",
   "notion_title": "Notion 동기화",
+  "notion_exportTitle": "FluxDO 내보내기",
   "notion_subtitle": "글 전체를 Notion 데이터베이스에 동기화합니다",
   "notion_configured": "설정됨",
   "notion_editConfig": "편집",

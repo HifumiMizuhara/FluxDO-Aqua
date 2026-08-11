@@ -1,6 +1,7 @@
 {
   "@@locale": "en",
   "notion_title": "Notion sync",
+  "notion_exportTitle": "FluxDO export",
   "notion_subtitle": "Sync topics in full to your Notion Database",
   "notion_configured": "Configured",
   "notion_editConfig": "Edit",

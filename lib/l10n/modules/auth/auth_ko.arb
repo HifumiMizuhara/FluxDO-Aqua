@@ -56,5 +56,22 @@
   "oauth_noRedirectResponse": "인증 서비스가 리디렉션을 반환하지 않았습니다",
   "onboarding_guestAccess": "게스트로 이용",
   "onboarding_networkSettings": "네트워크 설정",
-  "onboarding_slogan": "진실 · 우호 · 단결 · 전문성"
+  "onboarding_slogan": "진실 · 우호 · 단결 · 전문성",
+  "auth_usernameOrEmail": "사용자 이름 / 이메일",
+  "auth_password": "비밀번호",
+  "auth_showPassword": "비밀번호 표시",
+  "auth_hidePassword": "비밀번호 숨기기",
+  "auth_rememberPassword": "비밀번호 기억",
+  "auth_forgotPassword": "비밀번호를 잊으셨나요?",
+  "auth_login": "로그인",
+  "auth_twoFactorTitle": "2단계 인증",
+  "auth_twoFactorHint": "인증 앱에 표시된 6자리 코드를 입력하세요",
+  "auth_useBackupCode": "백업 코드 / 보안 키 사용",
+  "auth_cancel": "취소",
+  "auth_verify": "확인",
+  "auth_back": "뒤로",
+  "auth_clearSavedAccount": "저장된 계정 지우기",
+  "auth_or": "또는",
+  "auth_browserAuthLogin": "브라우저 인증으로 로그인",
+  "auth_otherLoginMethods": "다른 로그인 방법 (OAuth / Passkey / 가입)"
 }

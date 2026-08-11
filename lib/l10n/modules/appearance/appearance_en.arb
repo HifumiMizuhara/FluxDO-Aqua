@@ -99,6 +99,8 @@
   "reading_showSuggestedTopics": "Show suggested topics",
   "reading_showSuggestedTopicsDesc": "Show related and suggested topics at the end of a topic",
   "reading_title": "Reading Settings",
+  "reading_signatureSvgWebView": "Draw SVG signatures with WebView",
+  "reading_signatureSvgWebViewDesc": "Draw SVG signatures with the system WebView (experimental)",
   "schemeVariant_content": "Content",
   "schemeVariant_expressive": "Expressive",
   "schemeVariant_fidelity": "Fidelity",

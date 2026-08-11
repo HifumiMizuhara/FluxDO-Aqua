@@ -15,6 +15,25 @@
   "topicDetail_cannotOpenBrowser": "無法開啟瀏覽器",
   "topicDetail_editBookmark": "編輯書籤",
   "topicDetail_editTopic": "編輯話題",
+  "topic_assignTitle": "指定",
+  "topic_assignEditNoteStatus": "編輯備註／狀態",
+  "topic_assignUnassign": "取消指定",
+  "topic_assignUnassigned": "尚未指定給任何人",
+  "topic_assignToMe": "指定給我",
+  "topic_assignToOtherUser": "指定給其他使用者…",
+  "topic_assignToGroup": "指定給群組 {group}",
+  "@topic_assignToGroup": {"placeholders": {"group": {"type": "String"}}},
+  "topic_assignEdit": "編輯指定",
+  "topic_assignToUser": "指定給使用者",
+  "topic_assignRecipient": "受理人",
+  "topic_assignSearchUser": "搜尋使用者名稱／暱稱",
+  "topic_assignStatusOptional": "狀態（可選）",
+  "topic_assignStatusUnset": "不設定",
+  "topic_assignNoteOptional": "備註（可選）",
+  "topic_assignNoteHint": "點擊使用編輯器填寫",
+  "topic_assignSelectUser": "請先從搜尋結果中選擇一位使用者",
+  "topic_assignEditNote": "編輯備註",
+  "topic_assignNote": "指定備註",
   "topicDetail_exportArticle": "匯出文章",
   "topicDetail_generateShareImage": "生成分享圖片",
   "topicDetail_sortByActivity": "按活動排序",
@@ -228,5 +247,6 @@
       }
     }
   },
-  "topic_keywordFilter_manage": "管理"
+  "topic_keywordFilter_manage": "管理",
+  "topicDetail_filter": "篩選"
 }

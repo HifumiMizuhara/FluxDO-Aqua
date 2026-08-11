@@ -132,5 +132,13 @@
   "rhttpEngine_proxyDohOnly": "僅代理/DOH",
   "rhttpEngine_title": "rhttp 引擎",
   "rhttpEngine_useMode": "使用模式",
-  "rhttpEngine_initFailedHint": "rhttp 引擎初始化失敗，已退回至備用網絡適配器，下次啓動將自動重試"
+  "rhttpEngine_initFailedHint": "rhttp 引擎初始化失敗，已退回至備用網絡適配器，下次啓動將自動重試",
+  "network_erudaConsole": "Eruda 調試控制台",
+  "network_erudaEnabled": "已開啟：頁面右下角 ⚙ 可查看 Console / Network / Elements",
+  "network_erudaDisabled": "預設關閉。開啟後可在頁面內查看網絡 / 控制台 / 元素",
+  "network_erudaRestartHint": "切換後需重新開啟相關頁面或重新啟動應用程式才會生效",
+  "webviewAdapter_disabledDesc": "使用瀏覽器內核發送請求，可改善登入穩定性",
+  "webviewAdapter_enabledDesc": "主站 API 請求透過瀏覽器內核發送",
+  "webviewAdapter_hint": "僅主站 API 請求透過 WebView 發送，圖片載入和消息推送不受影響",
+  "webviewAdapter_title": "WebView 網絡引擎"
 }

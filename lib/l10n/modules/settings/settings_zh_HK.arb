@@ -143,5 +143,20 @@
   "shortcuts_switchToProfile": "切換到個人",
   "shortcuts_switchToTopics": "切換到話題",
   "shortcuts_toggleAiPanel": "AI 助手面板",
-  "shortcuts_toggleNotifications": "通知面板"
+  "shortcuts_toggleNotifications": "通知面板",
+  "shortcuts_deletePost": "刪除目前帖子",
+  "shortcuts_editPost": "編輯目前帖子",
+  "shortcuts_flagPost": "舉報目前帖子",
+  "shortcuts_goToUnreadPost": "跳轉到首個未讀樓層",
+  "shortcuts_jumpToPost": "跳轉到樓層",
+  "shortcuts_bookmarkPost": "收藏目前帖子",
+  "shortcuts_bookmarkTopic": "收藏話題",
+  "shortcuts_likePost": "讚好目前帖子",
+  "shortcuts_post": "帖子",
+  "shortcuts_replyPost": "回覆目前帖子",
+  "shortcuts_replyTopic": "回覆話題",
+  "shortcuts_quotePost": "引用目前帖子",
+  "shortcuts_sharePost": "分享目前帖子",
+  "shortcuts_shareTopic": "分享話題",
+  "shortcuts_topic": "話題"
 }

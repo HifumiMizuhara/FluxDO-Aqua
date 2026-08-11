@@ -136,5 +136,9 @@
   "webviewAdapter_disabledDesc": "使用浏览器内核发送请求，可改善登录稳定性",
   "webviewAdapter_enabledDesc": "主站 API 请求通过浏览器内核发送",
   "webviewAdapter_hint": "仅主站 API 请求通过 WebView 发送，图片加载和消息推送不受影响",
-  "webviewAdapter_title": "WebView 网络引擎"
+  "webviewAdapter_title": "WebView 网络引擎",
+  "network_erudaConsole": "Eruda 调试控制台",
+  "network_erudaEnabled": "已开启：页面右下角 ⚙ 可查看 Console / Network / Elements",
+  "network_erudaDisabled": "关闭（默认）。开启后可在页面内查看网络 / 控制台 / 元素",
+  "network_erudaRestartHint": "切换后需重新打开相关页面或重启应用才会生效"
 }
