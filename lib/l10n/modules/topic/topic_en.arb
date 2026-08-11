@@ -4,6 +4,14 @@
   "topicDetail_addToReadLaterSuccess": "Added to float",
   "topicDetail_aiAssistant": "AI Assistant",
   "topicDetail_authorOnly": "OP only",
+  "topicDetail_userOnly": "Only @{username}",
+  "@topicDetail_userOnly": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
   "topicDetail_browseMoreInCategory": "Want to read more? Browse the {category} category",
   "@topicDetail_browseMoreInCategory": {
     "placeholders": {

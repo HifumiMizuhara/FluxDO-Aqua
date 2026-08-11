@@ -71,8 +71,14 @@ mixin _UsersMixin on _DiscourseServiceBase {
   /// 与 [getUser] 区别：走 `/u/{username}/card.json`，由 `UserCardSerializer` 渲染——
   /// 含 `card_background_upload_url`（卡片背景，完整资料页 serializer 不返回）、
   /// `bio_excerpt`（摘要简介）、`topic_post_count` 等卡片专用字段，且更轻量。
-  Future<User> getUserCard(String username) async {
-    final response = await _dio.get('/u/$username/card.json');
+  ///
+  /// [includePostCountFor] 传话题 id 时响应注入该用户在此话题内的发帖数
+  /// (topic_post_count),卡片据此决定是否显示「只看 TA」过滤按钮。
+  Future<User> getUserCard(String username, {int? includePostCountFor}) async {
+    final response = await _dio.get(
+      '/u/$username/card.json',
+      queryParameters: {'include_post_count_for': ?includePostCountFor},
+    );
     final data = response.data as Map<String, dynamic>;
     return User.fromJson(data['user'] ?? data);
   }

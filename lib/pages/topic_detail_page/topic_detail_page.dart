@@ -1389,6 +1389,12 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
         notifier.isAuthorOnlyMode ||
         notifier.isTopLevelMode ||
         _isNestedView;
+    // 用户过滤区分对象:楼主 → 「只看作者」项;其他参与者(用户卡片
+    // 发起) → 单列一项显示具体用户名
+    final userFilter = notifier.usernameFilter;
+    final isAuthorFilter =
+        userFilter != null && userFilter == detail.createdBy?.username;
+    final isOtherUserFilter = userFilter != null && !isAuthorFilter;
     final bool subscribed =
         detail.notificationLevel.value >= TopicNotificationLevel.tracking.value;
 
@@ -1517,19 +1523,24 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
                   },
                 ),
               MenuQuickActionSubmenuChild(
-                icon: notifier.isAuthorOnlyMode
-                    ? Symbols.person_rounded
-                    : Symbols.person_rounded,
+                icon: Symbols.person_rounded,
                 label: context.l10n.topicDetail_authorOnly,
-                selected: notifier.isAuthorOnlyMode,
+                selected: isAuthorFilter,
                 onTap: () {
-                  if (notifier.isAuthorOnlyMode) {
+                  if (isAuthorFilter) {
                     _handleCancelFilter();
                   } else {
                     _handleShowAuthorOnly();
                   }
                 },
               ),
+              if (isOtherUserFilter)
+                MenuQuickActionSubmenuChild(
+                  icon: Symbols.person_search_rounded,
+                  label: context.l10n.topicDetail_userOnly(userFilter),
+                  selected: true,
+                  onTap: _handleCancelFilter,
+                ),
               MenuQuickActionSubmenuChild(
                 icon: notifier.isTopLevelMode
                     ? Symbols.account_tree_rounded
@@ -2038,6 +2049,20 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
         }
       } catch (_) {
         // 面板销毁重建窗口期撞上推送，跳过这次更新。
+      }
+    });
+
+    // 用户卡片/头像长按菜单发起的「只看某用户」请求。同话题叠开多页时
+    // 只有最近激活的实例消费,避免底下的实例跟着重载。
+    ref.listen(topicUserFilterRequestProvider, (previous, next) {
+      if (next == null || next.seq == (previous?.seq ?? 0)) return;
+      if (next.topicId != widget.topicId) return;
+      if (TopicDetailNotifier.activeParamsFor(widget.topicId) != params) return;
+      if (!context.mounted) return;
+      if (next.username != null) {
+        _handleShowUserOnly(next.username!);
+      } else {
+        _handleCancelFilter();
       }
     });
 
