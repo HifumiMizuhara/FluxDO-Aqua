@@ -135,7 +135,9 @@ class ChatTypingNotifier extends Notifier<List<TypingUser>> {
         bus.subscribeWithMessageId(_presenceChannel, callback, messageId);
       }
     } catch (e) {
-      debugPrint('[ChatTyping#$channelId] 初始 presence 拉取失败: $e');
+      debugPrint(
+        '/presence/get',
+      );
     }
   }
 

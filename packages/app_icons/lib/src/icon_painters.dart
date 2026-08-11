@@ -130,9 +130,7 @@ class SmileyPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant SmileyPainter old) =>
-      old.color != color ||
-      old.fill != fill ||
-      old.strokeWidth != strokeWidth;
+      old.color != color || old.fill != fill || old.strokeWidth != strokeWidth;
 }
 
 /// 表情包/贴纸包图标（sticker tab）。
@@ -383,18 +381,10 @@ class StickerPainter extends CustomPainter {
       center: Offset(center.dx, center.dy + r * 0.05),
       radius: r * 0.55,
     );
-    canvas.drawArc(
-      mouthRect,
-      math.pi / 6,
-      math.pi - math.pi / 3,
-      false,
-      cut,
-    );
+    canvas.drawArc(mouthRect, math.pi / 6, math.pi - math.pi / 3, false, cut);
   }
 
   @override
   bool shouldRepaint(covariant StickerPainter old) =>
-      old.color != color ||
-      old.fill != fill ||
-      old.strokeWidth != strokeWidth;
+      old.color != color || old.fill != fill || old.strokeWidth != strokeWidth;
 }

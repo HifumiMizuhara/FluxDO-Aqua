@@ -35,7 +35,8 @@ class SessionGuardInterceptor extends Interceptor {
         DioException(
           requestOptions: response.requestOptions,
           type: DioExceptionType.cancel,
-          error: '会话已过期 (gen=$gen, current=${AuthSession().generation})',
+          error:
+              'Session expired (gen=$gen, current=${AuthSession().generation})',
         ),
         true,
       );
@@ -54,7 +55,7 @@ class SessionGuardInterceptor extends Interceptor {
         DioException(
           requestOptions: err.requestOptions,
           type: DioExceptionType.cancel,
-          error: '会话已过期 (gen=$gen)',
+          error: 'Session expired (gen=$gen)',
         ),
       );
       return;
@@ -71,6 +72,7 @@ class _MergedCancelToken extends CancelToken {
         cancel(source.cancelError?.error?.toString());
       }
     }
+
     a.whenCancel.then((_) => onCancel(a));
     b.whenCancel.then((_) => onCancel(b));
   }

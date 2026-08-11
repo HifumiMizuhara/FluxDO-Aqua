@@ -10,13 +10,12 @@ import 'message_bus_service_provider.dart';
 import 'models.dart';
 import 'topic_tracking_providers.dart';
 
-
 /// 话题频道监听器
 /// 监听新回复和正在输入的用户
 class TopicChannelNotifier extends Notifier<TopicChannelState> {
   TopicChannelNotifier(this.topicId);
   final int topicId;
-  
+
   @override
   TopicChannelState build() {
     _disposed = false;
@@ -27,7 +26,7 @@ class TopicChannelNotifier extends Notifier<TopicChannelState> {
     final topicChannel = '/topic/$topicId';
     final reactionsChannel = '/topic/$topicId/reactions';
     final presenceChannel = '/presence/discourse-presence/reply/$topicId';
-    
+
     void onTopicMessage(MessageBusMessage message) {
       final data = message.data;
       if (data is! Map<String, dynamic>) return;
@@ -37,7 +36,10 @@ class TopicChannelNotifier extends Notifier<TopicChannelState> {
       if (reloadTopic) {
         final refreshStream = data['refresh_stream'] as bool? ?? false;
         debugPrint('[TopicChannel] reload_topic, refreshStream=$refreshStream');
-        state = state.copyWith(reloadRequested: true, refreshStreamRequested: refreshStream);
+        state = state.copyWith(
+          reloadRequested: true,
+          refreshStreamRequested: refreshStream,
+        );
         return;
       }
 
@@ -54,7 +56,7 @@ class TopicChannelNotifier extends Notifier<TopicChannelState> {
       final updatedAtStr = data['updated_at'] as String?;
       final updatedAt = TimeUtils.parseUtcTime(updatedAtStr) ?? DateTime.now();
 
-      debugPrint('[TopicChannel] 收到消息: type=$type, postId=$postId');
+      debugPrint('[TopicChannel] receivedmessage: type=$type, postId=$postId');
 
       switch (type) {
         case 'created':
@@ -64,7 +66,12 @@ class TopicChannelNotifier extends Notifier<TopicChannelState> {
           }
           if (postId != null) {
             final createdUserId = data['user_id'] as int?;
-            _addPostUpdate(postId, TopicMessageType.created, updatedAt, userId: createdUserId);
+            _addPostUpdate(
+              postId,
+              TopicMessageType.created,
+              updatedAt,
+              userId: createdUserId,
+            );
           }
           break;
 
@@ -162,14 +169,22 @@ class TopicChannelNotifier extends Notifier<TopicChannelState> {
         case 'boost_added':
           if (postId != null) {
             final boostData = data['boost'] as Map<String, dynamic>?;
-            _addBoostUpdate(postId, TopicMessageType.boostAdded, boostData: boostData);
+            _addBoostUpdate(
+              postId,
+              TopicMessageType.boostAdded,
+              boostData: boostData,
+            );
           }
           break;
 
         case 'boost_removed':
           if (postId != null) {
             final boostId = data['boost_id'] as int?;
-            _addBoostUpdate(postId, TopicMessageType.boostRemoved, boostId: boostId);
+            _addBoostUpdate(
+              postId,
+              TopicMessageType.boostRemoved,
+              boostId: boostId,
+            );
           }
           break;
 
@@ -178,7 +193,11 @@ class TopicChannelNotifier extends Notifier<TopicChannelState> {
           // 服务端 publish 时 post.updated_at 不会改（policy 不改帖子内容），
           // 所以不传 updatedAt，避免下游 refreshPost 因 updated_at 未变 short-circuit。
           if (postId != null) {
-            _addPostUpdate(postId, TopicMessageType.policyChanged, DateTime.now());
+            _addPostUpdate(
+              postId,
+              TopicMessageType.policyChanged,
+              DateTime.now(),
+            );
           }
           break;
 
@@ -192,7 +211,8 @@ class TopicChannelNotifier extends Notifier<TopicChannelState> {
             state = state.copyWith(
               sharedIssueUpdate: SharedIssueUpdate(
                 count: sharedCount,
-                userCreated: data['user_created_shared_issue'] as bool? ?? false,
+                userCreated:
+                    data['user_created_shared_issue'] as bool? ?? false,
               ),
             );
           }
@@ -202,23 +222,24 @@ class TopicChannelNotifier extends Notifier<TopicChannelState> {
           debugPrint('[TopicChannel] 未知消息类型: $type');
       }
     }
-    
+
     void onPresenceMessage(MessageBusMessage message) {
       final data = message.data;
-      debugPrint('[Presence] 收到消息: $data');
-      
+      debugPrint('[Presence] receivedmessage: $data');
+
       if (data is! Map<String, dynamic>) return;
-      
+
       // 获取当前用户 ID，用于过滤掉自己
       final currentUser = ref.read(currentUserProvider).value;
       final currentUserId = currentUser?.id;
-      
+
       // 防抖基线:窗口内的连续 presence 消息在 pending 上累积,
       // 否则中间态互相覆盖丢更新
-      final currentUsers =
-          List<TypingUser>.from(_pendingTypingUsers ?? state.typingUsers);
+      final currentUsers = List<TypingUser>.from(
+        _pendingTypingUsers ?? state.typingUsers,
+      );
       bool changed = false;
-      
+
       final enteringUsersList = data['entering_users'] as List<dynamic>?;
       if (enteringUsersList != null) {
         for (final u in enteringUsersList) {
@@ -228,9 +249,11 @@ class TopicChannelNotifier extends Notifier<TopicChannelState> {
             username: userMap['username'] as String? ?? '',
             avatarTemplate: userMap['avatar_template'] as String? ?? '',
           );
-          
+
           // 过滤掉当前用户自己
-          if (user.username.isNotEmpty && user.id > 0 && user.id != currentUserId) {
+          if (user.username.isNotEmpty &&
+              user.id > 0 &&
+              user.id != currentUserId) {
             if (!currentUsers.any((element) => element.id == user.id)) {
               currentUsers.add(user);
               changed = true;
@@ -238,7 +261,7 @@ class TopicChannelNotifier extends Notifier<TopicChannelState> {
           }
         }
       }
-      
+
       final leavingUserIds = data['leaving_user_ids'] as List<dynamic>?;
       if (leavingUserIds != null) {
         for (final id in leavingUserIds) {
@@ -251,7 +274,7 @@ class TopicChannelNotifier extends Notifier<TopicChannelState> {
           }
         }
       }
-      
+
       if (changed) {
         // 防抖 200ms:presence 风暴(生产诊断实测 5 条/80ms)逐条
         // copyWith 是白给的 provider 链更新;typing 头像晚 200ms 无感
@@ -265,7 +288,7 @@ class TopicChannelNotifier extends Notifier<TopicChannelState> {
         });
       }
     }
-    
+
     void onReactionsMessage(MessageBusMessage message) {
       final data = message.data;
       if (data is! Map<String, dynamic>) return;
@@ -273,7 +296,7 @@ class TopicChannelNotifier extends Notifier<TopicChannelState> {
       final postId = data['post_id'] as int?;
       if (postId == null) return;
 
-      debugPrint('[TopicChannel] 收到 reactions 消息: postId=$postId');
+      debugPrint('[TopicChannel] received reactions message: postId=$postId');
       _addPostUpdate(postId, TopicMessageType.acted, DateTime.now());
     }
 
@@ -282,7 +305,13 @@ class TopicChannelNotifier extends Notifier<TopicChannelState> {
     messageBus.subscribe(presenceChannel, onPresenceMessage);
 
     // 异步加载初始 presence 状态
-    _loadInitialPresence(service, messageBus, presenceChannel, topicId, onPresenceMessage);
+    _loadInitialPresence(
+      service,
+      messageBus,
+      presenceChannel,
+      topicId,
+      onPresenceMessage,
+    );
 
     ref.onDispose(() {
       _disposed = true;
@@ -307,30 +336,41 @@ class TopicChannelNotifier extends Notifier<TopicChannelState> {
   ) async {
     try {
       final presence = await service.getPresence(topicId);
-      debugPrint('[Presence] 初始状态: users=${presence.users.length}, messageId=${presence.messageId}');
+      debugPrint(
+        '[Presence] 初始状态: users=${presence.users.length}, messageId=${presence.messageId}',
+      );
 
       // 过滤掉当前用户
       final currentUser = ref.read(currentUserProvider).value;
       final currentUserId = currentUser?.id;
-      final filteredUsers = presence.users.where((u) => u.id != currentUserId).toList();
+      final filteredUsers = presence.users
+          .where((u) => u.id != currentUserId)
+          .toList();
 
       state = state.copyWith(typingUsers: filteredUsers);
 
       // 更新订阅的 messageId，避免重复接收旧消息
       messageBus.unsubscribe(presenceChannel, onMessage);
-      messageBus.subscribeWithMessageId(presenceChannel, onMessage, presence.messageId);
+      messageBus.subscribeWithMessageId(
+        presenceChannel,
+        onMessage,
+        presence.messageId,
+      );
     } catch (e) {
-      debugPrint('[Presence] 初始化失败: $e');
+      debugPrint('[Presence] initializationfailed: $e');
       // 订阅已经在 build() 中完成，这里不需要再次订阅
     }
   }
-  
+
   void clearNewReplies() {
     state = state.copyWith(hasNewReplies: false);
   }
 
   void clearReloadRequest() {
-    state = state.copyWith(reloadRequested: false, refreshStreamRequested: false);
+    state = state.copyWith(
+      reloadRequested: false,
+      refreshStreamRequested: false,
+    );
   }
 
   void clearNotificationLevelChange() {
@@ -357,7 +397,8 @@ class TopicChannelNotifier extends Notifier<TopicChannelState> {
   void _enqueueUpdate(PostUpdate update) {
     // 批内去重:同帖同类型只留最新(积压里同一帖的多条 reactions/liked
     // 只有最终状态有意义)。boost 是增量事件,每条独立,不去重。
-    final isIncremental = update.type == TopicMessageType.boostAdded ||
+    final isIncremental =
+        update.type == TopicMessageType.boostAdded ||
         update.type == TopicMessageType.boostRemoved;
     if (!isIncremental) {
       _pendingUpdates.removeWhere(
@@ -387,14 +428,16 @@ class TopicChannelNotifier extends Notifier<TopicChannelState> {
     int? readersCount,
     int? userId,
   }) {
-    _enqueueUpdate(PostUpdate(
-      postId: postId,
-      type: type,
-      updatedAt: updatedAt,
-      likesCount: likesCount,
-      readersCount: readersCount,
-      userId: userId,
-    ));
+    _enqueueUpdate(
+      PostUpdate(
+        postId: postId,
+        type: type,
+        updatedAt: updatedAt,
+        likesCount: likesCount,
+        readersCount: readersCount,
+        userId: userId,
+      ),
+    );
   }
 
   void _addBoostUpdate(
@@ -403,13 +446,15 @@ class TopicChannelNotifier extends Notifier<TopicChannelState> {
     Map<String, dynamic>? boostData,
     int? boostId,
   }) {
-    _enqueueUpdate(PostUpdate(
-      postId: postId,
-      type: type,
-      updatedAt: DateTime.now(),
-      boostData: boostData,
-      boostId: boostId,
-    ));
+    _enqueueUpdate(
+      PostUpdate(
+        postId: postId,
+        type: type,
+        updatedAt: DateTime.now(),
+        boostData: boostData,
+        boostId: boostId,
+      ),
+    );
   }
 
   void clearStatsUpdate() {
@@ -419,12 +464,13 @@ class TopicChannelNotifier extends Notifier<TopicChannelState> {
   void clearSharedIssueUpdate() {
     state = state.copyWith(clearSharedIssueUpdate: true);
   }
-  
+
   void clearTypingUsers() {
     state = state.copyWith(typingUsers: []);
   }
 }
 
-final topicChannelProvider = NotifierProvider.family.autoDispose<TopicChannelNotifier, TopicChannelState, int>(
-  TopicChannelNotifier.new,
-);
+final topicChannelProvider = NotifierProvider.family
+    .autoDispose<TopicChannelNotifier, TopicChannelState, int>(
+      TopicChannelNotifier.new,
+    );

@@ -158,15 +158,21 @@ extension LoadingMethods on TopicDetailNotifier {
         final newLastIndex = mergedStream.indexOf(newLastId);
         _hasMoreAfter = newLastIndex < mergedStream.length - 1;
 
-        return _withSuggestedCache(currentDetail.copyWith(
-          postStream: PostStream(posts: mergedPosts, stream: mergedStream, gaps: currentDetail.postStream.gaps),
-          suggestedTopics: newPostStream.suggestedTopics.isNotEmpty
-              ? newPostStream.suggestedTopics
-              : null,
-          relatedTopics: newPostStream.relatedTopics.isNotEmpty
-              ? newPostStream.relatedTopics
-              : null,
-        ));
+        return _withSuggestedCache(
+          currentDetail.copyWith(
+            postStream: PostStream(
+              posts: mergedPosts,
+              stream: mergedStream,
+              gaps: currentDetail.postStream.gaps,
+            ),
+            suggestedTopics: newPostStream.suggestedTopics.isNotEmpty
+                ? newPostStream.suggestedTopics
+                : null,
+            relatedTopics: newPostStream.relatedTopics.isNotEmpty
+                ? newPostStream.relatedTopics
+                : null,
+          ),
+        );
       });
       if (!ref.mounted) return;
       if (result.hasError) {
@@ -218,14 +224,16 @@ extension LoadingMethods on TopicDetailNotifier {
     } else {
       // 未到底部:只把 id 记入 stream,内容等用户滚到底由 loadMore 拉
       final newStream = [...currentStream, postId];
-      state = AsyncValue.data(currentDetail.copyWith(
-        postsCount: currentDetail.postsCount + 1,
-        postStream: PostStream(
-          posts: currentDetail.postStream.posts,
-          stream: newStream,
-          gaps: currentDetail.postStream.gaps,
+      state = AsyncValue.data(
+        currentDetail.copyWith(
+          postsCount: currentDetail.postsCount + 1,
+          postStream: PostStream(
+            posts: currentDetail.postStream.posts,
+            stream: newStream,
+            gaps: currentDetail.postStream.gaps,
+          ),
         ),
-      ));
+      );
       _updateBoundaryState(currentDetail.postStream.posts, newStream);
     }
   }
@@ -289,13 +297,15 @@ extension LoadingMethods on TopicDetailNotifier {
       // 待审块)时属于"锚上方高度变化",武装哨兵做同帧补偿,避免被推跳
       AnchorGuardSliver.arm();
 
-      state = AsyncValue.data(currentDetail.copyWith(
-        postStream: PostStream(
-          posts: mergedPosts,
-          stream: mergedStream,
-          gaps: currentDetail.postStream.gaps,
+      state = AsyncValue.data(
+        currentDetail.copyWith(
+          postStream: PostStream(
+            posts: mergedPosts,
+            stream: mergedStream,
+            gaps: currentDetail.postStream.gaps,
+          ),
         ),
-      ));
+      );
     } catch (e) {
       // 失败时将 post IDs 放回队列,退避后由 finally 重试(无退避会在
       // 断网时立即重试打转)
@@ -414,7 +424,7 @@ extension LoadingMethods on TopicDetailNotifier {
 
       return mergedPosts.indexWhere((p) => p.postNumber == postNumber);
     } catch (e) {
-      debugPrint('[TopicDetail] 加载帖子 #$postNumber 失败: $e');
+      debugPrint('[TopicDetail] loadpost #$postNumber failed: $e');
       return -1;
     }
   }

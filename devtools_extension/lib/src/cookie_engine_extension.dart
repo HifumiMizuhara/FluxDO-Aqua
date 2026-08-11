@@ -24,11 +24,7 @@ class CookieEngineExtension extends StatelessWidget {
           ],
         ),
         body: const TabBarView(
-          children: [
-            OverviewTab(),
-            EventsTab(),
-            ActionsTab(),
-          ],
+          children: [OverviewTab(), EventsTab(), ActionsTab()],
         ),
       ),
     );

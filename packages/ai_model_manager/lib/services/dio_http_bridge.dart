@@ -43,8 +43,8 @@ class DioBackedHttpClient extends http.BaseClient {
       followRedirects: request.followRedirects,
       maxRedirects: request.maxRedirects,
       // 让 dio 自己根据请求 body 推断 Content-Length；显式 null 表示不强制
-      contentType: request.headers['content-type'] ??
-          request.headers['Content-Type'],
+      contentType:
+          request.headers['content-type'] ?? request.headers['Content-Type'],
     );
 
     final ResponseBody responseBody;

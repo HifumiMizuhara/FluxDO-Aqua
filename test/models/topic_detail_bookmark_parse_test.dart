@@ -62,11 +62,7 @@ void main() {
         'category_id': 1,
         'details': const <String, dynamic>{},
         'bookmarks': [
-          {
-            'id': 42,
-            'bookmarkable_type': 'Topic',
-            'name': rawName,
-          },
+          {'id': 42, 'bookmarkable_type': 'Topic', 'name': rawName},
         ],
       });
 
@@ -90,11 +86,7 @@ void main() {
       'details': const <String, dynamic>{},
       'bookmark_name': 'Topic',
       'bookmarks': [
-        {
-          'id': 42,
-          'bookmarkable_type': 'Topic',
-          'name': '   ',
-        },
+        {'id': 42, 'bookmarkable_type': 'Topic', 'name': '   '},
       ],
     });
 
@@ -117,10 +109,7 @@ void main() {
       'details': const <String, dynamic>{},
       'bookmark_name': 'image',
       'bookmarks': [
-        {
-          'id': 42,
-          'bookmarkable_type': 'Topic',
-        },
+        {'id': 42, 'bookmarkable_type': 'Topic'},
       ],
     });
 

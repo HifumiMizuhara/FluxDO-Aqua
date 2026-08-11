@@ -69,8 +69,7 @@ class NavEntryRegistry {
         iconData: Symbols.history_rounded,
         selectedIconData: Symbols.history_rounded,
         label: (ctx) => ctx.l10n.nav_history,
-        pageBuilder: (ctx, isActive) =>
-            BrowsingHistoryPage(isActive: isActive),
+        pageBuilder: (ctx, isActive) => BrowsingHistoryPage(isActive: isActive),
         requiresLogin: true,
       ),
       NavEntry(
@@ -88,8 +87,7 @@ class NavEntryRegistry {
         iconData: Symbols.mail_rounded,
         selectedIconData: Symbols.mail_rounded,
         label: (ctx) => ctx.l10n.nav_messages,
-        pageBuilder: (ctx, isActive) =>
-            PrivateMessagesPage(isActive: isActive),
+        pageBuilder: (ctx, isActive) => PrivateMessagesPage(isActive: isActive),
         requiresLogin: true,
       ),
       NavEntry(
@@ -158,10 +156,7 @@ Widget _chatIcon(WidgetRef ref, {required bool selected}) {
   final unread = ref.watch(chatTotalUnreadProvider);
   final icon = Icon(Symbols.forum_rounded, fill: selected ? 1 : 0);
   if (unread <= 0) return icon;
-  return Badge(
-    label: Text(unread > 99 ? '99+' : '$unread'),
-    child: icon,
-  );
+  return Badge(label: Text(unread > 99 ? '99+' : '$unread'), child: icon);
 }
 
 Widget _profileIcon(

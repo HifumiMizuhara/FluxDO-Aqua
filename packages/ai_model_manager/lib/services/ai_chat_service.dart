@@ -41,7 +41,8 @@ class ThinkingDelta extends AiChatChunk {
 
 /// Token 用量报告，流结束时发送
 class UsageReport extends AiChatChunk {
-  const UsageReport({this.promptTokens, this.responseTokens, this.cachedTokens});
+  const UsageReport(
+      {this.promptTokens, this.responseTokens, this.cachedTokens});
   final int? promptTokens;
   final int? responseTokens;
   final int? cachedTokens;
@@ -111,16 +112,20 @@ class AiChatService {
     required List<AiChatMessage> messages,
     String? systemPrompt,
     ThinkingConfig thinkingConfig = const ThinkingConfig(),
+
     /// 仅图像生成路径使用：话题上下文摘要（含标题+正文楼层），
     /// 会被前置拼接到 image prompt 之前，让生成的图与话题相关。
     /// 文本聊天路径忽略此参数（话题上下文走 [messages] 注入）。
     String? imagePromptContext,
+
     /// 仅图像生成路径使用：用户在 PromptPreset 维度面板选择的 aspect。
     /// 取值 '1:1' / '16:9' / '9:16' / '4:3' / '3:4'，null = 用模型默认。
     String? imageAspect,
+
     /// 可取消的 HTTP client。外部 close 后底层 HTTP 连接立即断开，
     /// 不再等 stream 自然结束。未传则 fallback 到 [bridgedClient]。
     http.Client? requestClient,
+
     /// 可选的诊断统计对象,各 _stream 内部会写入 SDK 收到的原始 event 数。
     ChatStreamStats? stats,
   }) {
@@ -379,15 +384,16 @@ class AiChatService {
             );
           } else {
             // 504/502/503 自动重试 3 次（绕过 openai_dart 4.x 对 POST 不重试的限制）
-            final response = await _withServerErrorRetry(() => client.images.edit(
-              o.ImageEditRequest(
-                model: model,
-                prompt: prompt,
-                image: bytes,
-                imageFilename: 'input.${_extFromMime(att.mimeType)}',
-                size: size,
-              ),
-            ));
+            final response =
+                await _withServerErrorRetry(() => client.images.edit(
+                      o.ImageEditRequest(
+                        model: model,
+                        prompt: prompt,
+                        image: bytes,
+                        imageFilename: 'input.${_extFromMime(att.mimeType)}',
+                        size: size,
+                      ),
+                    ));
             yield* _emitImageResponse(response);
           }
         } else {
@@ -404,9 +410,11 @@ class AiChatService {
               stats: stats,
             );
           } else {
-            final response = await _withServerErrorRetry(() => client.images.generate(
-              o.ImageGenerationRequest(model: model, prompt: prompt, size: size),
-            ));
+            final response =
+                await _withServerErrorRetry(() => client.images.generate(
+                      o.ImageGenerationRequest(
+                          model: model, prompt: prompt, size: size),
+                    ));
             yield* _emitImageResponse(response);
           }
         }
@@ -829,7 +837,8 @@ class AiChatService {
     try {
       // 复用普通 chat 的消息转换（带附件作为输入图，也支持 image edit 场景）；
       // 但要把最后一条 user 文本替换成增强版 prompt（拼了话题上下文）
-      final messagesWithEnhancedPrompt = _replaceLastUserContent(messages, prompt);
+      final messagesWithEnhancedPrompt =
+          _replaceLastUserContent(messages, prompt);
       final contents = _toGeminiContents(messagesWithEnhancedPrompt);
       final request = g.GenerateContentRequest(
         contents: contents,
@@ -861,7 +870,8 @@ class AiChatService {
               final cleaned = blob.data.replaceAll(RegExp(r'\s'), '');
               try {
                 final bytes = base64Decode(cleaned);
-                final mime = blob.mimeType.isEmpty ? 'image/png' : blob.mimeType;
+                final mime =
+                    blob.mimeType.isEmpty ? 'image/png' : blob.mimeType;
                 final localPath = await _saveImageBytes(bytes, mime);
                 yield ImageGenerated(localPath: localPath, mimeType: mime);
               } catch (_) {
@@ -1171,7 +1181,8 @@ class AiChatService {
   List<a.Message> _toAnthropicMessages(List<AiChatMessage> history) {
     final result = <a.Message>[];
     for (final msg in history) {
-      final isContext = msg.id == 'context-user' || msg.id == 'context-assistant';
+      final isContext =
+          msg.id == 'context-user' || msg.id == 'context-assistant';
       switch (msg.role) {
         case ChatRole.system:
           continue;

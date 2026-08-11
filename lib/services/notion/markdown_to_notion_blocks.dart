@@ -75,7 +75,9 @@ List<Map<String, dynamic>> _paragraphToBlocks(md.Element para) {
 
 List<Map<String, dynamic>> _nodeToBlocks(md.Node node) {
   if (node is md.Text) {
-    return [_paragraph([_textRich(node.text)])];
+    return [
+      _paragraph([_textRich(node.text)]),
+    ];
   }
   if (node is! md.Element) return const [];
 
@@ -235,10 +237,7 @@ Map<String, dynamic> _codeBlockFromPre(md.Element pre) {
   return {
     'object': 'block',
     'type': 'code',
-    'code': {
-      'rich_text': _splitRich(text),
-      'language': language,
-    },
+    'code': {'rich_text': _splitRich(text), 'language': language},
   };
 }
 
@@ -266,16 +265,79 @@ String _mapNotionLanguage(String input) {
   final mapped = aliases[lower] ?? lower;
   // 白名单（Notion 支持的常见值）
   const supported = {
-    'abap', 'arduino', 'bash', 'basic', 'c', 'clojure', 'coffeescript', 'c++',
-    'c#', 'css', 'dart', 'diff', 'docker', 'elixir', 'elm', 'erlang', 'flow',
-    'fortran', 'f#', 'gherkin', 'glsl', 'go', 'graphql', 'groovy', 'haskell',
-    'html', 'java', 'javascript', 'json', 'julia', 'kotlin', 'latex', 'less',
-    'lisp', 'livescript', 'lua', 'makefile', 'markdown', 'markup', 'matlab',
-    'mermaid', 'nix', 'objective-c', 'ocaml', 'pascal', 'perl', 'php',
-    'plain text', 'powershell', 'prolog', 'protobuf', 'python', 'r', 'reason',
-    'ruby', 'rust', 'sass', 'scala', 'scheme', 'scss', 'shell', 'solidity',
-    'sql', 'swift', 'toml', 'typescript', 'vb.net', 'verilog', 'vhdl',
-    'visual basic', 'webassembly', 'xml', 'yaml',
+    'abap',
+    'arduino',
+    'bash',
+    'basic',
+    'c',
+    'clojure',
+    'coffeescript',
+    'c++',
+    'c#',
+    'css',
+    'dart',
+    'diff',
+    'docker',
+    'elixir',
+    'elm',
+    'erlang',
+    'flow',
+    'fortran',
+    'f#',
+    'gherkin',
+    'glsl',
+    'go',
+    'graphql',
+    'groovy',
+    'haskell',
+    'html',
+    'java',
+    'javascript',
+    'json',
+    'julia',
+    'kotlin',
+    'latex',
+    'less',
+    'lisp',
+    'livescript',
+    'lua',
+    'makefile',
+    'markdown',
+    'markup',
+    'matlab',
+    'mermaid',
+    'nix',
+    'objective-c',
+    'ocaml',
+    'pascal',
+    'perl',
+    'php',
+    'plain text',
+    'powershell',
+    'prolog',
+    'protobuf',
+    'python',
+    'r',
+    'reason',
+    'ruby',
+    'rust',
+    'sass',
+    'scala',
+    'scheme',
+    'scss',
+    'shell',
+    'solidity',
+    'sql',
+    'swift',
+    'toml',
+    'typescript',
+    'vb.net',
+    'verilog',
+    'vhdl',
+    'visual basic',
+    'webassembly',
+    'xml',
+    'yaml',
   };
   return supported.contains(mapped) ? mapped : 'plain text';
 }
@@ -365,13 +427,17 @@ class _Annotations {
   final bool strikethrough;
   final bool code;
 
-  _Annotations copyWith({bool? bold, bool? italic, bool? strikethrough, bool? code}) =>
-      _Annotations(
-        bold: bold ?? this.bold,
-        italic: italic ?? this.italic,
-        strikethrough: strikethrough ?? this.strikethrough,
-        code: code ?? this.code,
-      );
+  _Annotations copyWith({
+    bool? bold,
+    bool? italic,
+    bool? strikethrough,
+    bool? code,
+  }) => _Annotations(
+    bold: bold ?? this.bold,
+    italic: italic ?? this.italic,
+    strikethrough: strikethrough ?? this.strikethrough,
+    code: code ?? this.code,
+  );
 
   Map<String, dynamic>? toJson() {
     if (!bold && !italic && !strikethrough && !code) return null;
@@ -384,7 +450,11 @@ class _Annotations {
   }
 }
 
-Map<String, dynamic> _richFromText(String text, _Annotations ann, String? href) {
+Map<String, dynamic> _richFromText(
+  String text,
+  _Annotations ann,
+  String? href,
+) {
   final annJson = ann.toJson();
   final normalizedHref = _normalizeLinkUrl(href);
   return {
@@ -428,7 +498,8 @@ String? _schemeOf(String url) {
   return scheme;
 }
 
-Map<String, dynamic> _textRich(String text) => _richFromText(text, _Annotations.none, null);
+Map<String, dynamic> _textRich(String text) =>
+    _richFromText(text, _Annotations.none, null);
 
 /// 把超长字符串切成多段 rich_text。
 List<Map<String, dynamic>> _splitRich(String text) {
@@ -452,7 +523,9 @@ Map<String, dynamic> _paragraph(List<Map<String, dynamic>> rich) {
   return {
     'object': 'block',
     'type': 'paragraph',
-    'paragraph': {'rich_text': rich.isEmpty ? [_textRich('')] : rich},
+    'paragraph': {
+      'rich_text': rich.isEmpty ? [_textRich('')] : rich,
+    },
   };
 }
 
@@ -461,7 +534,9 @@ Map<String, dynamic> _heading(int level, List<Map<String, dynamic>> rich) {
   return {
     'object': 'block',
     'type': type,
-    type: {'rich_text': rich.isEmpty ? [_textRich('')] : rich},
+    type: {
+      'rich_text': rich.isEmpty ? [_textRich('')] : rich,
+    },
   };
 }
 
@@ -478,8 +553,7 @@ Map<String, dynamic> _imageBlock(String url, {String? alt}) {
     'image': {
       'type': 'external',
       'external': {'url': normalized},
-      if (alt != null && alt.isNotEmpty)
-        'caption': [_textRich(alt)],
+      if (alt != null && alt.isNotEmpty) 'caption': [_textRich(alt)],
     },
   };
 }
@@ -560,11 +634,7 @@ class DiscourseBlockMappers {
     required List<String> options,
   }) {
     final rich = <Map<String, dynamic>>[
-      _richFromText(
-        '📊 $title\n',
-        const _Annotations(bold: true),
-        null,
-      ),
+      _richFromText('📊 $title\n', const _Annotations(bold: true), null),
     ];
     for (final opt in options) {
       rich.add(_textRich('  • $opt\n'));

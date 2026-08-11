@@ -9,23 +9,13 @@ import '../discourse_cache_manager.dart';
 ///
 /// 每类聚合一个或多个磁盘目录;`other` 兜底迁移 `.trash` 待删区与
 /// 已废弃的 legacy 目录。
-enum ImageCacheCategory {
-  content,
-  emoji,
-  avatar,
-  sticker,
-  external,
-  other,
-}
+enum ImageCacheCategory { content, emoji, avatar, sticker, external, other }
 
 /// 缓存大小计算服务
 class CacheSizeService {
   /// 统计/删除口径:blob 缓存根目录 + legacy cache_manager 残留目录
   /// (v9 迁移后为空,防被杀断残留)。都在 `getTemporaryDirectory()` 下。
-  static const _cacheKeys = [
-    BlobImageCache.dirName,
-    ...kLegacyImageCacheKeys,
-  ];
+  static const _cacheKeys = [BlobImageCache.dirName, ...kLegacyImageCacheKeys];
 
   /// 计算图片缓存大小（遍历三个 CacheManager 的磁盘目录）
   ///

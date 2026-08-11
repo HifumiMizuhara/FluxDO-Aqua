@@ -334,10 +334,7 @@ mixin _UsersMixin on _DiscourseServiceBase {
 
   /// 拉书签接口并返回原始 JSON map，给本地缓存对账层使用——
   /// 需要保留每条书签自身的 updated_at 等字段，无法通过 [TopicListResponse] 转回。
-  Future<Map<String, dynamic>> getUserBookmarksRaw({
-    int page = 0,
-    int? limit,
-  }) {
+  Future<Map<String, dynamic>> getUserBookmarksRaw({int page = 0, int? limit}) {
     return _getUserBookmarksRaw(page: page, limit: limit);
   }
 

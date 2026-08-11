@@ -22,8 +22,7 @@
 import 'dart:io';
 
 const _materialImport = "import 'package:flutter/material.dart';";
-const _symbolsImport =
-    "import 'package:material_symbols_icons/symbols.dart';";
+const _symbolsImport = "import 'package:material_symbols_icons/symbols.dart';";
 
 /// 别名：Material `Icons.` 的"非标"命名 → Symbols 规范命名。
 const _aliasMap = <String, String>{
@@ -112,8 +111,7 @@ void main(List<String> args) async {
       final mapped = _mapName(raw, variantBaseNames);
       if (mapped == null) return m.group(0)!;
       changedSites += 1;
-      final todoTag =
-          mapped.todo ? ' /* TODO(icons): 可能为激活态，按需 fill:1 */' : '';
+      final todoTag = mapped.todo ? ' /* TODO(icons): 可能为激活态，按需 fill:1 */' : '';
       return 'Symbols.${mapped.symbolName}$todoTag';
     });
 
@@ -143,8 +141,10 @@ void main(List<String> args) async {
     if (apply) f.writeAsStringSync(newSrc);
   }
 
-  stdout.writeln('扫描文件 ${files.length}，将改动 $changedFiles 个文件、'
-      '$changedSites 个调用点。${apply ? "已写入。" : "(dry-run)"}');
+  stdout.writeln(
+    '扫描文件 ${files.length}，将改动 $changedFiles 个文件、'
+    '$changedSites 个调用点。${apply ? "已写入。" : "(dry-run)"}',
+  );
 }
 
 class _Mapped {

@@ -27,8 +27,8 @@ final promptPresetStorageProvider = Provider<PromptPresetStorage>((ref) {
 /// 内置 preset 通过 [builtInPresetsProvider] 拿到原始数据，再 merge 用户的
 /// [PresetCustomization]（pin/hide/sortOrder 等），加上自定义 preset，按
 /// (sortOrder, pinned desc) 排序。
-final promptPresetListProvider = StateNotifierProvider<
-    PromptPresetNotifier, List<PromptPreset>>((ref) {
+final promptPresetListProvider =
+    StateNotifierProvider<PromptPresetNotifier, List<PromptPreset>>((ref) {
   final builtIns = ref.watch(builtInPresetsProvider);
   final storage = ref.watch(promptPresetStorageProvider);
   return PromptPresetNotifier(
@@ -225,7 +225,8 @@ class PromptPresetNotifier extends StateNotifier<List<PromptPreset>> {
   }
 
   /// 重新排序：传入分组内（builtin 或 user）的新顺序，sortOrder 重新分配
-  Future<void> reorderInGroup(PromptType type, bool builtIn, List<String> orderedIds) async {
+  Future<void> reorderInGroup(
+      PromptType type, bool builtIn, List<String> orderedIds) async {
     if (builtIn) {
       final toUpdate = <PresetCustomization>[];
       for (var i = 0; i < orderedIds.length; i++) {
@@ -272,9 +273,8 @@ class PromptPresetNotifier extends StateNotifier<List<PromptPreset>> {
 
   int _nextUserSortOrder() {
     if (_userPresets.isEmpty) return 1000;
-    final maxOrder = _userPresets
-        .map((p) => p.sortOrder)
-        .reduce((a, b) => a > b ? a : b);
+    final maxOrder =
+        _userPresets.map((p) => p.sortOrder).reduce((a, b) => a > b ? a : b);
     return maxOrder + 1;
   }
 }

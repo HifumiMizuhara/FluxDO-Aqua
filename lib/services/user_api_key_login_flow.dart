@@ -84,7 +84,9 @@ class UserApiKeyLoginFlow {
       // 冷启动 getInitialLink 会重放上次的 auth_redirect 深链;非本次授权流程
       // (nonce 已消费/不匹配)静默忽略,不弹 toast、不通知登录页。
       if (result.stale) {
-        debugPrint('[UserApiKeyLoginFlow] 忽略残留授权回调');
+        debugPrint(
+          '[UserApiKeyLoginFlow] 忽略残留授权回调',
+        );
         return;
       }
       if (!result.ok) {
@@ -141,7 +143,9 @@ class UserApiKeyLoginFlow {
             username = currentUser['username']?.toString() ?? '';
           }
         } catch (e) {
-          debugPrint('[UserApiKeyLoginFlow] 取 current_user 失败: $e');
+          debugPrint(
+            '/session/current.json',
+          );
         }
 
         if (username.isEmpty) {

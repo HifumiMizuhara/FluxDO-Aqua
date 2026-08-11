@@ -88,11 +88,7 @@ void main() {
     test('invalidate 只作废搜索索引,合法名集合保留', () {
       svc.invalidate();
       expect(svc.isLoaded, isFalse, reason: '下次敲 : 要重新拉');
-      expect(
-        svc.isKnownEmoji('rofl'),
-        isTrue,
-        reason: '作废掉会让 :rofl: 转换时灵时不灵',
-      );
+      expect(svc.isKnownEmoji('rofl'), isTrue, reason: '作废掉会让 :rofl: 转换时灵时不灵');
     });
 
     test('没拉到任何数据时一律不认(宁可不转也不裂图)', () {

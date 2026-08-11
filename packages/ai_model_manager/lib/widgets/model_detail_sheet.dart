@@ -216,7 +216,8 @@ class _ModelDetailSheetState extends State<_ModelDetailSheet> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: Icon(Symbols.close_rounded, color: cs.onSurface, size: 22),
+                    icon: Icon(Symbols.close_rounded,
+                        color: cs.onSurface, size: 22),
                     onPressed: () => Navigator.of(context).pop(),
                     tooltip: AiL10n.current.cancel,
                   ),
@@ -250,9 +251,7 @@ class _ModelDetailSheetState extends State<_ModelDetailSheet> {
                     readOnly: !isNew,
                     autofocus: isNew,
                     style: TextStyle(
-                      color: isNew
-                          ? null
-                          : cs.onSurface.withValues(alpha: 0.6),
+                      color: isNew ? null : cs.onSurface.withValues(alpha: 0.6),
                     ),
                     onChanged: isNew
                         ? (v) {
@@ -294,8 +293,7 @@ class _ModelDetailSheetState extends State<_ModelDetailSheet> {
                       input: _input,
                       output: _output,
                       abilities: _abilities,
-                      onExpand: () =>
-                          setState(() => _showAdvanced = true),
+                      onExpand: () => setState(() => _showAdvanced = true),
                     ),
                   ],
                   // 能力编辑区
@@ -314,8 +312,7 @@ class _ModelDetailSheetState extends State<_ModelDetailSheet> {
                       ],
                       onChanged: (idx) {
                         setState(() {
-                          final mod =
-                              idx == 0 ? Modality.text : Modality.image;
+                          final mod = idx == 0 ? Modality.text : Modality.image;
                           if (_input.contains(mod)) {
                             _input.remove(mod);
                             if (_input.isEmpty) _input.add(Modality.text);
@@ -340,8 +337,7 @@ class _ModelDetailSheetState extends State<_ModelDetailSheet> {
                       ],
                       onChanged: (idx) {
                         setState(() {
-                          final mod =
-                              idx == 0 ? Modality.text : Modality.image;
+                          final mod = idx == 0 ? Modality.text : Modality.image;
                           if (_output.contains(mod)) {
                             _output.remove(mod);
                             if (_output.isEmpty) _output.add(Modality.text);
@@ -353,8 +349,7 @@ class _ModelDetailSheetState extends State<_ModelDetailSheet> {
                       },
                     ),
                     const SizedBox(height: 12),
-                    _label(
-                        context, AiL10n.current.modelDetailAbilitiesLabel),
+                    _label(context, AiL10n.current.modelDetailAbilitiesLabel),
                     const SizedBox(height: 6),
                     _SegmentedMulti(
                       options: [
@@ -385,9 +380,9 @@ class _ModelDetailSheetState extends State<_ModelDetailSheet> {
                       Center(
                         child: TextButton.icon(
                           onPressed: _resetToAuto,
-                          icon: const Icon(Symbols.restart_alt_rounded, size: 18),
-                          label:
-                              Text(AiL10n.current.modelDetailResetAuto),
+                          icon:
+                              const Icon(Symbols.restart_alt_rounded, size: 18),
+                          label: Text(AiL10n.current.modelDetailResetAuto),
                         ),
                       ),
                     ],
@@ -404,7 +399,9 @@ class _ModelDetailSheetState extends State<_ModelDetailSheet> {
                 width: double.infinity,
                 child: FilledButton.icon(
                   onPressed: _save,
-                  icon: Icon(isNew ? Symbols.add_rounded : Symbols.check_rounded, size: 20),
+                  icon: Icon(
+                      isNew ? Symbols.add_rounded : Symbols.check_rounded,
+                      size: 20),
                   label: Text(
                     isNew
                         ? AiL10n.current.modelDetailAddTitle
@@ -429,8 +426,7 @@ class _ModelDetailSheetState extends State<_ModelDetailSheet> {
         text,
         style: TextStyle(
           fontSize: 13,
-          color:
-              Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
         ),
       );
 }

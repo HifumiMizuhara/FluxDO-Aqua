@@ -138,8 +138,8 @@ class _EventTile extends StatelessWidget {
       case 'SweepInvoked':
         return Colors.blue;
       case 'SweepCompleted':
-        final status = (record.payload['result']
-                as Map<String, dynamic>?)?['status'];
+        final status =
+            (record.payload['result'] as Map<String, dynamic>?)?['status'];
         if (status == 'failed') return Colors.red;
         if (status == 'nuclearReset') return Colors.deepOrange;
         if (status == 'noop') return Colors.grey;

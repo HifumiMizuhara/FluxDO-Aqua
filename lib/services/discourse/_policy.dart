@@ -59,10 +59,7 @@ mixin _PolicyMixin on _DiscourseServiceBase {
     try {
       final response = await _dio.get(
         path,
-        queryParameters: {
-          'post_id': postId,
-          'offset': offset,
-        },
+        queryParameters: {'post_id': postId, 'offset': offset},
       );
       final users = (response.data is Map)
           ? response.data['users'] as List<dynamic>?

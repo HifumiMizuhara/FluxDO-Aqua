@@ -75,7 +75,7 @@ class TopicSearchNotifier extends StateNotifier<TopicSearchState> {
   final Ref _ref;
 
   TopicSearchNotifier(this._ref, int topicId)
-      : super(TopicSearchState(topicId: topicId));
+    : super(TopicSearchState(topicId: topicId));
 
   /// 进入搜索模式
   void enterSearchMode() {
@@ -116,7 +116,11 @@ class TopicSearchNotifier extends StateNotifier<TopicSearchState> {
         fullQuery = '$fullQuery order:${sortOrder.value}';
       }
 
-      final result = await service.search(query: fullQuery, page: 1, typeFilter: 'topic');
+      final result = await service.search(
+        query: fullQuery,
+        page: 1,
+        typeFilter: 'topic',
+      );
 
       state = state.copyWith(
         results: result.posts,
@@ -124,10 +128,7 @@ class TopicSearchNotifier extends StateNotifier<TopicSearchState> {
         isLoading: false,
       );
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: e.toString(),
-      );
+      state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 
@@ -158,7 +159,11 @@ class TopicSearchNotifier extends StateNotifier<TopicSearchState> {
         fullQuery = '$fullQuery order:${sortOrder.value}';
       }
 
-      final result = await service.search(query: fullQuery, page: nextPage, typeFilter: 'topic');
+      final result = await service.search(
+        query: fullQuery,
+        page: nextPage,
+        typeFilter: 'topic',
+      );
 
       state = state.copyWith(
         results: [...state.results, ...result.posts],
@@ -186,5 +191,5 @@ class TopicSearchNotifier extends StateNotifier<TopicSearchState> {
 /// 使用 family 参数区分不同话题
 final topicSearchProvider =
     StateNotifierProvider.family<TopicSearchNotifier, TopicSearchState, int>(
-  (ref, topicId) => TopicSearchNotifier(ref, topicId),
-);
+      (ref, topicId) => TopicSearchNotifier(ref, topicId),
+    );

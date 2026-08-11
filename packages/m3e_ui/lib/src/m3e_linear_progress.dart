@@ -291,11 +291,7 @@ class _WavyProgressPainter extends CustomPainter {
 
     // stop indicator:track 尾端 4dp 圆点(进度未满时)。
     if (v < 1) {
-      canvas.drawCircle(
-        Offset(width, centerY),
-        _kStopSize / 2,
-        _stopPaint,
-      );
+      canvas.drawCircle(Offset(width, centerY), _kStopSize / 2, _stopPaint);
     }
   }
 
@@ -352,7 +348,11 @@ class _WavyProgressPainter extends CustomPainter {
     required double amplitude,
   }) {
     if (amplitude <= 0.01) {
-      canvas.drawLine(Offset(start, centerY), Offset(end, centerY), _activePaint);
+      canvas.drawLine(
+        Offset(start, centerY),
+        Offset(end, centerY),
+        _activePaint,
+      );
       return;
     }
     // 时间相位:phase 单位是"周期数",一个周期 1.75s。
@@ -365,7 +365,8 @@ class _WavyProgressPainter extends CustomPainter {
     var first = true;
     while (true) {
       final clampedX = math.min(x, end);
-      final y = centerY +
+      final y =
+          centerY +
           amplitude *
               math.sin(2 * math.pi * (clampedX / wavelength - timePhase));
       if (first) {

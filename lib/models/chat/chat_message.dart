@@ -123,9 +123,7 @@ class ChatThreadRef {
       id: json['id'] as int? ?? 0,
       title: json['title'] as String?,
       replyCount:
-          json['reply_count'] as int? ??
-          preview?['reply_count'] as int? ??
-          0,
+          json['reply_count'] as int? ?? preview?['reply_count'] as int? ?? 0,
       lastReplyCreatedAt: TimeUtils.parseUtcTime(
         preview?['last_reply_created_at'] as String?,
       ),
@@ -281,7 +279,9 @@ class ChatMessage {
           .toList(),
       userFlagStatus: json['user_flag_status'] as int?,
       bookmark: json['bookmark'] is Map<String, dynamic>
-          ? ChatMessageBookmark.fromJson(json['bookmark'] as Map<String, dynamic>)
+          ? ChatMessageBookmark.fromJson(
+              json['bookmark'] as Map<String, dynamic>,
+            )
           : null,
       pinned: json['pinned'] as bool? ?? false,
     );

@@ -5,7 +5,14 @@ const _encodedCookiePrefix = '~enc~';
 
 enum CookieSameSite { unspecified, lax, strict, none }
 
-enum CookieSource { unknown, dioResponse, setCookieHeader, webViewCdp, webViewManager, manualRestore }
+enum CookieSource {
+  unknown,
+  dioResponse,
+  setCookieHeader,
+  webViewCdp,
+  webViewManager,
+  manualRestore
+}
 
 class CanonicalCookie {
   CanonicalCookie({
@@ -34,8 +41,8 @@ class CanonicalCookie {
     this.lastSyncedToWebViewAt,
     this.lastSyncedFromWebViewAt,
     this.rawSetCookie,
-  }) : creationTime = creationTime ?? DateTime.now().toUtc(),
-       lastAccessTime = lastAccessTime ?? DateTime.now().toUtc();
+  })  : creationTime = creationTime ?? DateTime.now().toUtc(),
+        lastAccessTime = lastAccessTime ?? DateTime.now().toUtc();
 
   final String name;
   final String value;
@@ -71,7 +78,9 @@ class CanonicalCookie {
       if (originHost == null || originHost.isEmpty) return null;
       return originHost.toLowerCase();
     }
-    return trimmed.startsWith('.') ? trimmed.substring(1).toLowerCase() : trimmed.toLowerCase();
+    return trimmed.startsWith('.')
+        ? trimmed.substring(1).toLowerCase()
+        : trimmed.toLowerCase();
   }
 
   bool get isExpired {
@@ -89,11 +98,11 @@ class CanonicalCookie {
   /// 虽然 RFC 6265bis 将 host-only-flag 纳入 identity，但各平台 WebView API
   /// 无法可靠还原 hostOnly，保留它会导致同名 cookie 以不同 hostOnly 共存（多副本 bug）。
   String get storageKey => jsonEncode([
-    name,
-    normalizedDomain,
-    path,
-    partitionKey,
-  ]);
+        name,
+        normalizedDomain,
+        path,
+        partitionKey,
+      ]);
 
   /// 同 storageKey 覆盖决策：本 cookie 是否比 [other] 更应保留（更新鲜）。
   ///
@@ -155,7 +164,8 @@ class CanonicalCookie {
     try {
       cookie = io.Cookie(name, value);
     } catch (_) {
-      cookie = io.Cookie(name, '$_encodedCookiePrefix${Uri.encodeComponent(value)}');
+      cookie =
+          io.Cookie(name, '$_encodedCookiePrefix${Uri.encodeComponent(value)}');
     }
     cookie
       ..path = path
@@ -218,39 +228,43 @@ class CanonicalCookie {
       originUrl: originUrl ?? this.originUrl,
       source: source ?? this.source,
       version: version ?? this.version,
-      lastSyncedToWebViewAt: lastSyncedToWebViewAt ?? this.lastSyncedToWebViewAt,
-      lastSyncedFromWebViewAt: lastSyncedFromWebViewAt ?? this.lastSyncedFromWebViewAt,
+      lastSyncedToWebViewAt:
+          lastSyncedToWebViewAt ?? this.lastSyncedToWebViewAt,
+      lastSyncedFromWebViewAt:
+          lastSyncedFromWebViewAt ?? this.lastSyncedFromWebViewAt,
       rawSetCookie: rawSetCookie ?? this.rawSetCookie,
     );
   }
 
   Map<String, dynamic> toJson() => {
-    'name': name,
-    'value': value,
-    'domain': domain,
-    'path': path,
-    'expiresAt': expiresAt?.toUtc().toIso8601String(),
-    'maxAge': maxAge,
-    'secure': secure,
-    'httpOnly': httpOnly,
-    'sameSite': sameSite.name,
-    'hostOnly': hostOnly,
-    'persistent': persistent,
-    'creationTime': creationTime.toUtc().toIso8601String(),
-    'lastAccessTime': lastAccessTime.toUtc().toIso8601String(),
-    'priority': priority,
-    'sameParty': sameParty,
-    'sourceScheme': sourceScheme,
-    'sourcePort': sourcePort,
-    'partitionKey': partitionKey,
-    'partitioned': partitioned,
-    'originUrl': originUrl,
-    'source': source.name,
-    'version': version,
-    'lastSyncedToWebViewAt': lastSyncedToWebViewAt?.toUtc().toIso8601String(),
-    'lastSyncedFromWebViewAt': lastSyncedFromWebViewAt?.toUtc().toIso8601String(),
-    'rawSetCookie': rawSetCookie,
-  };
+        'name': name,
+        'value': value,
+        'domain': domain,
+        'path': path,
+        'expiresAt': expiresAt?.toUtc().toIso8601String(),
+        'maxAge': maxAge,
+        'secure': secure,
+        'httpOnly': httpOnly,
+        'sameSite': sameSite.name,
+        'hostOnly': hostOnly,
+        'persistent': persistent,
+        'creationTime': creationTime.toUtc().toIso8601String(),
+        'lastAccessTime': lastAccessTime.toUtc().toIso8601String(),
+        'priority': priority,
+        'sameParty': sameParty,
+        'sourceScheme': sourceScheme,
+        'sourcePort': sourcePort,
+        'partitionKey': partitionKey,
+        'partitioned': partitioned,
+        'originUrl': originUrl,
+        'source': source.name,
+        'version': version,
+        'lastSyncedToWebViewAt':
+            lastSyncedToWebViewAt?.toUtc().toIso8601String(),
+        'lastSyncedFromWebViewAt':
+            lastSyncedFromWebViewAt?.toUtc().toIso8601String(),
+        'rawSetCookie': rawSetCookie,
+      };
 
   factory CanonicalCookie.fromJson(Map<String, dynamic> json) {
     return CanonicalCookie(
@@ -265,8 +279,10 @@ class CanonicalCookie {
       sameSite: _parseSameSite(json['sameSite'] as String?),
       hostOnly: json['hostOnly'] as bool? ?? true,
       persistent: json['persistent'] as bool? ?? false,
-      creationTime: _parseDateTime(json['creationTime']) ?? DateTime.now().toUtc(),
-      lastAccessTime: _parseDateTime(json['lastAccessTime']) ?? DateTime.now().toUtc(),
+      creationTime:
+          _parseDateTime(json['creationTime']) ?? DateTime.now().toUtc(),
+      lastAccessTime:
+          _parseDateTime(json['lastAccessTime']) ?? DateTime.now().toUtc(),
       priority: json['priority'] as String?,
       sameParty: json['sameParty'] as bool? ?? false,
       sourceScheme: json['sourceScheme'] as String?,

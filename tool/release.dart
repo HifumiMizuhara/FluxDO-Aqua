@@ -382,9 +382,7 @@ _SemVersion _resolveTargetVersion({
   }
 
   if (!_versionPattern.hasMatch(normalizedTarget)) {
-    stderr.writeln(
-      '版本号格式错误，应为: x.y.z、x.y.z-beta，或 ${track.commandHint}',
-    );
+    stderr.writeln('版本号格式错误，应为: x.y.z、x.y.z-beta，或 ${track.commandHint}');
     exit(64);
   }
 
@@ -584,63 +582,63 @@ Future<String?> _promptReleaseTarget(
 }) async {
   final options = switch (track) {
     _ReleaseTrack.release => <CliOption<String>>[
-        CliOption(
-          value: 'patch',
-          label: 'patch',
-          detail: '修复发布 -> ${_bumpVersion(current, _ReleaseBump.patch)}',
-          aliases: const ['p'],
-        ),
-        CliOption(
-          value: 'minor',
-          label: 'minor',
-          detail: '功能发布 -> ${_bumpVersion(current, _ReleaseBump.minor)}',
-        ),
-        CliOption(
-          value: 'major',
-          label: 'major',
-          detail: '主版本发布 -> ${_bumpVersion(current, _ReleaseBump.major)}',
-        ),
-        const CliOption(
-          value: '__custom__',
-          label: 'custom',
-          detail: '手动输入显式稳定版版本号',
-          aliases: <String>['c'],
-        ),
-      ],
+      CliOption(
+        value: 'patch',
+        label: 'patch',
+        detail: '修复发布 -> ${_bumpVersion(current, _ReleaseBump.patch)}',
+        aliases: const ['p'],
+      ),
+      CliOption(
+        value: 'minor',
+        label: 'minor',
+        detail: '功能发布 -> ${_bumpVersion(current, _ReleaseBump.minor)}',
+      ),
+      CliOption(
+        value: 'major',
+        label: 'major',
+        detail: '主版本发布 -> ${_bumpVersion(current, _ReleaseBump.major)}',
+      ),
+      const CliOption(
+        value: '__custom__',
+        label: 'custom',
+        detail: '手动输入显式稳定版版本号',
+        aliases: <String>['c'],
+      ),
+    ],
     _ReleaseTrack.prerelease => <CliOption<String>>[
-        CliOption(
-          value: 'patch',
-          label: 'patch',
-          detail:
-              '开启补丁预发布 -> ${_bumpVersion(current, _ReleaseBump.prepatch, preid: defaultPreid)}',
-          aliases: const ['p'],
-        ),
-        CliOption(
-          value: 'minor',
-          label: 'minor',
-          detail:
-              '开启次版本预发布 -> ${_bumpVersion(current, _ReleaseBump.preminor, preid: defaultPreid)}',
-        ),
-        CliOption(
-          value: 'major',
-          label: 'major',
-          detail:
-              '开启主版本预发布 -> ${_bumpVersion(current, _ReleaseBump.premajor, preid: defaultPreid)}',
-        ),
-        CliOption(
-          value: 'next',
-          label: 'next',
-          detail:
-              '推进当前预发布序列 -> ${_bumpVersion(current, _ReleaseBump.next, preid: defaultPreid)}',
-          aliases: const ['n'],
-        ),
-        const CliOption(
-          value: '__custom__',
-          label: 'custom',
-          detail: '手动输入显式预发布版本号',
-          aliases: <String>['c'],
-        ),
-      ],
+      CliOption(
+        value: 'patch',
+        label: 'patch',
+        detail:
+            '开启补丁预发布 -> ${_bumpVersion(current, _ReleaseBump.prepatch, preid: defaultPreid)}',
+        aliases: const ['p'],
+      ),
+      CliOption(
+        value: 'minor',
+        label: 'minor',
+        detail:
+            '开启次版本预发布 -> ${_bumpVersion(current, _ReleaseBump.preminor, preid: defaultPreid)}',
+      ),
+      CliOption(
+        value: 'major',
+        label: 'major',
+        detail:
+            '开启主版本预发布 -> ${_bumpVersion(current, _ReleaseBump.premajor, preid: defaultPreid)}',
+      ),
+      CliOption(
+        value: 'next',
+        label: 'next',
+        detail:
+            '推进当前预发布序列 -> ${_bumpVersion(current, _ReleaseBump.next, preid: defaultPreid)}',
+        aliases: const ['n'],
+      ),
+      const CliOption(
+        value: '__custom__',
+        label: 'custom',
+        detail: '手动输入显式预发布版本号',
+        aliases: <String>['c'],
+      ),
+    ],
     _ReleaseTrack.any => throw StateError('unexpected any track in prompt'),
   };
 
@@ -710,11 +708,7 @@ bool _needsPreid(String target, {required _ReleaseTrack track}) {
 
 Future<String?> _promptPreid(String defaultPreid) async {
   final options = <CliOption<String>>[
-    CliOption(
-      value: defaultPreid,
-      label: defaultPreid,
-      detail: '使用当前默认预发布标识',
-    ),
+    CliOption(value: defaultPreid, label: defaultPreid, detail: '使用当前默认预发布标识'),
     const CliOption(
       value: '__custom__',
       label: 'custom',
@@ -725,38 +719,23 @@ Future<String?> _promptPreid(String defaultPreid) async {
   if (defaultPreid != 'beta') {
     options.insert(
       options.length - 1,
-      const CliOption(
-        value: 'beta',
-        label: 'beta',
-        detail: '默认预发布序列',
-      ),
+      const CliOption(value: 'beta', label: 'beta', detail: '默认预发布序列'),
     );
   }
   if (defaultPreid != 'rc') {
     options.insert(
       options.length - 1,
-      const CliOption(
-        value: 'rc',
-        label: 'rc',
-        detail: '候选发布序列',
-      ),
+      const CliOption(value: 'rc', label: 'rc', detail: '候选发布序列'),
     );
   }
   if (defaultPreid != 'alpha') {
     options.insert(
       options.length - 1,
-      const CliOption(
-        value: 'alpha',
-        label: 'alpha',
-        detail: '早期验证序列',
-      ),
+      const CliOption(value: 'alpha', label: 'alpha', detail: '早期验证序列'),
     );
   }
 
-  final selection = await _cliUi.select(
-    title: '选择预发布标识',
-    options: options,
-  );
+  final selection = await _cliUi.select(title: '选择预发布标识', options: options);
   if (selection == null) {
     return null;
   }
@@ -865,42 +844,34 @@ class _InteractiveReleaseSelection {
   final _ReleaseTrack track;
 }
 
-enum _ReleaseBump {
-  patch,
-  minor,
-  major,
-  prepatch,
-  preminor,
-  premajor,
-  next,
-}
+enum _ReleaseBump { patch, minor, major, prepatch, preminor, premajor, next }
 
 extension _ReleaseBumpX on _ReleaseBump {
   static _ReleaseBump? tryParse(String value, {required _ReleaseTrack track}) {
     return switch (track) {
       _ReleaseTrack.release => switch (value) {
-          'patch' => _ReleaseBump.patch,
-          'minor' => _ReleaseBump.minor,
-          'major' => _ReleaseBump.major,
-          _ => null,
-        },
+        'patch' => _ReleaseBump.patch,
+        'minor' => _ReleaseBump.minor,
+        'major' => _ReleaseBump.major,
+        _ => null,
+      },
       _ReleaseTrack.prerelease => switch (value) {
-          'patch' || 'prepatch' => _ReleaseBump.prepatch,
-          'minor' || 'preminor' => _ReleaseBump.preminor,
-          'major' || 'premajor' => _ReleaseBump.premajor,
-          'next' || 'prerelease' => _ReleaseBump.next,
-          _ => null,
-        },
+        'patch' || 'prepatch' => _ReleaseBump.prepatch,
+        'minor' || 'preminor' => _ReleaseBump.preminor,
+        'major' || 'premajor' => _ReleaseBump.premajor,
+        'next' || 'prerelease' => _ReleaseBump.next,
+        _ => null,
+      },
       _ReleaseTrack.any => switch (value) {
-          'patch' => _ReleaseBump.patch,
-          'minor' => _ReleaseBump.minor,
-          'major' => _ReleaseBump.major,
-          'prepatch' => _ReleaseBump.prepatch,
-          'preminor' => _ReleaseBump.preminor,
-          'premajor' => _ReleaseBump.premajor,
-          'next' || 'prerelease' => _ReleaseBump.next,
-          _ => null,
-        },
+        'patch' => _ReleaseBump.patch,
+        'minor' => _ReleaseBump.minor,
+        'major' => _ReleaseBump.major,
+        'prepatch' => _ReleaseBump.prepatch,
+        'preminor' => _ReleaseBump.preminor,
+        'premajor' => _ReleaseBump.premajor,
+        'next' || 'prerelease' => _ReleaseBump.next,
+        _ => null,
+      },
     };
   }
 }

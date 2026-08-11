@@ -26,8 +26,7 @@ class AuthIssueNoticeService {
       AuthIssueNoticeService._internal();
 
   static const _passiveLogoutHistoryKey = 'auth_passive_logout_history_v1';
-  static const _clearDataSuggestionAtKey =
-      'auth_clear_data_suggestion_at_v1';
+  static const _clearDataSuggestionAtKey = 'auth_clear_data_suggestion_at_v1';
   static const Duration _frequentLogoutWindow = Duration(hours: 24);
   static const int _frequentLogoutThreshold = 3;
   static const Duration _clearDataSuggestionCooldown = Duration(hours: 12);
@@ -46,12 +45,13 @@ class AuthIssueNoticeService {
     required Iterable<String> cookieNames,
     required String source,
   }) async {
-    final normalizedNames = cookieNames
-        .map((name) => name.trim())
-        .where((name) => name.isNotEmpty)
-        .toSet()
-        .toList(growable: false)
-      ..sort();
+    final normalizedNames =
+        cookieNames
+            .map((name) => name.trim())
+            .where((name) => name.isNotEmpty)
+            .toSet()
+            .toList(growable: false)
+          ..sort();
 
     _pendingCookieRepairHint = true;
     _pendingCookieRepairNames = normalizedNames;
@@ -75,10 +75,11 @@ class AuthIssueNoticeService {
   Future<void> recordPassiveLogout() async {
     final prefs = await _ensurePrefs();
     final now = DateTime.now();
-    final history = _loadPassiveLogoutHistory(prefs)
-        .where((time) => now.difference(time) <= _frequentLogoutWindow)
-        .toList(growable: true)
-      ..add(now);
+    final history =
+        _loadPassiveLogoutHistory(prefs)
+            .where((time) => now.difference(time) <= _frequentLogoutWindow)
+            .toList(growable: true)
+          ..add(now);
 
     await prefs.setStringList(
       _passiveLogoutHistoryKey,
@@ -91,14 +92,10 @@ class AuthIssueNoticeService {
     final shouldSuggestClearData =
         history.length >= _frequentLogoutThreshold &&
         (lastSuggestionAt == null ||
-            now.difference(lastSuggestionAt) >=
-                _clearDataSuggestionCooldown);
+            now.difference(lastSuggestionAt) >= _clearDataSuggestionCooldown);
 
     if (shouldSuggestClearData) {
-      await prefs.setString(
-        _clearDataSuggestionAtKey,
-        now.toIso8601String(),
-      );
+      await prefs.setString(_clearDataSuggestionAtKey, now.toIso8601String());
     }
 
     _latestPassiveLogoutAdvice = PassiveLogoutAdvice(

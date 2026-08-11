@@ -8,16 +8,22 @@ import '../theme_provider.dart';
 enum TopicSortOrder {
   /// 默认（不传 order 参数，由 API 决定）
   defaultOrder,
+
   /// 活跃度（bumped_at）
   activity,
+
   /// 创建时间
   created,
+
   /// 点赞数
   likes,
+
   /// 浏览量
   views,
+
   /// 回复数
   posts,
+
   /// 参与者数
   posters,
 }
@@ -70,7 +76,7 @@ class TopicSortOrderNotifier extends StateNotifier<TopicSortOrder> {
   final SharedPreferences _prefs;
 
   TopicSortOrderNotifier(this._prefs)
-      : super(_fromName(_prefs.getString(_key)));
+    : super(_fromName(_prefs.getString(_key)));
 
   static TopicSortOrder _fromName(String? name) {
     for (final order in TopicSortOrder.values) {
@@ -88,9 +94,9 @@ class TopicSortOrderNotifier extends StateNotifier<TopicSortOrder> {
 /// 当前排序字段（持久化到 SharedPreferences）
 final topicSortOrderProvider =
     StateNotifierProvider<TopicSortOrderNotifier, TopicSortOrder>((ref) {
-  final prefs = ref.watch(sharedPreferencesProvider);
-  return TopicSortOrderNotifier(prefs);
-});
+      final prefs = ref.watch(sharedPreferencesProvider);
+      return TopicSortOrderNotifier(prefs);
+    });
 
 /// 升降序持久化 Notifier
 class TopicSortAscendingNotifier extends StateNotifier<bool> {
@@ -98,7 +104,7 @@ class TopicSortAscendingNotifier extends StateNotifier<bool> {
   final SharedPreferences _prefs;
 
   TopicSortAscendingNotifier(this._prefs)
-      : super(_prefs.getBool(_key) ?? false);
+    : super(_prefs.getBool(_key) ?? false);
 
   void setAscending(bool ascending) {
     state = ascending;
@@ -113,6 +119,6 @@ class TopicSortAscendingNotifier extends StateNotifier<bool> {
 /// 排序方向（持久化到 SharedPreferences，默认 false 即降序）
 final topicSortAscendingProvider =
     StateNotifierProvider<TopicSortAscendingNotifier, bool>((ref) {
-  final prefs = ref.watch(sharedPreferencesProvider);
-  return TopicSortAscendingNotifier(prefs);
-});
+      final prefs = ref.watch(sharedPreferencesProvider);
+      return TopicSortAscendingNotifier(prefs);
+    });

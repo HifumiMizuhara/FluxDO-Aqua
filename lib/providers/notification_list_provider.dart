@@ -13,9 +13,10 @@ class NotificationListNotifier
   int _totalRows = 0;
 
   /// 分页助手
-  static final _paginationHelper = PaginationHelpers.forNotifications<DiscourseNotification>(
-    keyExtractor: (n) => n.id,
-  );
+  static final _paginationHelper =
+      PaginationHelpers.forNotifications<DiscourseNotification>(
+        keyExtractor: (n) => n.id,
+      );
 
   @override
   Future<List<DiscourseNotification>> build() async {
@@ -60,8 +61,7 @@ class NotificationListNotifier
 
       return PagedPage(
         items: paginationResult.items,
-        hasMore:
-            response.notifications.isNotEmpty && paginationResult.hasMore,
+        hasMore: response.notifications.isNotEmpty && paginationResult.hasMore,
       );
     });
   }
@@ -81,9 +81,7 @@ class NotificationListNotifier
 
     // 更新本地状态
     state.whenData((list) {
-      state = AsyncValue.data(
-        list.map((n) => n.copyWith(read: true)).toList(),
-      );
+      state = AsyncValue.data(list.map((n) => n.copyWith(read: true)).toList());
     });
   }
 
@@ -102,6 +100,10 @@ class NotificationListNotifier
   }
 }
 
-final notificationListProvider = AsyncNotifierProvider.autoDispose<NotificationListNotifier, List<DiscourseNotification>>(() {
-  return NotificationListNotifier();
-});
+final notificationListProvider =
+    AsyncNotifierProvider.autoDispose<
+      NotificationListNotifier,
+      List<DiscourseNotification>
+    >(() {
+      return NotificationListNotifier();
+    });

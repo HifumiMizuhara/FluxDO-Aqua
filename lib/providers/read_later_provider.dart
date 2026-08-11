@@ -24,7 +24,9 @@ class ReadLaterNotifier extends StateNotifier<List<ReadLaterItem>> {
     if (jsonStr == null) return [];
     try {
       final list = jsonDecode(jsonStr) as List;
-      return list.map((e) => ReadLaterItem.fromJson(e as Map<String, dynamic>)).toList();
+      return list
+          .map((e) => ReadLaterItem.fromJson(e as Map<String, dynamic>))
+          .toList();
     } catch (_) {
       return [];
     }
@@ -77,6 +79,6 @@ final appReadyProvider = StateProvider<bool>((ref) => false);
 
 final readLaterProvider =
     StateNotifierProvider<ReadLaterNotifier, List<ReadLaterItem>>((ref) {
-  final prefs = ref.watch(sharedPreferencesProvider);
-  return ReadLaterNotifier(prefs);
-});
+      final prefs = ref.watch(sharedPreferencesProvider);
+      return ReadLaterNotifier(prefs);
+    });

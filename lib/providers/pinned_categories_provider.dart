@@ -42,6 +42,6 @@ class PinnedCategoriesNotifier extends StateNotifier<List<int>> {
 
 final pinnedCategoriesProvider =
     StateNotifierProvider<PinnedCategoriesNotifier, List<int>>((ref) {
-  final prefs = ref.watch(sharedPreferencesProvider);
-  return PinnedCategoriesNotifier(prefs);
-});
+      final prefs = ref.watch(sharedPreferencesProvider);
+      return PinnedCategoriesNotifier(prefs);
+    });

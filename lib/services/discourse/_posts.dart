@@ -15,10 +15,7 @@ mixin _PostsMixin on _DiscourseServiceBase {
     String? draftKey,
     ValueChanged<int>? onDraftSequence,
   }) async {
-    final data = <String, dynamic>{
-      'topic_id': topicId,
-      'raw': raw,
-    };
+    final data = <String, dynamic>{'topic_id': topicId, 'raw': raw};
 
     if (replyToPostNumber != null) {
       data['reply_to_post_number'] = replyToPostNumber;
@@ -47,14 +44,17 @@ mixin _PostsMixin on _DiscourseServiceBase {
       // 服务端 PostsController 通过 PostSerializer.draft_sequence 把推进后的
       // sequence 挂在响应的 target 里(对齐 composer.js:1382)
       final target = respData['target'];
-      final seq = (target is Map ? target['draft_sequence'] : null) ??
+      final seq =
+          (target is Map ? target['draft_sequence'] : null) ??
           respData['draft_sequence'];
       if (seq is int) {
         onDraftSequence?.call(seq);
       }
     }
 
-    if (respData is Map && respData.containsKey('post') && respData['post'] != null) {
+    if (respData is Map &&
+        respData.containsKey('post') &&
+        respData['post'] != null) {
       return Post.fromJson(respData['post'] as Map<String, dynamic>);
     }
 
@@ -97,18 +97,25 @@ mixin _PostsMixin on _DiscourseServiceBase {
   }
 
   /// 切换回应
-  Future<Map<String, dynamic>> toggleReaction(int postId, String reaction) async {
+  Future<Map<String, dynamic>> toggleReaction(
+    int postId,
+    String reaction,
+  ) async {
     try {
       final response = await _dio.put(
         '/discourse-reactions/posts/$postId/custom-reactions/$reaction/toggle.json',
       );
       final data = response.data as Map<String, dynamic>;
       return {
-        'reactions': (data['reactions'] as List?)
-            ?.map((e) => PostReaction.fromJson(e as Map<String, dynamic>))
-            .toList() ?? [],
+        'reactions':
+            (data['reactions'] as List?)
+                ?.map((e) => PostReaction.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            [],
         'currentUserReaction': data['current_user_reaction'] != null
-            ? PostReaction.fromJson(data['current_user_reaction'] as Map<String, dynamic>)
+            ? PostReaction.fromJson(
+                data['current_user_reaction'] as Map<String, dynamic>,
+              )
             : null,
       };
     } on DioException catch (e) {
@@ -173,9 +180,7 @@ mixin _PostsMixin on _DiscourseServiceBase {
     String? editReason,
   }) async {
     try {
-      final data = <String, dynamic>{
-        'post[raw]': raw,
-      };
+      final data = <String, dynamic>{'post[raw]': raw};
       if (editReason != null && editReason.isNotEmpty) {
         data['post[edit_reason]'] = editReason;
       }
@@ -197,7 +202,12 @@ mixin _PostsMixin on _DiscourseServiceBase {
   }
 
   /// 添加话题书签
-  Future<int> bookmarkTopic(int topicId, {String? name, DateTime? reminderAt, int? autoDeletePreference}) async {
+  Future<int> bookmarkTopic(
+    int topicId, {
+    String? name,
+    DateTime? reminderAt,
+    int? autoDeletePreference,
+  }) async {
     try {
       final data = <String, dynamic>{
         'bookmarkable_id': topicId,
@@ -230,7 +240,12 @@ mixin _PostsMixin on _DiscourseServiceBase {
   }
 
   /// 添加帖子书签
-  Future<int> bookmarkPost(int postId, {String? name, DateTime? reminderAt, int? autoDeletePreference}) async {
+  Future<int> bookmarkPost(
+    int postId, {
+    String? name,
+    DateTime? reminderAt,
+    int? autoDeletePreference,
+  }) async {
     try {
       final data = <String, dynamic>{
         'bookmarkable_id': postId,
@@ -263,7 +278,12 @@ mixin _PostsMixin on _DiscourseServiceBase {
   }
 
   /// 更新书签
-  Future<void> updateBookmark(int bookmarkId, {String? name, DateTime? reminderAt, int? autoDeletePreference}) async {
+  Future<void> updateBookmark(
+    int bookmarkId, {
+    String? name,
+    DateTime? reminderAt,
+    int? autoDeletePreference,
+  }) async {
     try {
       final data = <String, dynamic>{};
       // name 传空字符串表示清除
@@ -389,7 +409,9 @@ mixin _PostsMixin on _DiscourseServiceBase {
         data: {'topic_id': topicId},
         options: Options(contentType: Headers.formUrlEncodedContentType),
       );
-      return SharedIssueResponse.fromJson(response.data as Map<String, dynamic>);
+      return SharedIssueResponse.fromJson(
+        response.data as Map<String, dynamic>,
+      );
     } on DioException catch (e) {
       _throwApiError(e);
     }
@@ -437,18 +459,16 @@ mixin _PostsMixin on _DiscourseServiceBase {
     required int postId,
     required int topicId,
   }) {
-    _dio.post(
-      '/clicks/track',
-      data: {
-        'url': url,
-        'post_id': postId,
-        'topic_id': topicId,
-      },
-      options: Options(contentType: Headers.formUrlEncodedContentType),
-    ).catchError((e) {
-      debugPrint('[DiscourseService] trackClick failed: $e');
-      return Response(requestOptions: RequestOptions());
-    });
+    _dio
+        .post(
+          '/clicks/track',
+          data: {'url': url, 'post_id': postId, 'topic_id': topicId},
+          options: Options(contentType: Headers.formUrlEncodedContentType),
+        )
+        .catchError((e) {
+          debugPrint('[DiscourseService] trackClick failed: $e');
+          return Response(requestOptions: RequestOptions());
+        });
   }
 
   // ==================== Boost ====================
@@ -475,11 +495,13 @@ mixin _PostsMixin on _DiscourseServiceBase {
   }
 
   /// 举报 Boost
-  Future<void> flagBoost(int boostId, {required int flagTypeId, String? message}) async {
+  Future<void> flagBoost(
+    int boostId, {
+    required int flagTypeId,
+    String? message,
+  }) async {
     try {
-      final data = <String, dynamic>{
-        'flag_type_id': flagTypeId,
-      };
+      final data = <String, dynamic>{'flag_type_id': flagTypeId};
       if (message != null && message.isNotEmpty) {
         data['message'] = message;
       }

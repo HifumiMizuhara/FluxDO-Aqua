@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 enum AppFontFamily {
   /// 跟随系统默认字体
   system,
+
   /// 内置 MiSans 字体
   miSans,
 }

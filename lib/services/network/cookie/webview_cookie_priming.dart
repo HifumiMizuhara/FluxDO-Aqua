@@ -183,7 +183,9 @@ class WebViewCookiePriming {
         final fresh = await _jar.getCanonicalCookie(initialCookie.name);
         if (fresh == null || fresh.value.isEmpty) {
           skippedRaceRemoved++;
-          debugPrint('[Priming] ${initialCookie.name} 在 priming 期间被外部删除, 跳过');
+          debugPrint(
+            '[Priming] ${initialCookie.name} 在 priming 期间被外部删除, 跳过',
+          );
           continue;
         }
         if (_isExpired(fresh)) {
@@ -200,7 +202,9 @@ class WebViewCookiePriming {
         if (reFresh == null || reFresh.value.isEmpty) {
           skippedRaceRemoved++;
           attempted--;
-          debugPrint('[Priming] ${cookie.name} 在 sweep 期间被外部删除, 不写回');
+          debugPrint(
+            '[Priming] ${cookie.name} 在 sweep 期间被外部删除, 不写回',
+          );
           continue;
         }
         final writeCookie = reFresh;
@@ -215,7 +219,9 @@ class WebViewCookiePriming {
         if (writeResult.skipped) {
           skippedRaceRemoved++;
           attempted--;
-          debugPrint('[Priming] ${writeCookie.name} 在 sweep 期间被外部删除, 不写回');
+          debugPrint(
+            '($observedPostCount):',
+          );
           continue;
         }
         final writtenCookie = writeResult.cookie ?? writeCookie;
@@ -355,7 +361,9 @@ class WebViewCookiePriming {
           cookie: fresh,
         );
       }
-      debugPrint('[Priming] ${cookie.name} 写入后仍有 $postCount 个变体，重试清理');
+      debugPrint(
+        '[Priming] ${cookie.name} 写入后仍有 $postCount 个变体，重试清理',
+      );
       await Future<void>.delayed(_variantCleanupRetryDelay);
     }
     return _PrimeWriteResult(

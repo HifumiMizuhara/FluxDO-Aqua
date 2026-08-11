@@ -120,7 +120,9 @@ class ScreenTrack {
       _blockSendingUntil = null;
       _ajaxFailures = 0;
       _cfFrozen = true;
-      debugPrint('[ScreenTrack] CF 验证开始，冻结采集并丢弃未上报数据 sourceId=$debugSourceId');
+      debugPrint(
+        '[ScreenTrack] CF 验证开始，冻结采集并丢弃未上报数据 sourceId=$debugSourceId',
+      );
     } else {
       // CF 完成：重置 _lastTick，下次 tick 用新的时间戳算 diff，
       // 避免把 CF 期间的真实流逝时间也算进 _topicTime。
@@ -128,7 +130,9 @@ class ScreenTrack {
       _lastScrolled = DateTime.now();
       _lastFlush = Duration.zero;
       _cfFrozen = false;
-      debugPrint('[ScreenTrack] CF 验证完成，恢复采集 sourceId=$debugSourceId');
+      debugPrint(
+        '[ScreenTrack] CF 验证完成，恢复采集 sourceId=$debugSourceId',
+      );
     }
   }
 

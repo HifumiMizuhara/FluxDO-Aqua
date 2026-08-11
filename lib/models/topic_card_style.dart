@@ -82,9 +82,8 @@ class TopicCardStyle {
         avatarLayout: json['avatarLayout'] == 'column'
             ? TopicCardAvatarLayout.column
             : TopicCardAvatarLayout.inline,
-        titleFontSize:
-            ((json['titleFontSize'] as num?)?.toDouble() ?? 15.0)
-                .clamp(13.0, 18.0),
+        titleFontSize: ((json['titleFontSize'] as num?)?.toDouble() ?? 15.0)
+            .clamp(13.0, 18.0),
         animatedAvatar: json['animatedAvatar'] as bool? ?? true,
       );
     } catch (_) {

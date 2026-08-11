@@ -34,10 +34,7 @@ class _DecodedShadowsocksBody {
 }
 
 class _ParsedHostPort {
-  const _ParsedHostPort({
-    required this.host,
-    required this.port,
-  });
+  const _ParsedHostPort({required this.host, required this.port});
 
   final String host;
   final int port;
@@ -63,11 +60,14 @@ class ShadowsocksUriParser {
         : null;
 
     final decoded = _parseBody(body);
-    final cipher =
-        ProxySettingsService.normalizeShadowsocksCipher(decoded.cipher);
+    final cipher = ProxySettingsService.normalizeShadowsocksCipher(
+      decoded.cipher,
+    );
     if (cipher.isEmpty) {
       throw FormatException(
-        S.current.proxy_ssUnsupportedCipher(ProxySettingsService.supportedShadowsocksCiphers.join(' / ')),
+        S.current.proxy_ssUnsupportedCipher(
+          ProxySettingsService.supportedShadowsocksCiphers.join(' / '),
+        ),
       );
     }
 

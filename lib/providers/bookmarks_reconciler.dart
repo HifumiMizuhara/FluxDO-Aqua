@@ -137,11 +137,13 @@ class BookmarksReconciler {
         );
       }
 
-      final changed = result.entries.where((entry) {
-        final local = snapshot[entry.bookmarkId];
-        return local == null ||
-            local != entry.updatedAt.toUtc().toIso8601String();
-      }).toList(growable: false);
+      final changed = result.entries
+          .where((entry) {
+            final local = snapshot[entry.bookmarkId];
+            return local == null ||
+                local != entry.updatedAt.toUtc().toIso8601String();
+          })
+          .toList(growable: false);
 
       if (changed.isNotEmpty) {
         await _repository.upsertEntries(accountId, changed);

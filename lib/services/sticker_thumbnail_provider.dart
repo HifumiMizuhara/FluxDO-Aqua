@@ -23,7 +23,10 @@ const int _kErrUnsupported = -2;
 bool _bytesLookLikeAvif(Uint8List bytes) {
   if (bytes.length < 12) return false;
   // 'ftyp' at offset 4
-  if (bytes[4] != 0x66 || bytes[5] != 0x74 || bytes[6] != 0x79 || bytes[7] != 0x70) {
+  if (bytes[4] != 0x66 ||
+      bytes[5] != 0x74 ||
+      bytes[6] != 0x79 ||
+      bytes[7] != 0x70) {
     return false;
   }
   // brand at 8..12: avif | avis | mif1 | msf1
@@ -53,8 +56,7 @@ bool _bytesLookLikeAvif(Uint8List bytes) {
 ///
 /// 完整动画解码(长按预览 / 大图查看)**不**走这个 provider —
 /// 那是另一套路径,见 [AvifImageProvider] 和 `NativeAnimatedImageProvider`。
-class StickerThumbnailProvider
-    extends ImageProvider<StickerThumbnailProvider> {
+class StickerThumbnailProvider extends ImageProvider<StickerThumbnailProvider> {
   const StickerThumbnailProvider(
     this.url, {
     required this.targetSize,
@@ -189,12 +191,9 @@ class StickerThumbnailProvider
       }
       final displayImage =
           (srcImage.width > targetSize || srcImage.height > targetSize)
-              ? await _resize(srcImage, targetSize)
-              : srcImage;
-      await _cacheThumbnail(
-        _thumbnailCacheKey(url, targetSize),
-        displayImage,
-      );
+          ? await _resize(srcImage, targetSize)
+          : srcImage;
+      await _cacheThumbnail(_thumbnailCacheKey(url, targetSize), displayImage);
       _knownThumbnailKeys.add(_thumbnailCacheKey(url, targetSize));
       if (displayImage != srcImage) displayImage.dispose();
     } finally {
@@ -272,11 +271,7 @@ class StickerThumbnailProvider
     }
 
     // 首次解码走预热,避免重复
-    await precache(
-      key.url,
-      targetSize: key.targetSize,
-      bucket: key.bucket,
-    );
+    await precache(key.url, targetSize: key.targetSize, bucket: key.bucket);
     final warmedBytes = await _readCachedThumbnailBytes(thumbKey);
     if (warmedBytes != null) {
       return _decodeThumbnailBytes(warmedBytes, key.scale);
@@ -373,10 +368,7 @@ Future<Uint8List?> _readCachedThumbnailBytes(String thumbKey) async {
   return bytes;
 }
 
-Future<ImageInfo> _decodeThumbnailBytes(
-  Uint8List bytes,
-  double scale,
-) async {
+Future<ImageInfo> _decodeThumbnailBytes(Uint8List bytes, double scale) async {
   final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
   final codec = await ui.instantiateImageCodecFromBuffer(buffer);
   final frame = await codec.getNextFrame();
@@ -603,19 +595,19 @@ class _Semaphore {
 
 class _DecodeReply {
   const _DecodeReply.ok(this.width, this.height, this.rgba)
-      : error = null,
-        unsupported = false;
+    : error = null,
+      unsupported = false;
   const _DecodeReply.unsupported()
-      : width = 0,
-        height = 0,
-        rgba = null,
-        error = null,
-        unsupported = true;
+    : width = 0,
+      height = 0,
+      rgba = null,
+      error = null,
+      unsupported = true;
   const _DecodeReply.err(this.error)
-      : width = 0,
-        height = 0,
-        rgba = null,
-        unsupported = false;
+    : width = 0,
+      height = 0,
+      rgba = null,
+      unsupported = false;
 
   final int width;
   final int height;
@@ -672,9 +664,11 @@ class _DecoderWorkerPool {
       }
     });
     for (var i = 0; i < _workerCount; i++) {
-      Isolate.spawn<SendPort>(_decoderWorkerEntry, receivePort.sendPort,
-              debugName: 'StickerThumbnailWorker#$i')
-          .then((_) {});
+      Isolate.spawn<SendPort>(
+        _decoderWorkerEntry,
+        receivePort.sendPort,
+        debugName: 'StickerThumbnailWorker#$i',
+      ).then((_) {});
     }
     return completer.future;
   }
@@ -682,10 +676,7 @@ class _DecoderWorkerPool {
   /// 提交一个 decode 任务(round-robin 派给某条 worker,各自串行)。
   /// 如果在解码过程中 [token] 被 cancel,Future 立即 complete `_DecodeReply.err`
   /// (用 sentinel 错误),后续 ui.Image 创建会被跳过。
-  Future<_DecodeReply?> decode(
-    Uint8List bytes, {
-    _CancelToken? token,
-  }) async {
+  Future<_DecodeReply?> decode(Uint8List bytes, {_CancelToken? token}) async {
     await _ensureInit();
     if (token != null && token.isCancelled) return null;
     final taskId = _nextTaskId++;
@@ -731,9 +722,10 @@ void _decoderWorkerEntry(SendPort mainSendPort) {
         return;
       }
       final first = decoded.frames.first;
-      mainSendPort.send(
-        [taskId, _DecodeReply.ok(decoded.width, decoded.height, first.rgba)],
-      );
+      mainSendPort.send([
+        taskId,
+        _DecodeReply.ok(decoded.width, decoded.height, first.rgba),
+      ]);
     } on NativeAnimatedImageException catch (e) {
       if (e.code == _kErrUnsupported) {
         mainSendPort.send([taskId, const _DecodeReply.unsupported()]);

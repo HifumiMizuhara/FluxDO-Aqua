@@ -69,7 +69,7 @@ mixin _LoginMixin on _DiscourseServiceBase, _AuthMixin {
       );
       return LoginResult.error(
         LoginErrorKind.network,
-        message: e.message ?? '网络异常',
+        message: e.message ?? 'Network exception',
       );
     }
 
@@ -79,7 +79,7 @@ mixin _LoginMixin on _DiscourseServiceBase, _AuthMixin {
     if (body == null) {
       return LoginResult.error(
         LoginErrorKind.unknown,
-        message: 'Discourse 返回非 JSON: HTTP ${resp.statusCode}',
+        message: 'Discourse returned non-JSON: HTTP ${resp.statusCode}',
       );
     }
 
@@ -156,7 +156,7 @@ mixin _LoginMixin on _DiscourseServiceBase, _AuthMixin {
     if (map == null) {
       return LoginResult.error(
         LoginErrorKind.unknown,
-        message: 'Discourse 返回非 JSON: HTTP $status',
+        message: 'Discourse returned non-JSON: HTTP $status',
       );
     }
 
@@ -182,7 +182,9 @@ mixin _LoginMixin on _DiscourseServiceBase, _AuthMixin {
 
     final token = await _cookieJar.getTToken() ?? '';
     if (token.isEmpty) {
-      debugPrint('[DiscourseLogin] 警告: 登录成功但 jar 没拿到 _t');
+      debugPrint(
+        '[DiscourseLogin] 警告: 登录成功但 jar 没拿到 _t',
+      );
     }
 
     await saveUsername(identifier);
@@ -206,7 +208,9 @@ mixin _LoginMixin on _DiscourseServiceBase, _AuthMixin {
           .finalize(token: token, pageHtml: null)
           .timeout(const Duration(seconds: 8));
     } catch (e) {
-      debugPrint('[DiscourseLogin] PreloadedData 收尾失败/超时: $e');
+      debugPrint(
+        '[DiscourseLogin] PreloadedData 收尾失败/超时: $e',
+      );
     } finally {
       // 兜底广播, 避免 UI 卡在"同步登录中"
       if (!loginReadyNotified) {

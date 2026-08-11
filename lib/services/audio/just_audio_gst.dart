@@ -168,7 +168,7 @@ class _GstAudioPlayer extends AudioPlayerPlatform {
     if (source is! UriAudioSourceMessage) {
       throw PlatformException(
         code: 'unsupported',
-        message: 'JustAudioGst 仅支持 URL 音源(setUrl/setFilePath)',
+        message: 'JustAudioGst supports URL sources only (setUrl/setFilePath)',
       );
     }
     _processingState = ProcessingStateMessage.loading;

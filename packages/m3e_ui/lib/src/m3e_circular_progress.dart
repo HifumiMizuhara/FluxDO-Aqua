@@ -83,10 +83,12 @@ class _M3eCircularProgressState extends State<M3eCircularProgress>
   static final Animatable<double> _strokeTailTween = CurveTween(
     curve: const Interval(0.5, 1.0, curve: Curves.fastOutSlowIn),
   ).chain(CurveTween(curve: const SawTooth(_kPathCount)));
-  static final Animatable<double> _offsetTween =
-      CurveTween(curve: const SawTooth(_kPathCount));
-  static final Animatable<double> _rotationTween =
-      CurveTween(curve: const SawTooth(_kRotationCount));
+  static final Animatable<double> _offsetTween = CurveTween(
+    curve: const SawTooth(_kPathCount),
+  );
+  static final Animatable<double> _rotationTween = CurveTween(
+    curve: const SawTooth(_kRotationCount),
+  );
 
   bool get _indeterminate => widget.value == null;
 
@@ -190,7 +192,8 @@ class _M3eCircularProgressState extends State<M3eCircularProgress>
                 final tail = _strokeTailTween.evaluate(_spin);
                 final offset = _offsetTween.evaluate(_spin);
                 final rotation = _rotationTween.evaluate(_spin);
-                arcStart = -math.pi / 2 +
+                arcStart =
+                    -math.pi / 2 +
                     tail * 3 / 2 * math.pi +
                     rotation * math.pi * 2 +
                     offset * 0.5 * math.pi;
@@ -304,11 +307,12 @@ class _WavyCircularPainter extends CustomPainter {
     var first = true;
     for (var a = 0.0; a <= arcSweep + step / 2; a += step) {
       final angle = arcStart + math.min(a, arcSweep);
-      final r = radius +
+      final r =
+          radius +
           (amplitude <= 0.01
               ? 0
               : amplitude *
-                  math.sin(_kWaveCount * angle - wavePhase * 2 * math.pi));
+                    math.sin(_kWaveCount * angle - wavePhase * 2 * math.pi));
       final p = center + Offset(math.cos(angle) * r, math.sin(angle) * r);
       if (first) {
         path.moveTo(p.dx, p.dy);

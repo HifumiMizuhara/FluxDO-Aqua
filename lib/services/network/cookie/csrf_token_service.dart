@@ -123,7 +123,7 @@ class CsrfTokenService {
       final csrf = (response.data as Map<String, dynamic>?)?['csrf'] as String?;
       if (csrf != null && csrf.isNotEmpty) {
         setCsrfToken(csrf);
-        debugPrint('[CsrfTokenService] CSRF token 已刷新');
+        debugPrint('[CsrfTokenService] CSRF token refresh');
         AppLogger.info(
           'CSRF token 已刷新',
           tag: 'CsrfTokenService',
@@ -161,7 +161,7 @@ class CsrfTokenService {
         },
       );
     } catch (e, stackTrace) {
-      debugPrint('[CsrfTokenService] CSRF token 刷新失败: $e');
+      debugPrint('[CsrfTokenService] CSRF token refreshfailed: $e');
       AppLogger.error(
         'CSRF token 刷新异常',
         tag: 'CsrfTokenService',

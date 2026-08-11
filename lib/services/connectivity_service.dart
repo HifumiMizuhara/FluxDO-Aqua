@@ -70,7 +70,9 @@ class ConnectivityService {
     try {
       return await Connectivity().checkConnectivity();
     } catch (e) {
-      debugPrint('[Connectivity] checkConnectivity 失败，fallback to connected state: $e');
+      debugPrint(
+        '[Connectivity] checkConnectivity failed; fallback to connected state: $e',
+      );
       return const [ConnectivityResult.other];
     }
   }
@@ -92,7 +94,9 @@ class ConnectivityService {
     _connectivitySub = _connectivity.onConnectivityChanged.listen(
       _onConnectivityChanged,
       onError: (Object error, StackTrace stackTrace) {
-        debugPrint('[Connectivity] 监听网络状态失败，fallback to connected state: $error');
+        debugPrint(
+          '[Connectivity] Network status listener failed; fallback to connected state: $error',
+        );
         _setConnected(true);
       },
     );
@@ -106,14 +110,15 @@ class ConnectivityService {
       final result = await safeCheckConnectivity();
       await _onConnectivityChanged(result);
     } catch (e) {
-      debugPrint('[Connectivity] 初始检查失败: $e');
+      debugPrint('[Connectivity] Initial check failed: $e');
     }
   }
 
   Future<void> _onConnectivityChanged(List<ConnectivityResult> results) async {
     debugPrint('[Connectivity] onConnectivityChanged: $results');
     VpnAutoToggleService.instance.handleConnectivityChanged(results);
-    final hasNetwork = results.isNotEmpty &&
+    final hasNetwork =
+        results.isNotEmpty &&
         !results.every((r) => r == ConnectivityResult.none);
 
     if (!hasNetwork) {
@@ -154,10 +159,10 @@ class ConnectivityService {
         return e.response!.statusCode == 200 &&
             e.response!.data?.toString().trim() == 'ok';
       }
-      debugPrint('[Connectivity] ping 失败: ${e.type}');
+      debugPrint('[Connectivity] Ping failed: ${e.type}');
       return false;
     } catch (e) {
-      debugPrint('[Connectivity] ping 异常: $e');
+      debugPrint('[Connectivity] Ping exception: $e');
       return false;
     }
   }
@@ -168,7 +173,9 @@ class ConnectivityService {
     if (_isConnected == connected) return;
     _isConnected = connected;
     _controller.add(connected);
-    debugPrint('[Connectivity] 连接状态变更: ${connected ? "已连接" : "已断开"}');
+    debugPrint(
+      '[Connectivity] Connection state changed: ${connected ? "connected" : "disconnected"}',
+    );
 
     if (!connected) {
       _startRetry();
@@ -191,24 +198,31 @@ class ConnectivityService {
       _retryInFlight = true;
       try {
         final result = await safeCheckConnectivity();
-        final hasNetwork = result.isNotEmpty &&
+        final hasNetwork =
+            result.isNotEmpty &&
             !result.every((r) => r == ConnectivityResult.none);
         if (hasNetwork) {
           if (enableServerPing) {
             final reachable = await pingServer();
-            if (reachable) _setConnected(true); // _setConnected(true) 内部会调用 _stopRetry
+            if (reachable)
+              _setConnected(true); // _setConnected(true) 内部会调用 _stopRetry
           } else {
             _setConnected(true);
           }
         } else {
-          debugPrint('[Connectivity] 设备无网络，${_retryBackoffSeconds}s 后重试');
+          debugPrint(
+            '[Connectivity] Device is offline; retrying in ${_retryBackoffSeconds}s',
+          );
         }
       } finally {
         _retryInFlight = false;
       }
       // 仍未恢复，增大退避间隔并继续重试
       if (!_isConnected) {
-        _retryBackoffSeconds = (_retryBackoffSeconds * 2).clamp(1, _maxRetryBackoffSeconds);
+        _retryBackoffSeconds = (_retryBackoffSeconds * 2).clamp(
+          1,
+          _maxRetryBackoffSeconds,
+        );
         _scheduleNextRetry();
       }
     });
@@ -228,7 +242,8 @@ class ConnectivityService {
       _setConnected(reachable);
     } else {
       final result = await safeCheckConnectivity();
-      final hasNetwork = result.isNotEmpty &&
+      final hasNetwork =
+          result.isNotEmpty &&
           !result.every((r) => r == ConnectivityResult.none);
       _setConnected(hasNetwork);
     }

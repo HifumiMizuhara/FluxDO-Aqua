@@ -41,9 +41,9 @@ class AppIcon extends StatelessWidget {
     this.strokeWidth = 2.0,
     this.semanticLabel,
   }) : assert(
-          icon is IconData || icon is AppIconSpec,
-          'AppIcon.icon must be IconData or AppIconSpec',
-        );
+         icon is IconData || icon is AppIconSpec,
+         'AppIcon.icon must be IconData or AppIconSpec',
+       );
 
   @override
   Widget build(BuildContext context) {
@@ -58,27 +58,27 @@ class AppIcon extends StatelessWidget {
 
     return switch (spec) {
       AppFontIcon(:final data) => Icon(
-          data,
-          size: effectiveSize,
-          color: effectiveColor,
-          fill: effectiveFill,
-          semanticLabel: semanticLabel,
-        ),
+        data,
+        size: effectiveSize,
+        color: effectiveColor,
+        fill: effectiveFill,
+        semanticLabel: semanticLabel,
+      ),
       AppCustomIcon(:final painterBuilder, :final designSize) => SizedBox(
-          width: effectiveSize,
-          height: effectiveSize * designSize.height / designSize.width,
-          child: CustomPaint(
-            painter: painterBuilder(
-              color: effectiveColor,
-              fill: effectiveFill,
-              strokeWidth: strokeWidth,
-            ),
-            size: Size(
-              effectiveSize,
-              effectiveSize * designSize.height / designSize.width,
-            ),
+        width: effectiveSize,
+        height: effectiveSize * designSize.height / designSize.width,
+        child: CustomPaint(
+          painter: painterBuilder(
+            color: effectiveColor,
+            fill: effectiveFill,
+            strokeWidth: strokeWidth,
+          ),
+          size: Size(
+            effectiveSize,
+            effectiveSize * designSize.height / designSize.width,
           ),
         ),
+      ),
     };
   }
 }

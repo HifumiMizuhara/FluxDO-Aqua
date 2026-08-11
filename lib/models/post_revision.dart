@@ -192,7 +192,8 @@ class PostRevision {
       displayUsername: json['display_username'] as String?,
       actingUserName: json['acting_user_name'] as String?,
       avatarTemplate: json['avatar_template'] as String? ?? '',
-      createdAt: TimeUtils.parseUtcTime(json['created_at'] as String?) ??
+      createdAt:
+          TimeUtils.parseUtcTime(json['created_at'] as String?) ??
           DateTime.now(),
       editReason: (json['edit_reason'] as String?)?.isNotEmpty == true
           ? json['edit_reason'] as String
@@ -243,8 +244,8 @@ class PostRevision {
   /// 显示给用户看的「编辑者」名字：优先 displayUsername，回退 username。
   String get displayActor =>
       (displayUsername != null && displayUsername!.isNotEmpty)
-          ? displayUsername!
-          : username;
+      ? displayUsername!
+      : username;
 
   bool get hasPreviousRevision => previousRevision != currentRevision;
   bool get hasNextRevision =>

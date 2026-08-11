@@ -5,19 +5,20 @@ mixin _NotificationsMixin on _DiscourseServiceBase {
   /// 获取最近通知（recent 模式，非分页，用于快捷面板）
   /// 会触发服务端 bump_last_seen_notification，重置未读计数
   Future<NotificationListResponse> getRecentNotifications() async {
-    final response = await _dio.get('/notifications', queryParameters: {
-      'recent': true,
-      'limit': 30,
-      'bump_last_seen_reviewable': true,
-    });
+    final response = await _dio.get(
+      '/notifications',
+      queryParameters: {
+        'recent': true,
+        'limit': 30,
+        'bump_last_seen_reviewable': true,
+      },
+    );
     return NotificationListResponse.fromJson(response.data);
   }
 
   /// 获取通知列表（默认模式，支持完整分页）
   Future<NotificationListResponse> getNotifications({int? offset}) async {
-    final queryParams = <String, dynamic>{
-      'limit': 60,
-    };
+    final queryParams = <String, dynamic>{'limit': 60};
     if (offset != null) {
       queryParams['offset'] = offset;
     }

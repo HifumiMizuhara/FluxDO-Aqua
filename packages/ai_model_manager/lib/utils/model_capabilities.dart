@@ -127,7 +127,8 @@ class ModelCapabilities {
       if (!input.contains(Modality.image)) input.add(Modality.image);
     }
     // 推理
-    if (_reasoning.hasMatch(id) && !abilities.contains(ModelAbility.reasoning)) {
+    if (_reasoning.hasMatch(id) &&
+        !abilities.contains(ModelAbility.reasoning)) {
       abilities.add(ModelAbility.reasoning);
     }
     // 工具

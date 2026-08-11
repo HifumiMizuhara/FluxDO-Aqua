@@ -27,10 +27,36 @@ class _IconEmojiPickerState extends State<IconEmojiPicker>
   late final TextEditingController _emojiController;
 
   static const List<String> _suggestedEmoji = [
-    '🎨', '🖼️', '✏️', '📝', '🎯', '💡', '⭐', '🔥',
-    '✨', '🌈', '🎬', '📷', '🗺️', '❤️', '🌟', '🎭',
-    '🌸', '🌿', '🪐', '🎮', '🍿', '☕', '🛹', '🧸',
-    '📚', '🧠', '👀', '🤖', '🦄', '🍀',
+    '🎨',
+    '🖼️',
+    '✏️',
+    '📝',
+    '🎯',
+    '💡',
+    '⭐',
+    '🔥',
+    '✨',
+    '🌈',
+    '🎬',
+    '📷',
+    '🗺️',
+    '❤️',
+    '🌟',
+    '🎭',
+    '🌸',
+    '🌿',
+    '🪐',
+    '🎮',
+    '🍿',
+    '☕',
+    '🛹',
+    '🧸',
+    '📚',
+    '🧠',
+    '👀',
+    '🤖',
+    '🦄',
+    '🍀',
   ];
 
   @override
@@ -130,16 +156,14 @@ class _IconEmojiPickerState extends State<IconEmojiPicker>
                       textAlign: TextAlign.center,
                       style: const TextStyle(fontSize: 22),
                       decoration: InputDecoration(
-                        hintText:
-                            AiL10n.current.quickPromptsEmojiInputHint,
+                        hintText: AiL10n.current.quickPromptsEmojiInputHint,
                         border: const OutlineInputBorder(),
                         isDense: true,
                       ),
                       onChanged: (value) {
                         // 只取第一个字符（防止用户输入多个 emoji 串）
                         if (value.isEmpty) return;
-                        final first =
-                            String.fromCharCodes([value.runes.first]);
+                        final first = String.fromCharCodes([value.runes.first]);
                         if (first.runes.first >= 0x80) {
                           widget.onChanged(first);
                         }

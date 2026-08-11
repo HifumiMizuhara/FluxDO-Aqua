@@ -83,13 +83,15 @@ class CookieService {
   Stream<Map<String, dynamic>> sweepEvents() {
     final svc = _vmService;
     if (svc == null) return const Stream.empty();
-    return svc.onExtensionEvent.where((event) {
-      return event.extensionKind == 'fluxdo.cookie.sweepEvent';
-    }).map((event) {
-      final data = event.extensionData?.data;
-      if (data is Map<String, dynamic>) return data;
-      return <String, dynamic>{};
-    });
+    return svc.onExtensionEvent
+        .where((event) {
+          return event.extensionKind == 'fluxdo.cookie.sweepEvent';
+        })
+        .map((event) {
+          final data = event.extensionData?.data;
+          if (data is Map<String, dynamic>) return data;
+          return <String, dynamic>{};
+        });
   }
 
   /// 确保 Extension stream 已开始监听。

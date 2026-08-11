@@ -48,7 +48,13 @@ Future<void> main(List<String> args) async {
   await runOrExit(
     title: '构建 iOS 应用',
     executable: Platform.resolvedExecutable,
-    arguments: const ['tool/flutterw.dart', 'build', 'ios', '--release', '--no-codesign'],
+    arguments: const [
+      'tool/flutterw.dart',
+      'build',
+      'ios',
+      '--release',
+      '--no-codesign',
+    ],
   );
 
   final runnerApp = Directory('build/ios/iphoneos/Runner.app');
@@ -59,8 +65,12 @@ Future<void> main(List<String> args) async {
 
   final tempDir = await Directory.systemTemp.createTemp('fluxdo_ipa_');
   try {
-    final payloadDir = Directory(p.join(tempDir.path, 'Payload'))..createSync(recursive: true);
-    await _copyDirectory(runnerApp, Directory(p.join(payloadDir.path, 'Runner.app')));
+    final payloadDir = Directory(p.join(tempDir.path, 'Payload'))
+      ..createSync(recursive: true);
+    await _copyDirectory(
+      runnerApp,
+      Directory(p.join(payloadDir.path, 'Runner.app')),
+    );
 
     final ipaFile = File(ipaPath);
     if (ipaFile.existsSync()) {
@@ -104,15 +114,19 @@ String _readVersionFromPubspec() {
   if (!pubspecFile.existsSync()) {
     return '';
   }
-  final match = RegExp(r'^version:\s*(.+)$', multiLine: true).firstMatch(
-    pubspecFile.readAsStringSync(),
-  );
+  final match = RegExp(
+    r'^version:\s*(.+)$',
+    multiLine: true,
+  ).firstMatch(pubspecFile.readAsStringSync());
   return match?.group(1)?.split('+').first.trim() ?? '';
 }
 
 Future<void> _copyDirectory(Directory source, Directory destination) async {
   destination.createSync(recursive: true);
-  await for (final entity in source.list(recursive: false, followLinks: false)) {
+  await for (final entity in source.list(
+    recursive: false,
+    followLinks: false,
+  )) {
     final targetPath = p.join(destination.path, p.basename(entity.path));
     if (entity is Directory) {
       await _copyDirectory(entity, Directory(targetPath));

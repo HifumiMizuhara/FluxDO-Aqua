@@ -83,7 +83,10 @@ String? _macOsArchFromEnv() {
   return (value == null || value.isEmpty) ? null : value;
 }
 
-Future<_NativeTarget?> _detectNativeTarget(String command, List<String> args) async {
+Future<_NativeTarget?> _detectNativeTarget(
+  String command,
+  List<String> args,
+) async {
   switch (command) {
     case 'build':
       final buildTarget = _firstPositionalAfter(args, 'build');
@@ -152,7 +155,11 @@ String? _firstPositionalAfter(List<String> args, String command) {
   return null;
 }
 
-String? _extractOptionValue(List<String> args, String shortOption, String longOption) {
+String? _extractOptionValue(
+  List<String> args,
+  String shortOption,
+  String longOption,
+) {
   for (var index = 0; index < args.length; index++) {
     final value = args[index];
     if (value == shortOption || value == longOption) {
@@ -196,7 +203,8 @@ Future<List<_FlutterDevice>> _loadFlutterDevices() async {
   }
 }
 
-_NativeTarget? _nativeTargetFromDevice(_FlutterDevice device) {  final targetPlatform = device.targetPlatform;
+_NativeTarget? _nativeTargetFromDevice(_FlutterDevice device) {
+  final targetPlatform = device.targetPlatform;
   if (targetPlatform.startsWith('android')) {
     return _NativeTarget('android', androidTargetPlatform: targetPlatform);
   }
@@ -216,7 +224,11 @@ _NativeTarget? _nativeTargetFromDevice(_FlutterDevice device) {  final targetPla
 }
 
 class _NativeTarget {
-  const _NativeTarget(this.platform, {this.androidTargetPlatform, this.macOsArch});
+  const _NativeTarget(
+    this.platform, {
+    this.androidTargetPlatform,
+    this.macOsArch,
+  });
 
   final String platform;
   final String? androidTargetPlatform;
@@ -224,10 +236,7 @@ class _NativeTarget {
 }
 
 class _FlutterDevice {
-  const _FlutterDevice({
-    required this.id,
-    required this.targetPlatform,
-  });
+  const _FlutterDevice({required this.id, required this.targetPlatform});
 
   final String id;
   final String targetPlatform;
@@ -235,7 +244,10 @@ class _FlutterDevice {
   static _FlutterDevice? fromJson(Map<String, dynamic> json) {
     final id = json['id']?.toString().trim();
     final targetPlatform = json['targetPlatform']?.toString().trim();
-    if (id == null || id.isEmpty || targetPlatform == null || targetPlatform.isEmpty) {
+    if (id == null ||
+        id.isEmpty ||
+        targetPlatform == null ||
+        targetPlatform.isEmpty) {
       return null;
     }
     return _FlutterDevice(id: id, targetPlatform: targetPlatform);

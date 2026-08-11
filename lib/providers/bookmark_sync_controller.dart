@@ -87,12 +87,22 @@ class BookmarkSyncController extends Notifier<BookmarkSyncState> {
         return;
       }
       _lastInitialAttemptAt[accountId] = now;
-      await _run(accountId, reconciler, mode: ReconcileMode.full, initial: true);
+      await _run(
+        accountId,
+        reconciler,
+        mode: ReconcileMode.full,
+        initial: true,
+      );
       return;
     }
 
     if (reconciler.isFullReconcileDue(accountId)) {
-      await _run(accountId, reconciler, mode: ReconcileMode.full, initial: false);
+      await _run(
+        accountId,
+        reconciler,
+        mode: ReconcileMode.full,
+        initial: false,
+      );
       return;
     }
 
@@ -120,10 +130,11 @@ class BookmarkSyncController extends Notifier<BookmarkSyncState> {
       if (accountId == null || !ref.mounted) return null;
       final reconciler = await ref.read(bookmarksReconcilerProvider.future);
       if (!ref.mounted) return null;
-      final localEmpty = (await ref
-              .read(bookmarksRepositoryProvider)
-              .idsOrderedByUpdated(accountId))
-          .isEmpty;
+      final localEmpty =
+          (await ref
+                  .read(bookmarksRepositoryProvider)
+                  .idsOrderedByUpdated(accountId))
+              .isEmpty;
       if (!ref.mounted) return null;
       return await _run(
         accountId,

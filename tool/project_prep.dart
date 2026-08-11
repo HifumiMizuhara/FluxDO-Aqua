@@ -118,15 +118,17 @@ bool _syncIfNeeded(File source, File target) {
 Future<void> _runDoctor() async {
   stdout.writeln('==> 检查开发环境');
   await _printCommandStatus('Flutter', flutterExecutable, const ['--version']);
-  await _printCommandStatus('Dart', Platform.resolvedExecutable, const ['--version']);
+  await _printCommandStatus('Dart', Platform.resolvedExecutable, const [
+    '--version',
+  ]);
   await _printCommandStatus('Cargo', 'cargo', const ['--version']);
   await _printAndroidJavaStatus();
 
   stdout.writeln('==> 检查 l10n 生成状态');
-  final l10nResult = await _runProcess(
-    Platform.resolvedExecutable,
-    const ['tool/gen_l10n.dart', '--check'],
-  );
+  final l10nResult = await _runProcess(Platform.resolvedExecutable, const [
+    'tool/gen_l10n.dart',
+    '--check',
+  ]);
   stdout.write(l10nResult.combinedOutput);
   stdout.writeln(
     l10nResult.exitCode == 0 ? '[OK] l10n 生成状态正常' : '[FAILED] l10n 生成状态异常',
@@ -206,7 +208,9 @@ void _printAndroidSigningStatus() {
   }
 
   if (missingFields.isEmpty) {
-    stdout.writeln('[OK] Android local signing: ${storeFile!.path}（debug/profile/release）');
+    stdout.writeln(
+      '[OK] Android local signing: ${storeFile!.path}（debug/profile/release）',
+    );
     return;
   }
 
@@ -225,14 +229,13 @@ Map<String, String> _readSimpleProperties(File file) {
 
     final equalIndex = line.indexOf('=');
     final colonIndex = line.indexOf(':');
-    final separatorIndex =
-        equalIndex == -1
-            ? colonIndex
-            : colonIndex == -1
-            ? equalIndex
-            : equalIndex < colonIndex
-            ? equalIndex
-            : colonIndex;
+    final separatorIndex = equalIndex == -1
+        ? colonIndex
+        : colonIndex == -1
+        ? equalIndex
+        : equalIndex < colonIndex
+        ? equalIndex
+        : colonIndex;
     if (separatorIndex <= 0) {
       continue;
     }

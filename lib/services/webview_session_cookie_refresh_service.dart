@@ -302,7 +302,7 @@ class WebViewSessionCookieRefreshService {
   void ensureInBackground({String reason = 'unknown', bool force = false}) {
     unawaited(
       ensureSynced(reason: reason, force: force).catchError((Object e) {
-        debugPrint('[WebViewSessionSync] 后台同步失败: $e');
+        debugPrint('[WebViewSessionSync] backgroundsyncfailed: $e');
         return const SessionBootstrapResult.failure(phase: 'exception');
       }),
     );
@@ -311,13 +311,17 @@ class WebViewSessionCookieRefreshService {
   Future<SessionBootstrapResult> _refreshBrowserSession({
     required String reason,
   }) async {
-    debugPrint('[WebViewSessionSync] 开始运行轻量会话 bootstrap: reason=$reason');
+    debugPrint(
+      '[WebViewSessionSync] 开始运行轻量会话 bootstrap: reason=$reason',
+    );
 
     try {
       WebViewCookiePriming.instance.invalidate();
       await WebViewCookiePriming.instance.prime(AppConstants.baseUrl);
     } catch (e) {
-      debugPrint('[WebViewSessionSync] WebView cookie priming 失败，继续尝试: $e');
+      debugPrint(
+        '[WebViewSessionSync] WebView cookie priming 失败，继续尝试: $e',
+      );
     }
 
     final loadCompleter = Completer<void>();
@@ -368,7 +372,9 @@ class WebViewSessionCookieRefreshService {
       await webView.run();
       final c = webView.webViewController;
       if (c == null) {
-        debugPrint('[WebViewSessionSync] Headless WebView controller 为空');
+        debugPrint(
+          '[WebViewSessionSync] WebView 错误: url=${request.url}, ${error.description}',
+        );
         return const SessionBootstrapResult.failure(phase: 'controller');
       }
 
@@ -388,7 +394,9 @@ class WebViewSessionCookieRefreshService {
       try {
         await loadCompleter.future.timeout(const Duration(seconds: 8));
       } on TimeoutException {
-        debugPrint('[WebViewSessionSync] 轻量 bootstrap 文档加载等待超时，继续尝试');
+        debugPrint(
+          '[WebViewSessionSync] WebView 错误: url=${request.url}, ${error.description}',
+        );
       }
 
       if (io.Platform.isWindows) {
@@ -403,7 +411,9 @@ class WebViewSessionCookieRefreshService {
       if (!bootstrap.ok) {
         await syncCookies();
         await logCookieSummary(reason: reason, bootstrapOk: false);
-        debugPrint('[WebViewSessionSync] 站点会话 bootstrap 未完成');
+        debugPrint(
+          '[WebViewSessionSync] 站点会话 bootstrap 未完成',
+        );
         return SessionBootstrapResult.failure(
           cfBlocked: bootstrap.cfBlocked,
           status: bootstrap.status,
@@ -424,13 +434,15 @@ class WebViewSessionCookieRefreshService {
       debugPrint('[WebViewSessionSync] 同步后未找到有效 _t');
       return const SessionBootstrapResult.failure(phase: 'no_t_after_sync');
     } catch (e) {
-      debugPrint('[WebViewSessionSync] 刷新浏览器会话 cookie 失败: $e');
+      debugPrint(
+        '[WebViewSessionSync] 刷新浏览器会话 cookie 失败: $e',
+      );
       return const SessionBootstrapResult.failure(phase: 'exception');
     } finally {
       try {
         await webView.dispose();
       } catch (e) {
-        debugPrint('[WebViewSessionSync] dispose WebView 失败: $e');
+        debugPrint('[WebViewSessionSync] dispose WebView failed: $e');
       }
       FrameJankMonitor.logEvent('WEBVIEW', 'SessionSync dispose');
     }
@@ -488,7 +500,9 @@ class WebViewSessionCookieRefreshService {
       if (status != null) entry['status'] = status;
       LogWriter.instance.write(entry);
     } catch (e) {
-      debugPrint('[WebViewSessionSync] 记录 cookie 摘要失败: $e');
+      debugPrint(
+        'message': 'WebView session bootstrap 后的主域 cookie 摘要',
+      );
     }
   }
 
@@ -617,10 +631,12 @@ class WebViewSessionCookieRefreshService {
               phase: phase,
             );
     } on TimeoutException {
-      debugPrint('[WebViewSessionSync] bootstrap 超时: reason=$reason');
+      debugPrint('[WebViewSessionSync] bootstrap timeout: reason=$reason');
       return const SessionBootstrapResult.failure(phase: 'timeout');
     } catch (e) {
-      debugPrint('[WebViewSessionSync] bootstrap 执行失败: reason=$reason $e');
+      debugPrint(
+        'message': 'WebView session bootstrap 执行结果',
+      );
       return const SessionBootstrapResult.failure(phase: 'controller_error');
     } finally {
       try {

@@ -60,7 +60,7 @@ class DeepLinkService {
         _handleLink(uri);
       }
     } catch (e) {
-      debugPrint('DeepLinkService: 获取初始链接失败: $e');
+      debugPrint('DeepLinkService: Failed to get initial link: $e');
     }
   }
 
@@ -75,7 +75,7 @@ class DeepLinkService {
   /// 处理链接
   void _handleLink(Uri uri) {
     if (_navigatorContext == null) {
-      debugPrint('DeepLinkService: 导航 context 未就绪');
+      debugPrint('DeepLinkService: Navigation context is not ready');
       return;
     }
 
@@ -83,7 +83,7 @@ class DeepLinkService {
     final url = uri.toString();
 
     if (!_canHandleUri(uri)) {
-      debugPrint('DeepLinkService: 未知链接类型 $url');
+      debugPrint('DeepLinkService: Unknown link type $url');
       return;
     }
 
@@ -92,13 +92,13 @@ class DeepLinkService {
     if (_lastHandledUri == uri &&
         _lastHandledTime != null &&
         now.difference(_lastHandledTime!).inSeconds < 1) {
-      debugPrint('DeepLinkService: 忽略重复链接 $uri');
+      debugPrint('DeepLinkService: Ignoring duplicate link $uri');
       return;
     }
     _lastHandledUri = uri;
     _lastHandledTime = now;
 
-    debugPrint('DeepLinkService: 收到链接 $url');
+    debugPrint('DeepLinkService: Received link $url');
 
     // 浏览器授权登录回调:discourse://auth_redirect?payload=...
     // (discourse:// 是站点 auth_redirect 默认白名单 scheme,App 已注册)
@@ -158,7 +158,7 @@ class DeepLinkService {
       return;
     }
 
-    debugPrint('DeepLinkService: 未知链接类型 $url');
+    debugPrint('DeepLinkService: Unknown link type $url');
   }
 
   /// 处理自定义 scheme
@@ -216,7 +216,7 @@ class DeepLinkService {
 
   /// 处理邮箱链接登录
   Future<void> _handleEmailLogin(BuildContext context, String url) async {
-    debugPrint('DeepLinkService: 处理邮箱链接登录: $url');
+    debugPrint('DeepLinkService: Handling email-link login: $url');
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => WebViewLoginPage(initialUrl: url)),
     );
@@ -228,7 +228,7 @@ class DeepLinkService {
   /// 通过 slug 获取话题并打开
   Future<void> _handleTopicBySlug(BuildContext context, String slug) async {
     try {
-      debugPrint('DeepLinkService: 通过 slug 获取话题: $slug');
+      debugPrint('DeepLinkService: Getting topic by slug: $slug');
       final service = DiscourseService();
       final detail = await service.getTopicDetailBySlug(slug);
 
@@ -241,7 +241,7 @@ class DeepLinkService {
         );
       }
     } catch (e) {
-      debugPrint('DeepLinkService: 通过 slug 获取话题失败: $e');
+      debugPrint('DeepLinkService: Failed to get topic by slug: $e');
       // 失败时使用 WebView 打开
       if (context.mounted) {
         WebViewPage.open(context, '${AppConstants.baseUrl}/t/$slug');

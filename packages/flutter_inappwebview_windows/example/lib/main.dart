@@ -60,17 +60,13 @@ class _MyAppState extends State<MyApp> {
     super.initState();
     findInteractionController = WindowsFindInteractionController(
       WindowsFindInteractionControllerCreationParams(
-        onFindResultReceived: (
-          controller,
-          activeMatchOrdinal,
-          numberOfMatches,
-          isDoneCounting,
-        ) {
-          setState(() {
-            findStatus =
-                'Match $activeMatchOrdinal of $numberOfMatches (done: $isDoneCounting)';
-          });
-        },
+        onFindResultReceived:
+            (controller, activeMatchOrdinal, numberOfMatches, isDoneCounting) {
+              setState(() {
+                findStatus =
+                    'Match $activeMatchOrdinal of $numberOfMatches (done: $isDoneCounting)';
+              });
+            },
       ),
     );
   }
@@ -221,9 +217,7 @@ class _MyAppState extends State<MyApp> {
         shouldPrintBackgrounds: true,
       );
 
-      final pdfConfig = PDFConfiguration(
-        settings: pdfSettings,
-      );
+      final pdfConfig = PDFConfiguration(settings: pdfSettings);
 
       final pdfData = await webViewController?.createPdf(
         pdfConfiguration: pdfConfig,
@@ -322,7 +316,8 @@ class _MyAppState extends State<MyApp> {
                           });
 
                           // Inject JavaScript to test Web Notifications API
-                          await controller.evaluateJavascript(source: '''
+                          await controller.evaluateJavascript(
+                            source: '''
                             (function() {
                               // Check if notifications are supported
                               if (!('Notification' in window)) {
@@ -355,7 +350,8 @@ class _MyAppState extends State<MyApp> {
                                 }
                               });
                             })();
-                          ''');
+                          ''',
+                          );
                           debugPrint('Notification JavaScript injected');
 
                           debugPrint('Test print page silently');
@@ -408,7 +404,8 @@ class _MyAppState extends State<MyApp> {
                           // Set up the onClose handler
                           request.notificationController?.onClose = () async {
                             debugPrint(
-                                'Notification close requested from web code');
+                              'Notification close requested from web code',
+                            );
                             setState(() {
                               notificationStatus =
                                   'Notification closed by web code';
@@ -537,7 +534,8 @@ class _MyAppState extends State<MyApp> {
                         onPressed: activeNotificationController != null
                             ? () async {
                                 debugPrint(
-                                    'Reporting notification as shown...');
+                                  'Reporting notification as shown...',
+                                );
                                 await activeNotificationController
                                     ?.reportShown();
                                 debugPrint('Notification reported as shown');
@@ -552,7 +550,8 @@ class _MyAppState extends State<MyApp> {
                         onPressed: activeNotificationController != null
                             ? () async {
                                 debugPrint(
-                                    'Reporting notification as clicked...');
+                                  'Reporting notification as clicked...',
+                                );
                                 await activeNotificationController
                                     ?.reportClicked();
                                 debugPrint('Notification reported as clicked');
@@ -567,7 +566,8 @@ class _MyAppState extends State<MyApp> {
                         onPressed: activeNotificationController != null
                             ? () async {
                                 debugPrint(
-                                    'Reporting notification as closed...');
+                                  'Reporting notification as closed...',
+                                );
                                 await activeNotificationController
                                     ?.reportClosed();
                                 debugPrint('Notification reported as closed');
@@ -582,7 +582,8 @@ class _MyAppState extends State<MyApp> {
                         onPressed: activeNotificationController != null
                             ? () {
                                 debugPrint(
-                                    'Disposing notification controller...');
+                                  'Disposing notification controller...',
+                                );
                                 activeNotificationController?.dispose();
                                 debugPrint('Notification controller disposed');
                                 setState(() {
@@ -605,13 +606,15 @@ class _MyAppState extends State<MyApp> {
                     spacing: 8,
                     children: [
                       ElevatedButton(
-                        onPressed:
-                            isPrinting ? null : () => _printPage(showUI: false),
+                        onPressed: isPrinting
+                            ? null
+                            : () => _printPage(showUI: false),
                         child: const Text('Print (Silent)'),
                       ),
                       ElevatedButton(
-                        onPressed:
-                            isPrinting ? null : () => _printPage(showUI: true),
+                        onPressed: isPrinting
+                            ? null
+                            : () => _printPage(showUI: true),
                         child: const Text('Print (UI)'),
                       ),
                       ElevatedButton(

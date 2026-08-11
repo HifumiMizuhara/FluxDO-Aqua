@@ -75,7 +75,9 @@ class PreloadedDataService {
   void invalidatePluginCandidates() {
     if (_pluginCandidates == null) return;
     _pluginCandidates = null;
-    debugPrint('[PreloadedData] pluginCandidates 已废弃(端点过期)');
+    debugPrint(
+      '[PreloadedData] pluginCandidates 已废弃(端点过期)',
+    );
   }
 
   List<Map<String, dynamic>>? get topicTrackingStatesSync =>
@@ -150,7 +152,7 @@ class PreloadedDataService {
             .toList();
       }
     } catch (e) {
-      debugPrint('[PreloadedData] 解析 categories 失败: $e');
+      debugPrint('[PreloadedData] parse categories failed: $e');
     }
     return null;
   }
@@ -403,7 +405,7 @@ class PreloadedDataService {
       _topicListResponseCompleter = null;
       return response;
     } catch (e) {
-      debugPrint('[PreloadedData] 解析 topic_list 失败: $e');
+      debugPrint('[PreloadedData] parse topic_list failed: $e');
       _topicListData = null;
       _topicListResponseCompleter = null;
       return null;
@@ -442,7 +444,9 @@ class PreloadedDataService {
     _clearCachedData();
     final parsed = await _parsePreloadedDataFromHtml(html);
     if (!parsed) {
-      debugPrint('[PreloadedData] HTML 快照不包含可用的 data-preloaded');
+      debugPrint(
+        'hasSite=${_site != null}',
+      );
       return false;
     }
 
@@ -534,12 +538,12 @@ class PreloadedDataService {
         // BrowserTrustCoordinator 的降级链(启动 WebView 补水/重试)。
         throw const FormatException('首页 HTML 未解析出 data-preloaded 数据');
       }
-      debugPrint('[PreloadedData] 数据加载成功');
+      debugPrint('[PreloadedData] dataloadsucceeded');
       _loaded = true;
       // 预热完成后仅更新站点基础数据和 sitekey。cf_clearance 自动续期
       // 由 BrowserTrustCoordinator 统一判断启动，避免预加载服务绕过生命周期门禁。
     } catch (e) {
-      debugPrint('[PreloadedData] 加载失败: $e');
+      debugPrint('[PreloadedData] loadfailed: $e');
       rethrow;
     } finally {
       _loading = false;
@@ -813,7 +817,7 @@ class PreloadedDataService {
       _parseTopicListFromPreloaded(preloaded);
       return true;
     } catch (e) {
-      debugPrint('[PreloadedData] JSON 解析失败: $e');
+      debugPrint('[PreloadedData] JSON parsefailed: $e');
       return false;
     }
   }
@@ -846,7 +850,7 @@ class PreloadedDataService {
             return;
           }
         } catch (e) {
-          debugPrint('[PreloadedData] 解析 $key 失败: $e');
+          debugPrint('[PreloadedData] parse $key failed: $e');
         }
       }
     }
@@ -871,7 +875,9 @@ class PreloadedDataService {
           _parseTopicListResponseAsync(decoded);
         })
         .catchError((e) {
-          debugPrint('[PreloadedData] 异步解析 topic_list 失败: $e');
+          debugPrint(
+            '[PreloadedData] topic_list 解析成功 (async), topics=$topicsCount',
+          );
           _topicListResponseCompleter?.complete(null);
         });
   }
@@ -881,11 +887,15 @@ class PreloadedDataService {
     compute(_parseTopicListInIsolate, data)
         .then((result) {
           _cachedTopicListResponse = result;
-          debugPrint('[PreloadedData] TopicListResponse 异步缓存成功');
+          debugPrint(
+            '[PreloadedData] topic_list 解析成功 (async), topics=$topicsCount',
+          );
           _topicListResponseCompleter?.complete(result);
         })
         .catchError((e) {
-          debugPrint('[PreloadedData] 异步解析 TopicListResponse 失败: $e');
+          debugPrint(
+            '[PreloadedData] topic_list 解析成功 (async), topics=$topicsCount',
+          );
           _topicListResponseCompleter?.complete(null);
         });
   }
@@ -904,7 +914,10 @@ class PreloadedDataService {
     final completer = Completer<List<Map<String, dynamic>>?>();
     _topicTrackingStatesCompleter = completer;
     try {
-      final decoded = await compute(_decodeTopicTrackingStatesInIsolate, rawJson);
+      final decoded = await compute(
+        _decodeTopicTrackingStatesInIsolate,
+        rawJson,
+      );
       _topicTrackingStates = decoded;
       _topicTrackingStatesRawJson = null;
       debugPrint(
@@ -912,7 +925,9 @@ class PreloadedDataService {
       );
       completer.complete(decoded);
     } catch (e) {
-      debugPrint('[PreloadedData] 异步解析 topicTrackingStates 失败: $e');
+      debugPrint(
+        '[PreloadedData] topicTrackingStates 异步解析成功: ${decoded?.length ?? 0} items',
+      );
       completer.complete(null);
     } finally {
       if (identical(_topicTrackingStatesCompleter, completer)) {
@@ -1020,7 +1035,8 @@ String? _extractPluginCandidateAround(String html, int pluginIndex) {
   }
 
   var end = pluginIndex + '/plugins/'.length;
-  while (end < html.length && !_isPluginCandidateBoundary(html.codeUnitAt(end))) {
+  while (end < html.length &&
+      !_isPluginCandidateBoundary(html.codeUnitAt(end))) {
     end++;
   }
 

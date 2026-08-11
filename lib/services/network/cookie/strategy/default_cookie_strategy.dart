@@ -34,7 +34,7 @@ class DefaultCookieStrategy implements PlatformCookieStrategy {
       try {
         if (await writer.setRawCookie(url, raw)) written++;
       } catch (e) {
-        debugPrint('[CookieStrategy] 写入 WebView 失败: $e');
+        debugPrint('[CookieStrategy] write WebView failed: $e');
       }
     }
     return written;

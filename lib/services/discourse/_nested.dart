@@ -31,10 +31,7 @@ mixin _NestedMixin on _DiscourseServiceBase {
   }) async {
     final response = await _dio.get(
       '/n/topic/$topicId/context/$postNumber.json',
-      queryParameters: {
-        'sort': sort,
-        if (trackVisit) 'track_visit': true,
-      },
+      queryParameters: {'sort': sort, if (trackVisit) 'track_visit': true},
     );
     return NestedContextResponse.fromJson(
       response.data as Map<String, dynamic>,
@@ -52,12 +49,10 @@ mixin _NestedMixin on _DiscourseServiceBase {
   }) async {
     final response = await _dio.get(
       '/n/topic/$topicId/children/$postNumber.json',
-      queryParameters: {
-        'sort': sort,
-        'page': page,
-        'depth': depth,
-      },
+      queryParameters: {'sort': sort, 'page': page, 'depth': depth},
     );
-    return NestedChildrenResponse.fromJson(response.data as Map<String, dynamic>);
+    return NestedChildrenResponse.fromJson(
+      response.data as Map<String, dynamic>,
+    );
   }
 }

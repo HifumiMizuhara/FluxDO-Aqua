@@ -163,8 +163,7 @@ class ModelIcon extends StatelessWidget {
     RegExp(r'longcat|龙猫|美团'): 'assets/ai_brands/longcat-color.svg',
     RegExp(r'spark|讯飞星火|星火'): 'assets/ai_brands/spark-color.svg',
     RegExp(r'baichuan|百川'): 'assets/ai_brands/baichuan-color.svg',
-    RegExp(r'(?<![a-z])yi-|零一|^yi$'):
-        'assets/ai_brands/yi-color.svg',
+    RegExp(r'(?<![a-z])yi-|零一|^yi$'): 'assets/ai_brands/yi-color.svg',
     // GLM / ChatGLM / CogView / Zhipu / embedding-3 全系用 Zhipu logo。
     // lobe-icons 的 chatglm 是新版猫脸 logo，识别度低；改用 Zhipu 公司主
     // logo（蓝紫菱形），各类 GLM 模型的识别度更高
@@ -172,8 +171,7 @@ class ModelIcon extends StatelessWidget {
         'assets/ai_brands/zhipu-color.svg',
     RegExp(r'internlm|书生'): 'assets/ai_brands/internlm-color.svg',
     // 豆包系（含 seedream 图像、ep-202* 火山方舟 endpoint id）
-    RegExp(r'doubao|豆包|seedream|^ep-202'):
-        'assets/ai_brands/doubao-color.svg',
+    RegExp(r'doubao|豆包|seedream|^ep-202'): 'assets/ai_brands/doubao-color.svg',
     // pixtral 是 Mistral 的视觉模型 → 走 mistral logo
     RegExp(r'pixtral'): 'assets/ai_brands/mistral-color.svg',
     // jamba- 是 AI21 的 SSM/Transformer 混合模型
@@ -185,8 +183,7 @@ class ModelIcon extends StatelessWidget {
     // LLaVA 视觉对话模型
     RegExp(r'llava'): 'assets/ai_brands/llava-color.svg',
     // Microsoft 系（Phi, WizardLM, Microsoft）
-    RegExp(r'^phi|wizardlm|^microsoft'):
-        'assets/ai_brands/microsoft-color.svg',
+    RegExp(r'^phi|wizardlm|^microsoft'): 'assets/ai_brands/microsoft-color.svg',
     // Databricks DBRX
     RegExp(r'dbrx|databricks'): 'assets/ai_brands/dbrx-color.svg',
     // Jina AI（embedding / reranker）
@@ -218,13 +215,11 @@ class ModelIcon extends StatelessWidget {
     RegExp(r'qwen|qwq|qvq|tongyi|通义'): 'assets/ai_brands/qwen-color.svg',
     RegExp(r'^llama|(?<![a-z])llama(?![a-z])|(?<![a-z])meta(?![a-z])'):
         'assets/ai_brands/meta-color.svg',
-    RegExp(r'mistral|mixtral|codestral'):
-        'assets/ai_brands/mistral-color.svg',
+    RegExp(r'mistral|mixtral|codestral'): 'assets/ai_brands/mistral-color.svg',
     RegExp(r'huggingface|^hf-?'): 'assets/ai_brands/huggingface-color.svg',
     RegExp(r'perplexity|sonar'): 'assets/ai_brands/perplexity-color.svg',
     RegExp(r'kimi'): 'assets/ai_brands/kimi-color.svg',
-    RegExp(r'volc|火山|bytedance|字节'):
-        'assets/ai_brands/volcengine-color.svg',
+    RegExp(r'volc|火山|bytedance|字节'): 'assets/ai_brands/volcengine-color.svg',
     RegExp(r'minimax'): 'assets/ai_brands/minimax-color.svg',
     RegExp(r'^step|阶跃|stepfun'): 'assets/ai_brands/stepfun-color.svg',
     RegExp(r'cohere|command-?[a-z]?'): 'assets/ai_brands/cohere-color.svg',
@@ -307,10 +302,10 @@ class ModelIcon extends StatelessWidget {
     RegExp(r'internlm|书生'): const Color(0xFF1B7CE0),
     RegExp(r'doubao|豆包|seedream|^ep-202'): const Color(0xFF7960F0),
     // ---- 子品牌（彩色变体） ----
-    RegExp(r'pixtral'): const Color(0xFFFF7000),  // pixtral 用 mistral 色
+    RegExp(r'pixtral'): const Color(0xFFFF7000), // pixtral 用 mistral 色
     RegExp(r'^jamba|^ai21'): const Color(0xFFE91E63),
-    RegExp(r'codegeex'): const Color(0xFF35B0F4),  // chatglm 蓝同色
-    RegExp(r'internvl'): const Color(0xFF1B7CE0),  // internlm 蓝同色
+    RegExp(r'codegeex'): const Color(0xFF35B0F4), // chatglm 蓝同色
+    RegExp(r'internvl'): const Color(0xFF1B7CE0), // internlm 蓝同色
     RegExp(r'llava'): const Color(0xFFFFB938),
     RegExp(r'^phi|wizardlm|^microsoft'): const Color(0xFF00BCF2),
     RegExp(r'dbrx|databricks'): const Color(0xFFFF3621),

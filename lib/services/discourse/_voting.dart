@@ -9,10 +9,7 @@ mixin _VotingMixin on _DiscourseServiceBase {
     required List<String> options,
   }) async {
     try {
-      final data = {
-        'post_id': postId,
-        'poll_name': pollName,
-      };
+      final data = {'post_id': postId, 'poll_name': pollName};
 
       for (int i = 0; i < options.length; i++) {
         data['options[]'] = options[i];
@@ -41,10 +38,7 @@ mixin _VotingMixin on _DiscourseServiceBase {
     try {
       final response = await _dio.delete(
         '/polls/vote',
-        data: {
-          'post_id': postId,
-          'poll_name': pollName,
-        },
+        data: {'post_id': postId, 'poll_name': pollName},
         options: Options(contentType: Headers.formUrlEncodedContentType),
       );
 
@@ -150,8 +144,8 @@ mixin _VotingMixin on _DiscourseServiceBase {
             .whereType<Map<String, dynamic>>()
             .map(PostVotingVoter.fromJson)
             .toList();
-        final total = (data['total_voters_count'] as num?)?.toInt() ??
-            voters.length;
+        final total =
+            (data['total_voters_count'] as num?)?.toInt() ?? voters.length;
         return (voters, total);
       }
       return (const <PostVotingVoter>[], 0);
@@ -194,9 +188,7 @@ mixin _VotingMixin on _DiscourseServiceBase {
         data: {'post_id': postId, 'raw': raw},
         options: Options(contentType: Headers.formUrlEncodedContentType),
       );
-      return PostVotingComment.fromJson(
-        response.data as Map<String, dynamic>,
-      );
+      return PostVotingComment.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
       _throwApiError(e);
     }

@@ -15,8 +15,12 @@ void main() {
               children: [
                 AppIcon(AppIcons.smileyOutline, size: 48, color: Colors.black),
                 const SizedBox(width: 8),
-                AppIcon(AppIcons.smileyOutline,
-                    size: 48, color: Colors.black, fill: 1),
+                AppIcon(
+                  AppIcons.smileyOutline,
+                  size: 48,
+                  color: Colors.black,
+                  fill: 1,
+                ),
               ],
             ),
           ),
@@ -36,8 +40,12 @@ void main() {
               children: [
                 AppIcon(AppIcons.stickerOutline, size: 48, color: Colors.black),
                 const SizedBox(width: 8),
-                AppIcon(AppIcons.stickerOutline,
-                    size: 48, color: Colors.black, fill: 1),
+                AppIcon(
+                  AppIcons.stickerOutline,
+                  size: 48,
+                  color: Colors.black,
+                  fill: 1,
+                ),
               ],
             ),
           ),

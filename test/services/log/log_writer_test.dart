@@ -113,7 +113,10 @@ void main() {
     LogWriter.maxFileSizeForTesting = 512;
 
     for (var i = 0; i < 10; i++) {
-      LogWriter.instance.write({'level': 'info', 'message': 'old-$i-${'y' * 80}'});
+      LogWriter.instance.write({
+        'level': 'info',
+        'message': 'old-$i-${'y' * 80}',
+      });
       await LogWriter.instance.flushNow();
     }
     await LogWriter.instance.clearAll();

@@ -10,9 +10,9 @@ class DohResolver {
     List<String> bootstrapIps = const [],
     this.enableFallback = true,
     bool preferIPv6 = false,
-  })  : _serverUrl = serverUrl,
-        _bootstrapIps = bootstrapIps,
-        _preferIPv6 = preferIPv6 {
+  }) : _serverUrl = serverUrl,
+       _bootstrapIps = bootstrapIps,
+       _preferIPv6 = preferIPv6 {
     _initClient();
   }
 
@@ -48,8 +48,7 @@ class DohResolver {
     );
   }
 
-  void updateServer(String serverUrl,
-      {List<String> bootstrapIps = const []}) {
+  void updateServer(String serverUrl, {List<String> bootstrapIps = const []}) {
     if (_serverUrl == serverUrl && _listEquals(_bootstrapIps, bootstrapIps)) {
       return;
     }
@@ -144,11 +143,13 @@ class DohResolver {
       );
 
       // 使用 DNS TTL 缓存结果
-      _putCache(host, _DohCacheEntryAll(
-        addresses: sorted,
-        expiresAt:
-            DateTime.now().add(Duration(seconds: result.minTtl)),
-      ));
+      _putCache(
+        host,
+        _DohCacheEntryAll(
+          addresses: sorted,
+          expiresAt: DateTime.now().add(Duration(seconds: result.minTtl)),
+        ),
+      );
 
       return sorted;
     } catch (e) {
@@ -173,17 +174,23 @@ class DohResolver {
       final sorted = _sortAddresses(addresses);
 
       NetworkLogger.log(
-          '[DOH] 系统 DNS 回退成功: $host -> ${sorted.map((a) => a.address).join(', ')}');
+        '[DOH] 系统 DNS 回退成功: $host -> ${sorted.map((a) => a.address).join(', ')}',
+      );
 
       // 回退结果缓存时间短一些（2 分钟）
-      _putCache(host, _DohCacheEntryAll(
-        addresses: sorted,
-        expiresAt: DateTime.now().add(const Duration(minutes: 2)),
-      ));
+      _putCache(
+        host,
+        _DohCacheEntryAll(
+          addresses: sorted,
+          expiresAt: DateTime.now().add(const Duration(minutes: 2)),
+        ),
+      );
 
       return sorted;
     } catch (e) {
-      NetworkLogger.log('[DOH] 系统 DNS 回退也失败: $host | $e');
+      NetworkLogger.log(
+        '[DOH] 系统 DNS 回退也失败: $host | $e',
+      );
       return [];
     }
   }
@@ -204,13 +211,12 @@ class DohResolver {
     List<InternetAddress> targets;
 
     if (bootstrapIps.isNotEmpty) {
-      targets = bootstrapIps
-          .map((ip) => InternetAddress(ip))
-          .toList();
+      targets = bootstrapIps.map((ip) => InternetAddress(ip)).toList();
     } else {
       try {
-        targets = await InternetAddress.lookup(serverHost)
-            .timeout(const Duration(seconds: 3));
+        targets = await InternetAddress.lookup(
+          serverHost,
+        ).timeout(const Duration(seconds: 3));
       } catch (_) {
         return null;
       }
@@ -277,9 +283,12 @@ class DohResolver {
       // 仍然超限，淘汰最早过期的条目
       if (_cacheAll.length > _maxCacheSize) {
         final sortedKeys = _cacheAll.keys.toList()
-          ..sort((a, b) =>
-              _cacheAll[a]!.expiresAt.compareTo(_cacheAll[b]!.expiresAt));
-        final removeCount = _cacheAll.length - _maxCacheSize + _maxCacheSize ~/ 10;
+          ..sort(
+            (a, b) =>
+                _cacheAll[a]!.expiresAt.compareTo(_cacheAll[b]!.expiresAt),
+          );
+        final removeCount =
+            _cacheAll.length - _maxCacheSize + _maxCacheSize ~/ 10;
         for (var i = 0; i < removeCount && i < sortedKeys.length; i++) {
           _cacheAll.remove(sortedKeys[i]);
         }

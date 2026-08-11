@@ -28,8 +28,8 @@ class VoteResponse {
       alert: json['alert'] as bool? ?? false,
       whoVoted: json['who_voted'] != null
           ? (json['who_voted'] as List<dynamic>)
-              .map((e) => VotedUser.fromJson(e as Map<String, dynamic>))
-              .toList()
+                .map((e) => VotedUser.fromJson(e as Map<String, dynamic>))
+                .toList()
           : null,
     );
   }

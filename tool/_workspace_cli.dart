@@ -4,7 +4,9 @@ String get workspaceRootPath => _workspaceRootPath;
 
 String get flutterExecutable =>
     _readNonBlankEnv('FLUTTER_BIN') ??
-    _resolveFlutterExecutableFromHome(_readNonBlankEnv('FLUXDO_FLUTTER_HOME')) ??
+    _resolveFlutterExecutableFromHome(
+      _readNonBlankEnv('FLUXDO_FLUTTER_HOME'),
+    ) ??
     _resolveFlutterExecutableFromHome(_readNonBlankEnv('FLUTTER_ROOT')) ??
     _resolveFlutterExecutableFromHome(_flutterHomeFromDartExecutable()) ??
     _resolveFlutterExecutableFromHome(_flutterHomeFromIdeaDartSdk()) ??
@@ -16,7 +18,8 @@ String get toolingStampPath =>
 final String _workspaceRootPath = _resolveWorkspaceRootPath();
 
 void enterWorkspaceRoot() {
-  if (_normalizePath(Directory.current.path) == _normalizePath(workspaceRootPath)) {
+  if (_normalizePath(Directory.current.path) ==
+      _normalizePath(workspaceRootPath)) {
     return;
   }
   Directory.current = workspaceRootPath;
@@ -102,20 +105,18 @@ Future<Map<String, String>> androidBuildEnvironment() async {
   final pathListSeparator = Platform.isWindows ? ';' : ':';
   final javaBinPath = '${runtime.home}${Platform.pathSeparator}bin';
   final currentPath = environment[pathKey] ?? '';
-  final pathEntries =
-      currentPath
-          .split(pathListSeparator)
-          .map((entry) => entry.trim())
-          .where((entry) => entry.isNotEmpty)
-          .toList();
+  final pathEntries = currentPath
+      .split(pathListSeparator)
+      .map((entry) => entry.trim())
+      .where((entry) => entry.isNotEmpty)
+      .toList();
   final containsJavaBin = pathEntries.any(
     (entry) => _normalizePath(entry) == _normalizePath(javaBinPath),
   );
   if (!containsJavaBin) {
-    environment[pathKey] =
-        currentPath.isEmpty
-            ? javaBinPath
-            : '$javaBinPath$pathListSeparator$currentPath';
+    environment[pathKey] = currentPath.isEmpty
+        ? javaBinPath
+        : '$javaBinPath$pathListSeparator$currentPath';
   }
 
   return environment;
@@ -166,19 +167,17 @@ Iterable<_AndroidJavaCandidate> _androidStudioJavaCandidates() sync* {
     if (localAppData != null && localAppData.isNotEmpty) {
       final googleDir = Directory('$localAppData\\Google');
       if (googleDir.existsSync()) {
-        final studioHomes =
-            googleDir
-                .listSync(followLinks: false)
-                .whereType<Directory>()
-                .where((directory) => directory.path.contains('AndroidStudio'))
-                .map((directory) => File('${directory.path}\\.home'))
-                .where((file) => file.existsSync());
+        final studioHomes = googleDir
+            .listSync(followLinks: false)
+            .whereType<Directory>()
+            .where((directory) => directory.path.contains('AndroidStudio'))
+            .map((directory) => File('${directory.path}\\.home'))
+            .where((file) => file.existsSync());
         for (final homeFile in studioHomes) {
-          final studioHome =
-              homeFile.readAsLinesSync().firstWhere(
-                (line) => line.trim().isNotEmpty,
-                orElse: () => '',
-              ).trim();
+          final studioHome = homeFile
+              .readAsLinesSync()
+              .firstWhere((line) => line.trim().isNotEmpty, orElse: () => '')
+              .trim();
           if (studioHome.isEmpty) {
             continue;
           }
@@ -234,7 +233,10 @@ Iterable<_AndroidJavaCandidate> _commonJavaHomeCandidates() sync* {
     return;
   }
 
-  for (final basePath in const [r'C:\Program Files\Java', r'D:\Program Files\Java']) {
+  for (final basePath in const [
+    r'C:\Program Files\Java',
+    r'D:\Program Files\Java',
+  ]) {
     final baseDirectory = Directory(basePath);
     if (!baseDirectory.existsSync()) {
       continue;
@@ -262,11 +264,9 @@ Future<AndroidJavaRuntime?> _probeAndroidJavaRuntime(
   }
 
   try {
-    final result = await Process.run(
-      javaExecutable,
-      const ['-version'],
-      runInShell: Platform.isWindows,
-    );
+    final result = await Process.run(javaExecutable, const [
+      '-version',
+    ], runInShell: Platform.isWindows);
     if (result.exitCode != 0) {
       return null;
     }
@@ -302,10 +302,9 @@ String _pathEnvironmentKey(Map<String, String> environment) {
 }
 
 String _normalizePath(String path) {
-  final normalized =
-      path
-          .replaceAll('/', Platform.pathSeparator)
-          .replaceAll('\\', Platform.pathSeparator);
+  final normalized = path
+      .replaceAll('/', Platform.pathSeparator)
+      .replaceAll('\\', Platform.pathSeparator);
   if (Platform.isWindows) {
     return normalized.replaceAll(RegExp(r'[\\\/]+$'), '').toLowerCase();
   }
@@ -313,17 +312,20 @@ String _normalizePath(String path) {
 }
 
 String _buildPubspecStamp() {
-  final trackedFiles = <File>[
-    File('pubspec.yaml'),
-    File('pubspec.lock'),
-    ..._packagePubspecFiles(),
-  ].where((file) => file.existsSync()).toList()
-    ..sort((a, b) => a.path.compareTo(b.path));
+  final trackedFiles =
+      <File>[
+          File('pubspec.yaml'),
+          File('pubspec.lock'),
+          ..._packagePubspecFiles(),
+        ].where((file) => file.existsSync()).toList()
+        ..sort((a, b) => a.path.compareTo(b.path));
 
-  return trackedFiles.map((file) {
-    final stat = file.statSync();
-    return '${file.path}|${stat.modified.millisecondsSinceEpoch}|${stat.size}';
-  }).join('\n');
+  return trackedFiles
+      .map((file) {
+        final stat = file.statSync();
+        return '${file.path}|${stat.modified.millisecondsSinceEpoch}|${stat.size}';
+      })
+      .join('\n');
 }
 
 Iterable<File> _packagePubspecFiles() sync* {
@@ -388,7 +390,9 @@ String? _flutterHomeFromDartExecutable() {
   if (markerIndex <= 0) {
     return null;
   }
-  return normalized.substring(0, markerIndex).replaceAll('/', Platform.pathSeparator);
+  return normalized
+      .substring(0, markerIndex)
+      .replaceAll('/', Platform.pathSeparator);
 }
 
 String? _flutterHomeFromIdeaDartSdk() {
@@ -397,9 +401,9 @@ String? _flutterHomeFromIdeaDartSdk() {
     return null;
   }
 
-  final match = RegExp(r'file://([^"]+?)[/\\]bin[/\\]cache[/\\]dart-sdk[/\\]lib[/\\]').firstMatch(
-    ideaDartSdkFile.readAsStringSync(),
-  );
+  final match = RegExp(
+    r'file://([^"]+?)[/\\]bin[/\\]cache[/\\]dart-sdk[/\\]lib[/\\]',
+  ).firstMatch(ideaDartSdkFile.readAsStringSync());
   if (match == null) {
     return null;
   }

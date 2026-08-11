@@ -45,6 +45,7 @@ class UserApiKeyService {
   static const _keyPrivateKey = 'user_api_key_rsa_private';
   static const _keyApiKey = 'user_api_key_key';
   static const _keyClientId = 'user_api_key_client_id';
+
   /// 跨设备扫码专用 client_id(与浏览器授权 client 隔离)。
   /// 稳定复用,使服务端 create 时 destroy_all 只清掉上一枚分享 key。
   static const _keyQrClientId = 'user_api_key_qr_client_id';
@@ -111,9 +112,12 @@ class UserApiKeyService {
       _log('info', 'user_api_key_revoked', '已撤销 User API Key');
       return true;
     } catch (e) {
-      _log('warning', 'user_api_key_revoke_failed', '撤销 User API Key 失败(忽略)', {
-        'error': e.toString(),
-      });
+      _log(
+        'warning',
+        'user_api_key_revoke_failed',
+        '/user-api-key/revoke',
+        {'error': e.toString()},
+      );
       return false;
     }
   }
@@ -303,10 +307,15 @@ class UserApiKeyService {
         redirectUrl = response.headers.value('location');
       }
       if (redirectUrl == null || redirectUrl.isEmpty) {
-        _log('warning', 'cross_device_key_no_redirect', '创建跨设备 key 未返回 redirect_url', {
-          'statusCode': response.statusCode,
-          'hasPayload': map?['payload'] != null,
-        });
+        _log(
+          'warning',
+          'cross_device_key_no_redirect',
+          '创建跨设备 key 未返回 redirect_url',
+          {
+            'statusCode': response.statusCode,
+            'hasPayload': map?['payload'] != null,
+          },
+        );
         throw StateError('服务端未返回授权结果');
       }
 
@@ -339,16 +348,20 @@ class UserApiKeyService {
         throw StateError('一次性登录令牌解密失败');
       }
 
-      _log('info', 'cross_device_key_created', '已创建跨设备 User API Key', {
-        'apiKeyLen': apiKey.length,
-        'otpLen': otp.length,
-      });
+      _log(
+        'info',
+        'cross_device_key_created',
+        '已创建跨设备 User API Key',
+        {'apiKeyLen': apiKey.length, 'otpLen': otp.length},
+      );
       return (apiKey: apiKey, otp: otp);
     } on DioException catch (e) {
-      _log('warning', 'cross_device_key_failed', '创建跨设备 User API Key 失败', {
-        'statusCode': e.response?.statusCode,
-        'errorType': e.type.toString(),
-      });
+      _log(
+        'warning',
+        'cross_device_key_failed',
+        '创建跨设备 User API Key 失败',
+        {'statusCode': e.response?.statusCode, 'errorType': e.type.toString()},
+      );
       rethrow;
     }
   }
@@ -387,14 +400,22 @@ class UserApiKeyService {
 
     final payloadParam = uri.queryParameters['payload'];
     if (payloadParam == null || payloadParam.isEmpty) {
-      _log('info', 'auth_redirect_missing_payload', '授权回调缺少 payload,忽略');
+      _log(
+        'info',
+        'auth_redirect_missing_payload',
+        'auth_redirect_missing_payload',
+      );
       return (ok: false, otp: null, stale: true);
     }
 
     final decrypted = await _decrypt(payloadParam);
     if (decrypted == null) {
       // 解密失败多为残留回调(公钥已轮换),静默忽略
-      _log('info', 'auth_redirect_decrypt_failed', '授权回调 payload 解密失败,忽略');
+      _log(
+        'info',
+        'auth_redirect_decrypt_failed',
+        '授权回调 payload 非 JSON,忽略: $e',
+      );
       return (ok: false, otp: null, stale: true);
     }
 
@@ -402,16 +423,23 @@ class UserApiKeyService {
     try {
       payload = jsonDecode(decrypted) as Map<String, dynamic>;
     } catch (e) {
-      _log('info', 'auth_redirect_bad_json', '授权回调 payload 非 JSON,忽略: $e');
+      _log(
+        'info',
+        'auth_redirect_bad_json',
+        '授权回调 payload 非 JSON,忽略: $e',
+      );
       return (ok: false, otp: null, stale: true);
     }
 
     final nonce = payload['nonce'] as String?;
     if (pendingNonce == null || pendingNonce.isEmpty || nonce != pendingNonce) {
       // 无待处理授权 / nonce 对不上 = 非本次流程(冷启动重放旧深链),静默
-      _log('info', 'auth_redirect_stale', '授权回调非本次流程(nonce 不匹配),忽略', {
-        'hasPending': pendingNonce != null && pendingNonce.isNotEmpty,
-      });
+      _log(
+        'info',
+        'auth_redirect_stale',
+        '/user-api-key/otp',
+        {'hasPending': pendingNonce != null && pendingNonce.isNotEmpty},
+      );
       return (ok: false, otp: null, stale: true);
     }
     // 确认是本次授权流程,消费 nonce(此后失败才提示用户)
@@ -419,7 +447,11 @@ class UserApiKeyService {
 
     final key = payload['key'] as String?;
     if (key == null || key.isEmpty) {
-      _log('warning', 'auth_redirect_missing_key', '授权回调 payload 无 key');
+      _log(
+        'warning',
+        'auth_redirect_missing_key',
+        '/user-api-key/otp',
+      );
       return (ok: false, otp: null, stale: false);
     }
 
@@ -432,10 +464,12 @@ class UserApiKeyService {
       otp = await _decrypt(otpParam);
     }
 
-    _log('info', 'user_api_key_authorized', '授权成功,User API Key 已保存', {
-      'hasOtp': otp != null,
-      'api': payload['api'],
-    });
+    _log(
+      'info',
+      'user_api_key_authorized',
+      'authorizesucceeded,User API Key save',
+      {'hasOtp': otp != null, 'api': payload['api']},
+    );
     return (ok: true, otp: otp, stale: false);
   }
 
@@ -470,13 +504,20 @@ class UserApiKeyService {
 
       final location = response.headers.value('location');
       if (location == null || location.isEmpty) {
-        _log('warning', 'otp_request_no_location',
-            'OTP 补发响应无 Location(status=${response.statusCode})');
+        _log(
+          'warning',
+          'otp_request_no_location',
+          'OTP 补发响应无 Location(status=${response.statusCode})',
+        );
         return null;
       }
       final otpParam = Uri.parse(location).queryParameters['oneTimePassword'];
       if (otpParam == null || otpParam.isEmpty) {
-        _log('warning', 'otp_request_no_otp_param', 'Location 无 oneTimePassword');
+        _log(
+          'warning',
+          'otp_request_no_otp_param',
+          'Location no  oneTimePassword',
+        );
         return null;
       }
       final otp = await _decrypt(otpParam);
@@ -488,12 +529,17 @@ class UserApiKeyService {
       final status = e.response?.statusCode;
       // 403 = key 已撤销 / scope 不足 / 用户组不满足,key 已不可用则清除
       if (status == 403) {
-        _log('warning', 'otp_request_rejected',
-            'OTP 补发被拒(403),清除本地 key', {'statusCode': status});
+        _log('warning', 'otp_request_rejected', 'OTP 补发被拒(403),清除本地 key', {
+          'statusCode': status,
+        });
         await clearKey();
       } else {
-        _log('warning', 'otp_request_failed', 'OTP 补发请求失败',
-            {'statusCode': status, 'errorType': e.type.toString()});
+        _log(
+          'warning',
+          'otp_request_failed',
+          'otp_request_failed',
+          {'statusCode': status, 'errorType': e.type.toString()},
+        );
       }
       return null;
     }
@@ -511,7 +557,11 @@ class UserApiKeyService {
   Future<String?> redeemOtp(Dio dio, String otp) async {
     // OTP 令牌是 hex,直接拼路径(路由约束 [0-9a-f]+)
     if (!RegExp(r'^[0-9a-f]+$').hasMatch(otp)) {
-      _log('warning', 'otp_redeem_bad_format', 'OTP 格式异常,拒绝兑换');
+      _log(
+        'warning',
+        'otp_redeem_bad_format',
+        '/session/otp/$otp',
+      );
       return null;
     }
 
@@ -535,10 +585,7 @@ class UserApiKeyService {
           followRedirects: false,
           validateStatus: (status) =>
               status != null && (status < 400 || status == 302),
-          headers: {
-            'X-CSRF-Token': csrf,
-            'X-Requested-With': 'XMLHttpRequest',
-          },
+          headers: {'X-CSRF-Token': csrf, 'X-Requested-With': 'XMLHttpRequest'},
           extra: const {
             'skipCsrf': true,
             'skipAuthCheck': true,
@@ -549,16 +596,21 @@ class UserApiKeyService {
 
       // 成功路径:302 → / 且 Set-Cookie _t(由 AppCookieManager 落 jar)
       final afterToken = await _cookieJar.getTToken();
-      final ok = afterToken != null &&
+      final ok =
+          afterToken != null &&
           afterToken.isNotEmpty &&
           afterToken != beforeToken;
-      _log(ok ? 'info' : 'warning', 'otp_redeem_finished',
-          ok ? 'OTP 兑换成功,已获得新 _t' : 'OTP 兑换后未见新 _t', {
-        'statusCode': response.statusCode,
-        'hadTokenBefore': beforeToken != null && beforeToken.isNotEmpty,
-        'hasTokenAfter': afterToken != null && afterToken.isNotEmpty,
-        'tokenChanged': afterToken != beforeToken,
-      });
+      _log(
+        ok ? 'info' : 'warning',
+        'otp_redeem_finished',
+        ok ? 'OTP 兑换成功,已获得新 _t' : 'OTP 兑换后未见新 _t',
+        {
+          'statusCode': response.statusCode,
+          'hadTokenBefore': beforeToken != null && beforeToken.isNotEmpty,
+          'hasTokenAfter': afterToken != null && afterToken.isNotEmpty,
+          'tokenChanged': afterToken != beforeToken,
+        },
+      );
       return ok ? afterToken : null;
     } on DioException catch (e) {
       _log('warning', 'otp_redeem_failed', 'OTP 兑换请求失败', {
@@ -615,11 +667,19 @@ class UserApiKeyService {
     final lastFailure = _lastSelfHealFailureAt;
     if (lastFailure != null &&
         DateTime.now().difference(lastFailure) < _selfHealCooldown) {
-      _log('info', 'self_heal_cooldown', '自愈处于失败冷却期,跳过');
+      _log(
+        'info',
+        'self_heal_cooldown',
+        '/session/current.json',
+      );
       return null;
     }
 
-    _log('info', 'self_heal_started', '开始 User API Key 会话自愈');
+    _log(
+      'info',
+      'self_heal_started',
+      '开始 User API Key 会话自愈',
+    );
 
     final otp = await requestOtp(dio);
     if (otp == null) {
@@ -652,11 +712,18 @@ class UserApiKeyService {
         });
         return currentUser;
       }
-      _log('warning', 'self_heal_verify_failed', '自愈后会话验证无 current_user');
+      _log(
+        'warning',
+        'self_heal_verify_failed',
+        '/session/current.json',
+      );
     } on DioException catch (e) {
-      _log('warning', 'self_heal_verify_failed', '自愈后会话验证请求失败', {
-        'statusCode': e.response?.statusCode,
-      });
+      _log(
+        'warning',
+        'self_heal_verify_failed',
+        '/session/current.json',
+        {'statusCode': e.response?.statusCode},
+      );
     }
     _lastSelfHealFailureAt = DateTime.now();
     return null;

@@ -204,7 +204,8 @@ abstract mixin class LinuxStorage implements PlatformStorage {
 /// When adding additional fields make sure they can be null or have a default
 /// value to avoid breaking changes. See [PlatformLocalStorageCreationParams] for
 /// more information.
-class LinuxLocalStorageCreationParams extends PlatformLocalStorageCreationParams {
+class LinuxLocalStorageCreationParams
+    extends PlatformLocalStorageCreationParams {
   /// Creates a new [LinuxLocalStorageCreationParams] instance.
   LinuxLocalStorageCreationParams(super.params);
 

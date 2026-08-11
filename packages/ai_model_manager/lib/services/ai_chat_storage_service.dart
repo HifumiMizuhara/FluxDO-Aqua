@@ -17,7 +17,8 @@ class AiChatStorageService {
   static const _allSessionsIndexKey = 'ai_chat_all_sessions_index';
   static const _maxSessionsKey = 'ai_chat_max_sessions';
   static const _titleModelKey = 'ai_chat_title_model';
-  static const _imagePromptOptimizerModelKey = 'ai_image_prompt_optimizer_model';
+  static const _imagePromptOptimizerModelKey =
+      'ai_image_prompt_optimizer_model';
   static const _thinkingLevelKey = 'ai_thinking_level';
   static const _topicSessionsKeyPrefix = 'ai_chat_topic_sessions_';
   static const _sessionMessagesKeyPrefix = 'ai_chat_session_messages_';

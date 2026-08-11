@@ -232,12 +232,14 @@ _GalleryRaw _extractGalleryRaw(dom.DocumentFragment document) {
     final img = anchor.querySelector('img');
     final imgSrc = img?.attributes['src'];
 
-    entries.add(_GalleryEntry(
-      href: href,
-      title: title,
-      imgSrc: imgSrc,
-      inSpoiler: inSpoiler,
-    ));
+    entries.add(
+      _GalleryEntry(
+        href: href,
+        title: title,
+        imgSrc: imgSrc,
+        inSpoiler: inSpoiler,
+      ),
+    );
   }
 
   return _GalleryRaw(entries: entries);

@@ -6,9 +6,10 @@ import '../services/ldc_oauth_service.dart';
 import '../services/network/exceptions/oauth_exception.dart';
 import 'core_providers.dart';
 
-final ldcUserInfoProvider = AsyncNotifierProvider<LdcUserInfoNotifier, LdcUserInfo?>(() {
-  return LdcUserInfoNotifier();
-});
+final ldcUserInfoProvider =
+    AsyncNotifierProvider<LdcUserInfoNotifier, LdcUserInfo?>(() {
+      return LdcUserInfoNotifier();
+    });
 
 class LdcUserInfoNotifier extends AsyncNotifier<LdcUserInfo?> {
   static const String _cacheKey = 'ldc_user_info';
@@ -47,7 +48,9 @@ class LdcUserInfoNotifier extends AsyncNotifier<LdcUserInfo?> {
         if (cachedUser != null && cachedUser != username) {
           await _clearCache(prefs);
         } else {
-          cachedInfo = LdcUserInfo.fromJson(jsonDecode(cached) as Map<String, dynamic>);
+          cachedInfo = LdcUserInfo.fromJson(
+            jsonDecode(cached) as Map<String, dynamic>,
+          );
         }
       } catch (_) {
         // 缓存损坏，忽略
@@ -67,8 +70,9 @@ class LdcUserInfoNotifier extends AsyncNotifier<LdcUserInfo?> {
   }
 
   Future<LdcUserInfo?> _fetchUserInfo() {
-    return _inFlightFetch ??=
-        _doFetchUserInfo().whenComplete(() => _inFlightFetch = null);
+    return _inFlightFetch ??= _doFetchUserInfo().whenComplete(
+      () => _inFlightFetch = null,
+    );
   }
 
   Future<LdcUserInfo?> _doFetchUserInfo() async {

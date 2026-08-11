@@ -303,7 +303,7 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>>
       state = AsyncValue.data([...newTopics, ...remaining]);
       return newTopics.map((t) => t.id).toList();
     } catch (e) {
-      debugPrint('[TopicList] loadBefore 失败: $e');
+      debugPrint('[TopicList] loadBefore failed: $e');
       return [];
     }
   }
@@ -391,7 +391,7 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>>
 
       state = AsyncValue.data(newList);
     } catch (e) {
-      debugPrint('[TopicList] 刷新话题 $topicId 失败: $e');
+      debugPrint('[TopicList] refreshtopic $topicId failed: $e');
     }
   }
 
@@ -450,7 +450,10 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>>
       final tracked = tracking[topic.id];
       if (tracked == null) continue;
 
-      final highest = math.max(tracked.highestPostNumber, topic.highestPostNumber);
+      final highest = math.max(
+        tracked.highestPostNumber,
+        topic.highestPostNumber,
+      );
       final trackedLastRead = tracked.lastReadPostNumber;
       final topicLastRead = topic.lastReadPostNumber;
       final lastRead = trackedLastRead == null
@@ -461,7 +464,9 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>>
 
       // 未读数口径对齐服务端 lib/unread.rb:没读过的话题 unread 恒为 0
       // (它走 unseen/NEW 语义,不走未读计数)
-      final newUnread = lastRead == null ? 0 : (highest - lastRead).clamp(0, highest);
+      final newUnread = lastRead == null
+          ? 0
+          : (highest - lastRead).clamp(0, highest);
       // 对齐网页版 updateTopics 的 unseen 回写:读过或已被忽略
       // (dismiss_new 置 isSeen)都不再算新话题
       final newUnseen = lastRead == null && !tracked.isSeen && topic.unseen;

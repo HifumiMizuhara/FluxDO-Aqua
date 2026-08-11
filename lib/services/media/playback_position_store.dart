@@ -125,8 +125,7 @@ class PlaybackPositionStore {
     if (raw != null) {
       try {
         final decoded = jsonDecode(raw) as Map<String, dynamic>;
-        final cutoff =
-            now().millisecondsSinceEpoch ~/ 1000 - _maxAge.inSeconds;
+        final cutoff = now().millisecondsSinceEpoch ~/ 1000 - _maxAge.inSeconds;
         for (final MapEntry(:key, :value) in decoded.entries) {
           final entry = _Entry.fromJson(value as Map<String, dynamic>);
           if (entry.touchedAtSec >= cutoff) entries[key] = entry;
@@ -166,11 +165,14 @@ class _Entry {
   final int touchedAtSec;
 
   factory _Entry.fromJson(Map<String, dynamic> json) => _Entry(
-        positionMs: (json['p'] as num?)?.toInt() ?? 0,
-        durationMs: (json['d'] as num?)?.toInt() ?? 0,
-        touchedAtSec: (json['t'] as num?)?.toInt() ?? 0,
-      );
+    positionMs: (json['p'] as num?)?.toInt() ?? 0,
+    durationMs: (json['d'] as num?)?.toInt() ?? 0,
+    touchedAtSec: (json['t'] as num?)?.toInt() ?? 0,
+  );
 
-  Map<String, dynamic> toJson() =>
-      {'p': positionMs, 'd': durationMs, 't': touchedAtSec};
+  Map<String, dynamic> toJson() => {
+    'p': positionMs,
+    'd': durationMs,
+    't': touchedAtSec,
+  };
 }

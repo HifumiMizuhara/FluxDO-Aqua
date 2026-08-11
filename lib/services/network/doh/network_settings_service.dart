@@ -544,7 +544,9 @@ class NetworkSettingsService {
       // 不再静默篡改 DoH 偏好；只阻止 MITM 启动，避免证书失败重试风暴。
       if (requiresWindowsCa &&
           !await WindowsCertTrustService.instance.isInstalled()) {
-        debugPrint('[DOH] Windows WebView MITM 缺少受信任 CA，跳过代理启动');
+        debugPrint(
+          '[DOH] Windows WebView MITM 缺少受信任 CA，跳过代理启动',
+        );
         _setStartFailed(true);
         _setPendingStart(false);
         await _clearWebViewProxy();
@@ -583,7 +585,9 @@ class NetworkSettingsService {
       if (Platform.isMacOS && current.dohEnabled) {
         final trusted = await ProxyCertificate.ensureKeychainTrust();
         if (!trusted) {
-          debugPrint('[DOH] macOS: CA 未被钥匙串信任，无法启动代理');
+          debugPrint(
+            '[DOH] macOS: CA 未被钥匙串信任，无法启动代理',
+          );
           _setStartFailed(true);
           _setPendingStart(false);
           return;
@@ -638,7 +642,9 @@ class NetworkSettingsService {
       // (如 VPN 自动压制关闭了 DoH 与上游代理)。此时并发的 stop 分支先于
       // start 完成,会留下"开关已关、代理仍在跑"的孤儿网关,这里必须复查。
       if (!shouldRunLocalProxy) {
-        debugPrint('[DOH] 启动期间设置已变更为无需本地代理,重新核对 WebView 路由');
+        debugPrint(
+          '[DOH] 启动期间设置已变更为无需本地代理,重新核对 WebView 路由',
+        );
         await _stopLocalProxyUnlessRequiredByWebView();
         _setPendingStart(false);
         return;
@@ -751,7 +757,9 @@ class NetworkSettingsService {
     }
 
     if (retainForWindowsWebView) {
-      debugPrint('[DOH] WebView2 当前仍使用本地代理，保留端口直到应用重启');
+      debugPrint(
+        '[DOH] WebView2 代理已登记，重启应用后生效 -> ',
+      );
       return;
     }
     await _rustProxyService.stop();
@@ -1175,7 +1183,7 @@ class NetworkSettingsService {
       final fallback = await resolver.resolveAll(host);
       ips = _normalizeIpList(fallback.map((address) => address.address));
       if (ips.isNotEmpty) {
-        debugPrint('[DOH] Dart IP 已解析 $host -> ${ips.join(', ')}');
+        debugPrint('[DOH] Dart IP parse $host -> ${ips.join(', ')}');
       }
     }
 

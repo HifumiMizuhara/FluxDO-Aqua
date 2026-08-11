@@ -107,7 +107,9 @@ class SystemProxyDetector {
     final schemeMatch = RegExp(r'^(https?|socks5?)://').firstMatch(v);
     String scheme = defaultScheme;
     if (schemeMatch != null) {
-      scheme = schemeMatch.group(1) == 'socks' ? 'socks5' : schemeMatch.group(1)!;
+      scheme = schemeMatch.group(1) == 'socks'
+          ? 'socks5'
+          : schemeMatch.group(1)!;
       if (scheme == 'https') scheme = 'http';
       v = v.substring(schemeMatch.group(0)!.length);
     }

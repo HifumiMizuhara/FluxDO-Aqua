@@ -42,15 +42,19 @@ class AppCustomIcon extends AppIconSpec {
 
   /// 设计稿尺寸（painter 用归一化坐标时应基于此 box）。渲染时按 size 缩放。
   final Size designSize;
-  const AppCustomIcon(this.painterBuilder, {this.designSize = const Size(24, 24)});
+  const AppCustomIcon(
+    this.painterBuilder, {
+    this.designSize = const Size(24, 24),
+  });
 }
 
 /// painter 构造函数签名。color/fill 由 [AppIcon] 渲染时注入。
-typedef IconPainterBuilder = CustomPainter Function({
-  required Color color,
-  required double fill,
-  required double strokeWidth,
-});
+typedef IconPainterBuilder =
+    CustomPainter Function({
+      required Color color,
+      required double fill,
+      required double strokeWidth,
+    });
 
 /// 内部隐式转换：直接把 [IconData] 当 [AppIconSpec] 用。
 extension IconDataToSpec on IconData {

@@ -235,10 +235,7 @@ class BookmarksNotifier extends AsyncNotifier<List<Topic>> {
       final records = await _repo.readByIds(accountId, ids);
       if (!ref.mounted) return;
       final current = state.value ?? const <Topic>[];
-      final merged = <Topic>[
-        ...current,
-        ...records.map((r) => r.topic),
-      ];
+      final merged = <Topic>[...current, ...records.map((r) => r.topic)];
       _loadedCount = merged.length;
       state = AsyncValue.data(List<Topic>.unmodifiable(merged));
     } catch (_) {

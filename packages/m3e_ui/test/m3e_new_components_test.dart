@@ -54,7 +54,9 @@ void main() {
     for (final v in [0.0, 0.05, 0.5, 0.96, 1.0]) {
       await tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(body: Center(child: M3eCircularProgress(value: v))),
+          home: Scaffold(
+            body: Center(child: M3eCircularProgress(value: v)),
+          ),
         ),
       );
       for (var i = 0; i < 6; i++) {

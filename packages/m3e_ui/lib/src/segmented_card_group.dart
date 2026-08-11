@@ -83,7 +83,9 @@ class SegmentedCardItem extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
           top: Radius.circular(index == 0 ? outerRadius : innerRadius),
-          bottom: Radius.circular(index == count - 1 ? outerRadius : innerRadius),
+          bottom: Radius.circular(
+            index == count - 1 ? outerRadius : innerRadius,
+          ),
         ),
       ),
       child: child,

@@ -4,8 +4,10 @@ import '../l10n/s.dart';
 enum SearchInType {
   /// 书签
   bookmarks('bookmarks'),
+
   /// 用户创建的话题
   created('created'),
+
   /// 浏览过的
   seen('seen');
 
@@ -14,9 +16,12 @@ enum SearchInType {
 
   String get label {
     switch (this) {
-      case SearchInType.bookmarks: return S.current.search_filterBookmarks;
-      case SearchInType.created: return S.current.search_filterCreated;
-      case SearchInType.seen: return S.current.search_filterSeen;
+      case SearchInType.bookmarks:
+        return S.current.search_filterBookmarks;
+      case SearchInType.created:
+        return S.current.search_filterCreated;
+      case SearchInType.seen:
+        return S.current.search_filterSeen;
     }
   }
 }
@@ -25,12 +30,16 @@ enum SearchInType {
 enum SearchStatus {
   /// 未关闭
   open('open'),
+
   /// 已关闭
   closed('closed'),
+
   /// 已归档
   archived('archived'),
+
   /// 已解决
   solved('solved'),
+
   /// 未解决
   unsolved('unsolved');
 
@@ -39,11 +48,16 @@ enum SearchStatus {
 
   String get label {
     switch (this) {
-      case SearchStatus.open: return S.current.search_statusOpen;
-      case SearchStatus.closed: return S.current.search_statusClosed;
-      case SearchStatus.archived: return S.current.search_statusArchived;
-      case SearchStatus.solved: return S.current.search_statusSolved;
-      case SearchStatus.unsolved: return S.current.search_statusUnsolved;
+      case SearchStatus.open:
+        return S.current.search_statusOpen;
+      case SearchStatus.closed:
+        return S.current.search_statusClosed;
+      case SearchStatus.archived:
+        return S.current.search_statusArchived;
+      case SearchStatus.solved:
+        return S.current.search_statusSolved;
+      case SearchStatus.unsolved:
+        return S.current.search_statusUnsolved;
     }
   }
 }
@@ -129,8 +143,9 @@ class SearchFilter {
       categoryId: clearCategory ? null : (categoryId ?? this.categoryId),
       categorySlug: clearCategory ? null : (categorySlug ?? this.categorySlug),
       categoryName: clearCategory ? null : (categoryName ?? this.categoryName),
-      parentCategorySlug:
-          clearCategory ? null : (parentCategorySlug ?? this.parentCategorySlug),
+      parentCategorySlug: clearCategory
+          ? null
+          : (parentCategorySlug ?? this.parentCategorySlug),
       tags: tags ?? this.tags,
       status: clearStatus ? null : (status ?? this.status),
       beforeDate: clearDateRange ? null : (beforeDate ?? this.beforeDate),
@@ -202,13 +217,13 @@ class SearchFilter {
 
   @override
   int get hashCode => Object.hash(
-        categoryId,
-        status,
-        beforeDate,
-        afterDate,
-        inType,
-        Object.hashAll(tags),
-      );
+    categoryId,
+    status,
+    beforeDate,
+    afterDate,
+    inType,
+    Object.hashAll(tags),
+  );
 
   static bool _listEquals<T>(List<T> a, List<T> b) {
     if (a.length != b.length) return false;

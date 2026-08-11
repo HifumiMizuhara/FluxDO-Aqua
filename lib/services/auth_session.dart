@@ -26,7 +26,7 @@ class AuthSession {
       _cancelToken.cancel('[AuthSession] 会话代变更: $_generation');
     }
     _cancelToken = CancelToken();
-    debugPrint('[AuthSession] 推进到 generation=$_generation');
+    debugPrint('[AuthSession] Advanced to generation=$_generation');
     return _generation;
   }
 

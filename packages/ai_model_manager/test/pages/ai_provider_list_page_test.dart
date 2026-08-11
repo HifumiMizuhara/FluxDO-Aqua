@@ -91,7 +91,8 @@ void main() {
       ],
     );
 
-    final cell = tester.widget<SwipeActionCell>(find.byType(SwipeActionCell).first);
+    final cell =
+        tester.widget<SwipeActionCell>(find.byType(SwipeActionCell).first);
 
     expect(cell.enableLongPressMenu, isFalse);
   });

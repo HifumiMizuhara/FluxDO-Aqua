@@ -215,15 +215,13 @@ class AiL10nEn extends AiL10n {
 
   // ---- 供应商编辑页 ----
   @override
-  String get pleaseEnterBaseUrlAndApiKey =>
-      'Please enter Base URL and API Key';
+  String get pleaseEnterBaseUrlAndApiKey => 'Please enter Base URL and API Key';
   @override
   String get connectionSuccess => 'Connection successful';
   @override
   String get connectionFailed => 'Connection failed';
   @override
-  String connectionFailedWithError(String error) =>
-      'Connection failed: $error';
+  String connectionFailedWithError(String error) => 'Connection failed: $error';
   @override
   String fetchedModelsCount(int count) => 'Fetched $count models';
   @override

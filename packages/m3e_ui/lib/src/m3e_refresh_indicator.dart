@@ -153,9 +153,7 @@ class _M3eRefreshCoreState extends State<_M3eRefreshCore>
       CurveTween(curve: const Interval(0.0, 1.0 / _kDragSizeFactorLimit)),
     );
     _scaleController = AnimationController(vsync: this);
-    _scaleFactor = _scaleController.drive(
-      Tween<double>(begin: 1.0, end: 0.0),
-    );
+    _scaleFactor = _scaleController.drive(Tween<double>(begin: 1.0, end: 0.0));
   }
 
   @override
@@ -184,10 +182,11 @@ class _M3eRefreshCoreState extends State<_M3eRefreshCore>
       setState(() => _status = RefreshIndicatorStatus.drag);
       return false;
     }
-    final bool? indicatorAtTopNow = switch (notification.metrics.axisDirection) {
-      AxisDirection.down || AxisDirection.up => true,
-      AxisDirection.left || AxisDirection.right => null,
-    };
+    final bool? indicatorAtTopNow =
+        switch (notification.metrics.axisDirection) {
+          AxisDirection.down || AxisDirection.up => true,
+          AxisDirection.left || AxisDirection.right => null,
+        };
     if (indicatorAtTopNow != _isIndicatorAtTop) {
       if (_status == RefreshIndicatorStatus.drag ||
           _status == RefreshIndicatorStatus.armed) {
@@ -270,8 +269,10 @@ class _M3eRefreshCoreState extends State<_M3eRefreshCore>
   }
 
   void _checkDragOffset(double containerExtent) {
-    assert(_status == RefreshIndicatorStatus.drag ||
-        _status == RefreshIndicatorStatus.armed);
+    assert(
+      _status == RefreshIndicatorStatus.drag ||
+          _status == RefreshIndicatorStatus.armed,
+    );
     double newValue =
         _dragOffset! / (containerExtent * _kDragContainerExtentPercentage);
     if (_status == RefreshIndicatorStatus.armed) {
@@ -288,8 +289,10 @@ class _M3eRefreshCoreState extends State<_M3eRefreshCore>
 
   Future<void> _dismiss(RefreshIndicatorStatus newMode) async {
     await Future<void>.value();
-    assert(newMode == RefreshIndicatorStatus.canceled ||
-        newMode == RefreshIndicatorStatus.done);
+    assert(
+      newMode == RefreshIndicatorStatus.canceled ||
+          newMode == RefreshIndicatorStatus.done,
+    );
     setState(() => _status = newMode);
     switch (_status!) {
       case RefreshIndicatorStatus.done:
@@ -323,21 +326,21 @@ class _M3eRefreshCoreState extends State<_M3eRefreshCore>
     _status = RefreshIndicatorStatus.snap;
     _positionController
         .animateTo(
-      1.0 / _kDragSizeFactorLimit,
-      duration: _kIndicatorSnapDuration,
-    )
+          1.0 / _kDragSizeFactorLimit,
+          duration: _kIndicatorSnapDuration,
+        )
         .then<void>((void value) {
-      if (mounted && _status == RefreshIndicatorStatus.snap) {
-        setState(() => _status = RefreshIndicatorStatus.refresh);
-        final refreshResult = widget.onRefresh();
-        refreshResult.whenComplete(() {
-          if (mounted && _status == RefreshIndicatorStatus.refresh) {
-            completer.complete();
-            _dismiss(RefreshIndicatorStatus.done);
+          if (mounted && _status == RefreshIndicatorStatus.snap) {
+            setState(() => _status = RefreshIndicatorStatus.refresh);
+            final refreshResult = widget.onRefresh();
+            refreshResult.whenComplete(() {
+              if (mounted && _status == RefreshIndicatorStatus.refresh) {
+                completer.complete();
+                _dismiss(RefreshIndicatorStatus.done);
+              }
+            });
           }
         });
-      }
-    });
   }
 
   Future<void> show({bool atTop = true}) {
@@ -396,8 +399,10 @@ class _M3eRefreshCoreState extends State<_M3eRefreshCore>
                 // displacement"的语义不变。
                 padding: _isIndicatorAtTop!
                     ? EdgeInsets.only(
-                        top: (widget.displacement - _kBadgeShadowMargin)
-                            .clamp(0.0, double.infinity),
+                        top: (widget.displacement - _kBadgeShadowMargin).clamp(
+                          0.0,
+                          double.infinity,
+                        ),
                       )
                     : EdgeInsets.only(
                         bottom: (widget.displacement - _kBadgeShadowMargin)

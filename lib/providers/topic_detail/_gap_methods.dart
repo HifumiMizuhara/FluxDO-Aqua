@@ -25,7 +25,9 @@ extension GapMethods on TopicDetailNotifier {
 
       final currentPosts = updatedDetail.postStream.posts;
       final existingIds = currentPosts.map((p) => p.id).toSet();
-      final newPosts = newPostStream.posts.where((p) => !existingIds.contains(p.id)).toList();
+      final newPosts = newPostStream.posts
+          .where((p) => !existingIds.contains(p.id))
+          .toList();
 
       if (newPosts.isEmpty) {
         // 即使没有新帖子也要移除 gap 条目
@@ -46,26 +48,35 @@ extension GapMethods on TopicDetailNotifier {
       // 更新 stream
       final currentStream = updatedDetail.postStream.stream;
       final existingStreamIds = currentStream.toSet();
-      final newStreamIds = newPosts.map((p) => p.id).where((id) => !existingStreamIds.contains(id)).toList();
+      final newStreamIds = newPosts
+          .map((p) => p.id)
+          .where((id) => !existingStreamIds.contains(id))
+          .toList();
       final mergedStream = [...currentStream, ...newStreamIds];
 
       // 移除已加载的 gap 条目
-      final newBefore = Map<int, List<int>>.from(updatedDetail.postStream.gaps?.before ?? {});
+      final newBefore = Map<int, List<int>>.from(
+        updatedDetail.postStream.gaps?.before ?? {},
+      );
       newBefore.remove(postId);
       final updatedGaps = PostStreamGaps(
         before: newBefore,
-        after: Map<int, List<int>>.from(updatedDetail.postStream.gaps?.after ?? {}),
+        after: Map<int, List<int>>.from(
+          updatedDetail.postStream.gaps?.after ?? {},
+        ),
       );
 
-      state = AsyncValue.data(updatedDetail.copyWith(
-        postStream: PostStream(
-          posts: mergedPosts,
-          stream: mergedStream,
-          gaps: updatedGaps.isEmpty ? null : updatedGaps,
+      state = AsyncValue.data(
+        updatedDetail.copyWith(
+          postStream: PostStream(
+            posts: mergedPosts,
+            stream: mergedStream,
+            gaps: updatedGaps.isEmpty ? null : updatedGaps,
+          ),
         ),
-      ));
+      );
     } catch (e) {
-      debugPrint('[TopicDetail] fillGapBefore($postId) 失败: $e');
+      debugPrint('[TopicDetail] fillGapBefore($postId) failed: $e');
     }
   }
 
@@ -90,7 +101,9 @@ extension GapMethods on TopicDetailNotifier {
 
       final currentPosts = updatedDetail.postStream.posts;
       final existingIds = currentPosts.map((p) => p.id).toSet();
-      final newPosts = newPostStream.posts.where((p) => !existingIds.contains(p.id)).toList();
+      final newPosts = newPostStream.posts
+          .where((p) => !existingIds.contains(p.id))
+          .toList();
 
       if (newPosts.isEmpty) {
         _removeGapEntry(updatedDetail, after: postId);
@@ -110,26 +123,35 @@ extension GapMethods on TopicDetailNotifier {
       // 更新 stream
       final currentStream = updatedDetail.postStream.stream;
       final existingStreamIds = currentStream.toSet();
-      final newStreamIds = newPosts.map((p) => p.id).where((id) => !existingStreamIds.contains(id)).toList();
+      final newStreamIds = newPosts
+          .map((p) => p.id)
+          .where((id) => !existingStreamIds.contains(id))
+          .toList();
       final mergedStream = [...currentStream, ...newStreamIds];
 
       // 移除已加载的 gap 条目
-      final newAfter = Map<int, List<int>>.from(updatedDetail.postStream.gaps?.after ?? {});
+      final newAfter = Map<int, List<int>>.from(
+        updatedDetail.postStream.gaps?.after ?? {},
+      );
       newAfter.remove(postId);
       final updatedGaps = PostStreamGaps(
-        before: Map<int, List<int>>.from(updatedDetail.postStream.gaps?.before ?? {}),
+        before: Map<int, List<int>>.from(
+          updatedDetail.postStream.gaps?.before ?? {},
+        ),
         after: newAfter,
       );
 
-      state = AsyncValue.data(updatedDetail.copyWith(
-        postStream: PostStream(
-          posts: mergedPosts,
-          stream: mergedStream,
-          gaps: updatedGaps.isEmpty ? null : updatedGaps,
+      state = AsyncValue.data(
+        updatedDetail.copyWith(
+          postStream: PostStream(
+            posts: mergedPosts,
+            stream: mergedStream,
+            gaps: updatedGaps.isEmpty ? null : updatedGaps,
+          ),
         ),
-      ));
+      );
     } catch (e) {
-      debugPrint('[TopicDetail] fillGapAfter($postId) 失败: $e');
+      debugPrint('[TopicDetail] fillGapAfter($postId) failed: $e');
     }
   }
 
@@ -146,13 +168,15 @@ extension GapMethods on TopicDetailNotifier {
 
     final updatedGaps = PostStreamGaps(before: newBefore, after: newAfter);
 
-    state = AsyncValue.data(detail.copyWith(
-      postStream: PostStream(
-        posts: detail.postStream.posts,
-        stream: detail.postStream.stream,
-        gaps: updatedGaps.isEmpty ? null : updatedGaps,
+    state = AsyncValue.data(
+      detail.copyWith(
+        postStream: PostStream(
+          posts: detail.postStream.posts,
+          stream: detail.postStream.stream,
+          gaps: updatedGaps.isEmpty ? null : updatedGaps,
+        ),
       ),
-    ));
+    );
   }
 
   /// 展开隐藏帖子的原始内容
@@ -161,12 +185,12 @@ extension GapMethods on TopicDetailNotifier {
       final service = ref.read(discourseServiceProvider);
       final cooked = await service.getPostCooked(postId);
       if (!ref.mounted) return;
-      _updatePostById(postId, (post) => post.copyWith(
-        cooked: cooked,
-        cookedHidden: false,
-      ));
+      _updatePostById(
+        postId,
+        (post) => post.copyWith(cooked: cooked, cookedHidden: false),
+      );
     } catch (e) {
-      debugPrint('[TopicDetail] expandHiddenPost($postId) 失败: $e');
+      debugPrint('[TopicDetail] expandHiddenPost($postId) failed: $e');
     }
   }
 }

@@ -37,7 +37,7 @@ class RedirectInterceptor extends Interceptor {
               requestOptions: response.requestOptions,
               response: response,
               type: DioExceptionType.badResponse,
-              error: '重定向次数超过上限 $_maxRedirects',
+              error: 'Redirect limit exceeded: $_maxRedirects',
             ),
           );
         }

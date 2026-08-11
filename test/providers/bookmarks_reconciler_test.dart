@@ -97,9 +97,7 @@ void main() {
       if (page == 0) {
         return BookmarkPageParseResult(
           topics: const [],
-          entries: [
-            _entry(bookmarkId: 9, updatedAt: DateTime.utc(2026, 5, 1)),
-          ],
+          entries: [_entry(bookmarkId: 9, updatedAt: DateTime.utc(2026, 5, 1))],
           moreUrl: 'p1',
         );
       }
@@ -107,9 +105,7 @@ void main() {
         // 已知且未变 → 提前停止
         return BookmarkPageParseResult(
           topics: const [],
-          entries: [
-            _entry(bookmarkId: 1, updatedAt: DateTime.utc(2026, 1, 1)),
-          ],
+          entries: [_entry(bookmarkId: 1, updatedAt: DateTime.utc(2026, 1, 1))],
           moreUrl: null,
         );
       }
@@ -170,9 +166,7 @@ void main() {
       if (page == 0) {
         return BookmarkPageParseResult(
           topics: const [],
-          entries: [
-            _entry(bookmarkId: 2, updatedAt: DateTime.utc(2026, 5, 1)),
-          ],
+          entries: [_entry(bookmarkId: 2, updatedAt: DateTime.utc(2026, 5, 1))],
           moreUrl: 'p1',
         );
       }
@@ -199,9 +193,7 @@ void main() {
       pageRequests++;
       return BookmarkPageParseResult(
         topics: const [],
-        entries: [
-          _entry(bookmarkId: 5, updatedAt: DateTime.utc(2026, 5, 1)),
-        ],
+        entries: [_entry(bookmarkId: 5, updatedAt: DateTime.utc(2026, 5, 1))],
         moreUrl: 'p1',
       );
     });

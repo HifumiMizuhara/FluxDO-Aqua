@@ -31,8 +31,7 @@ class PromptPresetEditPage extends ConsumerStatefulWidget {
       _PromptPresetEditPageState();
 }
 
-class _PromptPresetEditPageState
-    extends ConsumerState<PromptPresetEditPage> {
+class _PromptPresetEditPageState extends ConsumerState<PromptPresetEditPage> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late TextEditingController _templateController;
@@ -102,9 +101,8 @@ class _PromptPresetEditPageState
                 ),
               ],
               selected: {_type},
-              onSelectionChanged: _isBuiltIn
-                  ? null
-                  : (s) => setState(() => _type = s.first),
+              onSelectionChanged:
+                  _isBuiltIn ? null : (s) => setState(() => _type = s.first),
             ),
             const SizedBox(height: 16),
 
@@ -172,8 +170,7 @@ class _PromptPresetEditPageState
               ),
               validator: (v) {
                 if ((v ?? '').trim().isEmpty) {
-                  return AiL10n
-                      .current.quickPromptsValidateTemplateRequired;
+                  return AiL10n.current.quickPromptsValidateTemplateRequired;
                 }
                 return null;
               },

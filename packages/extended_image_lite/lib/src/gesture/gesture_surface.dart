@@ -168,9 +168,8 @@ class GestureSurfaceState extends State<GestureSurface>
     Offset? doubleTapPosition,
   }) {
     doubleTapPosition ??= _pointerDownPosition;
-    final controller = _doubleTapController ??= AnimationController.unbounded(
-      vsync: this,
-    );
+    final controller =
+        _doubleTapController ??= AnimationController.unbounded(vsync: this);
     if (_doubleTapTick != null) {
       controller.removeListener(_doubleTapTick!);
       _doubleTapTick = null;
@@ -544,7 +543,9 @@ class GestureSurfaceState extends State<GestureSurface>
       final layoutRect = gestureDetails!.layoutRect;
       final destinationRect = gestureDetails!.destinationRect;
       final currentOffset = gestureDetails!.offset;
-      if (layoutRect == null || destinationRect == null || currentOffset == null) {
+      if (layoutRect == null ||
+          destinationRect == null ||
+          currentOffset == null) {
         return;
       }
 

@@ -41,7 +41,8 @@ class PresenceService {
     // 站点未启用 presence 插件
     if (preloaded.siteSettingsSync?['presence_enabled'] != true) return false;
     // 用户选择隐藏 presence
-    final userOption = preloaded.currentUserSync?['user_option'] as Map<String, dynamic>?;
+    final userOption =
+        preloaded.currentUserSync?['user_option'] as Map<String, dynamic>?;
     if (userOption?['hide_presence'] == true) return false;
     return true;
   }
@@ -58,21 +59,21 @@ class PresenceService {
     _debouncedUpdate();
     _startHeartbeat();
   }
-  
+
   /// 离开回复频道
   void leaveReplyChannel(int topicId) {
     final channel = '/discourse-presence/reply/$topicId';
     if (!_activeChannels.contains(channel)) return;
-    
+
     debugPrint('[PresenceService] 离开频道: $channel');
     _activeChannels.remove(channel);
     _queuePresenceUpdate(leaveChannels: [channel]);
-    
+
     if (_activeChannels.isEmpty) {
       _stopHeartbeat();
     }
   }
-  
+
   /// 防抖更新
   void _debouncedUpdate() {
     _debounceTimer?.cancel();
@@ -80,24 +81,26 @@ class PresenceService {
       _queuePresenceUpdate(presentChannels: _activeChannels.toList());
     });
   }
-  
+
   /// 启动心跳
   void _startHeartbeat() {
     _heartbeatTimer?.cancel();
     _heartbeatTimer = Timer.periodic(_heartbeatInterval, (_) {
       if (_activeChannels.isNotEmpty) {
-        debugPrint('[PresenceService] 心跳: ${_activeChannels.length} 个频道');
+        debugPrint(
+          '[PresenceService] 心跳: ${_activeChannels.length} 个频道',
+        );
         _queuePresenceUpdate(presentChannels: _activeChannels.toList());
       }
     });
   }
-  
+
   /// 停止心跳
   void _stopHeartbeat() {
     _heartbeatTimer?.cancel();
     _heartbeatTimer = null;
   }
-  
+
   void _queuePresenceUpdate({
     List<String>? presentChannels,
     List<String>? leaveChannels,
@@ -160,7 +163,8 @@ class PresenceService {
       );
     } finally {
       _updateInFlight = false;
-      if (_pendingPresentChannels.isNotEmpty || _pendingLeaveChannels.isNotEmpty) {
+      if (_pendingPresentChannels.isNotEmpty ||
+          _pendingLeaveChannels.isNotEmpty) {
         _scheduleQueuedUpdate();
       }
     }
@@ -180,14 +184,14 @@ class PresenceService {
       debugPrint('[PresenceService] Update failed: $e');
     }
   }
-  
+
   /// 释放资源
   void dispose() {
     debugPrint('[PresenceService] 释放资源');
     _debounceTimer?.cancel();
     _heartbeatTimer?.cancel();
     _throttleTimer?.cancel();
-    
+
     // 离开所有频道
     if (_activeChannels.isNotEmpty) {
       _updatePresence(leaveChannels: _activeChannels.toList());

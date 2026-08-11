@@ -403,16 +403,18 @@ class SeekingNotifier extends StateNotifier<SeekingState>
       } else if (status == 404) {
         // 用户不存在/被匿名化：长退避，避免每一圈都浪费一个请求。
         // 时间戳写到未来即可让「最久未刷」选择器长期跳过它。
-        debugPrint('[Seeking] 用户 $target 不存在(404)，退避 30 分钟');
+        debugPrint(
+          '[Seeking] 用户 $target 不存在(404)，退避 30 分钟',
+        );
         _lastFetchedAt[target] = DateTime.now().add(
           const Duration(minutes: 30),
         );
       } else {
-        debugPrint('[Seeking] 刷新 $target 失败: $e');
+        debugPrint('[Seeking] refresh $target failed: $e');
         _lastFetchedAt[target] = DateTime.now();
       }
     } catch (e) {
-      debugPrint('[Seeking] 刷新 $target 异常: $e');
+      debugPrint('[Seeking] refresh $target exception: $e');
       _lastFetchedAt[target] = DateTime.now();
     } finally {
       _busy = false;

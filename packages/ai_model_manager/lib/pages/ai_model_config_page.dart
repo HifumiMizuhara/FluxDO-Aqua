@@ -33,7 +33,8 @@ class AiModelConfigPage extends ConsumerWidget {
             title: AiL10n.current.defaultChatModel,
             current: textDefault,
             onPick: () => _showPicker(
-              context, ref,
+              context,
+              ref,
               allModels
                   .where((m) => m.model.output.contains(Modality.text))
                   .toList(),
@@ -52,7 +53,8 @@ class AiModelConfigPage extends ConsumerWidget {
             title: AiL10n.current.defaultImageModel,
             current: imageDefault,
             onPick: () => _showPicker(
-              context, ref,
+              context,
+              ref,
               allModels
                   .where((m) => m.model.output.contains(Modality.image))
                   .toList(),
@@ -72,7 +74,9 @@ class AiModelConfigPage extends ConsumerWidget {
             subtitle: AiL10n.current.autoGenerateTitleSubtitle,
             current: titleModel,
             onPick: () => _showPicker(
-              context, ref, allModels,
+              context,
+              ref,
+              allModels,
               current: titleModel,
               clearLabel: AiL10n.current.noAutoGenerateTitle,
               onSelect: (p, m) => setAiTitleModel(ref, p, m),
@@ -89,16 +93,15 @@ class AiModelConfigPage extends ConsumerWidget {
             subtitle: AiL10n.current.imagePromptOptimizerSubtitle,
             current: optimizer,
             onPick: () => _showPicker(
-              context, ref,
+              context,
+              ref,
               allModels
                   .where((m) => m.model.output.contains(Modality.text))
                   .toList(),
               current: optimizer,
               clearLabel: AiL10n.current.optimizerNotSet,
-              onSelect: (p, m) =>
-                  setAiImagePromptOptimizerModel(ref, p, m),
-              onClear: () =>
-                  setAiImagePromptOptimizerModel(ref, null, null),
+              onSelect: (p, m) => setAiImagePromptOptimizerModel(ref, p, m),
+              onClear: () => setAiImagePromptOptimizerModel(ref, null, null),
             ),
             onReset: optimizer != null
                 ? () => setAiImagePromptOptimizerModel(ref, null, null)
@@ -279,8 +282,7 @@ class _ModelCard extends StatelessWidget {
                     if (current != null) ...[
                       ModelIcon(
                         providerName: current!.provider.name,
-                        modelName:
-                            current!.model.name ?? current!.model.id,
+                        modelName: current!.model.name ?? current!.model.id,
                         size: 24,
                       ),
                       const SizedBox(width: 10),
@@ -312,8 +314,7 @@ class _ModelCard extends StatelessWidget {
                               AiL10n.current.notSet,
                               style: TextStyle(
                                 fontSize: 14,
-                                color:
-                                    cs.onSurface.withValues(alpha: 0.4),
+                                color: cs.onSurface.withValues(alpha: 0.4),
                               ),
                             ),
                     ),

@@ -71,20 +71,27 @@ class Category {
           ? int.tryParse(json['parent_category_id'].toString())
           : null,
       uploadedLogo: (json['uploaded_logo'] as Map?)?['url']?.toString(),
-      uploadedBackground: (json['uploaded_background'] as Map?)?['url']?.toString(),
+      uploadedBackground: (json['uploaded_background'] as Map?)?['url']
+          ?.toString(),
       readRestricted: json['read_restricted'] as bool? ?? false,
       icon: json['icon'] as String?,
       topicTemplate: json['topic_template'] as String?,
       minimumRequiredTags: json['minimum_required_tags'] as int? ?? 0,
-      requiredTagGroups: (json['required_tag_groups'] as List<dynamic>?)
-          ?.map((e) => RequiredTagGroup.fromJson(e as Map<String, dynamic>))
-          .toList() ?? [],
-      allowedTags: (json['allowed_tags'] as List<dynamic>?)
-          ?.map((e) => e.toString())
-          .toList() ?? [],
-      allowedTagGroups: (json['allowed_tag_groups'] as List<dynamic>?)
-          ?.map((e) => e.toString())
-          .toList() ?? [],
+      requiredTagGroups:
+          (json['required_tag_groups'] as List<dynamic>?)
+              ?.map((e) => RequiredTagGroup.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      allowedTags:
+          (json['allowed_tags'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      allowedTagGroups:
+          (json['allowed_tag_groups'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
       allowGlobalTags: json['allow_global_tags'] as bool? ?? true,
       permission: json['permission'] as int?,
       notificationLevel: json['notification_level'] as int?,
@@ -124,21 +131,31 @@ enum CategoryNotificationLevel {
 
   String get label {
     switch (this) {
-      case CategoryNotificationLevel.muted: return S.current.category_levelMuted;
-      case CategoryNotificationLevel.regular: return S.current.category_levelRegular;
-      case CategoryNotificationLevel.tracking: return S.current.category_levelTracking;
-      case CategoryNotificationLevel.watching: return S.current.category_levelWatching;
-      case CategoryNotificationLevel.watchingFirstPost: return S.current.category_levelWatchingFirstPost;
+      case CategoryNotificationLevel.muted:
+        return S.current.category_levelMuted;
+      case CategoryNotificationLevel.regular:
+        return S.current.category_levelRegular;
+      case CategoryNotificationLevel.tracking:
+        return S.current.category_levelTracking;
+      case CategoryNotificationLevel.watching:
+        return S.current.category_levelWatching;
+      case CategoryNotificationLevel.watchingFirstPost:
+        return S.current.category_levelWatchingFirstPost;
     }
   }
 
   String get description {
     switch (this) {
-      case CategoryNotificationLevel.muted: return S.current.category_levelMutedDesc;
-      case CategoryNotificationLevel.regular: return S.current.category_levelRegularDesc;
-      case CategoryNotificationLevel.tracking: return S.current.category_levelTrackingDesc;
-      case CategoryNotificationLevel.watching: return S.current.category_levelWatchingDesc;
-      case CategoryNotificationLevel.watchingFirstPost: return S.current.category_levelWatchingFirstPostDesc;
+      case CategoryNotificationLevel.muted:
+        return S.current.category_levelMutedDesc;
+      case CategoryNotificationLevel.regular:
+        return S.current.category_levelRegularDesc;
+      case CategoryNotificationLevel.tracking:
+        return S.current.category_levelTrackingDesc;
+      case CategoryNotificationLevel.watching:
+        return S.current.category_levelWatchingDesc;
+      case CategoryNotificationLevel.watchingFirstPost:
+        return S.current.category_levelWatchingFirstPostDesc;
     }
   }
 

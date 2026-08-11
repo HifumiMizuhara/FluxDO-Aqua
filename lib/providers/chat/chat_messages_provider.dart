@@ -111,8 +111,7 @@ class ChatMessagesNotifier extends AsyncNotifier<ChatMessagesState> {
     _channel = channel;
     final page = results[1] as ChatMessagesResponse;
 
-    final messages = [...page.messages]
-      ..sort((a, b) => a.id.compareTo(b.id));
+    final messages = [...page.messages]..sort((a, b) => a.id.compareTo(b.id));
 
     _subscribe(channel);
 
@@ -122,8 +121,9 @@ class ChatMessagesNotifier extends AsyncNotifier<ChatMessagesState> {
       messages: messages,
       canLoadMorePast: page.canLoadMorePast,
       canLoadMoreFuture: page.canLoadMoreFuture,
-      initialLastReadId:
-          isThread ? null : channel.currentUserMembership?.lastReadMessageId,
+      initialLastReadId: isThread
+          ? null
+          : channel.currentUserMembership?.lastReadMessageId,
     );
   }
 
@@ -161,7 +161,9 @@ class ChatMessagesNotifier extends AsyncNotifier<ChatMessagesState> {
         case 'update_thread_original_message':
           _handleThreadUpdate(data);
         default:
-          debugPrint('[ChatMessages#$channelId] 未处理类型: $type');
+          debugPrint(
+            '[ChatMessages#$channelId] 未处理类型: $type',
+          );
       }
     }
 
@@ -198,7 +200,7 @@ class ChatMessagesNotifier extends AsyncNotifier<ChatMessagesState> {
     try {
       return ChatMessage.fromJson(raw, fallbackChannelId: channelId);
     } catch (e) {
-      debugPrint('[ChatMessages#$channelId] 消息解析失败: $e');
+      debugPrint('[ChatMessages#$channelId] messageparsefailed: $e');
       return null;
     }
   }
@@ -382,10 +384,12 @@ class ChatMessagesNotifier extends AsyncNotifier<ChatMessagesState> {
 
   /// 新消息同步到会话列表(最后一条 + 重排)
   void _bumpChannelList(ChatMessage message) {
-    ref.read(chatChannelsProvider.notifier).bumpChannel(
-      message.channelId,
-      update: (ch) => ch.copyWith(lastMessage: message),
-    );
+    ref
+        .read(chatChannelsProvider.notifier)
+        .bumpChannel(
+          message.channelId,
+          update: (ch) => ch.copyWith(lastMessage: message),
+        );
   }
 
   // ========== 分页 ==========
@@ -416,9 +420,7 @@ class ChatMessagesNotifier extends AsyncNotifier<ChatMessagesState> {
       return;
     }
     // 游标取最老的非 staged 消息(staged 消息 id 是本地占位,不能作游标)
-    final anchor = current.messages
-        .where((m) => !m.isStaged)
-        .firstOrNull;
+    final anchor = current.messages.where((m) => !m.isStaged).firstOrNull;
     if (anchor == null) return;
     state = AsyncData(current.copyWith(loadingPast: true));
     try {
@@ -429,8 +431,9 @@ class ChatMessagesNotifier extends AsyncNotifier<ChatMessagesState> {
       final fresh = state.value;
       if (fresh == null) return;
       final existing = fresh.messages.map((m) => m.id).toSet();
-      final older = page.messages.where((m) => !existing.contains(m.id)).toList()
-        ..sort((a, b) => a.id.compareTo(b.id));
+      final older =
+          page.messages.where((m) => !existing.contains(m.id)).toList()
+            ..sort((a, b) => a.id.compareTo(b.id));
       state = AsyncData(
         fresh.copyWith(
           messages: [...older, ...fresh.messages],
@@ -439,7 +442,7 @@ class ChatMessagesNotifier extends AsyncNotifier<ChatMessagesState> {
         ),
       );
     } catch (e) {
-      debugPrint('[ChatMessages#$channelId] loadPast 失败: $e');
+      debugPrint('[ChatMessages#$channelId] loadPast failed: $e');
       final fresh = state.value;
       if (fresh != null) {
         state = AsyncData(fresh.copyWith(loadingPast: false));
@@ -454,9 +457,7 @@ class ChatMessagesNotifier extends AsyncNotifier<ChatMessagesState> {
         !current.canLoadMoreFuture) {
       return;
     }
-    final anchor = current.messages
-        .where((m) => !m.isStaged)
-        .lastOrNull;
+    final anchor = current.messages.where((m) => !m.isStaged).lastOrNull;
     if (anchor == null) return;
     state = AsyncData(current.copyWith(loadingFuture: true));
     try {
@@ -467,8 +468,9 @@ class ChatMessagesNotifier extends AsyncNotifier<ChatMessagesState> {
       final fresh = state.value;
       if (fresh == null) return;
       final existing = fresh.messages.map((m) => m.id).toSet();
-      final newer = page.messages.where((m) => !existing.contains(m.id)).toList()
-        ..sort((a, b) => a.id.compareTo(b.id));
+      final newer =
+          page.messages.where((m) => !existing.contains(m.id)).toList()
+            ..sort((a, b) => a.id.compareTo(b.id));
       state = AsyncData(
         fresh.copyWith(
           messages: [...fresh.messages, ...newer],
@@ -477,7 +479,7 @@ class ChatMessagesNotifier extends AsyncNotifier<ChatMessagesState> {
         ),
       );
     } catch (e) {
-      debugPrint('[ChatMessages#$channelId] loadFuture 失败: $e');
+      debugPrint('[ChatMessages#$channelId] loadFuture failed: $e');
       final fresh = state.value;
       if (fresh != null) {
         state = AsyncData(fresh.copyWith(loadingFuture: false));
@@ -552,7 +554,7 @@ class ChatMessagesNotifier extends AsyncNotifier<ChatMessagesState> {
       // REST 返回的 message_id 就地转正,避免永久转圈
       _scheduleStagedFallback(stagedId, messageId);
     } catch (e) {
-      debugPrint('[ChatMessages#$channelId] 发送失败: $e');
+      debugPrint('[ChatMessages#$channelId] sendfailed: $e');
       final fresh = state.value;
       if (fresh == null) return;
       final list = [...fresh.messages];

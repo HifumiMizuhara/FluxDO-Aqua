@@ -11,14 +11,14 @@ class WebBookmark {
   });
 
   Map<String, dynamic> toJson() => {
-        'url': url,
-        'title': title,
-        'createdAt': createdAt.toIso8601String(),
-      };
+    'url': url,
+    'title': title,
+    'createdAt': createdAt.toIso8601String(),
+  };
 
   factory WebBookmark.fromJson(Map<String, dynamic> json) => WebBookmark(
-        url: json['url'] as String,
-        title: json['title'] as String,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-      );
+    url: json['url'] as String,
+    title: json['title'] as String,
+    createdAt: DateTime.parse(json['createdAt'] as String),
+  );
 }

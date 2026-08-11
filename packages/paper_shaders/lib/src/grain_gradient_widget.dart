@@ -140,7 +140,7 @@ class _GrainGradientState extends State<GrainGradient>
         _noiseTexture = results[1] as ui.Image;
       });
     } catch (e) {
-      debugPrint('[GrainGradient] shader 加载失败: $e');
+      debugPrint('[GrainGradient] Shader load failed: $e');
     }
   }
 
@@ -190,13 +190,7 @@ class _GrainGradientState extends State<GrainGradient>
 
     if (widget.child != null) {
       return RepaintBoundary(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            content,
-            widget.child!,
-          ],
-        ),
+        child: Stack(fit: StackFit.expand, children: [content, widget.child!]),
       );
     }
 

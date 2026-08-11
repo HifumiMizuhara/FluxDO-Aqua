@@ -240,10 +240,7 @@ mixin _ChatMixin on _DiscourseServiceBase {
   }
 
   /// 引用多条消息:服务端生成 [chat] transcript markdown
-  Future<String> quoteChatMessages(
-    int channelId,
-    List<int> messageIds,
-  ) async {
+  Future<String> quoteChatMessages(int channelId, List<int> messageIds) async {
     try {
       final response = await _dio.post(
         '/chat/$channelId/quote',
@@ -296,7 +293,7 @@ mixin _ChatMixin on _DiscourseServiceBase {
             .toList(),
         hasMore:
             (data['meta'] as Map<String, dynamic>?)?['has_more'] as bool? ??
-                false,
+            false,
       );
     } on DioException catch (e) {
       _throwApiError(e);
@@ -325,9 +322,7 @@ mixin _ChatMixin on _DiscourseServiceBase {
       final response = await _dio.post(
         '/discourse-ai/summarization/channels/$channelId',
         queryParameters: {'since': sinceHours},
-        options: Options(
-          receiveTimeout: const Duration(seconds: 120),
-        ),
+        options: Options(receiveTimeout: const Duration(seconds: 120)),
       );
       final data = response.data;
       if (data is Map<String, dynamic>) {
@@ -427,9 +422,7 @@ mixin _ChatMixin on _DiscourseServiceBase {
   /// 频道置顶消息列表(站点开 chat_pinned_messages;上限每频道 MAX_PINS)
   Future<List<ChatMessage>> getChannelPins(int channelId) async {
     try {
-      final response = await _dio.get(
-        '/chat/api/channels/$channelId/pins',
-      );
+      final response = await _dio.get('/chat/api/channels/$channelId/pins');
       final data = response.data as Map<String, dynamic>;
       return (data['pinned_messages'] as List<dynamic>? ?? [])
           .whereType<Map<String, dynamic>>()
@@ -449,9 +442,7 @@ mixin _ChatMixin on _DiscourseServiceBase {
   /// 置顶消息
   Future<void> pinChatMessage(int channelId, int messageId) async {
     try {
-      await _dio.post(
-        '/chat/api/channels/$channelId/messages/$messageId/pin',
-      );
+      await _dio.post('/chat/api/channels/$channelId/messages/$messageId/pin');
     } on DioException catch (e) {
       _throwApiError(e);
     }
@@ -507,10 +498,7 @@ mixin _ChatMixin on _DiscourseServiceBase {
     try {
       await _dio.put(
         '/chat/$channelId/react/$messageId',
-        data: {
-          'emoji': emoji,
-          'react_action': reactAction,
-        },
+        data: {'emoji': emoji, 'react_action': reactAction},
       );
     } on DioException catch (e) {
       _throwApiError(e);
@@ -585,9 +573,7 @@ mixin _ChatMixin on _DiscourseServiceBase {
   /// 退出会话(unfollow:DM 语义=从列表隐藏,历史保留,有新消息会回来)
   Future<void> leaveChatChannel(int channelId) async {
     try {
-      await _dio.delete(
-        '/chat/api/channels/$channelId/memberships/me/follows',
-      );
+      await _dio.delete('/chat/api/channels/$channelId/memberships/me/follows');
     } on DioException catch (e) {
       _throwApiError(e);
     }

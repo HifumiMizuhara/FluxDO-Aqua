@@ -50,7 +50,7 @@ class PerDeviceCertService {
     // 通过 FFI 生成新 CA
     final result = await DohProxyService.instance.generateCa();
     if (result == null) {
-      debugPrint('[PerDeviceCert] CA 生成失败');
+      debugPrint('[PerDeviceCert] CA generatefailed');
       return false;
     }
 
@@ -61,7 +61,9 @@ class PerDeviceCertService {
     _certPem = result.certPem;
     _keyPem = result.keyPem;
     _loaded = true;
-    debugPrint('[PerDeviceCert] 新 CA 证书已生成并保存');
+    debugPrint(
+      '[PerDeviceCert] 新 CA 证书已生成并保存',
+    );
     return true;
   }
 
@@ -130,7 +132,8 @@ class PerDeviceCertService {
   /// 生成 .mobileconfig XML
   String _buildMobileConfig(String certPem) {
     // 从 PEM 中提取 base64 编码的证书数据
-    final lines = certPem.split('\n')
+    final lines = certPem
+        .split('\n')
         .where((line) => !line.startsWith('-----') && line.trim().isNotEmpty)
         .join('');
 

@@ -36,7 +36,8 @@ class M3eFlags extends ThemeExtension<M3eFlags> {
   // ThemeData 每次 build 都是新实例;extension 不可比较会让 AnimatedTheme
   // 在每次 rebuild 时空转一段 lerp 动画。
   @override
-  bool operator ==(Object other) => other is M3eFlags && other.enabled == enabled;
+  bool operator ==(Object other) =>
+      other is M3eFlags && other.enabled == enabled;
 
   @override
   int get hashCode => enabled.hashCode;

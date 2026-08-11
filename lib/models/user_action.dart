@@ -3,10 +3,10 @@ import '../utils/time_utils.dart';
 
 /// 用户操作类型
 class UserActionType {
-  static const int like = 1;        // 点赞
-  static const int wasLiked = 2;    // 被点赞
-  static const int newTopic = 4;    // 创建话题
-  static const int reply = 5;       // 回复
+  static const int like = 1; // 点赞
+  static const int wasLiked = 2; // 被点赞
+  static const int newTopic = 4; // 创建话题
+  static const int reply = 5; // 回复
 }
 
 class UserAction {
@@ -41,9 +41,14 @@ class UserAction {
       title: json['title'] as String? ?? '',
       slug: json['slug'] as String?,
       postNumber: json['post_number'] as int?,
-      username: json['acting_username'] as String? ?? json['username'] as String?,
-      avatarTemplate: json['acting_avatar_template'] as String? ?? json['avatar_template'] as String?,
-      actingAt: TimeUtils.parseUtcTime(json['acting_at'] as String? ?? json['created_at'] as String?),
+      username:
+          json['acting_username'] as String? ?? json['username'] as String?,
+      avatarTemplate:
+          json['acting_avatar_template'] as String? ??
+          json['avatar_template'] as String?,
+      actingAt: TimeUtils.parseUtcTime(
+        json['acting_at'] as String? ?? json['created_at'] as String?,
+      ),
       categoryId: json['category_id'] as int?,
       excerpt: json['excerpt'] as String?,
     );
@@ -63,7 +68,9 @@ class UserActionResponse {
   factory UserActionResponse.fromJson(Map<String, dynamic> json) {
     final actionsJson = json['user_actions'] as List<dynamic>? ?? [];
     return UserActionResponse(
-      actions: actionsJson.map((e) => UserAction.fromJson(e as Map<String, dynamic>)).toList(),
+      actions: actionsJson
+          .map((e) => UserAction.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 }
@@ -116,14 +123,21 @@ class UserReactionsResponse {
     // API 直接返回数组
     if (json is List) {
       return UserReactionsResponse(
-        reactions: json.map((e) => UserReaction.fromJson(e as Map<String, dynamic>)).toList(),
+        reactions: json
+            .map((e) => UserReaction.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
     }
     // 如果是对象包装的数组
     if (json is Map<String, dynamic>) {
-      final list = json['reactions'] as List<dynamic>? ?? json['posts'] as List<dynamic>? ?? [];
+      final list =
+          json['reactions'] as List<dynamic>? ??
+          json['posts'] as List<dynamic>? ??
+          [];
       return UserReactionsResponse(
-        reactions: list.map((e) => UserReaction.fromJson(e as Map<String, dynamic>)).toList(),
+        reactions: list
+            .map((e) => UserReaction.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
     }
     return const UserReactionsResponse(reactions: []);
@@ -159,7 +173,9 @@ class UserBoost {
     int? postNumber;
     final url = post?['url'] as String?;
     if (url != null) {
-      final segments = Uri.parse(url).pathSegments.where((s) => s.isNotEmpty).toList();
+      final segments = Uri.parse(
+        url,
+      ).pathSegments.where((s) => s.isNotEmpty).toList();
       if (segments.length >= 4) {
         postNumber = int.tryParse(segments.last);
       }
@@ -186,7 +202,9 @@ class UserBoostsResponse {
   factory UserBoostsResponse.fromJson(Map<String, dynamic> json) {
     final list = json['boosts'] as List<dynamic>? ?? [];
     return UserBoostsResponse(
-      boosts: list.map((e) => UserBoost.fromJson(e as Map<String, dynamic>)).toList(),
+      boosts: list
+          .map((e) => UserBoost.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 }
@@ -229,7 +247,9 @@ class SolvedPostsResponse {
   factory SolvedPostsResponse.fromJson(Map<String, dynamic> json) {
     final list = json['user_solved_posts'] as List<dynamic>? ?? [];
     return SolvedPostsResponse(
-      posts: list.map((e) => SolvedPost.fromJson(e as Map<String, dynamic>)).toList(),
+      posts: list
+          .map((e) => SolvedPost.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 }

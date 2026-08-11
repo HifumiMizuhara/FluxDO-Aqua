@@ -13,9 +13,12 @@ enum BadgeType {
 
   String get label {
     switch (this) {
-      case BadgeType.gold: return S.current.badge_gold;
-      case BadgeType.silver: return S.current.badge_silver;
-      case BadgeType.bronze: return S.current.badge_bronze;
+      case BadgeType.gold:
+        return S.current.badge_gold;
+      case BadgeType.silver:
+        return S.current.badge_silver;
+      case BadgeType.bronze:
+        return S.current.badge_bronze;
     }
   }
 
@@ -121,7 +124,9 @@ class UserBadge {
       id: json['id'] as int,
       badgeId: json['badge_id'] as int,
       userId: json['user_id'] as int? ?? 0,
-      grantedAt: TimeUtils.parseUtcTime(json['granted_at'] as String?) ?? DateTime.now(),
+      grantedAt:
+          TimeUtils.parseUtcTime(json['granted_at'] as String?) ??
+          DateTime.now(),
       grantedByUsername: json['granted_by_username'] as String?,
       postId: json['post_id'] as int?,
       postNumber: json['post_number'] as int?,
@@ -132,7 +137,9 @@ class UserBadge {
       groupingPosition: json['grouping_position'] as int?,
       isFavorite: json['is_favorite'] as bool?,
       canFavorite: json['can_favorite'] as bool?,
-      badge: json['badge'] != null ? Badge.fromJson(json['badge'] as Map<String, dynamic>) : null,
+      badge: json['badge'] != null
+          ? Badge.fromJson(json['badge'] as Map<String, dynamic>)
+          : null,
     );
   }
 }
@@ -193,7 +200,9 @@ class BadgeDetailResponse {
     final userBadges = userBadgesData.map((e) {
       final userBadge = UserBadge.fromJson(e as Map<String, dynamic>);
       final badge = badgesMap[userBadge.badgeId];
-      final topicTitle = userBadge.topicId != null ? topicsMap[userBadge.topicId] : null;
+      final topicTitle = userBadge.topicId != null
+          ? topicsMap[userBadge.topicId]
+          : null;
 
       return UserBadge(
         id: userBadge.id,

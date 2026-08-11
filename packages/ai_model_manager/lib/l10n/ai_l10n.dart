@@ -77,8 +77,7 @@ class AiL10n {
   String get quickPromptsTestSuccess => '测试图已生成';
   String get quickPromptsTestFailed => '测试失败';
   String get quickPromptsResetBuiltIns => '恢复内置默认';
-  String get quickPromptsResetBuiltInsConfirm =>
-      '确定要恢复所有内置快捷词的默认配置吗？（不影响自定义）';
+  String get quickPromptsResetBuiltInsConfirm => '确定要恢复所有内置快捷词的默认配置吗？（不影响自定义）';
   String get quickPromptsHide => '隐藏';
   String get quickPromptsUnhide => '显示';
   String get quickPromptsDuplicate => '复制';
@@ -108,8 +107,7 @@ class AiL10n {
   String get otherProvidersSection => '普通提供商';
   String selectedProviderCount(int count) => '已选 $count 个供应商';
   String get deleteSelectedProviders => '删除选中';
-  String confirmDeleteSelectedProviders(int count) =>
-      '确定要删除选中的 $count 个供应商吗？';
+  String confirmDeleteSelectedProviders(int count) => '确定要删除选中的 $count 个供应商吗？';
   String modelCount(int enabled, int total) => '$enabled/$total 个模型';
   String get modelConfig => '模型配置';
   String get defaultChatModel => '默认聊天模型';
@@ -194,8 +192,7 @@ class AiL10n {
   String get deleteAllTopicSessions => '删除此话题所有会话';
   String get unnamedSession => '未命名会话';
   String get deleteTopicSessions => '删除话题会话';
-  String confirmDeleteTopicSessions(String title) =>
-      '确定要删除「$title」的所有会话记录吗？';
+  String confirmDeleteTopicSessions(String title) => '确定要删除「$title」的所有会话记录吗？';
   String get justNow => '刚刚';
   String minutesAgo(int count) => '$count 分钟前';
   String hoursAgo(int count) => '$count 小时前';
@@ -232,8 +229,7 @@ class AiL10n {
 
   // ---- 图像生成设置 ----
   String get partialImagesTitle => '图像生成渐进帧';
-  String get partialImagesSubtitle =>
-      '开启后 gpt-image 系列会先返回模糊草图再返回终态图；'
+  String get partialImagesSubtitle => '开启后 gpt-image 系列会先返回模糊草图再返回终态图；'
       '需要 OpenAI 已验证 organization，未验证账号开启会失败';
   String get imagePromptOptimizerModel => '图像 Prompt 优化模型';
   String get imagePromptOptimizerSubtitle =>
@@ -280,11 +276,9 @@ class AiL10n {
   String get selectModelToTest => '选择要测试的模型';
 
   // ---- System Prompts（影响 AI 回复语言） ----
-  String get systemPromptIntro =>
-      '你是一个有帮助的 AI 助手，正在帮助用户理解和讨论一个论坛话题。';
+  String get systemPromptIntro => '你是一个有帮助的 AI 助手，正在帮助用户理解和讨论一个论坛话题。';
   String systemPromptTopicTitle(String title) => '话题标题：$title';
-  String get systemPromptContextHint =>
-      '用户可能会就话题内容向你提问，请基于提供的上下文回答。';
+  String get systemPromptContextHint => '用户可能会就话题内容向你提问，请基于提供的上下文回答。';
   String get systemPromptMarkdown => '请用 Markdown 格式回复。';
   String contextContentPrefix(String text) => '以下是话题内容：\n$text';
   String get contextReadyResponse => '好的，我已经阅读了话题内容。请问你有什么问题？';

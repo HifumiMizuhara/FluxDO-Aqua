@@ -234,7 +234,8 @@ class VpnAutoToggleService {
       resolveVpnActive(
         connectivityResults: _lastConnectivityResults,
         hasWindowsVpnAdapter: _lastHasWindowsVpnAdapter,
-        systemProxyEnabled: Platform.isWindows &&
+        systemProxyEnabled:
+            Platform.isWindows &&
             SystemProxyService.instance.effectiveProxyUrl != null,
       ),
       shouldSuppress: shouldAutoSuppress(_lastConnectivityResults),
@@ -252,7 +253,8 @@ class VpnAutoToggleService {
     final hasVpn = resolveVpnActive(
       connectivityResults: results,
       hasWindowsVpnAdapter: hasWindowsVpnAdapter,
-      systemProxyEnabled: Platform.isWindows &&
+      systemProxyEnabled:
+          Platform.isWindows &&
           SystemProxyService.instance.effectiveProxyUrl != null,
     );
     final mode = detectionMode;
@@ -311,7 +313,7 @@ class VpnAutoToggleService {
       if (isDohSuppressed) {
         await _prefs.remove(_keySuppressedDoh);
         await NetworkSettingsService.instance.setDohEnabled(true);
-        debugPrint('[VpnAutoToggle] 恢复 DOH');
+        debugPrint('[VpnAutoToggle] resume DOH');
       }
 
       // 恢复代理
@@ -331,7 +333,9 @@ class VpnAutoToggleService {
   /// 由 UI 层在检测到手动开启时调用
   void clearDohSuppression() {
     _prefs.remove(_keySuppressedDoh);
-    debugPrint('[VpnAutoToggle] 清除 DOH 压制标记（用户手动开启）');
+    debugPrint(
+      '[VpnAutoToggle] 清除 DOH 压制标记（用户手动开启）',
+    );
   }
 
   void clearProxySuppression() {

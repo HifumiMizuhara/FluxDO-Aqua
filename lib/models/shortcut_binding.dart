@@ -143,7 +143,9 @@ class ShortcutBinding {
       action: action,
       category: category,
       defaultActivator: defaultActivator,
-      customActivator: clearCustom ? null : customActivator ?? this.customActivator,
+      customActivator: clearCustom
+          ? null
+          : customActivator ?? this.customActivator,
     );
   }
 
@@ -276,8 +278,10 @@ List<ShortcutBinding> buildDefaultBindings() {
       const ShortcutBinding(
         action: ShortcutAction.navigateBackAlt,
         category: ShortcutCategory.navigation,
-        defaultActivator:
-            SingleActivator(LogicalKeyboardKey.arrowLeft, alt: true),
+        defaultActivator: SingleActivator(
+          LogicalKeyboardKey.arrowLeft,
+          alt: true,
+        ),
       ),
     ShortcutBinding(
       action: ShortcutAction.openSearch,
@@ -308,8 +312,7 @@ List<ShortcutBinding> buildDefaultBindings() {
     const ShortcutBinding(
       action: ShortcutAction.showShortcutHelp,
       category: ShortcutCategory.content,
-      defaultActivator:
-          SingleActivator(LogicalKeyboardKey.slash, shift: true),
+      defaultActivator: SingleActivator(LogicalKeyboardKey.slash, shift: true),
     ),
     const ShortcutBinding(
       action: ShortcutAction.nextItem,
@@ -335,8 +338,16 @@ List<ShortcutBinding> buildDefaultBindings() {
       action: ShortcutAction.toggleNotifications,
       category: ShortcutCategory.navigation,
       defaultActivator: isMac
-          ? const SingleActivator(LogicalKeyboardKey.keyN, meta: true, shift: true)
-          : const SingleActivator(LogicalKeyboardKey.keyN, control: true, shift: true),
+          ? const SingleActivator(
+              LogicalKeyboardKey.keyN,
+              meta: true,
+              shift: true,
+            )
+          : const SingleActivator(
+              LogicalKeyboardKey.keyN,
+              control: true,
+              shift: true,
+            ),
     ),
     const ShortcutBinding(
       action: ShortcutAction.switchToTopics,
@@ -358,12 +369,18 @@ List<ShortcutBinding> buildDefaultBindings() {
     const ShortcutBinding(
       action: ShortcutAction.previousTab,
       category: ShortcutCategory.navigation,
-      defaultActivator: SingleActivator(LogicalKeyboardKey.bracketLeft, alt: true),
+      defaultActivator: SingleActivator(
+        LogicalKeyboardKey.bracketLeft,
+        alt: true,
+      ),
     ),
     const ShortcutBinding(
       action: ShortcutAction.nextTab,
       category: ShortcutCategory.navigation,
-      defaultActivator: SingleActivator(LogicalKeyboardKey.bracketRight, alt: true),
+      defaultActivator: SingleActivator(
+        LogicalKeyboardKey.bracketRight,
+        alt: true,
+      ),
     ),
     ShortcutBinding(
       action: ShortcutAction.toggleAiPanel,
@@ -377,10 +394,7 @@ List<ShortcutBinding> buildDefaultBindings() {
     const ShortcutBinding(
       action: ShortcutAction.jumpToPost,
       category: ShortcutCategory.topic,
-      defaultActivator: SingleActivator(
-        LogicalKeyboardKey.digit3,
-        shift: true,
-      ),
+      defaultActivator: SingleActivator(LogicalKeyboardKey.digit3, shift: true),
     ),
     const ShortcutBinding(
       action: ShortcutAction.goToUnreadPost,
@@ -437,10 +451,7 @@ List<ShortcutBinding> buildDefaultBindings() {
     const ShortcutBinding(
       action: ShortcutAction.flagPost,
       category: ShortcutCategory.post,
-      defaultActivator: SingleActivator(
-        LogicalKeyboardKey.digit1,
-        shift: true,
-      ),
+      defaultActivator: SingleActivator(LogicalKeyboardKey.digit1, shift: true),
     ),
     const ShortcutBinding(
       action: ShortcutAction.deletePost,

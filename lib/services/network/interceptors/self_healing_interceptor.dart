@@ -235,7 +235,9 @@ class SelfHealingInterceptor extends Interceptor {
       return finalResult;
     }
 
-    debugPrint('[SelfHealing] all retries failed (uri=$uri) → 透传原 401');
+    debugPrint(
+      '[SelfHealing] all retries failed (uri=$uri) → 透传原 401',
+    );
     CookieLogger.selfHealing(
       event: 'failed',
       url: origin,

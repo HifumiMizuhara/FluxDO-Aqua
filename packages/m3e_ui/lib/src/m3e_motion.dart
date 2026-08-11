@@ -16,26 +16,25 @@ class M3eSpring {
   final double stiffness;
 
   const M3eSpring({required this.dampingRatio, required this.stiffness})
-      : assert(dampingRatio > 0 && dampingRatio <= 1),
-        assert(stiffness > 0);
+    : assert(dampingRatio > 0 && dampingRatio <= 1),
+      assert(stiffness > 0);
 
   /// 物理驱动形态,供 SpringSimulation 使用。
   SpringDescription get description => SpringDescription.withDampingRatio(
-        mass: 1.0,
-        stiffness: stiffness,
-        ratio: dampingRatio,
-      );
+    mass: 1.0,
+    stiffness: stiffness,
+    ratio: dampingRatio,
+  );
 
   /// 解析解曲线形态,见 [M3eSpringCurve]。
   M3eSpringCurve curveFor(
     Duration period, {
     double visibilityThreshold = 0.001,
-  }) =>
-      M3eSpringCurve(
-        spring: this,
-        period: period,
-        visibilityThreshold: visibilityThreshold,
-      );
+  }) => M3eSpringCurve(
+    spring: this,
+    period: period,
+    visibilityThreshold: visibilityThreshold,
+  );
 }
 
 /// M3E motion scheme(expressive)的六档标准弹簧 token。
@@ -100,7 +99,7 @@ class M3eSpringCurve extends Curve {
       // √(c₁²+c₂²)·e^(−ζω₀t) 衰减到 visibilityThreshold 的时刻。
       _settleSeconds =
           math.log(math.sqrt(_c1 * _c1 + _c2 * _c2) / visibilityThreshold) /
-              (zeta * _omega0);
+          (zeta * _omega0);
       // 首个过冲峰(发生在时长截断之前):1 + e^(−ζπ/√(1−ζ²))。
       peakValue = 1 + math.exp(-zeta * math.pi / math.sqrt(1 - zeta * zeta));
     }

@@ -17,7 +17,9 @@ import 'package:flutter_inappwebview_platform_interface/flutter_inappwebview_pla
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('LinuxInAppWebViewWidget can be created', (WidgetTester tester) async {
+  testWidgets('LinuxInAppWebViewWidget can be created', (
+    WidgetTester tester,
+  ) async {
     LinuxInAppWebViewPlatform.registerWith();
 
     await tester.pumpWidget(
@@ -26,7 +28,9 @@ void main() {
           body: Builder(
             builder: (context) => LinuxInAppWebViewWidget(
               LinuxInAppWebViewWidgetCreationParams(
-                initialUrlRequest: URLRequest(url: WebUri('https://flutter.dev')),
+                initialUrlRequest: URLRequest(
+                  url: WebUri('https://flutter.dev'),
+                ),
               ),
             ).build(context),
           ),

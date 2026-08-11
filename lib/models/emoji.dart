@@ -16,7 +16,8 @@ class Emoji {
       name: json['name'] as String,
       url: json['url'] as String,
       group: json['group'] as String,
-      searchAliases: (json['search_aliases'] as List<dynamic>?)
+      searchAliases:
+          (json['search_aliases'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
           [],

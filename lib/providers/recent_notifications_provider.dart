@@ -4,7 +4,8 @@ import 'core_providers.dart';
 import 'message_bus_providers.dart';
 
 /// 最近通知 Notifier（非分页，供快捷面板和 messageBus 使用）
-class RecentNotificationsNotifier extends AsyncNotifier<List<DiscourseNotification>> {
+class RecentNotificationsNotifier
+    extends AsyncNotifier<List<DiscourseNotification>> {
   @override
   Future<List<DiscourseNotification>> build() async {
     final service = ref.read(discourseServiceProvider);
@@ -86,14 +87,15 @@ class RecentNotificationsNotifier extends AsyncNotifier<List<DiscourseNotificati
 
     // 更新本地状态
     state.whenData((list) {
-      state = AsyncValue.data(
-        list.map((n) => n.copyWith(read: true)).toList(),
-      );
+      state = AsyncValue.data(list.map((n) => n.copyWith(read: true)).toList());
     });
   }
 }
 
 final recentNotificationsProvider =
-    AsyncNotifierProvider<RecentNotificationsNotifier, List<DiscourseNotification>>(() {
-  return RecentNotificationsNotifier();
-});
+    AsyncNotifierProvider<
+      RecentNotificationsNotifier,
+      List<DiscourseNotification>
+    >(() {
+      return RecentNotificationsNotifier();
+    });

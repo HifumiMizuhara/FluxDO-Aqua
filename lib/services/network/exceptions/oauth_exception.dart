@@ -5,10 +5,7 @@ class OAuthExpiredException implements Exception {
   final String serviceName;
   final int? statusCode;
 
-  const OAuthExpiredException({
-    required this.serviceName,
-    this.statusCode,
-  });
+  const OAuthExpiredException({required this.serviceName, this.statusCode});
 
   @override
   String toString() => '$serviceName ${S.current.common_authExpired}';

@@ -100,8 +100,7 @@ class PromptPreset {
       name: name ?? this.name,
       iconRaw: iconRaw ?? this.iconRaw,
       promptTemplate: promptTemplate ?? this.promptTemplate,
-      aspectRatio:
-          clearAspectRatio ? null : (aspectRatio ?? this.aspectRatio),
+      aspectRatio: clearAspectRatio ? null : (aspectRatio ?? this.aspectRatio),
       tags: tags ?? this.tags,
       pinned: pinned ?? this.pinned,
       sortOrder: sortOrder ?? this.sortOrder,

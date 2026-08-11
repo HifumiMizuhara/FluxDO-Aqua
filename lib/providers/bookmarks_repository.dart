@@ -210,7 +210,9 @@ class BookmarksRepository {
     } else {
       payload['_bookmark_reminder_at'] = reminderAt.toUtc().toIso8601String();
     }
-    payload['_bookmark_updated_at'] = bookmarkUpdatedAt.toUtc().toIso8601String();
+    payload['_bookmark_updated_at'] = bookmarkUpdatedAt
+        .toUtc()
+        .toIso8601String();
 
     await _dao.upsertOne(
       accountId,

@@ -50,7 +50,10 @@ void main() {
             onRefresh: () async => refreshed++,
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              children: [for (var i = 0; i < 20; i++) SizedBox(height: 40, child: Text('$i'))],
+              children: [
+                for (var i = 0; i < 20; i++)
+                  SizedBox(height: 40, child: Text('$i')),
+              ],
             ),
           ),
         ),

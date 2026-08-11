@@ -35,8 +35,11 @@ void main() {
     expect(d.topicId, 2612595);
 
     // 这一条是**反例护栏**:说明为什么不能用 data.archetypeId
-    expect(d.data.archetypeId, 'regular',
-        reason: 'composer 原型对私信回复也是 regular —— 拿它判私信会漏判');
+    expect(
+      d.data.archetypeId,
+      'regular',
+      reason: 'composer 原型对私信回复也是 regular —— 拿它判私信会漏判',
+    );
   });
 
   test('普通话题回复:不是私信', () {

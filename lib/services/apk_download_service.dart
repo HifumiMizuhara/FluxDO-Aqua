@@ -20,11 +20,7 @@ class ApkDownloadProgress {
   final int progress; // 0-100
   final String? error;
 
-  ApkDownloadProgress({
-    required this.status,
-    this.progress = 0,
-    this.error,
-  });
+  ApkDownloadProgress({required this.status, this.progress = 0, this.error});
 }
 
 /// APK 下载安装服务
@@ -115,7 +111,9 @@ class ApkDownloadService {
           case OtaStatus.DOWNLOAD_ERROR:
             yield ApkDownloadProgress(
               status: ApkDownloadStatus.error,
-              error: S.current.download_failedWithError(event.value ?? S.current.error_unknown),
+              error: S.current.download_failedWithError(
+                event.value ?? S.current.error_unknown,
+              ),
             );
             break;
 
@@ -136,7 +134,9 @@ class ApkDownloadService {
           case OtaStatus.INSTALLATION_ERROR:
             yield ApkDownloadProgress(
               status: ApkDownloadStatus.error,
-              error: S.current.download_installFailed(event.value ?? S.current.error_unknown),
+              error: S.current.download_installFailed(
+                event.value ?? S.current.error_unknown,
+              ),
             );
             break;
 

@@ -24,6 +24,7 @@ class DiscourseDio {
     Duration receiveTimeout = const Duration(seconds: 30),
     Map<String, dynamic>? defaultHeaders,
     String? baseUrl,
+
     /// null 表示不限制（用于下载、MessageBus 等），非 null 启用调度器。
     /// 实际并发数和速率从 [RequestSchedulerConfig] 动态读取。
     int? maxConcurrent = 3,
@@ -31,6 +32,7 @@ class DiscourseDio {
     bool enableCfChallenge = true,
     bool enableCookies = true,
     bool enableNetworkLog = true,
+
     /// true 时强制使用稳定的 NativeAdapter,绕过 _DynamicAdapter 的 rhttp 切换。
     /// 用于 MessageBus 长轮询等需要长期保持连接、依赖系统级省电的场景。
     bool useStableAdapter = false,

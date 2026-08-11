@@ -79,10 +79,7 @@ class MeshGradientPainter extends CustomPainter {
     }
 
     final paint = Paint()..shader = shader;
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, size.width, size.height),
-      paint,
-    );
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paint);
   }
 
   /// 设置颜色 uniform（RGBA 0-1 范围）

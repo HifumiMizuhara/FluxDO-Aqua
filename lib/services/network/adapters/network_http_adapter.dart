@@ -28,7 +28,9 @@ class NetworkHttpAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     if (_closed) {
-      throw StateError("Can't establish connection after the adapter was closed.");
+      throw StateError(
+        "Can't establish connection after the adapter was closed.",
+      );
     }
     return _fetch(options, requestStream, cancelFuture);
   }
@@ -143,7 +145,8 @@ class NetworkHttpAdapter implements HttpClientAdapter {
       responseStream.cast(),
       responseStream.statusCode,
       headers: headers,
-      isRedirect: responseStream.isRedirect || responseStream.redirects.isNotEmpty,
+      isRedirect:
+          responseStream.isRedirect || responseStream.redirects.isNotEmpty,
       redirects: responseStream.redirects
           .map((e) => RedirectRecord(e.statusCode, e.method, e.location))
           .toList(),

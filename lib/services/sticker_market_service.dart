@@ -28,10 +28,12 @@ class StickerMarketService {
   late final Dio _dio;
 
   StickerMarketService(this._prefs) {
-    _dio = Dio(BaseOptions(
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 15),
-    ));
+    _dio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 15),
+      ),
+    );
   }
 
   /// 当前 baseUrl
@@ -131,8 +133,7 @@ class StickerMarketService {
     return raw
         .map((s) {
           try {
-            return StickerItem.fromJson(
-                json.decode(s) as Map<String, dynamic>);
+            return StickerItem.fromJson(json.decode(s) as Map<String, dynamic>);
           } catch (_) {
             return null;
           }
@@ -158,8 +159,9 @@ class StickerMarketService {
     list.insert(0, encoded);
 
     // 限制数量
-    final trimmed =
-        list.length > _maxRecentStickers ? list.sublist(0, _maxRecentStickers) : list;
+    final trimmed = list.length > _maxRecentStickers
+        ? list.sublist(0, _maxRecentStickers)
+        : list;
     await _prefs.setStringList(_recentStickersKey, trimmed);
   }
 
@@ -194,7 +196,9 @@ class StickerMarketService {
     } catch (e) {
       // 网络失败时尝试使用过期缓存
       if (cached != null) {
-        debugPrint('[StickerMarketService] 网络请求失败，使用过期缓存: $e');
+        debugPrint(
+          '[StickerMarketService] 网络请求失败，使用过期缓存: $e',
+        );
         return json.decode(cached) as Map<String, dynamic>;
       }
       rethrow;

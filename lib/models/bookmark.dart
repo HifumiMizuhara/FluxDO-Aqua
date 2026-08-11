@@ -2,11 +2,11 @@ import '../l10n/s.dart';
 
 /// 书签提醒的快捷选项
 enum BookmarkReminderOption {
-  twoHours,    // 2小时后
-  tomorrow,    // 明天
-  threeDays,   // 3天后
-  nextWeek,    // 下周
-  custom,      // 自定义
+  twoHours, // 2小时后
+  tomorrow, // 明天
+  threeDays, // 3天后
+  nextWeek, // 下周
+  custom, // 自定义
 }
 
 /// 书签自动删除偏好

@@ -115,7 +115,10 @@ class ProxyCertificate {
   /// 将 CA 证书发送到原生层，返回是否信任成功
   static Future<bool> _sendCaCertToNative(String pem) async {
     try {
-      final result = await _proxyCertChannel.invokeMethod<bool>('setCaCertPem', pem);
+      final result = await _proxyCertChannel.invokeMethod<bool>(
+        'setCaCertPem',
+        pem,
+      );
       debugPrint('ProxyCertificate: CA cert sent to native, trusted=$result');
       return result ?? false;
     } catch (e) {

@@ -21,7 +21,7 @@ class DownloadService {
       maxConcurrent: null, // 下载不受并发限制
       enableCfChallenge: false, // 下载不需要 CF 验证
     );
-    debugPrint('[DownloadService] 初始化完成');
+    debugPrint('[DownloadService] Initialization complete');
   }
 
   /// 下载文件到本地
@@ -55,7 +55,7 @@ class DownloadService {
         return parseContentDisposition(disposition);
       }
     } catch (e) {
-      debugPrint('[DownloadService] HEAD 请求获取文件名失败: $e');
+      debugPrint('[DownloadService] HEAD request failed to get filename: $e');
     }
     return null;
   }
@@ -66,9 +66,10 @@ class DownloadService {
   /// 回退到 filename="xxx"
   static String? parseContentDisposition(String header) {
     // 优先匹配 filename*=UTF-8''encoded_name
-    final starMatch =
-        RegExp(r"""filename\*\s*=\s*UTF-8''(.+?)(?:;|$)""", caseSensitive: false)
-            .firstMatch(header);
+    final starMatch = RegExp(
+      r"""filename\*\s*=\s*UTF-8''(.+?)(?:;|$)""",
+      caseSensitive: false,
+    ).firstMatch(header);
     if (starMatch != null) {
       final encoded = starMatch.group(1)!.trim();
       try {
@@ -76,9 +77,10 @@ class DownloadService {
       } catch (_) {}
     }
     // 回退：filename="name" 或 filename=name
-    final match =
-        RegExp(r'filename\s*=\s*"?([^";]+)"?', caseSensitive: false)
-            .firstMatch(header);
+    final match = RegExp(
+      r'filename\s*=\s*"?([^";]+)"?',
+      caseSensitive: false,
+    ).firstMatch(header);
     if (match != null) {
       return match.group(1)!.trim();
     }

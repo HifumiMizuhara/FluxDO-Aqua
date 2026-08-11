@@ -60,10 +60,7 @@ class NotionDuplicateException implements Exception {
 /// createPage (前 100 块) → appendBlockChildren (剩余分批) → 写 ExportHistory。
 class NotionSyncService {
   NotionSyncService({required this.config, NotionClient? client})
-    : assert(
-        config.isComplete,
-        'NotionConfig 必须先校验 isComplete 才能创建 service',
-      ),
+    : assert(config.isComplete, 'NotionConfig 必须先校验 isComplete 才能创建 service'),
       _client = client ?? NotionClient(config.integrationToken!);
 
   final NotionConfig config;
@@ -116,7 +113,9 @@ class NotionSyncService {
     // 不转换就会以"冒号包名字"的形式落到 Notion,影响阅读。
     final withEmojis = resolved.emojis.fromShortcodes();
     debugPrint('[NotionSync] resolved markdown:\n$withEmojis');
-    final blocks = markdownToNotionBlocks(_preprocessDiscourseBbcode(withEmojis));
+    final blocks = markdownToNotionBlocks(
+      _preprocessDiscourseBbcode(withEmojis),
+    );
     debugPrint('[NotionSync] generated blocks: ${blocks.length}');
     for (var i = 0; i < blocks.length; i++) {
       final b = blocks[i];
@@ -172,11 +171,7 @@ class NotionSyncService {
             .take(_kChildrenPerRequest)
             .toList();
         onProgress?.call(
-          NotionSyncProgress(
-            SyncPhase.append,
-            current: i + 1,
-            total: batches,
-          ),
+          NotionSyncProgress(SyncPhase.append, current: i + 1, total: batches),
         );
         await _client.appendBlockChildren(pageId, slice);
       }
@@ -211,7 +206,9 @@ class NotionSyncService {
     onProgress?.call(const NotionSyncProgress(SyncPhase.convert));
     final resolved = _resolveUploadShortUrls(markdown, [post]);
     final withEmojis = resolved.emojis.fromShortcodes();
-    final blocks = markdownToNotionBlocks(_preprocessDiscourseBbcode(withEmojis));
+    final blocks = markdownToNotionBlocks(
+      _preprocessDiscourseBbcode(withEmojis),
+    );
 
     // 去重:按 (topicId, postId) 双键。如果 database 没有 Post ID 字段
     // (老用户尚未升级),降级到只按 topicId 查 —— 后果是同一 topic 下任意 post
@@ -225,7 +222,9 @@ class NotionSyncService {
       );
     } on NotionApiException catch (e) {
       if (_looksLikeMissingProperty(e)) {
-        debugPrint('[NotionSync] Post ID property missing, fallback to topicId-only query');
+        debugPrint(
+          '[NotionSync] Post ID property missing, fallback to topicId-only query',
+        );
         existingPageId = await _client.queryPage(
           config.databaseId!,
           topicId: detail.id,
@@ -265,7 +264,9 @@ class NotionSyncService {
       );
     } on NotionApiException catch (e) {
       if (_looksLikeMissingProperty(e)) {
-        debugPrint('[NotionSync] Post ID property missing, fallback to legacy schema');
+        debugPrint(
+          '[NotionSync] Post ID property missing, fallback to legacy schema',
+        );
         // 不带 Post ID
         final legacy = _buildPostProperties(detail: detail, post: post)
           ..remove('Post ID');
@@ -291,11 +292,7 @@ class NotionSyncService {
             .take(_kChildrenPerRequest)
             .toList();
         onProgress?.call(
-          NotionSyncProgress(
-            SyncPhase.append,
-            current: i + 1,
-            total: batches,
-          ),
+          NotionSyncProgress(SyncPhase.append, current: i + 1, total: batches),
         );
         await _client.appendBlockChildren(pageId, slice);
       }
@@ -449,7 +446,9 @@ class NotionSyncService {
         '[NotionSync] post #${post.postNumber} cooked imgs: ${urls.length}',
       );
     }
-    final totalUploadInRaw = RegExp(r'upload://[^\s\)\]<>"]+').allMatches(markdown).length;
+    final totalUploadInRaw = RegExp(
+      r'upload://[^\s\)\]<>"]+',
+    ).allMatches(markdown).length;
     debugPrint('[NotionSync] raw upload:// occurrences: $totalUploadInRaw');
 
     final segments = markdown.split(RegExp(r'\n---\n'));
@@ -525,10 +524,7 @@ class NotionSyncService {
     final converted = raw.replaceAllMapped(detailsRe, (m) {
       final summary = (m.group(1) ?? '详情').trim();
       final body = (m.group(2) ?? '').trim();
-      final quoted = body
-          .split('\n')
-          .map((line) => '> $line')
-          .join('\n');
+      final quoted = body.split('\n').map((line) => '> $line').join('\n');
       return '> ▾ **$summary**\n>\n$quoted';
     });
     return converted;

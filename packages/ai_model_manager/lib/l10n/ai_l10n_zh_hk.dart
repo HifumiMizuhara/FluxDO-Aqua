@@ -80,8 +80,7 @@ class AiL10nZhHK extends AiL10n {
   @override
   String get quickPromptsResetBuiltIns => '恢復內置預設';
   @override
-  String get quickPromptsResetBuiltInsConfirm =>
-      '確定要恢復所有內置快捷詞的預設配置嗎？（不影響自定義）';
+  String get quickPromptsResetBuiltInsConfirm => '確定要恢復所有內置快捷詞的預設配置嗎？（不影響自定義）';
   @override
   String get quickPromptsHide => '隱藏';
   @override
@@ -139,8 +138,7 @@ class AiL10nZhHK extends AiL10n {
   @override
   String get deleteSelectedProviders => '刪除選中';
   @override
-  String confirmDeleteSelectedProviders(int count) =>
-      '確定要刪除選中的 $count 個供應商嗎？';
+  String confirmDeleteSelectedProviders(int count) => '確定要刪除選中的 $count 個供應商嗎？';
   @override
   String modelCount(int enabled, int total) => '$enabled/$total 個模型';
   @override
@@ -302,8 +300,7 @@ class AiL10nZhHK extends AiL10n {
   @override
   String get deleteTopicSessions => '刪除話題會話';
   @override
-  String confirmDeleteTopicSessions(String title) =>
-      '確定要刪除「$title」的所有會話記錄嗎？';
+  String confirmDeleteTopicSessions(String title) => '確定要刪除「$title」的所有會話記錄嗎？';
   @override
   String get justNow => '剛剛';
   @override
@@ -369,8 +366,7 @@ class AiL10nZhHK extends AiL10n {
   @override
   String get partialImagesTitle => '圖像生成漸進幀';
   @override
-  String get partialImagesSubtitle =>
-      '開啟後 gpt-image 系列會先返回模糊草圖再返回終態圖；'
+  String get partialImagesSubtitle => '開啟後 gpt-image 系列會先返回模糊草圖再返回終態圖；'
       '需要 OpenAI 已驗證 organization，未驗證賬號開啟會失敗';
   @override
   String get imagePromptOptimizerModel => '圖像 Prompt 優化模型';
@@ -453,13 +449,11 @@ class AiL10nZhHK extends AiL10n {
 
   // ---- System Prompts ----
   @override
-  String get systemPromptIntro =>
-      '你是一個有幫助的 AI 助手，正在幫助用戶理解和討論一個論壇話題。';
+  String get systemPromptIntro => '你是一個有幫助的 AI 助手，正在幫助用戶理解和討論一個論壇話題。';
   @override
   String systemPromptTopicTitle(String title) => '話題標題：$title';
   @override
-  String get systemPromptContextHint =>
-      '用戶可能會就話題內容向你提問，請基於提供的上下文回答。';
+  String get systemPromptContextHint => '用戶可能會就話題內容向你提問，請基於提供的上下文回答。';
   @override
   String get systemPromptMarkdown => '請用 Markdown 格式回覆。';
   @override

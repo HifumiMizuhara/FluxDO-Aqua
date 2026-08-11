@@ -41,10 +41,7 @@ class WebHistoryNotifier extends StateNotifier<List<WebHistoryItem>> {
 
     final now = DateTime.now();
     final list = state.where((e) => e.url != url).toList();
-    list.insert(
-      0,
-      WebHistoryItem(url: url, title: title, visitedAt: now),
-    );
+    list.insert(0, WebHistoryItem(url: url, title: title, visitedAt: now));
     // 超出上限则截断
     if (list.length > maxWebHistoryItems) {
       state = list.sublist(0, maxWebHistoryItems);
@@ -74,6 +71,6 @@ class WebHistoryNotifier extends StateNotifier<List<WebHistoryItem>> {
 
 final webHistoryProvider =
     StateNotifierProvider<WebHistoryNotifier, List<WebHistoryItem>>((ref) {
-  final prefs = ref.watch(sharedPreferencesProvider);
-  return WebHistoryNotifier(prefs);
-});
+      final prefs = ref.watch(sharedPreferencesProvider);
+      return WebHistoryNotifier(prefs);
+    });

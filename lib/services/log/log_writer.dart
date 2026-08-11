@@ -313,21 +313,23 @@ class LogWriter {
   /// 清空全部日志（当前代 + 轮换代）
   Future<void> clearAll() {
     _buffer.clear();
-    _io = _io.then((_) async {
-      await _closeSink();
-      try {
-        final file = _file;
-        if (file != null && file.existsSync()) {
-          await file.writeAsString('');
-        }
-        final rotatedFile = _rotatedFile;
-        if (rotatedFile != null && rotatedFile.existsSync()) {
-          await rotatedFile.delete();
-        }
-      } catch (_) {}
-      _currentSize = 0;
-      _openSink();
-    }).catchError((_) {});
+    _io = _io
+        .then((_) async {
+          await _closeSink();
+          try {
+            final file = _file;
+            if (file != null && file.existsSync()) {
+              await file.writeAsString('');
+            }
+            final rotatedFile = _rotatedFile;
+            if (rotatedFile != null && rotatedFile.existsSync()) {
+              await rotatedFile.delete();
+            }
+          } catch (_) {}
+          _currentSize = 0;
+          _openSink();
+        })
+        .catchError((_) {});
     return _io;
   }
 

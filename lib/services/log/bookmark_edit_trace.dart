@@ -7,10 +7,7 @@ const String bookmarkEditTraceTag = 'bookmark_edit_trace';
 /// 返回 null 表示原值就是 null（与"空字符串"区分开）。
 Map<String, dynamic>? _redactBookmarkName(String? value) {
   if (value == null) return null;
-  return <String, dynamic>{
-    'length': value.length,
-    'isEmpty': value.isEmpty,
-  };
+  return <String, dynamic>{'length': value.length, 'isEmpty': value.isEmpty};
 }
 
 Map<String, dynamic> buildBookmarkEditTraceEntry({
@@ -44,21 +41,21 @@ Map<String, dynamic> buildBookmarkEditTraceEntry({
     'traceId': traceId,
     'source': source,
     'message': message,
-    'topicId':? topicId,
-    'postId':? postId,
-    'bookmarkId':? bookmarkId,
+    'topicId': ?topicId,
+    'postId': ?postId,
+    'bookmarkId': ?bookmarkId,
     // 书签名脱敏：只记录长度统计，不写原文到持久日志。
-    'bookmarkName':? _redactBookmarkName(bookmarkName),
-    'initialName':? _redactBookmarkName(initialName),
-    'resultName':? _redactBookmarkName(resultName),
-    'bookmarked':? bookmarked,
-    'hasReminder':? hasReminder,
-    'selectedAction':? selectedAction,
-    'cachedSuggestionCount':? cachedSuggestionCount,
-    'seedTopicCount':? seedTopicCount,
-    'deleted':? deleted,
-    'error':? error?.toString(),
-    'stackTrace':? stackTrace?.toString(),
+    'bookmarkName': ?_redactBookmarkName(bookmarkName),
+    'initialName': ?_redactBookmarkName(initialName),
+    'resultName': ?_redactBookmarkName(resultName),
+    'bookmarked': ?bookmarked,
+    'hasReminder': ?hasReminder,
+    'selectedAction': ?selectedAction,
+    'cachedSuggestionCount': ?cachedSuggestionCount,
+    'seedTopicCount': ?seedTopicCount,
+    'deleted': ?deleted,
+    'error': ?error?.toString(),
+    'stackTrace': ?stackTrace?.toString(),
   };
 }
 

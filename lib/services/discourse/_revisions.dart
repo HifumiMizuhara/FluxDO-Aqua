@@ -13,7 +13,9 @@ mixin _RevisionsMixin on _DiscourseServiceBase {
   /// 获取指定版本的编辑历史（含 diff、元变化、导航字段）。
   Future<PostRevision> getPostRevision(int postId, int revision) async {
     try {
-      final response = await _dio.get('/posts/$postId/revisions/$revision.json');
+      final response = await _dio.get(
+        '/posts/$postId/revisions/$revision.json',
+      );
       return PostRevision.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
       _throwApiError(e);
@@ -54,8 +56,9 @@ mixin _RevisionsMixin on _DiscourseServiceBase {
   /// 因此返回的 [Post] 携带递增后的 `version` 与新 `edit_reason`。
   Future<Post> revertPostToRevision(int postId, int revision) async {
     try {
-      final response =
-          await _dio.put('/posts/$postId/revisions/$revision/revert');
+      final response = await _dio.put(
+        '/posts/$postId/revisions/$revision/revert',
+      );
       final data = response.data;
       if (data is Map && data['post'] != null) {
         return Post.fromJson(data['post'] as Map<String, dynamic>);

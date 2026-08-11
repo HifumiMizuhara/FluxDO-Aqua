@@ -22,10 +22,7 @@ mixin _PresenceMixin on _DiscourseServiceBase {
         data: data,
         options: Options(
           contentType: Headers.formUrlEncodedContentType,
-          headers: {
-            'X-SILENCE-LOGGER': 'true',
-            'Discourse-Background': 'true',
-          },
+          headers: {'X-SILENCE-LOGGER': 'true', 'Discourse-Background': 'true'},
           extra: {
             'isSilent': true,
             '_networkLogFields': {
@@ -39,7 +36,9 @@ mixin _PresenceMixin on _DiscourseServiceBase {
       );
       return response.statusCode;
     } on DioException catch (e) {
-      debugPrint('[DiscourseService] topicsTimings failed: ${e.response?.statusCode}');
+      debugPrint(
+        '[DiscourseService] topicsTimings failed: ${e.response?.statusCode}',
+      );
       return e.response?.statusCode;
     }
   }
@@ -48,9 +47,7 @@ mixin _PresenceMixin on _DiscourseServiceBase {
   Future<PresenceResponse> getPresence(int topicId) async {
     final response = await _dio.get(
       '/presence/get',
-      queryParameters: {
-        'channels[]': '/discourse-presence/reply/$topicId',
-      },
+      queryParameters: {'channels[]': '/discourse-presence/reply/$topicId'},
     );
     return PresenceResponse.fromJson(response.data, topicId);
   }
@@ -63,9 +60,7 @@ mixin _PresenceMixin on _DiscourseServiceBase {
     if (!isAuthenticated) return;
 
     final clientId = MessageBusService().clientId;
-    final data = <String, dynamic>{
-      'client_id': clientId,
-    };
+    final data = <String, dynamic>{'client_id': clientId};
 
     if (presentChannels != null && presentChannels.isNotEmpty) {
       data['present_channels[]'] = presentChannels;
@@ -80,15 +75,14 @@ mixin _PresenceMixin on _DiscourseServiceBase {
         data: data,
         options: Options(
           contentType: Headers.formUrlEncodedContentType,
-          headers: {
-            'X-SILENCE-LOGGER': 'true',
-            'Discourse-Background': 'true',
-          },
+          headers: {'X-SILENCE-LOGGER': 'true', 'Discourse-Background': 'true'},
           extra: {'isSilent': true},
         ),
       );
     } on DioException catch (e) {
-      debugPrint('[DiscourseService] updatePresence failed: ${e.response?.statusCode}');
+      debugPrint(
+        '[DiscourseService] updatePresence failed: ${e.response?.statusCode}',
+      );
     }
   }
 

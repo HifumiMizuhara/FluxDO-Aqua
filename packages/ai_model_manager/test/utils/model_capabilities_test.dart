@@ -160,12 +160,12 @@ void main() {
           input: const [Modality.text, Modality.image],
           abilities: const [ModelAbility.tool],
         );
-        expect(ModelCapabilities.hasCapability(m, ModelCapability.vision),
-            isTrue);
+        expect(
+            ModelCapabilities.hasCapability(m, ModelCapability.vision), isTrue);
         expect(ModelCapabilities.hasCapability(m, ModelCapability.imageOutput),
             isFalse);
-        expect(ModelCapabilities.hasCapability(m, ModelCapability.tool),
-            isTrue);
+        expect(
+            ModelCapabilities.hasCapability(m, ModelCapability.tool), isTrue);
         expect(ModelCapabilities.hasCapability(m, ModelCapability.reasoning),
             isFalse);
       });

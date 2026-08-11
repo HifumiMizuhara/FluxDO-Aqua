@@ -26,16 +26,12 @@ final notionConfigProvider =
         repo: repo,
         accountIdResolver: () => ref.read(currentUsernameProvider.future),
       );
-      ref.listen<AsyncValue<String?>>(
-        currentUsernameProvider,
-        (prev, next) {
-          final id = next.asData?.value;
-          if (id != null && id.isNotEmpty) {
-            notifier.onAccountIdResolved(id);
-          }
-        },
-        fireImmediately: true,
-      );
+      ref.listen<AsyncValue<String?>>(currentUsernameProvider, (prev, next) {
+        final id = next.asData?.value;
+        if (id != null && id.isNotEmpty) {
+          notifier.onAccountIdResolved(id);
+        }
+      }, fireImmediately: true);
       return notifier;
     });
 

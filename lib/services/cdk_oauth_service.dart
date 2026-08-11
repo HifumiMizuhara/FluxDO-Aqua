@@ -106,7 +106,9 @@ class CdkOAuthService {
     }
 
     final document = html_parser.parse(response.data);
-    final approveLink = document.querySelector('a[href*="/oauth2/approve/"]')?.attributes['href'];
+    final approveLink = document
+        .querySelector('a[href*="/oauth2/approve/"]')
+        ?.attributes['href'];
 
     if (!context.mounted) return false;
     if (approveLink == null) {

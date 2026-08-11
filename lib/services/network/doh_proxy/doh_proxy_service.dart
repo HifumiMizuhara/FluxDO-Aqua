@@ -244,7 +244,9 @@ class DohProxyService {
           password: upstreamPassword,
           cipher: upstreamCipher,
         );
-        NetworkLogger.log('[DOH] FFI 代理已启动，端口: $_port');
+        NetworkLogger.log(
+          '[DOH] FFI 代理已启动，端口: $_port',
+        );
         return true;
       });
     } catch (e) {
@@ -431,7 +433,7 @@ class DohProxyService {
       await _ensureFfiStopped();
       NetworkLogger.log('[DOH] FFI 代理已停止');
     } catch (e) {
-      NetworkLogger.log('[DOH] FFI 停止异常: $e');
+      NetworkLogger.log('[DOH] FFI stopexception: $e');
     }
   }
 
@@ -601,7 +603,9 @@ class DohProxyService {
       final running = status['running'] as bool? ?? false;
       if (!running) {
         // Rust 侧已停止，同步 Dart 侧状态
-        NetworkLogger.log('[DOH] 健康检查: Rust 代理已停止，同步 Dart 状态');
+        NetworkLogger.log(
+          '[DOH] 健康检查: Rust 代理已停止，同步 Dart 状态',
+        );
         _cleanup();
       }
       return running;
@@ -837,9 +841,9 @@ class DohProxyService {
     response.close();
     if (result is Map && result['ok'] != true) {
       if (result['error'] != null) {
-        NetworkLogger.log('[DOH] FFI 停止失败: ${result['error']}');
+        NetworkLogger.log('[DOH] FFI stopfailed: ${result['error']}');
       } else {
-        NetworkLogger.log('[DOH] FFI 停止失败: unknown error');
+        NetworkLogger.log('[DOH] FFI stopfailed: unknown error');
       }
     }
   }
@@ -1032,7 +1036,9 @@ class DohProxyService {
       if (!running) return;
       await Future<void>.delayed(interval);
     }
-    NetworkLogger.log('[DOH] FFI 停止超时，可能仍占用端口');
+    NetworkLogger.log(
+      'username': username ?? '',
+    );
   }
 
   String? _buildUpstreamSignature({

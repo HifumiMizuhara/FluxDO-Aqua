@@ -65,10 +65,7 @@ Future<void> _appRebuild(List<String> args) async {
   );
 }
 
-Future<void> _testAll(
-  List<String> args, {
-  bool includePrep = true,
-}) async {
+Future<void> _testAll(List<String> args, {bool includePrep = true}) async {
   if (includePrep) {
     await _runProjectPrep('test');
   }
@@ -241,9 +238,9 @@ List<_FlutterTestTask> _buildWorkspaceTestTasks(List<String> args) {
       continue;
     }
 
-    targetPackages.putIfAbsent(resolvedTarget.packagePath, () => <String>[]).add(
-      resolvedTarget.relativeTarget,
-    );
+    targetPackages
+        .putIfAbsent(resolvedTarget.packagePath, () => <String>[])
+        .add(resolvedTarget.relativeTarget);
   }
 
   if (targetPackages.isEmpty) {
@@ -259,7 +256,9 @@ List<_FlutterTestTask> _buildWorkspaceTestTasks(List<String> args) {
   }
 
   return testPackages
-      .where((testPackage) => targetPackages.containsKey(testPackage.packagePath))
+      .where(
+        (testPackage) => targetPackages.containsKey(testPackage.packagePath),
+      )
       .map(
         (testPackage) => _FlutterTestTask(
           label: testPackage.label,
@@ -293,7 +292,9 @@ List<_WorkspaceTestPackage> _workspaceTestPackages() {
         packagesRoot
             .listSync(followLinks: false)
             .whereType<Directory>()
-            .where((directory) => Directory('${directory.path}/test').existsSync())
+            .where(
+              (directory) => Directory('${directory.path}/test').existsSync(),
+            )
             .toList(growable: false)
           ..sort((a, b) => a.path.compareTo(b.path));
 
@@ -339,10 +340,9 @@ _ExplicitTestTarget? _resolveExplicitTestTarget(
       continue;
     }
 
-    final relativeTarget =
-        absolutePath == testRootPath
-            ? 'test'
-            : 'test/${absolutePath.substring(testRootPath.length + 1)}';
+    final relativeTarget = absolutePath == testRootPath
+        ? 'test'
+        : 'test/${absolutePath.substring(testRootPath.length + 1)}';
 
     return _ExplicitTestTarget(
       packagePath: testPackage.packagePath,
@@ -364,10 +364,9 @@ bool _flutterTestOptionConsumesNextValue(String arg) {
 }
 
 String _normalizeTestPath(String path) {
-  final normalized =
-      path
-          .replaceAll('/', Platform.pathSeparator)
-          .replaceAll('\\', Platform.pathSeparator);
+  final normalized = path
+      .replaceAll('/', Platform.pathSeparator)
+      .replaceAll('\\', Platform.pathSeparator);
   if (Platform.isWindows) {
     return normalized.replaceAll(RegExp(r'[\\\/]+$'), '').toLowerCase();
   }
@@ -829,7 +828,12 @@ Future<_AutoPrepareCheck> _checkDesktopAutoPrepare(
       ? _macOsVariantKey(_resolveMacOsArch(await _detectMacOsHostArch()))
       : null;
 
-  if (_nativeStageCurrent(target, mode, stagedOutputs, variantKey: variantKey)) {
+  if (_nativeStageCurrent(
+    target,
+    mode,
+    stagedOutputs,
+    variantKey: variantKey,
+  )) {
     return const _AutoPrepareCheck.ready();
   }
 

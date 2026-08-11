@@ -570,7 +570,9 @@ class CfChallengeService {
       // 验证失败，恢复备份的 cf_clearance（避免丢失可能仍有效的值）
       if (backupCfClearance != null) {
         await cookieJarService.restoreCfClearance(backupCfClearance);
-        debugPrint('[CfChallenge] 验证失败，已恢复备份 cf_clearance');
+        debugPrint(
+          '[CfChallenge] 验证失败，已恢复备份 cf_clearance',
+        );
       }
       // 验证失败，启动冷却期
       startCooldown();
@@ -723,7 +725,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
         return cookie.value;
       }
     } catch (e) {
-      debugPrint('[CfChallenge] CookieManager 读取 $name 失败: $e');
+      debugPrint('[CfChallenge] CookieManager read $name failed: $e');
     }
 
     // Windows：通过当前页面 controller 读取实时 cookie，再回退到 CookieJar
@@ -1001,7 +1003,9 @@ class _CfChallengePageState extends State<CfChallengePage> {
     if (_hasPopped) return;
     final url = args.isNotEmpty ? args[0] : '';
     final status = args.length > 1 ? args[1] : 0;
-    debugPrint('[CfChallenge] challenge-platform 响应: url=$url, status=$status');
+    debugPrint(
+      '[CfChallenge] challenge-platform response: url=$url, status=$status',
+    );
     CfChallengeLogger.log(
       '[VERIFY] Challenge response: url=$url, status=$status',
     );
@@ -1010,13 +1014,17 @@ class _CfChallengePageState extends State<CfChallengePage> {
       final cookieValue = await _readCookieValue('cf_clearance');
 
       if (cookieValue == null || cookieValue.isEmpty) {
-        debugPrint('[CfChallenge] 未检测到 cf_clearance，等待后续响应');
+        debugPrint(
+          '[CfChallenge] ⚠️ syncFromWebView 后 CookieJar 中未找到 cf_clearance',
+        );
         return;
       }
 
       // 关键：对比初始快照，过滤掉未被清除干净的旧值
       if (!_isFreshClearance(cookieValue)) {
-        debugPrint('[CfChallenge] cf_clearance 与初始值相同（旧值残留），忽略');
+        debugPrint(
+          '[CfChallenge] cf_clearance 已同步到 CookieJar (${synced.length} chars)',
+        );
         return;
       }
 
@@ -1027,7 +1035,9 @@ class _CfChallengePageState extends State<CfChallengePage> {
         source: 'document.body ? document.body.innerHTML : ""',
       );
       if (html != null && CfChallengeService.hasActiveCfChallenge(html)) {
-        debugPrint('[CfChallenge] 检测到新 cf_clearance 但页面仍在验证中，继续等待');
+        debugPrint(
+          '[CfChallenge] cf_clearance 已同步到 CookieJar (${synced.length} chars)',
+        );
         return;
       }
 
@@ -1069,7 +1079,9 @@ class _CfChallengePageState extends State<CfChallengePage> {
       // 已经覆盖中，不必重复触发 fallback 流程
       return;
     }
-    debugPrint('[CfChallenge] JS 导航事件 ($reason)，立刻覆盖 WebView');
+    debugPrint(
+      '[CfChallenge] JS 导航事件 ($reason)，立刻覆盖 WebView',
+    );
     CfChallengeLogger.log('[VERIFY] JS navigation: $reason');
     await _handleVerifyOriginFallback(
       _loadGeneration,
@@ -1158,7 +1170,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
           completionLikely: _hasSeenChallenge,
         );
       } catch (e) {
-        debugPrint('[CfChallenge] 检测 challenge 状态异常: $e');
+        debugPrint('[CfChallenge] detect challenge stateexception: $e');
       }
     });
   }
@@ -1217,7 +1229,9 @@ class _CfChallengePageState extends State<CfChallengePage> {
         );
       }
 
-      debugPrint('[CfChallenge] fallback/completion 结束仍无新 cf_clearance');
+      debugPrint(
+        '[CfChallenge] fallback/completion 期间检测到新 cf_clearance，自动完成',
+      );
       CfChallengeLogger.logVerifyResult(
         success: false,
         reason: reason ?? 'no fresh cf_clearance after completion probe',
@@ -1234,7 +1248,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
         });
       }
     } catch (e) {
-      debugPrint('[CfChallenge] 处理 fallback 异常: $e');
+      debugPrint('[CfChallenge] handle fallback exception: $e');
     } finally {
       _checkingOriginFallback = false;
       if (mounted &&
@@ -1433,7 +1447,9 @@ class _CfChallengePageState extends State<CfChallengePage> {
     if (navigationAction.isForMainFrame == true &&
         _hasSeenChallenge &&
         _isBareVerifyUrl(url)) {
-      debugPrint('[CfChallenge] 验证完成后准备加载 /challenge，提前覆盖并等待状态码');
+      debugPrint(
+        '[VERIFY] Post-challenge navigation to ${url?.toString() ?? ''}',
+      );
       CfChallengeLogger.log(
         '[VERIFY] Post-challenge navigation to ${url?.toString() ?? ''}',
       );
@@ -1532,7 +1548,9 @@ class _CfChallengePageState extends State<CfChallengePage> {
     _challengeRevealProbeGeneration++;
     _revealStateWatchGeneration++;
 
-    debugPrint('[CfChallenge] $reason，按网络状态判定验证完成');
+    debugPrint(
+      '[CfChallenge] $reason，按网络状态判定验证完成',
+    );
     CfChallengeLogger.logVerifyResult(success: true, reason: reason);
     if (headers != null) {
       CfChallengeLogger.log('[VERIFY] Passed response headers: $headers');
@@ -1551,7 +1569,9 @@ class _CfChallengePageState extends State<CfChallengePage> {
             : null,
       );
     } catch (e) {
-      debugPrint('[CfChallenge] 按网络状态完成时后台同步 cookie 失败: $e');
+      debugPrint(
+        '[CfChallenge] 按网络状态完成时后台同步 cookie 失败: $e',
+      );
     }
   }
 
@@ -1625,7 +1645,9 @@ class _CfChallengePageState extends State<CfChallengePage> {
 
           // 页面无挑战。要么是 CF 已完成跳走，要么是源站 404 渲染出来。
           // 统一交给 fallback 流程：先轮询 cf_clearance，没拿到再给用户重试入口。
-          debugPrint('[CfChallenge] reveal 后检测到页面无挑战，主动覆盖并探测 cf_clearance');
+          debugPrint(
+            '[CfChallenge] reveal 后检测到页面无挑战，主动覆盖并探测 cf_clearance',
+          );
           unawaited(
             _handleVerifyOriginFallback(
               loadGeneration,
@@ -1635,7 +1657,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
           );
           return;
         } catch (e) {
-          debugPrint('[CfChallenge] reveal watcher 检测异常: $e');
+          debugPrint('[CfChallenge] reveal watcher detectexception: $e');
         }
       }
     }());
@@ -1662,7 +1684,9 @@ class _CfChallengePageState extends State<CfChallengePage> {
             return;
           }
         } catch (e) {
-          debugPrint('[CfChallenge] 检测验证页可见状态异常: $e');
+          debugPrint(
+            '[CfChallenge] 检测验证页可见状态异常: $e',
+          );
         }
 
         await Future.delayed(const Duration(milliseconds: 250));

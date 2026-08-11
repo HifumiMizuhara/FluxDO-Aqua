@@ -114,7 +114,10 @@ void main() {
     expect(topics.first.bookmarkId, 70);
     expect(topics.last.bookmarkId, 70 - 29);
     expect(container.read(bookmarksProvider.notifier).hasMore, isTrue);
-    expect(container.read(bookmarksProvider.notifier).isLoadMoreFailed, isFalse);
+    expect(
+      container.read(bookmarksProvider.notifier).isLoadMoreFailed,
+      isFalse,
+    );
   });
 
   test('本地总数 ≤ pageSize 时首屏全量 + hasMore=false', () async {

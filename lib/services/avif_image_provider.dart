@@ -72,7 +72,10 @@ Future<ui.Codec?> _tryPlatformAvifCodec(Uint8List bytes, {int? maxDim}) async {
 bool _looksAnimatedAvif(Uint8List bytes) {
   if (bytes.length < 16) return false;
   // offset 4..8 应为 'ftyp'
-  if (bytes[4] != 0x66 || bytes[5] != 0x74 || bytes[6] != 0x79 || bytes[7] != 0x70) {
+  if (bytes[4] != 0x66 ||
+      bytes[5] != 0x74 ||
+      bytes[6] != 0x79 ||
+      bytes[7] != 0x70) {
     return false;
   }
   bool isAnimBrand(int o) {
@@ -82,7 +85,8 @@ bool _looksAnimatedAvif(Uint8List bytes) {
 
   if (isAnimBrand(8)) return true; // major brand
   // compatible brands:16..ftyp box 末尾,4 字节一个
-  final boxSize = (bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3];
+  final boxSize =
+      (bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3];
   final end = boxSize.clamp(16, bytes.length);
   for (var o = 16; o + 4 <= end; o += 4) {
     if (isAnimBrand(o)) return true;
@@ -222,8 +226,10 @@ class AvifImageProvider extends ImageProvider<AvifImageProvider> {
   static Future<fa.AvifCodec> _createCodec(AvifImageProvider key) async {
     final bytes = await BlobImageCache.fetch(key.bucket, key.url);
     if (!_avifPlatformCodecUnavailable && !_looksAnimatedAvif(bytes)) {
-      final platformCodec =
-          await _tryPlatformAvifCodec(bytes, maxDim: key.maxDimension);
+      final platformCodec = await _tryPlatformAvifCodec(
+        bytes,
+        maxDim: key.maxDimension,
+      );
       if (platformCodec != null) {
         return _PlatformAvifCodec(platformCodec);
       }
@@ -345,9 +351,7 @@ class AvifImageProvider extends ImageProvider<AvifImageProvider> {
     return ImageInfo(image: displayImage, scale: key.scale);
   }
 
-  static Future<Uint8List?> _readCachedThumbnailBytes(
-    String thumbKey,
-  ) async {
+  static Future<Uint8List?> _readCachedThumbnailBytes(String thumbKey) async {
     final bytes = await BlobImageCache.read(
       BlobImageCache.stickerThumbBucket,
       thumbKey,
@@ -573,8 +577,8 @@ class _AvifAnimatedImageStreamCompleter extends ImageStreamCompleter {
     this.singleFrame = false,
     this.maxDimension,
     VoidCallback? onError,
-  })  : _codecFactory = codecFactory,
-        _onError = onError;
+  }) : _codecFactory = codecFactory,
+       _onError = onError;
 
   final Future<fa.AvifCodec> Function() _codecFactory;
   final double scale;

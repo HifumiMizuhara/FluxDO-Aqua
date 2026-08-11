@@ -185,11 +185,16 @@ class QrLoginService {
       username: resolvedUsername,
     );
     final raw = encodePayload(payload);
-    _log('info', 'qr_login_payload_built', '已生成扫码登录 API Key 二维码', {
-      'username': resolvedUsername,
-      'apiKeyLen': created.apiKey.length,
-      'otpLen': created.otp.length,
-    });
+    _log(
+      'info',
+      'qr_login_payload_built',
+      '已生成扫码登录 API Key 二维码',
+      {
+        'username': resolvedUsername,
+        'apiKeyLen': created.apiKey.length,
+        'otpLen': created.otp.length,
+      },
+    );
     return (raw: raw, payload: payload);
   }
 
@@ -249,9 +254,12 @@ class QrLoginService {
       rethrow;
     } catch (e, st) {
       debugPrint('[QrLogin] 应用登录态失败: $e\n$st');
-      _log('warning', 'qr_login_apply_failed', '扫码登录收口失败', {
-        'error': e.toString(),
-      });
+      _log(
+        'warning',
+        'qr_login_apply_failed',
+        '/u/$name.json',
+        {'error': e.toString()},
+      );
       throw QrLoginException(QrLoginError.applyFailed, '登录失败: $e');
     }
   }
@@ -342,9 +350,7 @@ String? _decodeQrInIsolate(Uint8List bytes) {
   if (image == null) return null;
 
   // 大图缩到合理宽度,加快解码且不伤识别
-  final src = image.width > 1200
-      ? img.copyResize(image, width: 1200)
-      : image;
+  final src = image.width > 1200 ? img.copyResize(image, width: 1200) : image;
 
   final abgr = src
       .convert(numChannels: 4)

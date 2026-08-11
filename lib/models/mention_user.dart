@@ -3,7 +3,10 @@ import '../utils/url_helper.dart';
 /// 从文本中提取所有 @用户名
 /// 返回不重复的用户名列表（不含 @）
 List<String> extractMentionNames(String text) {
-  final mentionRegex = RegExp(r'(?<=^|\s)@([\w_-]+)(?=\s|$|[,.!?;:]|\))', multiLine: true);
+  final mentionRegex = RegExp(
+    r'(?<=^|\s)@([\w_-]+)(?=\s|$|[,.!?;:]|\))',
+    multiLine: true,
+  );
   final matches = mentionRegex.allMatches(text);
   final names = <String>{};
   for (final match in matches) {
@@ -81,18 +84,17 @@ class MentionSearchResult {
   final List<MentionUser> users;
   final List<MentionGroup> groups;
 
-  const MentionSearchResult({
-    required this.users,
-    required this.groups,
-  });
+  const MentionSearchResult({required this.users, required this.groups});
 
   factory MentionSearchResult.fromJson(Map<String, dynamic> json) {
     return MentionSearchResult(
-      users: (json['users'] as List<dynamic>?)
+      users:
+          (json['users'] as List<dynamic>?)
               ?.map((e) => MentionUser.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      groups: (json['groups'] as List<dynamic>?)
+      groups:
+          (json['groups'] as List<dynamic>?)
               ?.map((e) => MentionGroup.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
@@ -104,9 +106,9 @@ class MentionSearchResult {
 
   /// 合并的结果列表（用于 UI 展示）
   List<MentionItem> get items => [
-        ...users.map((u) => MentionItem.user(u)),
-        ...groups.map((g) => MentionItem.group(g)),
-      ];
+    ...users.map((u) => MentionItem.user(u)),
+    ...groups.map((g) => MentionItem.group(g)),
+  ];
 }
 
 /// 统一的提及项（用户或群组）
@@ -134,16 +136,16 @@ class MentionItem {
 class MentionCheckResult {
   /// 有效的用户名列表
   final List<String> validUsernames;
-  
+
   /// 有效的群组名列表（带 mentionable/messageable 信息）
   final Map<String, MentionableGroup> validGroups;
-  
+
   /// 无法提及的用户名列表
   final List<String> cannotSee;
-  
+
   /// 超出最大群组成员数的群组
   final List<String> groupsExceedMembersLimit;
-  
+
   /// 无效的群组
   final List<String> invalidGroups;
 
@@ -165,20 +167,24 @@ class MentionCheckResult {
     });
 
     return MentionCheckResult(
-      validUsernames: (json['valid'] as List<dynamic>?)
+      validUsernames:
+          (json['valid'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           [],
       validGroups: validGroups,
-      cannotSee: (json['cannot_see'] as List<dynamic>?)
+      cannotSee:
+          (json['cannot_see'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           [],
-      groupsExceedMembersLimit: (json['groups_with_too_many_members'] as List<dynamic>?)
+      groupsExceedMembersLimit:
+          (json['groups_with_too_many_members'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           [],
-      invalidGroups: (json['invalid_groups'] as List<dynamic>?)
+      invalidGroups:
+          (json['invalid_groups'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           [],
@@ -187,7 +193,7 @@ class MentionCheckResult {
 
   /// 检查用户名是否有效
   bool isValidUsername(String username) => validUsernames.contains(username);
-  
+
   /// 检查群组名是否可提及
   bool isValidGroup(String groupName) => validGroups.containsKey(groupName);
 }
@@ -197,10 +203,7 @@ class MentionableGroup {
   final bool userCount;
   final int maxMentions;
 
-  const MentionableGroup({
-    this.userCount = false,
-    this.maxMentions = 0,
-  });
+  const MentionableGroup({this.userCount = false, this.maxMentions = 0});
 
   factory MentionableGroup.fromJson(Map<String, dynamic> json) {
     return MentionableGroup(

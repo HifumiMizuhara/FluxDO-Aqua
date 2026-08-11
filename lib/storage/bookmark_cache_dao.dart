@@ -157,10 +157,7 @@ class BookmarkCacheDao {
   Future<void> upsertOne(String accountId, BookmarkCacheEntry entry) async {
     final box = await _boxFactory(accountId);
     final now = DateTime.now().toUtc().toIso8601String();
-    await box.put(
-      entry.bookmarkId,
-      _entryToBox(entry, fallbackCachedAt: now),
-    );
+    await box.put(entry.bookmarkId, _entryToBox(entry, fallbackCachedAt: now));
   }
 
   Future<void> deleteByIds(String accountId, Set<int> bookmarkIds) async {

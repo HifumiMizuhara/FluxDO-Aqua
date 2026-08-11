@@ -52,7 +52,8 @@ class AiStreamHttpClient extends http.BaseClient {
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     if (_closed) {
-      throw http.ClientException('AiStreamHttpClient has been closed.', request.url);
+      throw http.ClientException(
+          'AiStreamHttpClient has been closed.', request.url);
     }
 
     final body = await request.finalize().toBytes();

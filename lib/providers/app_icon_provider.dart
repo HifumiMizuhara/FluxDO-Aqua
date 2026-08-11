@@ -27,10 +27,7 @@ class AppIconState {
     this.isChanging = false,
   });
 
-  AppIconState copyWith({
-    AppIconStyle? currentStyle,
-    bool? isChanging,
-  }) {
+  AppIconState copyWith({AppIconStyle? currentStyle, bool? isChanging}) {
     return AppIconState(
       currentStyle: currentStyle ?? this.currentStyle,
       isChanging: isChanging ?? this.isChanging,
@@ -41,8 +38,9 @@ class AppIconState {
 /// 应用图标管理
 class AppIconNotifier extends StateNotifier<AppIconState> {
   static const String _prefKey = 'pref_app_icon';
-  static const _platformChannel =
-      MethodChannel('com.github.lingyan000.fluxdo/app_icon');
+  static const _platformChannel = MethodChannel(
+    'com.github.lingyan000.fluxdo/app_icon',
+  );
   final SharedPreferences _prefs;
 
   AppIconNotifier(this._prefs) : super(const AppIconState()) {
@@ -110,8 +108,9 @@ class AppIconNotifier extends StateNotifier<AppIconState> {
   Future<String?> _setPlatformIcon(String? iconName) async {
     if (kIsWeb) return null;
     if (Platform.isAndroid) {
-      await _platformChannel
-          .invokeMethod('setAlternateIcon', {'iconName': iconName});
+      await _platformChannel.invokeMethod('setAlternateIcon', {
+        'iconName': iconName,
+      });
       return iconName;
     } else if (Platform.isIOS) {
       return await _platformChannel.invokeMethod<String>('setAlternateIcon', {
@@ -124,7 +123,9 @@ class AppIconNotifier extends StateNotifier<AppIconState> {
   Future<bool> _supportsAlternateIcons() async {
     if (kIsWeb) return false;
     if (Platform.isIOS) {
-      return (await _platformChannel.invokeMethod<bool>('supportsAlternateIcons')) ??
+      return (await _platformChannel.invokeMethod<bool>(
+            'supportsAlternateIcons',
+          )) ??
           false;
     }
     return true;
@@ -133,7 +134,9 @@ class AppIconNotifier extends StateNotifier<AppIconState> {
   Future<String?> _getCurrentIconName() async {
     if (kIsWeb) return null;
     if (Platform.isIOS) {
-      return await _platformChannel.invokeMethod<String>('getAlternateIconName');
+      return await _platformChannel.invokeMethod<String>(
+        'getAlternateIconName',
+      );
     }
     return _getIconName(state.currentStyle);
   }
@@ -178,10 +181,7 @@ class AppIconNotifier extends StateNotifier<AppIconState> {
 
       await _prefs.setString(_prefKey, _styleToPrefValue(style));
 
-      state = state.copyWith(
-        currentStyle: style,
-        isChanging: false,
-      );
+      state = state.copyWith(currentStyle: style, isChanging: false);
       return true;
     } on PlatformException catch (e) {
       _logPlatformIconException(e);
@@ -197,8 +197,9 @@ class AppIconNotifier extends StateNotifier<AppIconState> {
 }
 
 /// 应用图标 Provider
-final appIconProvider =
-    StateNotifierProvider<AppIconNotifier, AppIconState>((ref) {
+final appIconProvider = StateNotifierProvider<AppIconNotifier, AppIconState>((
+  ref,
+) {
   final prefs = ref.watch(sharedPreferencesProvider);
   return AppIconNotifier(prefs);
 });

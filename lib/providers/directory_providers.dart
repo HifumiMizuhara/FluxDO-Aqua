@@ -5,9 +5,7 @@ import 'core_providers.dart';
 
 /// connect.linux.do 统计 Provider
 final connectStatsProvider = FutureProvider<ConnectStats?>((ref) async {
-  final user = ref.watch(
-    currentUserProvider.select((value) => value.value),
-  );
+  final user = ref.watch(currentUserProvider.select((value) => value.value));
   if (user == null) return null;
 
   final dio = DiscourseDio.create();

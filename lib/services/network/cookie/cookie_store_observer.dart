@@ -100,8 +100,7 @@ class CookieStoreObserver {
         final results = await SessionCookieSentinel.instance.sweepAll(url);
         final mismatch = results
             .where(
-              (r) => r.variantsBefore != r.variantsAfter ||
-                  r.variantsAfter > 1,
+              (r) => r.variantsBefore != r.variantsAfter || r.variantsAfter > 1,
             )
             .toList();
         if (mismatch.isNotEmpty) {

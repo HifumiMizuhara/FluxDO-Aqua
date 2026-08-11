@@ -68,7 +68,7 @@ class MediaGeometryMemo {
         }
       }
     } catch (e) {
-      debugPrint('[MediaGeometryMemo] load 失败: $e');
+      debugPrint('[MediaGeometryMemo] load failed: $e');
     }
   }
 
@@ -80,7 +80,7 @@ class MediaGeometryMemo {
       };
       await file.writeAsString(jsonEncode(out), flush: false);
     } catch (e) {
-      debugPrint('[MediaGeometryMemo] save 失败: $e');
+      debugPrint('[MediaGeometryMemo] save failed: $e');
     }
   }
 }

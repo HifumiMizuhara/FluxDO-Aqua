@@ -195,7 +195,9 @@ class BoundarySyncService {
         if (isSessionCookie &&
             lowConfidenceSnapshot &&
             !allowLowConfidenceSessionCookies) {
-          debugPrint('[BoundarySync] ${wc.name}: 跳过低置信度会话 Cookie 快照');
+          debugPrint(
+            '[BoundarySync] ${wc.name}: 跳过低置信度会话 Cookie 快照',
+          );
           continue;
         }
 
@@ -240,7 +242,9 @@ class BoundarySyncService {
             // jar 也没有 → 兜底为 .{host}（domain cookie）
             // 宁可多发到子域名，不能因为 host-only 导致子域名拿不到关键 cookie
             domain = '.$host';
-            debugPrint('[BoundarySync] ${wc.name}: domain=null, 兜底为 .$host');
+            debugPrint(
+              '[BoundarySync] ${wc.name}: domain=null, 继承 jar 已有 domain=${existing.domain}',
+            );
           }
         }
 
@@ -281,7 +285,9 @@ class BoundarySyncService {
       }
 
       if (toSave.isEmpty) {
-        debugPrint('[BoundarySync] 未从 WebView 读取到有效 cookie: url=$url');
+        debugPrint(
+          'gen=$requestGeneration current=${AuthSession().generation}',
+        );
         return;
       }
 
@@ -652,7 +658,9 @@ class BoundarySyncService {
     List<Cookie> cookies,
   ) {
     final valueHashes =
-        cookies.map((cookie) => (cookie.value?.toString() ?? '').hashCode).toList()
+        cookies
+            .map((cookie) => (cookie.value?.toString() ?? '').hashCode)
+            .toList()
           ..sort();
     return '$host|$name|${valueHashes.join(',')}';
   }

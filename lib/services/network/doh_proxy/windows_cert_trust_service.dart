@@ -50,7 +50,7 @@ class WindowsCertTrustService {
       final der = base64.decode(match.group(1)!.replaceAll(RegExp(r'\s'), ''));
       return sha1.convert(der).toString();
     } catch (e) {
-      debugPrint('[WinCertTrust] CA PEM 解析失败: $e');
+      debugPrint('[WinCertTrust] CA PEM parsefailed: $e');
       return null;
     }
   }
@@ -105,7 +105,7 @@ class WindowsCertTrustService {
       debugPrint('[WinCertTrust] CA 已加入用户根信任库');
       return true;
     } catch (e) {
-      debugPrint('[WinCertTrust] 安装失败: $e');
+      debugPrint('[WinCertTrust] installfailed: $e');
       return false;
     } finally {
       try {

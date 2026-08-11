@@ -132,8 +132,7 @@ class ExportHistoryEntry {
 }
 
 /// 注入式 box 工厂。
-typedef ExportHistoryBoxFactory =
-    Future<Box<Map>> Function(String accountId);
+typedef ExportHistoryBoxFactory = Future<Box<Map>> Function(String accountId);
 
 /// 导出历史 DAO，账号维度隔离（每账号一个 box）。
 ///
@@ -202,9 +201,7 @@ class ExportHistoryDao {
       ),
       sourceTopicId: (raw[_kTopicId] as num).toInt(),
       sourceTitle: (raw[_kTitle] as String?) ?? '',
-      format: ExportHistoryFormat.fromCode(
-        (raw[_kFormat] as String?) ?? 'md',
-      ),
+      format: ExportHistoryFormat.fromCode((raw[_kFormat] as String?) ?? 'md'),
       targetType: ExportHistoryTarget.fromCode(
         (raw[_kTargetType] as String?) ?? 'local_file',
       ),

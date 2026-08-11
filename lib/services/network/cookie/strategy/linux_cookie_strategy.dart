@@ -20,7 +20,9 @@ class LinuxCookieStrategy extends DefaultCookieStrategy {
           .where((c) => CookieJarService.matchesAppHost(c.domain))
           .toList();
     } catch (e) {
-      debugPrint('[CookieStrategy][Linux] getAllCookies failed, falling back: $e');
+      debugPrint(
+        '[CookieStrategy][Linux] getAllCookies failed, falling back: $e',
+      );
       return super.readCookiesFromWebView(cookieManager, url);
     }
   }

@@ -39,8 +39,7 @@ class LinuxInAppBrowserCreationParams
           params.findInteractionController as LinuxFindInteractionController?,
       initialUserScripts: params.initialUserScripts,
       windowId: params.windowId,
-      webViewEnvironment:
-          params.webViewEnvironment as LinuxWebViewEnvironment?,
+      webViewEnvironment: params.webViewEnvironment as LinuxWebViewEnvironment?,
     );
   }
 

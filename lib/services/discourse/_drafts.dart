@@ -14,10 +14,7 @@ mixin _DraftsMixin on _DiscourseServiceBase {
     try {
       final response = await _dio.get(
         '/drafts.json',
-        queryParameters: {
-          'offset': offset,
-          'limit': limit,
-        },
+        queryParameters: {'offset': offset, 'limit': limit},
       );
       return DraftListResponse.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {

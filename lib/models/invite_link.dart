@@ -4,10 +4,7 @@ class InviteLinkResponse {
   final String inviteLink;
   final InviteLinkDetails? invite;
 
-  const InviteLinkResponse({
-    required this.inviteLink,
-    this.invite,
-  });
+  const InviteLinkResponse({required this.inviteLink, this.invite});
 
   factory InviteLinkResponse.fromJson(Map<String, dynamic> json) {
     final linkValue =
@@ -25,10 +22,7 @@ class InviteLinkResponse {
         json.containsKey('max_redemptions_allowed')) {
       invite = InviteLinkDetails.fromJson(json);
     }
-    return InviteLinkResponse(
-      inviteLink: inviteLink,
-      invite: invite,
-    );
+    return InviteLinkResponse(inviteLink: inviteLink, invite: invite);
   }
 
   Map<String, dynamic> toJson() {

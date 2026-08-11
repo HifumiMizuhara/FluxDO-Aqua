@@ -298,7 +298,9 @@ class DohProxyFfi {
             .asFunction();
       } catch (_) {
         _dohProxyGenerateCa = null;
-        debugPrint('[DOH FFI] doh_proxy_generate_ca 未找到，per-device CA 不可用');
+        debugPrint(
+          '[DOH FFI] doh_proxy_generate_ca 未找到，per-device CA 不可用',
+        );
       }
 
       // doh_proxy_get_embedded_ca_pem 是新增符号，可选绑定

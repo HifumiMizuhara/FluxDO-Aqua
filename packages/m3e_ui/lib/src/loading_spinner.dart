@@ -51,11 +51,14 @@ class _LoadingSpinnerState extends State<LoadingSpinner>
   @override
   void initState() {
     super.initState();
-    _cycleController =
-        AnimationController(vsync: this, duration: _morphInterval)
-          ..addStatusListener(_onCycleCompleted);
-    _rotationController =
-        AnimationController(vsync: this, duration: _globalRotationPeriod);
+    _cycleController = AnimationController(
+      vsync: this,
+      duration: _morphInterval,
+    )..addStatusListener(_onCycleCompleted);
+    _rotationController = AnimationController(
+      vsync: this,
+      duration: _globalRotationPeriod,
+    );
   }
 
   @override
@@ -114,15 +117,17 @@ class _LoadingSpinnerState extends State<LoadingSpinner>
         child: AnimatedBuilder(
           animation: Listenable.merge([_cycleController, _rotationController]),
           builder: (context, child) {
-            final progress =
-                _Md3LoadingGeometry.morphCurve.transform(_cycleController.value);
+            final progress = _Md3LoadingGeometry.morphCurve.transform(
+              _cycleController.value,
+            );
             return CustomPaint(
               painter: _LoadingIndicatorPainter(
                 morphIndex: _morphIndex,
                 morphProgress: progress,
                 // Compose: rotate(progress * 90 + morphRotationTargetAngle +
                 // globalRotation),弹簧过冲会带动旋转一起回弹。
-                rotationDegrees: progress * 90 +
+                rotationDegrees:
+                    progress * 90 +
                     _morphRotationTargetAngle +
                     _rotationController.value * 360,
                 color: color,
@@ -143,11 +148,10 @@ abstract final class _Md3LoadingGeometry {
   /// spring(dampingRatio 0.6, stiffness 200, visibilityThreshold 0.1) 的
   /// 欠阻尼解析解(带过冲,峰值 ≈1.095),到达 Compose 的时长估算点
   /// (≈298ms)后 snap 到 1 并保持,等待周期剩余时间。
-  static final M3eSpringCurve morphCurve =
-      const M3eSpring(dampingRatio: 0.6, stiffness: 200).curveFor(
-    _LoadingSpinnerState._morphInterval,
-    visibilityThreshold: 0.1,
-  );
+  static final M3eSpringCurve morphCurve = const M3eSpring(
+    dampingRatio: 0.6,
+    stiffness: 200,
+  ).curveFor(_LoadingSpinnerState._morphInterval, visibilityThreshold: 0.1);
 
   // LoadingIndicatorDefaults.IndeterminateIndicatorPolygons 的形状顺序。
   static final List<RoundedPolygon> _polygons = [
@@ -240,8 +244,10 @@ class _LoadingIndicatorPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    _Md3LoadingGeometry.morphs[morphIndex]
-        .toPath(progress: morphProgress, path: path);
+    _Md3LoadingGeometry.morphs[morphIndex].toPath(
+      progress: morphProgress,
+      path: path,
+    );
 
     // 对应 Compose processPath:normalized 形状(0..1 空间)按
     // size × scaleFactor 缩放,包围盒中心对齐画布中心,再绕画布中心旋转。

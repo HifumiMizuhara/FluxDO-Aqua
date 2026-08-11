@@ -85,7 +85,7 @@ class _MeshGradientState extends State<MeshGradient>
         _shader = _program!.fragmentShader();
       });
     } catch (e) {
-      debugPrint('[MeshGradient] shader 加载失败: $e');
+      debugPrint('[MeshGradient] Shader load failed: $e');
     }
   }
 
@@ -130,13 +130,7 @@ class _MeshGradientState extends State<MeshGradient>
 
     if (widget.child != null) {
       return RepaintBoundary(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            content,
-            widget.child!,
-          ],
-        ),
+        child: Stack(fit: StackFit.expand, children: [content, widget.child!]),
       );
     }
 

@@ -23,10 +23,7 @@ class OAuthFlowHelper {
   /// - 用户手指反应 / 渲染时间 (几百毫秒到 1 秒级)
   ///
   /// 固定 400ms 极容易被识别为脚本, 这里改为 [minMs, maxMs] 之间均匀分布。
-  static Future<void> humanGap({
-    required int minMs,
-    required int maxMs,
-  }) async {
+  static Future<void> humanGap({required int minMs, required int maxMs}) async {
     assert(minMs > 0 && maxMs >= minMs);
     final delay = minMs + _random.nextInt(maxMs - minMs + 1);
     await Future<void>.delayed(Duration(milliseconds: delay));

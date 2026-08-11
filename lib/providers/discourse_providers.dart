@@ -1,5 +1,5 @@
 /// Discourse Providers
-/// 
+///
 /// 这个文件重新导出所有 Discourse 相关的 providers 和模型
 /// 保持向后兼容，其他文件可以继续使用 `import 'discourse_providers.dart'`
 library;

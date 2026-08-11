@@ -37,9 +37,7 @@ class AndroidCookieStrategy extends DefaultCookieStrategy {
           )
           .toList(growable: false);
     } catch (e) {
-      debugPrint(
-        '[CookieStrategy][Android] raw_cookie 读取失败,回退插件通道: $e',
-      );
+      debugPrint('[CookieStrategy][Android] raw_cookie 读取失败,回退插件通道: $e');
       return super.readCookiesFromWebView(cookieManager, url);
     }
   }
@@ -60,11 +58,13 @@ class AndroidCookieStrategy extends DefaultCookieStrategy {
   ) async {
     // deleteAllCookies 可能 ANR，加 timeout
     try {
-      await cookieManager
-          .deleteAllCookies()
-          .timeout(const Duration(seconds: 5));
+      await cookieManager.deleteAllCookies().timeout(
+        const Duration(seconds: 5),
+      );
     } catch (e) {
-      debugPrint('[CookieStrategy][Android] deleteAllCookies failed/timeout: $e');
+      debugPrint(
+        '[CookieStrategy][Android] deleteAllCookies failed/timeout: $e',
+      );
     }
 
     // 补充逐 host 精确删除残留 cookie（deleteAllCookies 在 Android 上可能不彻底）
@@ -81,7 +81,9 @@ class AndroidCookieStrategy extends DefaultCookieStrategy {
           );
         }
       } catch (e) {
-        debugPrint('[CookieStrategy][Android] per-host delete failed for $host: $e');
+        debugPrint(
+          '[CookieStrategy][Android] per-host delete failed for $host: $e',
+        );
       }
     }
   }

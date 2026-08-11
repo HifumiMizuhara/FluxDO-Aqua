@@ -91,9 +91,10 @@ class BootstrapDohClient {
     ];
 
     // 取两个查询结果中较小的 TTL
-    final minTtl = [results[0].minTtl, results[1].minTtl]
-        .where((t) => t > 0)
-        .fold<int>(300, min); // 默认 300 秒
+    final minTtl = [
+      results[0].minTtl,
+      results[1].minTtl,
+    ].where((t) => t > 0).fold<int>(300, min); // 默认 300 秒
 
     return DnsResult(addresses: addresses, minTtl: minTtl);
   }
@@ -120,7 +121,8 @@ class BootstrapDohClient {
       final sortedIps = preferIPv6 ? [...ipv6, ...ipv4] : [...ipv4, ...ipv6];
 
       NetworkLogger.log(
-          '[DOH] 使用 Bootstrap IP 连接 $_host (IPv6优先: $preferIPv6): $sortedIps');
+        '[DOH] 使用 Bootstrap IP 连接 $_host (IPv6优先: $preferIPv6): $sortedIps',
+      );
 
       for (final ip in sortedIps) {
         try {
@@ -130,25 +132,18 @@ class BootstrapDohClient {
             _port,
             timeout: timeout,
           );
-          socket = await SecureSocket.secure(
-            rawSocket,
-            host: _host,
-          );
-          NetworkLogger.log('[DOH] Bootstrap IP 连接成功: $ip');
+          socket = await SecureSocket.secure(rawSocket, host: _host);
+          NetworkLogger.log('[DOH] Bootstrap IP connectionsucceeded: $ip');
           break;
         } catch (e) {
           lastError = e;
-          NetworkLogger.log('[DOH] Bootstrap IP 连接失败: $ip | $e');
+          NetworkLogger.log('[DOH] Bootstrap IP connectionfailed: $ip | $e');
           continue;
         }
       }
     } else {
       try {
-        socket = await SecureSocket.connect(
-          _host,
-          _port,
-          timeout: timeout,
-        );
+        socket = await SecureSocket.connect(_host, _port, timeout: timeout);
       } catch (e) {
         lastError = e;
       }
@@ -261,7 +256,8 @@ class BootstrapDohClient {
           subscription?.cancel();
           if (!completer.isCompleted) {
             completer.completeError(
-                HttpException(S.current.doh_serverError(statusLine)));
+              HttpException(S.current.doh_serverError(statusLine)),
+            );
           }
           return;
         }
@@ -282,15 +278,19 @@ class BootstrapDohClient {
         }
 
         // 处理 Content-Length
-        final clMatch =
-            RegExp(r'content-length:\s*(\d+)').firstMatch(headersLower);
+        final clMatch = RegExp(
+          r'content-length:\s*(\d+)',
+        ).firstMatch(headersLower);
         if (clMatch != null) {
           final contentLength = int.parse(clMatch.group(1)!);
           if (allBytes.length >= bodyStart + contentLength) {
             subscription?.cancel();
             if (!completer.isCompleted) {
-              completer.complete(Uint8List.fromList(
-                  allBytes.sublist(bodyStart, bodyStart + contentLength)));
+              completer.complete(
+                Uint8List.fromList(
+                  allBytes.sublist(bodyStart, bodyStart + contentLength),
+                ),
+              );
             }
           }
           return;
@@ -307,8 +307,7 @@ class BootstrapDohClient {
           }
           final bodyStart = headerEndIndex + 4;
           if (bodyStart < allBytes.length) {
-            completer
-                .complete(Uint8List.fromList(allBytes.sublist(bodyStart)));
+            completer.complete(Uint8List.fromList(allBytes.sublist(bodyStart)));
           } else {
             completer.complete(null);
           }
@@ -321,10 +320,13 @@ class BootstrapDohClient {
       },
     );
 
-    return completer.future.timeout(timeout, onTimeout: () {
-      subscription?.cancel();
-      return null;
-    });
+    return completer.future.timeout(
+      timeout,
+      onTimeout: () {
+        subscription?.cancel();
+        return null;
+      },
+    );
   }
 
   /// 在字节流中查找 \r\n\r\n 的位置
@@ -391,7 +393,10 @@ class BootstrapDohClient {
   }
 
   /// 构建 DNS 查询消息 (RFC 1035)
-  Uint8List _buildDnsQuery(String host, {DnsRecordType type = DnsRecordType.a}) {
+  Uint8List _buildDnsQuery(
+    String host, {
+    DnsRecordType type = DnsRecordType.a,
+  }) {
     final buffer = BytesBuilder();
 
     // Transaction ID (2 bytes) - 随机生成
@@ -473,7 +478,8 @@ class BootstrapDohClient {
       offset += 2;
 
       // TTL (4 bytes) - 提取 TTL
-      final ttl = (data[offset] << 24) |
+      final ttl =
+          (data[offset] << 24) |
           (data[offset + 1] << 16) |
           (data[offset + 2] << 8) |
           data[offset + 3];
@@ -498,7 +504,8 @@ class BootstrapDohClient {
         final parts = <String>[];
         for (var j = 0; j < 16; j += 2) {
           parts.add(
-              ((data[offset + j] << 8) | data[offset + j + 1]).toRadixString(16));
+            ((data[offset + j] << 8) | data[offset + j + 1]).toRadixString(16),
+          );
         }
         addresses.add(InternetAddress(parts.join(':')));
         hasRecord = true;

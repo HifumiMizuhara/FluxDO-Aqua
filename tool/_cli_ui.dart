@@ -214,7 +214,10 @@ class CliUi {
         final option = options[index];
         final selected = index == selectedIndex;
         final prefix = selected ? '> ' : '  ';
-        _renderMenuLine('$prefix${option.label.padRight(10)} ${option.detail}', selected: selected);
+        _renderMenuLine(
+          '$prefix${option.label.padRight(10)} ${option.detail}',
+          selected: selected,
+        );
       }
     }
 
@@ -233,11 +236,7 @@ class CliUi {
             return null;
           }
 
-          final selectedByText = _matchOption(
-            char,
-            options,
-            defaultIndex,
-          );
+          final selectedByText = _matchOption(char, options, defaultIndex);
           if (selectedByText != null) {
             selectedIndex = options.indexOf(selectedByText);
             render();
@@ -248,7 +247,8 @@ class CliUi {
         switch (key.controlChar) {
           case ControlCharacter.arrowUp:
           case ControlCharacter.arrowLeft:
-            selectedIndex = (selectedIndex - 1 + options.length) % options.length;
+            selectedIndex =
+                (selectedIndex - 1 + options.length) % options.length;
             render();
           case ControlCharacter.arrowDown:
           case ControlCharacter.arrowRight:
@@ -455,7 +455,9 @@ bool _isDumbTerminal() =>
     Platform.environment['TERM']?.trim().toLowerCase() == 'dumb';
 
 bool _forcePlainUi() {
-  final value = Platform.environment['FLUXDO_CLI_FORCE_PLAIN']?.trim().toLowerCase();
+  final value = Platform.environment['FLUXDO_CLI_FORCE_PLAIN']
+      ?.trim()
+      .toLowerCase();
   return value == '1' || value == 'true' || value == 'yes';
 }
 

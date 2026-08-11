@@ -79,13 +79,13 @@ class StickerItem {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'url': url,
-        'width': width,
-        'height': height,
-        'groupId': groupId,
-      };
+    'id': id,
+    'name': name,
+    'url': url,
+    'width': width,
+    'height': height,
+    'groupId': groupId,
+  };
 
   /// 转换为 Markdown 图片格式
   String toMarkdown() => '![$name|${width}x$height,30%]($url)';
@@ -110,7 +110,8 @@ class StickerGroupDetail {
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
       icon: json['icon'] as String? ?? '',
-      emojis: (json['emojis'] as List<dynamic>?)
+      emojis:
+          (json['emojis'] as List<dynamic>?)
               ?.map((e) => StickerItem.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],

@@ -142,7 +142,8 @@ class MarketGroupsNotifier
   }
 
   Future<void> loadMore() async {
-    if (_isLoadingMore || !hasMore || state is! AsyncData || _isLoadMoreFailed) return;
+    if (_isLoadingMore || !hasMore || state is! AsyncData || _isLoadMoreFailed)
+      return;
     _isLoadingMore = true;
     _isLoadMoreFailed = false;
     _emitCurrentData();
@@ -159,7 +160,9 @@ class MarketGroupsNotifier
       state = AsyncValue.data([...state.value!, ...newGroups]);
     } catch (e) {
       _isLoadMoreFailed = true;
-      debugPrint('[MarketGroups] 加载第${_loadedPages + 1}页失败: $e');
+      debugPrint(
+        '[MarketGroups] 加载第${_loadedPages + 1}页失败: $e',
+      );
     } finally {
       _isLoadingMore = false;
       _emitCurrentData();

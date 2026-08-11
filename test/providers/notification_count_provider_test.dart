@@ -33,10 +33,7 @@ void main() {
     addTearDown(container.dispose);
 
     await container.read(currentUserProvider.future);
-    expect(
-      container.read(notificationCountStateProvider).allUnread,
-      0,
-    );
+    expect(container.read(notificationCountStateProvider).allUnread, 0);
 
     // 同一 id,接口终态带真实计数(渐进 emit 第二拍)
     fake.emit(_user(id: 1, allUnread: 7));

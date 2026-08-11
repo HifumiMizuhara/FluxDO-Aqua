@@ -22,12 +22,19 @@ void main() {
 
     test('视频四档:HEVC 优先两档 + H264 兜底两档,码率递降', () {
       final tiers = videoProfilesFor(const Duration(minutes: 5));
-      expect(tiers.map((t) => t.codec).toList(),
-          ['hevc', 'hevc', 'h264', 'h264']);
+      expect(tiers.map((t) => t.codec).toList(), [
+        'hevc',
+        'hevc',
+        'h264',
+        'h264',
+      ]);
       expect(tiers[0].audioBitrate, 24000);
       expect(tiers[0].videoBitrate, greaterThan(tiers[1].videoBitrate));
-      expect(tiers[1].videoBitrate, tiers[2].videoBitrate,
-          reason: '同 0.66 折扣,仅 codec 不同');
+      expect(
+        tiers[1].videoBitrate,
+        tiers[2].videoBitrate,
+        reason: '同 0.66 折扣,仅 codec 不同',
+      );
       expect(tiers[3].videoBitrate, greaterThanOrEqualTo(12000));
     });
 
@@ -48,7 +55,8 @@ void main() {
     test('Duration 解析:HH:MM:SS.cc', () {
       expect(
         FfmpegProcessTranscoder.parseFfmpegDuration(
-            '  Duration: 00:01:23.45, start: 0.0'),
+          '  Duration: 00:01:23.45, start: 0.0',
+        ),
         const Duration(minutes: 1, seconds: 23, milliseconds: 450),
       );
       expect(
@@ -58,14 +66,16 @@ void main() {
     });
 
     test('音频参数(脚本 audio 分支同款)', () {
-      final args = FfmpegProcessTranscoder.buildArgs(const TranscodeSpec(
-        input: 'in.mp3',
-        output: 'out.m4a',
-        audioOnly: true,
-        audioBitrate: 32000,
-        audioSampleRate: 16000,
-        audioChannels: 1,
-      ));
+      final args = FfmpegProcessTranscoder.buildArgs(
+        const TranscodeSpec(
+          input: 'in.mp3',
+          output: 'out.m4a',
+          audioOnly: true,
+          audioBitrate: 32000,
+          audioSampleRate: 16000,
+          audioChannels: 1,
+        ),
+      );
       expect(args, containsAllInOrder(['-vn', '-c:a', 'aac', '-b:a', '32000']));
       expect(args, containsAllInOrder(['-ac', '1', '-ar', '16000']));
       expect(args, containsAllInOrder(['-movflags', '+faststart']));
@@ -74,34 +84,50 @@ void main() {
     });
 
     test('HEVC 参数:libx265 + hvc1 tag(Safari 兼容关键)', () {
-      final args = FfmpegProcessTranscoder.buildArgs(const TranscodeSpec(
-        input: 'in.mov',
-        output: 'out.mp4',
-        audioBitrate: 24000,
-        videoBitrate: 80000,
-        videoCodec: 'hevc',
-        maxHeight: 360,
-      ));
-      expect(args, containsAllInOrder(['-c:v', 'libx265', '-preset', 'veryfast']));
+      final args = FfmpegProcessTranscoder.buildArgs(
+        const TranscodeSpec(
+          input: 'in.mov',
+          output: 'out.mp4',
+          audioBitrate: 24000,
+          videoBitrate: 80000,
+          videoCodec: 'hevc',
+          maxHeight: 360,
+        ),
+      );
+      expect(
+        args,
+        containsAllInOrder(['-c:v', 'libx265', '-preset', 'veryfast']),
+      );
       expect(args, containsAllInOrder(['-tag:v', 'hvc1']));
       expect(args, isNot(contains('libx264')));
     });
 
     test('视频参数(x264 + 缩放 + 帧率 + maxrate)', () {
-      final args = FfmpegProcessTranscoder.buildArgs(const TranscodeSpec(
-        input: 'in.mov',
-        output: 'out.mp4',
-        audioBitrate: 24000,
-        videoBitrate: 80000,
-        maxHeight: 360,
-        fps: 18,
-      ));
-      expect(args, containsAllInOrder(['-c:v', 'libx264', '-preset', 'veryfast']));
+      final args = FfmpegProcessTranscoder.buildArgs(
+        const TranscodeSpec(
+          input: 'in.mov',
+          output: 'out.mp4',
+          audioBitrate: 24000,
+          videoBitrate: 80000,
+          maxHeight: 360,
+          fps: 18,
+        ),
+      );
+      expect(
+        args,
+        containsAllInOrder(['-c:v', 'libx264', '-preset', 'veryfast']),
+      );
       expect(args, containsAllInOrder(['-vf', 'scale=-2:360', '-r', '18']));
       expect(
         args,
-        containsAllInOrder(
-            ['-b:v', '80000', '-maxrate', '80000', '-bufsize', '160000']),
+        containsAllInOrder([
+          '-b:v',
+          '80000',
+          '-maxrate',
+          '80000',
+          '-bufsize',
+          '160000',
+        ]),
       );
       expect(args, containsAllInOrder(['-progress', 'pipe:1', '-nostats']));
     });

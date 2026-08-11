@@ -27,8 +27,7 @@ void main() {
     expect(flags.enabled, isTrue);
   });
 
-  testWidgets('LoadingSpinner 关闭态回退 CircularProgressIndicator',
-      (tester) async {
+  testWidgets('LoadingSpinner 关闭态回退 CircularProgressIndicator', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(extensions: const [M3eFlags(enabled: false)]),
@@ -48,8 +47,7 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
-  testWidgets('M3eRefreshIndicator 关闭态回退原生 RefreshIndicator',
-      (tester) async {
+  testWidgets('M3eRefreshIndicator 关闭态回退原生 RefreshIndicator', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(extensions: const [M3eFlags(enabled: false)]),

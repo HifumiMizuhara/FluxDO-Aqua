@@ -51,9 +51,7 @@ class NotionBookmarkAutoSync {
     );
     final cfg = await _resolveActiveConfig(ref);
     if (cfg == null) return;
-    unawaited(
-      _runPost(ref: ref, topicId: topicId, postId: postId, cfg: cfg),
-    );
+    unawaited(_runPost(ref: ref, topicId: topicId, postId: postId, cfg: cfg));
   }
 
   /// 共用的"配置可用性"检查。返回 null 表示不触发同步。
@@ -131,11 +129,10 @@ class NotionBookmarkAutoSync {
       if (post == null) {
         // 列表里没拉到这条,试着按这条 post 定位一次详情
         // 简化处理:直接报错
-        throw NotionApiException(
-          'post #$postId not found in topic detail',
-        );
+        throw NotionApiException('post #$postId not found in topic detail');
       }
-      final headline = '${detail.title} · @${post.username} #${post.postNumber}';
+      final headline =
+          '${detail.title} · @${post.username} #${post.postNumber}';
       handle.updateFileName(headline);
       final svc = NotionSyncService(config: cfg);
       final result = await svc.syncPost(
@@ -184,20 +181,22 @@ class NotionBookmarkAutoSync {
     required String pageUrl,
     required int postCount,
   }) {
-    return ref.read(exportHistoryProvider.notifier).add(
-      ExportHistoryEntry(
-        id: const Uuid().v4(),
-        sourceType: ExportHistorySource.topic,
-        sourceTopicId: topicId,
-        sourceTitle: title,
-        format: ExportHistoryFormat.notion,
-        targetType: ExportHistoryTarget.notion,
-        targetRef: pageUrl,
-        status: ExportHistoryStatus.success,
-        createdAt: DateTime.now(),
-        postCount: postCount,
-      ),
-    );
+    return ref
+        .read(exportHistoryProvider.notifier)
+        .add(
+          ExportHistoryEntry(
+            id: const Uuid().v4(),
+            sourceType: ExportHistorySource.topic,
+            sourceTopicId: topicId,
+            sourceTitle: title,
+            format: ExportHistoryFormat.notion,
+            targetType: ExportHistoryTarget.notion,
+            targetRef: pageUrl,
+            status: ExportHistoryStatus.success,
+            createdAt: DateTime.now(),
+            postCount: postCount,
+          ),
+        );
   }
 
   static String _progressLabel(String title, NotionSyncProgress p) {

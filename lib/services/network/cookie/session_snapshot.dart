@@ -1,8 +1,5 @@
 class SessionSnapshot {
-  const SessionSnapshot({
-    this.tToken,
-    this.forumSession,
-  });
+  const SessionSnapshot({this.tToken, this.forumSession});
 
   final String? tToken;
   final String? forumSession;
@@ -16,10 +13,7 @@ class SessionSnapshot {
         _normalize(forumSession) == _normalize(other.forumSession);
   }
 
-  static SessionSnapshot fromValues({
-    String? tToken,
-    String? forumSession,
-  }) {
+  static SessionSnapshot fromValues({String? tToken, String? forumSession}) {
     return SessionSnapshot(
       tToken: _normalize(tToken),
       forumSession: _normalize(forumSession),

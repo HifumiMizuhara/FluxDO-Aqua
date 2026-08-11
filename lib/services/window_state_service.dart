@@ -83,7 +83,9 @@ class WindowStateService with WindowListener {
         if (isBoundsRestorable(currentBounds, const <Rect>[])) {
           bounds = currentBounds;
         } else {
-          debugPrint('[WindowStateService] 忽略无效窗口位置: $currentBounds');
+          debugPrint(
+            '[WindowStateService] 忽略无效窗口位置: $currentBounds',
+          );
         }
       }
 

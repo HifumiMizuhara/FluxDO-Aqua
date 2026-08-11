@@ -70,52 +70,98 @@ enum NotificationType {
 
   String get label {
     switch (this) {
-      case NotificationType.mentioned: return S.current.notification_typeMentioned;
-      case NotificationType.replied: return S.current.notification_typeReplied;
-      case NotificationType.quoted: return S.current.notification_typeQuoted;
-      case NotificationType.edited: return S.current.notification_typeEdited;
-      case NotificationType.liked: return S.current.notification_typeLiked;
-      case NotificationType.privateMessage: return S.current.notification_typePrivateMessage;
-      case NotificationType.invitedToPrivateMessage: return S.current.notification_typeInvitedToPM;
-      case NotificationType.inviteeAccepted: return S.current.notification_typeInviteeAccepted;
-      case NotificationType.posted: return S.current.notification_typePosted;
-      case NotificationType.movedPost: return S.current.notification_typeMovedPost;
-      case NotificationType.linked: return S.current.notification_typeLinked;
-      case NotificationType.grantedBadge: return S.current.notification_typeGrantedBadge;
-      case NotificationType.invitedToTopic: return S.current.notification_typeInvitedToTopic;
-      case NotificationType.custom: return S.current.notification_typeCustom;
-      case NotificationType.groupMentioned: return S.current.notification_typeGroupMentioned;
-      case NotificationType.groupMessageSummary: return S.current.notification_typeGroupMessageSummary;
-      case NotificationType.watchingFirstPost: return S.current.notification_typeWatchingFirstPost;
-      case NotificationType.topicReminder: return S.current.notification_typeTopicReminder;
-      case NotificationType.likedConsolidated: return S.current.notification_typeLikedConsolidated;
-      case NotificationType.postApproved: return S.current.notification_typePostApproved;
-      case NotificationType.codeReviewCommitApproved: return S.current.notification_typeCodeReviewApproved;
-      case NotificationType.membershipRequestAccepted: return S.current.notification_typeMembershipAccepted;
-      case NotificationType.membershipRequestConsolidated: return S.current.notification_typeMembershipConsolidated;
-      case NotificationType.bookmarkReminder: return S.current.notification_typeBookmarkReminder;
-      case NotificationType.reaction: return S.current.notification_typeReaction;
-      case NotificationType.votesReleased: return S.current.notification_typeVotesReleased;
-      case NotificationType.eventReminder: return S.current.notification_typeEventReminder;
-      case NotificationType.eventInvitation: return S.current.notification_typeEventInvitation;
-      case NotificationType.chatMention: return S.current.notification_typeChatMention;
-      case NotificationType.chatMessage: return S.current.notification_typeChatMessage;
-      case NotificationType.chatInvitation: return S.current.notification_typeChatInvitation;
-      case NotificationType.chatGroupMention: return S.current.notification_typeChatGroupMention;
-      case NotificationType.chatQuotedPost: return S.current.notification_typeChatQuotedPost;
-      case NotificationType.assignedTopic: return S.current.notification_typeAssignedTopic;
-      case NotificationType.questionAnswerUserCommented: return S.current.notification_typeQACommented;
-      case NotificationType.watchingCategoryOrTag: return S.current.notification_typeWatchingCategoryOrTag;
-      case NotificationType.newFeatures: return S.current.notification_typeNewFeatures;
-      case NotificationType.adminProblems: return S.current.notification_typeAdminProblems;
-      case NotificationType.linkedConsolidated: return S.current.notification_typeLinkedConsolidated;
-      case NotificationType.chatWatchedThread: return S.current.notification_typeChatWatchedThread;
-      case NotificationType.boost: return S.current.notification_typeBoost;
-      case NotificationType.following: return S.current.notification_typeFollowing;
-      case NotificationType.followingCreatedTopic: return S.current.notification_typeFollowingCreatedTopic;
-      case NotificationType.followingReplied: return S.current.notification_typeFollowingReplied;
-      case NotificationType.circlesActivity: return S.current.notification_typeCirclesActivity;
-      case NotificationType.unknown: return S.current.notification_typeUnknown;
+      case NotificationType.mentioned:
+        return S.current.notification_typeMentioned;
+      case NotificationType.replied:
+        return S.current.notification_typeReplied;
+      case NotificationType.quoted:
+        return S.current.notification_typeQuoted;
+      case NotificationType.edited:
+        return S.current.notification_typeEdited;
+      case NotificationType.liked:
+        return S.current.notification_typeLiked;
+      case NotificationType.privateMessage:
+        return S.current.notification_typePrivateMessage;
+      case NotificationType.invitedToPrivateMessage:
+        return S.current.notification_typeInvitedToPM;
+      case NotificationType.inviteeAccepted:
+        return S.current.notification_typeInviteeAccepted;
+      case NotificationType.posted:
+        return S.current.notification_typePosted;
+      case NotificationType.movedPost:
+        return S.current.notification_typeMovedPost;
+      case NotificationType.linked:
+        return S.current.notification_typeLinked;
+      case NotificationType.grantedBadge:
+        return S.current.notification_typeGrantedBadge;
+      case NotificationType.invitedToTopic:
+        return S.current.notification_typeInvitedToTopic;
+      case NotificationType.custom:
+        return S.current.notification_typeCustom;
+      case NotificationType.groupMentioned:
+        return S.current.notification_typeGroupMentioned;
+      case NotificationType.groupMessageSummary:
+        return S.current.notification_typeGroupMessageSummary;
+      case NotificationType.watchingFirstPost:
+        return S.current.notification_typeWatchingFirstPost;
+      case NotificationType.topicReminder:
+        return S.current.notification_typeTopicReminder;
+      case NotificationType.likedConsolidated:
+        return S.current.notification_typeLikedConsolidated;
+      case NotificationType.postApproved:
+        return S.current.notification_typePostApproved;
+      case NotificationType.codeReviewCommitApproved:
+        return S.current.notification_typeCodeReviewApproved;
+      case NotificationType.membershipRequestAccepted:
+        return S.current.notification_typeMembershipAccepted;
+      case NotificationType.membershipRequestConsolidated:
+        return S.current.notification_typeMembershipConsolidated;
+      case NotificationType.bookmarkReminder:
+        return S.current.notification_typeBookmarkReminder;
+      case NotificationType.reaction:
+        return S.current.notification_typeReaction;
+      case NotificationType.votesReleased:
+        return S.current.notification_typeVotesReleased;
+      case NotificationType.eventReminder:
+        return S.current.notification_typeEventReminder;
+      case NotificationType.eventInvitation:
+        return S.current.notification_typeEventInvitation;
+      case NotificationType.chatMention:
+        return S.current.notification_typeChatMention;
+      case NotificationType.chatMessage:
+        return S.current.notification_typeChatMessage;
+      case NotificationType.chatInvitation:
+        return S.current.notification_typeChatInvitation;
+      case NotificationType.chatGroupMention:
+        return S.current.notification_typeChatGroupMention;
+      case NotificationType.chatQuotedPost:
+        return S.current.notification_typeChatQuotedPost;
+      case NotificationType.assignedTopic:
+        return S.current.notification_typeAssignedTopic;
+      case NotificationType.questionAnswerUserCommented:
+        return S.current.notification_typeQACommented;
+      case NotificationType.watchingCategoryOrTag:
+        return S.current.notification_typeWatchingCategoryOrTag;
+      case NotificationType.newFeatures:
+        return S.current.notification_typeNewFeatures;
+      case NotificationType.adminProblems:
+        return S.current.notification_typeAdminProblems;
+      case NotificationType.linkedConsolidated:
+        return S.current.notification_typeLinkedConsolidated;
+      case NotificationType.chatWatchedThread:
+        return S.current.notification_typeChatWatchedThread;
+      case NotificationType.boost:
+        return S.current.notification_typeBoost;
+      case NotificationType.following:
+        return S.current.notification_typeFollowing;
+      case NotificationType.followingCreatedTopic:
+        return S.current.notification_typeFollowingCreatedTopic;
+      case NotificationType.followingReplied:
+        return S.current.notification_typeFollowingReplied;
+      case NotificationType.circlesActivity:
+        return S.current.notification_typeCirclesActivity;
+      case NotificationType.unknown:
+        return S.current.notification_typeUnknown;
     }
   }
 
@@ -189,7 +235,9 @@ class NotificationData {
       count: json['count'] as int?,
       username: json['username'] as String?,
       username2: json['username2'] as String?,
-      avatarTemplate: json['acting_user_avatar_template'] as String? ?? json['avatar_template'] as String?,
+      avatarTemplate:
+          json['acting_user_avatar_template'] as String? ??
+          json['avatar_template'] as String?,
       boostRaw: json['boost_raw'] as String?,
       chatChannelId: json['chat_channel_id'] as int?,
       chatMessageId: json['chat_message_id'] as int?,
@@ -232,10 +280,14 @@ class DiscourseNotification {
     return DiscourseNotification(
       id: json['id'] as int,
       userId: json['user_id'] as int,
-      notificationType: NotificationType.fromId(json['notification_type'] as int),
+      notificationType: NotificationType.fromId(
+        json['notification_type'] as int,
+      ),
       read: json['read'] as bool? ?? false,
       highPriority: json['high_priority'] as bool? ?? false,
-      createdAt: TimeUtils.parseUtcTime(json['created_at'] as String?) ?? DateTime.now(),
+      createdAt:
+          TimeUtils.parseUtcTime(json['created_at'] as String?) ??
+          DateTime.now(),
       postNumber: json['post_number'] as int?,
       topicId: json['topic_id'] as int?,
       slug: json['slug'] as String?,
@@ -288,7 +340,8 @@ class DiscourseNotification {
       slug: slug ?? this.slug,
       data: data ?? this.data,
       fancyTitle: fancyTitle ?? this.fancyTitle,
-      actingUserAvatarTemplate: actingUserAvatarTemplate ?? this.actingUserAvatarTemplate,
+      actingUserAvatarTemplate:
+          actingUserAvatarTemplate ?? this.actingUserAvatarTemplate,
     );
   }
 
@@ -303,9 +356,13 @@ class DiscourseNotification {
             ? S.current.notification_grantedBadge(data.badgeName!)
             : notificationType.label;
       case NotificationType.inviteeAccepted:
-        return displayName.isNotEmpty ? S.current.notification_inviteeAccepted(displayName) : notificationType.label;
+        return displayName.isNotEmpty
+            ? S.current.notification_inviteeAccepted(displayName)
+            : notificationType.label;
       case NotificationType.following:
-        return displayName.isNotEmpty ? S.current.notification_followingYou(displayName) : notificationType.label;
+        return displayName.isNotEmpty
+            ? S.current.notification_followingYou(displayName)
+            : notificationType.label;
       case NotificationType.likedConsolidated:
         final count = data.count ?? 0;
         return displayName.isNotEmpty
@@ -318,12 +375,18 @@ class DiscourseNotification {
             : S.current.notification_peopleLinkedPost(count);
       case NotificationType.groupMessageSummary:
         final count = int.tryParse(data.inboxCount ?? '0') ?? 0;
-        return S.current.notification_groupMessageSummary(data.groupName ?? "", count);
+        return S.current.notification_groupMessageSummary(
+          data.groupName ?? "",
+          count,
+        );
       case NotificationType.membershipRequestAccepted:
         return S.current.notification_membershipAccepted(data.groupName ?? "");
       case NotificationType.membershipRequestConsolidated:
         final count = data.count ?? 0;
-        return S.current.notification_membershipPending(count, data.groupName ?? "");
+        return S.current.notification_membershipPending(
+          count,
+          data.groupName ?? "",
+        );
       case NotificationType.newFeatures:
         return S.current.notification_newFeaturesAvailable;
       case NotificationType.adminProblems:
@@ -333,7 +396,8 @@ class DiscourseNotification {
     }
 
     // 话题类通知：使用话题标题
-    if (data.topicTitle != null && data.topicTitle!.isNotEmpty) return data.topicTitle!;
+    if (data.topicTitle != null && data.topicTitle!.isNotEmpty)
+      return data.topicTitle!;
     if (fancyTitle != null && fancyTitle!.isNotEmpty) return fancyTitle!;
 
     // 兜底使用通知类型

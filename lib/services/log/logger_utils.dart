@@ -37,32 +37,36 @@ class LoggerUtils {
 
     try {
       final pkg = await PackageInfo.fromPlatform();
-      buf.writeln('应用: ${pkg.appName}');
-      buf.writeln('版本: ${pkg.version} (${pkg.buildNumber})');
-      buf.writeln('包名: ${pkg.packageName}');
+      buf.writeln('App: ${pkg.appName}');
+      buf.writeln('Version: ${pkg.version} (${pkg.buildNumber})');
+      buf.writeln('Package: ${pkg.packageName}');
     } catch (_) {}
 
     try {
       final deviceInfo = DeviceInfoPlugin();
       if (Platform.isAndroid) {
         final info = await deviceInfo.androidInfo;
-        buf.writeln('平台: Android ${info.version.release} (SDK ${info.version.sdkInt})');
-        buf.writeln('设备: ${info.brand} ${info.model}');
+        buf.writeln(
+          'Platform: Android ${info.version.release} (SDK ${info.version.sdkInt})',
+        );
+        buf.writeln('Device: ${info.brand} ${info.model}');
       } else if (Platform.isIOS) {
         final info = await deviceInfo.iosInfo;
-        buf.writeln('平台: iOS ${info.systemVersion}');
-        buf.writeln('设备: ${info.utsname.machine}');
+        buf.writeln('Platform: iOS ${info.systemVersion}');
+        buf.writeln('Device: ${info.utsname.machine}');
       } else if (Platform.isMacOS) {
         final info = await deviceInfo.macOsInfo;
-        buf.writeln('平台: macOS ${info.majorVersion}.${info.minorVersion}.${info.patchVersion}');
-        buf.writeln('设备: ${info.model} (${info.arch})');
+        buf.writeln(
+          'Platform: macOS ${info.majorVersion}.${info.minorVersion}.${info.patchVersion}',
+        );
+        buf.writeln('Device: ${info.model} (${info.arch})');
       } else if (Platform.isLinux) {
         final info = await deviceInfo.linuxInfo;
-        buf.writeln('平台: ${info.prettyName}');
+        buf.writeln('Platform: ${info.prettyName}');
       } else if (Platform.isWindows) {
         final info = await deviceInfo.windowsInfo;
-        buf.writeln('平台: Windows (${info.buildNumber})');
-        buf.writeln('设备: ${info.computerName}');
+        buf.writeln('Platform: Windows (${info.buildNumber})');
+        buf.writeln('Device: ${info.computerName}');
       }
     } catch (_) {}
 
@@ -87,13 +91,15 @@ class LoggerUtils {
 
     try {
       final pkg = await PackageInfo.fromPlatform();
-      buf.writeln(jsonEncode({
-        '_header': 'app_info',
-        'appName': pkg.appName,
-        'version': pkg.version,
-        'buildNumber': pkg.buildNumber,
-        'packageName': pkg.packageName,
-      }));
+      buf.writeln(
+        jsonEncode({
+          '_header': 'app_info',
+          'appName': pkg.appName,
+          'version': pkg.version,
+          'buildNumber': pkg.buildNumber,
+          'packageName': pkg.packageName,
+        }),
+      );
     } catch (_) {}
 
     try {
@@ -143,7 +149,10 @@ class LoggerUtils {
           'buildNumber': info.buildNumber,
         };
       } else {
-        device = {'_header': 'device_info', 'platform': Platform.operatingSystem};
+        device = {
+          '_header': 'device_info',
+          'platform': Platform.operatingSystem,
+        };
       }
 
       // User-Agent
@@ -182,7 +191,7 @@ class LoggerUtils {
 
     // 适配器
     final cronet = CronetFallbackService.instance;
-    lines.add('适配器: ${cronet.hasFallenBack ? 'Dart IO' : 'Cronet'}');
+    lines.add('Adapter: ${cronet.hasFallenBack ? 'Dart IO' : 'Cronet'}');
 
     // DOH 配置
     final doh = NetworkSettingsService.instance.current;
@@ -190,7 +199,7 @@ class LoggerUtils {
       final serverName = _findDohServerName(doh.selectedServerUrl);
       final parts = <String>[serverName];
       if (doh.preferIPv6) parts.add('IPv6');
-      lines.add('DOH: ${parts.join(', ')}');
+      lines.add('DoH: ${parts.join(', ')}');
     } else {
       lines.add(S.current.deviceInfo_dohOff);
     }
@@ -198,7 +207,7 @@ class LoggerUtils {
     // HTTP 代理
     final proxy = ProxySettingsService.instance.current;
     if (proxy.isValid) {
-      lines.add('代理: ${proxy.host}:${proxy.port}');
+      lines.add('Proxy: ${proxy.host}:${proxy.port}');
     } else {
       lines.add(S.current.deviceInfo_proxyOff);
     }
@@ -263,8 +272,8 @@ class LoggerUtils {
         if (json['message'] == null) {
           final customParams =
               json['customParameters'] as Map<String, dynamic>?;
-          json['message'] = customParams?['message']?.toString() ??
-              json['error']?.toString();
+          json['message'] =
+              customParams?['message']?.toString() ?? json['error']?.toString();
           // 同时提升 tag
           json['tag'] ??= customParams?['tag']?.toString();
         }

@@ -4,12 +4,16 @@ import 'package:fluxdo/services/message_bus_service.dart';
 void main() {
   group('MessageBusService.extractNextChunkForTest', () {
     test('按 \\r\\n|\\r\\n 切出完整 chunk', () {
-      const input = '[{"channel":"/a","message_id":1,"data":null}]\r\n|\r\n[]\r\n|\r\n';
+      const input =
+          '[{"channel":"/a","message_id":1,"data":null}]\r\n|\r\n[]\r\n|\r\n';
       final first = MessageBusService.extractNextChunkForTest(input, 0)!;
       expect(first.payload, '[{"channel":"/a","message_id":1,"data":null}]');
       expect(first.endOffset, isPositive);
 
-      final second = MessageBusService.extractNextChunkForTest(input, first.endOffset)!;
+      final second = MessageBusService.extractNextChunkForTest(
+        input,
+        first.endOffset,
+      )!;
       expect(second.payload, '[]');
 
       expect(
@@ -95,7 +99,9 @@ void main() {
     });
 
     test('无数据返回时按 callbackInterval - elapsed 补足', () {
-      final startedAt = DateTime.now().subtract(const Duration(milliseconds: 500));
+      final startedAt = DateTime.now().subtract(
+        const Duration(milliseconds: 500),
+      );
       final delay = bus.computeNextDelayForTest(
         rateLimited: false,
         abortedByClient: false,

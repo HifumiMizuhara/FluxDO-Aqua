@@ -22,9 +22,8 @@ class Template {
       title: json['title'] as String? ?? '',
       slug: json['slug'] as String? ?? '',
       content: json['content'] as String? ?? '',
-      tags: (json['tags'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
+      tags:
+          (json['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
           [],
       usages: json['usages'] as int? ?? 0,
     );

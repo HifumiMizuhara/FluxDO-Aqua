@@ -78,7 +78,7 @@ class UserContentSearchNotifier extends StateNotifier<UserContentSearchState> {
   final SearchInType _inType;
 
   UserContentSearchNotifier(this._ref, this._inType)
-      : super(UserContentSearchState(filter: SearchFilter(inType: _inType)));
+    : super(UserContentSearchState(filter: SearchFilter(inType: _inType)));
 
   /// 进入搜索模式
   void enterSearchMode() {
@@ -87,9 +87,7 @@ class UserContentSearchNotifier extends StateNotifier<UserContentSearchState> {
 
   /// 退出搜索模式，清除搜索状态
   void exitSearchMode() {
-    state = UserContentSearchState(
-      filter: SearchFilter(inType: _inType),
-    );
+    state = UserContentSearchState(filter: SearchFilter(inType: _inType));
   }
 
   /// 更新搜索关键词（不执行搜索）
@@ -117,9 +115,7 @@ class UserContentSearchNotifier extends StateNotifier<UserContentSearchState> {
 
   /// 设置标签过滤
   void setTags(List<String> tags) {
-    state = state.copyWith(
-      filter: state.filter.copyWith(tags: tags),
-    );
+    state = state.copyWith(filter: state.filter.copyWith(tags: tags));
   }
 
   /// 切换标签选中状态
@@ -130,17 +126,13 @@ class UserContentSearchNotifier extends StateNotifier<UserContentSearchState> {
     } else {
       currentTags.add(tag);
     }
-    state = state.copyWith(
-      filter: state.filter.copyWith(tags: currentTags),
-    );
+    state = state.copyWith(filter: state.filter.copyWith(tags: currentTags));
   }
 
   /// 移除标签
   void removeTag(String tag) {
     final newTags = state.filter.tags.where((t) => t != tag).toList();
-    state = state.copyWith(
-      filter: state.filter.copyWith(tags: newTags),
-    );
+    state = state.copyWith(filter: state.filter.copyWith(tags: newTags));
   }
 
   /// 设置状态过滤
@@ -166,9 +158,7 @@ class UserContentSearchNotifier extends StateNotifier<UserContentSearchState> {
 
   /// 清除所有过滤条件
   void clearFilters() {
-    state = state.copyWith(
-      filter: state.filter.clear(),
-    );
+    state = state.copyWith(filter: state.filter.clear());
   }
 
   /// 执行搜索
@@ -204,7 +194,11 @@ class UserContentSearchNotifier extends StateNotifier<UserContentSearchState> {
         fullQuery = '$fullQuery order:${sortOrder.value}';
       }
 
-      final result = await service.search(query: fullQuery, page: 1, typeFilter: 'topic');
+      final result = await service.search(
+        query: fullQuery,
+        page: 1,
+        typeFilter: 'topic',
+      );
 
       state = state.copyWith(
         results: result.posts,
@@ -212,10 +206,7 @@ class UserContentSearchNotifier extends StateNotifier<UserContentSearchState> {
         isLoading: false,
       );
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: e.toString(),
-      );
+      state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 
@@ -250,7 +241,11 @@ class UserContentSearchNotifier extends StateNotifier<UserContentSearchState> {
         fullQuery = '$fullQuery order:${sortOrder.value}';
       }
 
-      final result = await service.search(query: fullQuery, page: nextPage, typeFilter: 'topic');
+      final result = await service.search(
+        query: fullQuery,
+        page: nextPage,
+        typeFilter: 'topic',
+      );
 
       state = state.copyWith(
         results: [...state.results, ...result.posts],
@@ -283,7 +278,9 @@ class UserContentSearchNotifier extends StateNotifier<UserContentSearchState> {
 
 /// 用户内容搜索 Provider
 /// 使用 family 参数区分不同的页面类型
-final userContentSearchProvider = StateNotifierProvider.family<
-    UserContentSearchNotifier, UserContentSearchState, SearchInType>(
-  (ref, inType) => UserContentSearchNotifier(ref, inType),
-);
+final userContentSearchProvider =
+    StateNotifierProvider.family<
+      UserContentSearchNotifier,
+      UserContentSearchState,
+      SearchInType
+    >((ref, inType) => UserContentSearchNotifier(ref, inType));

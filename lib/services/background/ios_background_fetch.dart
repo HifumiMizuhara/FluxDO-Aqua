@@ -25,7 +25,9 @@ const String _kSharedSessionKey = 'bg_shared_session_key';
 void callbackDispatcher() {
   Workmanager().executeTask((taskName, inputData) async {
     try {
-      debugPrint('[iOSBgFetch] 开始执行后台任务: $taskName');
+      debugPrint(
+        '[iOSBgFetch] 开始执行后台任务: $taskName',
+      );
 
       // 1. 初始化 Cookie 相关服务
       await CookieJarService().initialize();
@@ -144,7 +146,7 @@ void callbackDispatcher() {
       // 5. 持久化 lastMessageId
       if (newLastMessageId > lastMessageId) {
         await prefs.setInt(_kLastMessageId, newLastMessageId);
-        debugPrint('[iOSBgFetch] 更新 lastMessageId: $newLastMessageId');
+        debugPrint('[iOSBgFetch] update lastMessageId: $newLastMessageId');
       }
 
       debugPrint('[iOSBgFetch] 后台任务完成');

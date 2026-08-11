@@ -118,7 +118,8 @@ class _AiChatHistoryPageState extends ConsumerState<AiChatHistoryPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(AiL10n.current.clearAllConversations),
-        content: Text(AiL10n.current.confirmDeleteAllSessions(_totalSessionCount)),
+        content:
+            Text(AiL10n.current.confirmDeleteAllSessions(_totalSessionCount)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -163,7 +164,8 @@ class _TopicGroupTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final topicTitle = group.topicTitle ?? AiL10n.current.topicWithId(group.topicId);
+    final topicTitle =
+        group.topicTitle ?? AiL10n.current.topicWithId(group.topicId);
 
     return ExpansionTile(
       leading: Icon(
@@ -350,8 +352,9 @@ class _MaxSessionsRow extends StatelessWidget {
           children: options
               .map((v) => ListTile(
                     title: Text('$v'),
-                    trailing:
-                        v == currentValue ? const Icon(Symbols.check_rounded) : null,
+                    trailing: v == currentValue
+                        ? const Icon(Symbols.check_rounded)
+                        : null,
                     onTap: () {
                       storageService.setMaxSessions(v);
                       Navigator.pop(ctx);

@@ -9,10 +9,7 @@ final linuxdoCustomization = SiteCustomization(
       primaryGroupName: 'g-merchant',
       glowColor: Color(0xFFF5BF03),
     ),
-    AvatarGlowRule(
-      username: 'neo',
-      glowColor: Color(0xFF00AEFF),
-    ),
+    AvatarGlowRule(username: 'neo', glowColor: Color(0xFF00AEFF)),
   ],
   userTitleStyleRules: [
     UserTitleStyleRule(

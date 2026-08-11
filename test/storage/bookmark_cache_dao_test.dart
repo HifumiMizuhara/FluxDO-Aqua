@@ -70,19 +70,11 @@ void main() {
   test('upsert 同 (account, bookmark_id) 覆盖旧 payload', () async {
     await dao.upsertOne(
       'acct',
-      _entry(
-        bookmarkId: 1,
-        name: 'image',
-        updatedAt: DateTime.utc(2026, 1, 1),
-      ),
+      _entry(bookmarkId: 1, name: 'image', updatedAt: DateTime.utc(2026, 1, 1)),
     );
     await dao.upsertOne(
       'acct',
-      _entry(
-        bookmarkId: 1,
-        name: 'beta',
-        updatedAt: DateTime.utc(2026, 5, 1),
-      ),
+      _entry(bookmarkId: 1, name: 'beta', updatedAt: DateTime.utc(2026, 5, 1)),
     );
 
     final entries = await dao.readAll('acct');
@@ -136,11 +128,7 @@ void main() {
   test('findOne 按 id 单点读取', () async {
     await dao.upsertAll('acct', [
       _entry(bookmarkId: 1, updatedAt: DateTime.utc(2026, 1, 1)),
-      _entry(
-        bookmarkId: 2,
-        name: 'beta',
-        updatedAt: DateTime.utc(2026, 2, 1),
-      ),
+      _entry(bookmarkId: 2, name: 'beta', updatedAt: DateTime.utc(2026, 2, 1)),
     ]);
 
     final hit = await dao.findOne('acct', 2);
@@ -165,21 +153,9 @@ void main() {
 
   test('readByIds 按传入 id 顺序返回，跳过缺失', () async {
     await dao.upsertAll('acct', [
-      _entry(
-        bookmarkId: 1,
-        topicId: 100,
-        updatedAt: DateTime.utc(2026, 1, 1),
-      ),
-      _entry(
-        bookmarkId: 2,
-        topicId: 200,
-        updatedAt: DateTime.utc(2026, 2, 1),
-      ),
-      _entry(
-        bookmarkId: 3,
-        topicId: 300,
-        updatedAt: DateTime.utc(2026, 3, 1),
-      ),
+      _entry(bookmarkId: 1, topicId: 100, updatedAt: DateTime.utc(2026, 1, 1)),
+      _entry(bookmarkId: 2, topicId: 200, updatedAt: DateTime.utc(2026, 2, 1)),
+      _entry(bookmarkId: 3, topicId: 300, updatedAt: DateTime.utc(2026, 3, 1)),
     ]);
 
     final picked = await dao.readByIds('acct', [3, 999, 1]);
@@ -194,21 +170,9 @@ void main() {
 
   test('nameCounts 聚合 name 出现次数，忽略空名', () async {
     await dao.upsertAll('acct', [
-      _entry(
-        bookmarkId: 1,
-        name: 'image',
-        updatedAt: DateTime.utc(2026, 1, 1),
-      ),
-      _entry(
-        bookmarkId: 2,
-        name: 'image',
-        updatedAt: DateTime.utc(2026, 2, 1),
-      ),
-      _entry(
-        bookmarkId: 3,
-        name: 'beta',
-        updatedAt: DateTime.utc(2026, 3, 1),
-      ),
+      _entry(bookmarkId: 1, name: 'image', updatedAt: DateTime.utc(2026, 1, 1)),
+      _entry(bookmarkId: 2, name: 'image', updatedAt: DateTime.utc(2026, 2, 1)),
+      _entry(bookmarkId: 3, name: 'beta', updatedAt: DateTime.utc(2026, 3, 1)),
       _entry(bookmarkId: 4, updatedAt: DateTime.utc(2026, 4, 1)),
     ]);
 

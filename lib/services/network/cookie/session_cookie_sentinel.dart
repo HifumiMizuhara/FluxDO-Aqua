@@ -507,9 +507,9 @@ class SessionCookieSentinel {
     int expectedMaxAfter,
   ) async {
     if (!_chipsCookieNames.contains(name)) return false;
-    final variants = (await _writer.getAllCookieInfos(url))
-        .where((c) => c.name == name)
-        .toList(growable: false);
+    final variants = (await _writer.getAllCookieInfos(
+      url,
+    )).where((c) => c.name == name).toList(growable: false);
     if (variants.isEmpty) return true;
     final partitioned = variants.where((c) => c.isPartitioned == true).length;
     final nonPartitioned = variants.length - partitioned;
@@ -838,7 +838,8 @@ class SessionCookieSentinel {
     final after = await _writer.countCookiesByName(url, name);
     final expectedMaxAfter = intent == SweepIntent.delete ? 0 : 1;
     final targetSatisfied =
-        after <= expectedMaxAfter || await _residualIsAcceptable(url, name, expectedMaxAfter);
+        after <= expectedMaxAfter ||
+        await _residualIsAcceptable(url, name, expectedMaxAfter);
     final status = targetSatisfied
         ? SweepStatus.nuclearReset
         : SweepStatus.failed;

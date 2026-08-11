@@ -75,10 +75,10 @@ class DioHttpClient extends http.BaseClient {
   static _Semaphore get _downloadSemaphore => _contentSemaphore;
 
   static _Semaphore _semaphoreOf(DownloadChannel channel) => switch (channel) {
-        DownloadChannel.small => _smallSemaphore,
-        DownloadChannel.content => _contentSemaphore,
-        DownloadChannel.sticker => _stickerSemaphore,
-      };
+    DownloadChannel.small => _smallSemaphore,
+    DownloadChannel.content => _contentSemaphore,
+    DownloadChannel.sticker => _stickerSemaphore,
+  };
 
   /// 把仍在 [channel] 等待队列中的 [url] 提到高优先级(滚入视野)。
   /// 在途/未排队/已完成均为无操作 —— 幂等,调用方无需判断状态。
@@ -225,16 +225,14 @@ class DioHttpClient extends http.BaseClient {
         ),
       );
       if (response.statusCode != 200) {
-        throw http.ClientException(
-          'HTTP ${response.statusCode} for $url',
-          url,
-        );
+        throw http.ClientException('HTTP ${response.statusCode} for $url', url);
       }
       final contentLength = int.tryParse(
         response.headers.value('content-length') ?? '',
       );
-      final total =
-          (contentLength != null && contentLength > 0) ? contentLength : null;
+      final total = (contentLength != null && contentLength > 0)
+          ? contentLength
+          : null;
 
       final builder = BytesBuilder(copy: false);
       final body = response.data;

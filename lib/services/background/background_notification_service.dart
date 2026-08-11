@@ -33,7 +33,9 @@ class BackgroundNotificationService {
   Future<void> enable(int userId) async {
     if (_enabled) return;
     _enabled = true;
-    debugPrint('[BackgroundNotification] 启用后台通知, userId=$userId');
+    debugPrint(
+      '[BackgroundNotification] 启用后台通知, userId=$userId',
+    );
 
     if (Platform.isAndroid) {
       await _startAndroidForegroundService();
@@ -119,7 +121,7 @@ class BackgroundNotificationService {
 
   Future<void> _initIOSWorkmanager() async {
     await Workmanager().initialize(callbackDispatcher);
-    debugPrint('[BackgroundNotification] iOS Workmanager 已初始化');
+    debugPrint('[BackgroundNotification] iOS Workmanager initialization');
   }
 
   Future<void> _registerIOSPeriodicTask(int userId) async {
@@ -130,9 +132,7 @@ class BackgroundNotificationService {
       kNotificationPollTask,
       kNotificationPollTask,
       frequency: const Duration(minutes: 15),
-      constraints: Constraints(
-        networkType: NetworkType.connected,
-      ),
+      constraints: Constraints(networkType: NetworkType.connected),
       existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
     );
     debugPrint('[BackgroundNotification] iOS 定期任务已注册');

@@ -98,9 +98,7 @@ class ModelTagWrap extends StatelessWidget {
                           ? Symbols.text_fields_rounded
                           : Symbols.image_rounded,
                       size: 12,
-                      color: isDark
-                          ? color
-                          : color.withValues(alpha: 0.9),
+                      color: isDark ? color : color.withValues(alpha: 0.9),
                     ),
                   ),
                 Icon(
@@ -116,9 +114,7 @@ class ModelTagWrap extends StatelessWidget {
                           ? Symbols.text_fields_rounded
                           : Symbols.image_rounded,
                       size: 12,
-                      color: isDark
-                          ? color
-                          : color.withValues(alpha: 0.9),
+                      color: isDark ? color : color.withValues(alpha: 0.9),
                     ),
                   ),
               ],

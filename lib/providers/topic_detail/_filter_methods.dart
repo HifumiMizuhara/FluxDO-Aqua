@@ -214,15 +214,21 @@ extension FilterMethods on TopicDetailNotifier {
         final newLastIndex = stream.indexOf(newLastId);
         _hasMoreAfter = newLastIndex < stream.length - 1;
 
-        return _withSuggestedCache(currentDetail.copyWith(
-          postStream: PostStream(posts: mergedPosts, stream: stream, gaps: currentDetail.postStream.gaps),
-          suggestedTopics: newPostStream.suggestedTopics.isNotEmpty
-              ? newPostStream.suggestedTopics
-              : null,
-          relatedTopics: newPostStream.relatedTopics.isNotEmpty
-              ? newPostStream.relatedTopics
-              : null,
-        ));
+        return _withSuggestedCache(
+          currentDetail.copyWith(
+            postStream: PostStream(
+              posts: mergedPosts,
+              stream: stream,
+              gaps: currentDetail.postStream.gaps,
+            ),
+            suggestedTopics: newPostStream.suggestedTopics.isNotEmpty
+                ? newPostStream.suggestedTopics
+                : null,
+            relatedTopics: newPostStream.relatedTopics.isNotEmpty
+                ? newPostStream.relatedTopics
+                : null,
+          ),
+        );
       });
       if (!ref.mounted) return;
       if (result.hasError) {

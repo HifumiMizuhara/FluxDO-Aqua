@@ -164,9 +164,7 @@ class MigrationService {
                     io.Cookie.fromSetCookieValue(header),
                   ]);
                 } catch (e) {
-                  debugPrint(
-                    '[Migration v5] 单条 cookie 回灌失败 url=$url: $e',
-                  );
+                  debugPrint('[Migration v5] 单条 cookie 回灌失败 url=$url: $e');
                 }
               }
             } catch (e) {
@@ -174,9 +172,11 @@ class MigrationService {
             }
           }
           await queueFile.delete();
-          debugPrint('[Migration v5] 已清理 RawSetCookieQueue 持久化文件');
+          debugPrint(
+            '[Migration v5] 已清理 RawSetCookieQueue 持久化文件',
+          );
         } catch (e) {
-          debugPrint('[Migration v5] 失败 (忽略): $e');
+          debugPrint('[Migration v5] failed (ignore): $e');
         }
       },
     ),
@@ -215,9 +215,13 @@ class MigrationService {
           }
           try {
             await e.delete();
-            debugPrint('[Migration v6] 删除旧 Hive 图片索引: ${p.basename(e.path)}');
+            debugPrint(
+              '[Migration v6] 删除旧 Hive 图片索引: ${p.basename(e.path)}',
+            );
           } catch (err) {
-            debugPrint('[Migration v6] 删除失败 ${p.basename(e.path)}: $err');
+            debugPrint(
+              '[Migration v6] deletefailed ${p.basename(e.path)}: $err',
+            );
           }
         }
       },
@@ -334,7 +338,7 @@ class MigrationService {
       await dir.rename(trashPath);
       debugPrint('[Migration] 已移入待删区: $key');
     } catch (e) {
-      debugPrint('[Migration] trash $key 失败 (忽略): $e');
+      debugPrint('[Migration] trash $key failed (ignore): $e');
     }
   }
 
@@ -348,7 +352,7 @@ class MigrationService {
         final f = io.File(p.join(supportDir.path, '$key$suffix'));
         if (await f.exists()) await f.delete();
       } catch (e) {
-        debugPrint('[Migration] 删除 $key$suffix 失败 (忽略): $e');
+        debugPrint('[Migration] delete $key$suffix failed (ignore): $e');
       }
     }
   }
@@ -374,16 +378,20 @@ class MigrationService {
         return count;
       });
       if (deleted > 0) {
-        debugPrint('[Migration] 后台清扫 $deleted 个 .trash 目录');
+        debugPrint(
+          '[Migration] 后台清扫 $deleted 个 .trash 目录',
+        );
       }
     } catch (e) {
-      debugPrint('[Migration] purgeTrash 失败 (忽略): $e');
+      debugPrint('[Migration] purgeTrash failed (ignore): $e');
     }
   }
 
   /// 全部迁移完成标记 key(供备份服务排除,数据驱动不抄常量)。
-  static List<String> get migrationKeys =>
-      [for (final m in _migrations) m.key, 'cookie_domain_migration_v2'];
+  static List<String> get migrationKeys => [
+    for (final m in _migrations) m.key,
+    'cookie_domain_migration_v2',
+  ];
 
   /// 判断是否为 v0.1.x 以前的老用户。
   ///
@@ -410,13 +418,13 @@ class MigrationService {
         continue;
       }
 
-      debugPrint('[Migration] 开始: ${m.name}');
+      debugPrint('[Migration] start: ${m.name}');
       try {
         await m.run();
         await prefs.setBool(m.key, true);
-        debugPrint('[Migration] 完成: ${m.name}');
+        debugPrint('[Migration] complete: ${m.name}');
       } catch (e) {
-        debugPrint('[Migration] 失败: ${m.name}, $e');
+        debugPrint('[Migration] failed: ${m.name}, $e');
       }
     }
   }

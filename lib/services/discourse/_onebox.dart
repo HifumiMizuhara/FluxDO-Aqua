@@ -41,8 +41,11 @@ mixin _OneboxMixin on _DiscourseServiceBase {
   ///
   /// 对齐 web 的 GET /inline-onebox（≤10 条/批）：
   /// 返回 {url: (title, cssClass)}，无标题的 url 不在结果里。
-  Future<Map<String, ({String title, String? cssClass})>>
-  fetchInlineOneboxes(List<String> urls, {int? categoryId, int? topicId}) async {
+  Future<Map<String, ({String title, String? cssClass})>> fetchInlineOneboxes(
+    List<String> urls, {
+    int? categoryId,
+    int? topicId,
+  }) async {
     final result = <String, ({String title, String? cssClass})>{};
     if (urls.isEmpty) return result;
     try {
@@ -69,7 +72,7 @@ mixin _OneboxMixin on _DiscourseServiceBase {
         }
       }
     } catch (e) {
-      debugPrint('[Onebox] inline 请求失败: $e');
+      debugPrint('[Onebox] inline requestfailed: $e');
     }
     return result;
   }

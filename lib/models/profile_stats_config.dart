@@ -24,8 +24,8 @@ enum StatsLayoutMode { grid, scroll }
 
 /// 数据源
 enum StatsDataSource {
-  summary,   // 全量（Summary API）
-  connect,   // 信任等级周期（connect.linux.do）
+  summary, // 全量（Summary API）
+  connect, // 信任等级周期（connect.linux.do）
 }
 
 /// 各数据源支持的统计项
@@ -101,17 +101,21 @@ class ProfileStatsConfig {
 
   factory ProfileStatsConfig.fromJson(Map<String, dynamic> json) {
     return ProfileStatsConfig(
-      enabledStats: (json['enabledStats'] as List<dynamic>?)
-          ?.map((e) => ProfileStatType.values.firstWhere(
-                (v) => v.name == e,
-                orElse: () => ProfileStatType.daysVisited,
-              ))
-          .toList() ?? const [
-        ProfileStatType.daysVisited,
-        ProfileStatType.postsReadCount,
-        ProfileStatType.likesReceived,
-        ProfileStatType.postCount,
-      ],
+      enabledStats:
+          (json['enabledStats'] as List<dynamic>?)
+              ?.map(
+                (e) => ProfileStatType.values.firstWhere(
+                  (v) => v.name == e,
+                  orElse: () => ProfileStatType.daysVisited,
+                ),
+              )
+              .toList() ??
+          const [
+            ProfileStatType.daysVisited,
+            ProfileStatType.postsReadCount,
+            ProfileStatType.likesReceived,
+            ProfileStatType.postCount,
+          ],
       layoutMode: StatsLayoutMode.values.firstWhere(
         (v) => v.name == json['layoutMode'],
         orElse: () => StatsLayoutMode.grid,

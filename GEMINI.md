@@ -1,9 +1,5 @@
 # Project Guidelines
 
-## Language
-
-Use Chinese for all communication and code comments.
-
 ## Dependencies
 
 When adding or updating dependencies in `pubspec.yaml`:

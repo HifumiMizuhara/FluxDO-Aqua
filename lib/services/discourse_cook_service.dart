@@ -59,11 +59,15 @@ class DiscourseCookService {
       siteSettings = preloaded.siteSettingsSync;
       site = await preloaded.getSite();
     } catch (e) {
-      debugPrint('[DiscourseCook] 站点数据未就绪，暂不初始化: $e');
+      debugPrint(
+        'assets/cook/discourse-cook.js',
+      );
       return false;
     }
     if (siteSettings == null || site == null) {
-      debugPrint('[DiscourseCook] siteSettings/site 为空，暂不初始化');
+      debugPrint(
+        'assets/cook/discourse-cook.js',
+      );
       return false;
     }
 
@@ -76,7 +80,7 @@ class DiscourseCookService {
       String? evalError;
       engine.evaluate(bundleJs, onError: (e) => evalError = e);
       if (evalError != null) {
-        debugPrint('[DiscourseCook] bundle eval 失败: $evalError');
+        debugPrint('[DiscourseCook] bundle eval failed: $evalError');
         _unavailable = true;
         return false;
       }
@@ -105,16 +109,16 @@ class DiscourseCookService {
         onError: (e) => initError = e,
       );
       if (initResult != 'ok') {
-        debugPrint('[DiscourseCook] init 失败: ${initError ?? initResult}');
+        debugPrint('[DiscourseCook] init failed: ${initError ?? initResult}');
         _unavailable = true;
         return false;
       }
 
       _engine = engine;
-      debugPrint('[DiscourseCook] 初始化完成');
+      debugPrint('[DiscourseCook] initializationcomplete');
       return true;
     } catch (e) {
-      debugPrint('[DiscourseCook] 初始化异常: $e');
+      debugPrint('[DiscourseCook] initializationexception: $e');
       _unavailable = true;
       return false;
     }
@@ -125,7 +129,11 @@ class DiscourseCookService {
     final topTags = site['top_tags'] as List?;
     if (topTags == null) return const [];
     return topTags
-        .map((t) => t is Map<String, dynamic> ? (t['name'] as String? ?? '') : t.toString())
+        .map(
+          (t) => t is Map<String, dynamic>
+              ? (t['name'] as String? ?? '')
+              : t.toString(),
+        )
         .where((name) => name.isNotEmpty)
         .toList();
   }
@@ -143,7 +151,7 @@ class DiscourseCookService {
       onError: (e) => cookError = e,
     );
     if (cooked == null) {
-      debugPrint('[DiscourseCook] cook 失败: $cookError');
+      debugPrint('[DiscourseCook] cook failed: $cookError');
       return null;
     }
     return postProcessCooked(cooked, baseUri: PreloadedDataService().baseUri);
@@ -203,7 +211,7 @@ class DiscourseCookService {
       if (err == null) {
         seeded = true;
       } else {
-        debugPrint('[DiscourseCook] seedOnebox 失败: $err');
+        debugPrint('[DiscourseCook] seedOnebox failed: $err');
       }
     }
 
@@ -228,7 +236,7 @@ class DiscourseCookService {
         if (err == null) {
           seeded = true;
         } else {
-          debugPrint('[DiscourseCook] seedInlineOnebox 失败: $err');
+          debugPrint('[DiscourseCook] seedInlineOnebox failed: $err');
         }
       }
     }

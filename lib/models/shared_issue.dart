@@ -13,7 +13,8 @@ class SharedIssueResponse {
   factory SharedIssueResponse.fromJson(Map<String, dynamic> json) {
     return SharedIssueResponse(
       count: json['count'] as int? ?? 0,
-      userCreatedSharedIssue: json['user_created_shared_issue'] as bool? ?? false,
+      userCreatedSharedIssue:
+          json['user_created_shared_issue'] as bool? ?? false,
     );
   }
 }

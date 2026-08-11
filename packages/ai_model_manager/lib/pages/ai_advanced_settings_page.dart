@@ -27,12 +27,10 @@ class AiAdvancedSettingsPage extends ConsumerWidget {
                 value: useAppNetwork && hasAdapterFactory,
                 onChanged: hasAdapterFactory
                     ? (value) async {
-                        final prefs =
-                            ref.read(aiSharedPreferencesProvider);
+                        final prefs = ref.read(aiSharedPreferencesProvider);
                         await prefs.setBool('ai_use_app_network', value);
-                        ref
-                            .read(aiUseAppNetworkProvider.notifier)
-                            .state = value;
+                        ref.read(aiUseAppNetworkProvider.notifier).state =
+                            value;
                       }
                     : null,
               ),
@@ -43,8 +41,7 @@ class AiAdvancedSettingsPage extends ConsumerWidget {
                 onChanged: (value) async {
                   final prefs = ref.read(aiSharedPreferencesProvider);
                   await prefs.setBool('ai_partial_images', value);
-                  ref.read(aiPartialImagesProvider.notifier).state =
-                      value;
+                  ref.read(aiPartialImagesProvider.notifier).state = value;
                 },
               ),
             ],

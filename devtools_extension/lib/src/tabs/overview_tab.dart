@@ -143,7 +143,8 @@ class _OverviewTabState extends State<OverviewTab> {
         _CookieListCard(
           title: 'jar (${(jar['cookies'] as List?)?.length ?? 0})',
           initialized: jar['initialized'] as bool? ?? false,
-          cookies: (jar['cookies'] as List?)?.cast<Map<String, dynamic>>() ?? [],
+          cookies:
+              (jar['cookies'] as List?)?.cast<Map<String, dynamic>>() ?? [],
         ),
         const SizedBox(height: 12),
         _CookieListCard(
@@ -172,8 +173,9 @@ class _StatusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final hasVariantWarning =
-        variantsCount.values.any((v) => v is int && v > 1);
+    final hasVariantWarning = variantsCount.values.any(
+      (v) => v is int && v > 1,
+    );
 
     return Card(
       child: Padding(
@@ -183,10 +185,7 @@ class _StatusCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(
-                  Icons.cookie_outlined,
-                  color: theme.colorScheme.primary,
-                ),
+                Icon(Icons.cookie_outlined, color: theme.colorScheme.primary),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -272,9 +271,7 @@ class _CookieListCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Expanded(
-                  child: Text(title, style: theme.textTheme.titleSmall),
-                ),
+                Expanded(child: Text(title, style: theme.textTheme.titleSmall)),
                 if (!initialized)
                   const Chip(
                     label: Text('uninitialized'),

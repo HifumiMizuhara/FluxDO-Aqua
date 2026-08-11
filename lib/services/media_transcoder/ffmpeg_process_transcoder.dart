@@ -29,9 +29,7 @@ class FfmpegProcessTranscoder extends MediaTranscoder {
   bool _cancelled = false;
 
   @override
-  Future<String?> ensureReady({
-    void Function(String status)? onStatus,
-  }) async {
+  Future<String?> ensureReady({void Function(String status)? onStatus}) async {
     if (_ffmpegPath != null) return null;
     // ① 随包分发:与主程序同目录(CMake install 到 bundle 根)
     final exeDir = File(Platform.resolvedExecutable).parent.path;
@@ -42,10 +40,9 @@ class FfmpegProcessTranscoder extends MediaTranscoder {
       return null;
     }
     // ② 系统 PATH(用户自装的 ffmpeg)
-    final probe = await Process.run(
-      Platform.isWindows ? 'where' : 'which',
-      ['ffmpeg'],
-    );
+    final probe = await Process.run(Platform.isWindows ? 'where' : 'which', [
+      'ffmpeg',
+    ]);
     final found = (probe.stdout as String)
         .trim()
         .split(RegExp(r'[\r\n]+'))
@@ -77,8 +74,9 @@ class FfmpegProcessTranscoder extends MediaTranscoder {
 
   /// `Duration: 00:01:23.45` → Duration。公开做单测。
   static Duration? parseFfmpegDuration(String stderr) {
-    final m = RegExp(r'Duration:\s*(\d+):(\d\d):(\d\d)\.(\d\d)')
-        .firstMatch(stderr);
+    final m = RegExp(
+      r'Duration:\s*(\d+):(\d\d):(\d\d)\.(\d\d)',
+    ).firstMatch(stderr);
     if (m == null) return null;
     return Duration(
       hours: int.parse(m[1]!),
@@ -132,16 +130,14 @@ class FfmpegProcessTranscoder extends MediaTranscoder {
     final proc = await Process.start(ffmpeg, buildArgs(spec));
     _proc = proc;
     // 进度行:out_time_ms=1234567(微秒,ffmpeg 历史命名坑)
-    proc.stdout
-        .transform(utf8.decoder)
-        .transform(const LineSplitter())
-        .listen((line) {
+    proc.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen((
+      line,
+    ) {
       if (_total == Duration.zero) return;
       final m = RegExp(r'^out_time_ms=(\d+)').firstMatch(line);
       if (m != null) {
         final us = int.parse(m[1]!);
-        _progress =
-            (us / 1000 / _total.inMilliseconds).clamp(0.0, 1.0);
+        _progress = (us / 1000 / _total.inMilliseconds).clamp(0.0, 1.0);
       }
     });
     // stderr 必须排空(不排 ffmpeg 写满管道会卡死)

@@ -3,10 +3,8 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fluxdo/services/media_compat_service.dart';
 
-Uint8List _bytes(List<int> head) => Uint8List.fromList([
-      ...head,
-      ...List.filled(64, 0),
-    ]);
+Uint8List _bytes(List<int> head) =>
+    Uint8List.fromList([...head, ...List.filled(64, 0)]);
 
 /// mp4 (ftyp isom) 头,linux.do 实测「.xz 装 mp4」帖子的真实头部形态
 final _ftypIsom = _bytes([
@@ -95,8 +93,7 @@ void main() {
   group('extensionForMimeType', () {
     test('maps to player-friendly extensions', () {
       expect(MediaCompatService.extensionForMimeType('video/mp4'), 'mp4');
-      expect(
-          MediaCompatService.extensionForMimeType('video/quicktime'), 'mov');
+      expect(MediaCompatService.extensionForMimeType('video/quicktime'), 'mov');
       expect(MediaCompatService.extensionForMimeType('audio/mpeg'), 'mp3');
       expect(MediaCompatService.extensionForMimeType('audio/mp4'), 'm4a');
       expect(MediaCompatService.extensionForMimeType('x/unknown'), 'bin');

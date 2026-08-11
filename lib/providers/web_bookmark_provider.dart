@@ -69,6 +69,6 @@ class WebBookmarkNotifier extends StateNotifier<List<WebBookmark>> {
 
 final webBookmarkProvider =
     StateNotifierProvider<WebBookmarkNotifier, List<WebBookmark>>((ref) {
-  final prefs = ref.watch(sharedPreferencesProvider);
-  return WebBookmarkNotifier(prefs);
-});
+      final prefs = ref.watch(sharedPreferencesProvider);
+      return WebBookmarkNotifier(prefs);
+    });

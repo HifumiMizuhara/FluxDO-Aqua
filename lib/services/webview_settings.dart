@@ -177,7 +177,9 @@ class WebViewSettings {
       try {
         await controller.setMemoryUsageTargetLevel(MemoryUsageTargetLevel.LOW);
       } catch (e) {
-        debugPrint('[WebViewSettings] 设置 WebView2 低内存目标失败: $e');
+        debugPrint(
+          '[WebViewSettings] 设置 WebView2 低内存目标失败: $e',
+        );
       }
     }());
   }

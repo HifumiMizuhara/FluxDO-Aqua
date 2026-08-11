@@ -23,8 +23,11 @@ void main() {
 
   test('短视频不记忆', () async {
     final store = PlaybackPositionStore.instance;
-    await store.save(url, const Duration(seconds: 20),
-        const Duration(seconds: 50)); // 总长 < 60s
+    await store.save(
+      url,
+      const Duration(seconds: 20),
+      const Duration(seconds: 50),
+    ); // 总长 < 60s
     expect(await store.restore(url), isNull);
   });
 
@@ -35,7 +38,10 @@ void main() {
 
     // 播到距片尾 10s 内 → 视为看完,删除
     await store.save(
-        url, longDuration - const Duration(seconds: 5), longDuration);
+      url,
+      longDuration - const Duration(seconds: 5),
+      longDuration,
+    );
     expect(await store.restore(url), isNull);
 
     // 重新记一条,再回到片头 5s 内 → 删除

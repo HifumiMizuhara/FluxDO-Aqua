@@ -624,7 +624,7 @@ mixin _AuthMixin on _DiscourseServiceBase {
       _lastInconclusiveAt = DateTime.now();
       return null;
     } catch (e) {
-      debugPrint('[Auth] probe 异常: $e');
+      debugPrint('[Auth] probe exception: $e');
       _lastInconclusiveAt = DateTime.now();
       return null;
     }
@@ -680,7 +680,9 @@ mixin _AuthMixin on _DiscourseServiceBase {
             allowLowConfidenceSessionCookies: true,
           );
     } catch (e) {
-      debugPrint('[Auth] probe 前读取 WebView _forum_session 失败: $e');
+      debugPrint(
+        '[Auth] probe 前读取 WebView _forum_session 失败: $e',
+      );
     }
     final candidateSessionCookies = <String, String>{
       '_t': candidateTToken!,
@@ -893,7 +895,7 @@ mixin _AuthMixin on _DiscourseServiceBase {
     } on DioException {
       return null;
     } catch (e) {
-      debugPrint('[Auth] candidate session probe 异常: $e');
+      debugPrint('[Auth] candidate session probe exception: $e');
       return null;
     }
   }

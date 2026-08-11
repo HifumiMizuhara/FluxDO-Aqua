@@ -25,9 +25,7 @@ void _registerScheme(String scheme) {
   final key = Registry.currentUser.createKey('Software\\Classes\\$scheme');
   try {
     // 名字为空 = 键的 (Default) 值
-    key.createValue(
-      RegistryValue.string('', 'URL:$scheme Protocol'),
-    );
+    key.createValue(RegistryValue.string('', 'URL:$scheme Protocol'));
     key.createValue(const RegistryValue.string('URL Protocol', ''));
     final cmdKey = key.createKey('shell\\open\\command');
     try {

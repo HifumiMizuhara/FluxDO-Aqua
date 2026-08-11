@@ -139,7 +139,7 @@ class CfClearanceRefreshService {
     _pausedByLifecycle = false;
     if (_isRunning && !_isDisposing) return;
     if (!_isForeground) {
-      CfChallengeLogger.log('[CfRefresh] 当前处于后台，延后启动');
+      CfChallengeLogger.log('[CfRefresh] App is in background; delaying start');
       return;
     }
 
@@ -148,7 +148,9 @@ class CfClearanceRefreshService {
     _cancelDelayedTimers();
 
     if (_isDisposing) {
-      CfChallengeLogger.log('[CfRefresh] start 已排队，等待当前 WebView 完成销毁');
+      CfChallengeLogger.log(
+        '[CfRefresh] Start queued; waiting for current WebView disposal',
+      );
       return;
     }
     _startWebView();
@@ -164,7 +166,9 @@ class CfClearanceRefreshService {
     _pausedByLifecycle = true;
     _cancelDelayedTimers();
     _cancelRuntimeTimers();
-    CfChallengeLogger.log('[CfRefresh] 暂停维护，保留现有 WebView');
+    CfChallengeLogger.log(
+      '[CfRefresh] Maintenance paused; keeping existing WebView',
+    );
   }
 
   /// 恢复：应用回前台后复用现有 WebView，只恢复计时器与 cookie 同步。
@@ -175,7 +179,7 @@ class CfClearanceRefreshService {
     _shouldBeRunning = true;
     if (_isRunning && !_isDisposing) {
       final gen = _generation;
-      CfChallengeLogger.log('[CfRefresh] 恢复，复用现有 WebView');
+      CfChallengeLogger.log('[CfRefresh] Resumed; reusing existing WebView');
       _startTimers(gen, includeInitialTimeout: false);
       unawaited(_syncAndCheckCookies('lifecycle_resume', gen));
       return;
@@ -185,9 +189,11 @@ class CfClearanceRefreshService {
     _consecutiveFailures = 0;
     _cancelDelayedTimers();
 
-    CfChallengeLogger.log('[CfRefresh] 恢复');
+    CfChallengeLogger.log('[CfRefresh] Resumed');
     if (_isDisposing) {
-      CfChallengeLogger.log('[CfRefresh] resume 已排队，等待当前 WebView 完成销毁');
+      CfChallengeLogger.log(
+        '[CfRefresh] Resume queued; waiting for current WebView disposal',
+      );
       return;
     }
     _startWebView();
@@ -221,7 +227,7 @@ class CfClearanceRefreshService {
     if (_isRunning || _headlessWebView != null || _webViewController != null) {
       await _disposeWebView(reason: 'stop');
     }
-    CfChallengeLogger.log('[CfRefresh] 服务已停止');
+    CfChallengeLogger.log('[CfRefresh] Service stopped');
   }
 
   // ---------------------------------------------------------------------------
@@ -235,7 +241,7 @@ class CfClearanceRefreshService {
 
     final sitekey = _sitekey;
     if (sitekey == null || sitekey.isEmpty) {
-      CfChallengeLogger.log('[CfRefresh] 无 sitekey，跳过启动');
+      CfChallengeLogger.log('[CfRefresh] No sitekey; skipping start');
       return;
     }
 
@@ -250,7 +256,7 @@ class CfClearanceRefreshService {
         return;
       }
       if (baseline == null) {
-        CfChallengeLogger.log('[CfRefresh] 无 cf_clearance，跳过启动');
+        CfChallengeLogger.log('[CfRefresh] No cf_clearance; skipping start');
         return;
       }
 
@@ -268,8 +274,12 @@ class CfClearanceRefreshService {
       WebViewCookiePriming.instance.invalidate();
       await WebViewCookiePriming.instance.prime(AppConstants.baseUrl);
     } catch (e) {
-      debugPrint('[CfRefresh] WebView cookie priming 失败，继续启动: $e');
-      CfChallengeLogger.log('[CfRefresh] WebView cookie priming 失败，继续启动: $e');
+      debugPrint(
+        '[CfRefresh] WebView cookie priming failed; continuing start: $e',
+      );
+      CfChallengeLogger.log(
+        '[CfRefresh] WebView cookie priming failed; continuing start: $e',
+      );
     }
     if (!_canStartGeneration(gen)) return;
 
@@ -316,7 +326,7 @@ class CfClearanceRefreshService {
     _isRunning = true;
 
     try {
-      CfChallengeLogger.log('[CfRefresh] 启动 Turnstile WebView');
+      CfChallengeLogger.log('[CfRefresh] Starting Turnstile WebView');
       // WebView 创建/加载在平台主线程执行重活,与掉帧时间轴对齐归因
       FrameJankMonitor.logEvent('WEBVIEW', 'CfRefresh run() 开始');
 
@@ -352,9 +362,9 @@ class CfClearanceRefreshService {
       if (!_canHandleGeneration(gen)) return;
       _startTimers(gen);
     } catch (e, stackTrace) {
-      debugPrint('[CfRefresh] WebView 启动失败: $e');
+      debugPrint('[CfRefresh] WebView start failed: $e');
       debugPrintStack(label: '[CfRefresh] start stack', stackTrace: stackTrace);
-      CfChallengeLogger.log('[CfRefresh] WebView 启动失败: $e');
+      CfChallengeLogger.log('[CfRefresh] WebView start failed: $e');
       if (identical(_headlessWebView, webView)) {
         _isRunning = false;
         _headlessWebView = null;
@@ -403,7 +413,9 @@ class CfClearanceRefreshService {
       callback: (_) {
         if (!_canHandleGeneration(gen)) return null;
         _lastSignalAt = DateTime.now();
-        CfChallengeLogger.log('[CfRefresh] Turnstile token 已过期，等待自动刷新');
+        CfChallengeLogger.log(
+          '[CfRefresh] Turnstile token expired; waiting for automatic refresh',
+        );
         unawaited(_syncAndCheckCookies('turnstile_expired', gen));
         return null;
       },
@@ -415,7 +427,7 @@ class CfClearanceRefreshService {
         if (!_canHandleGeneration(gen)) return null;
         _lastSignalAt = DateTime.now();
         final error = args.isNotEmpty ? args.first?.toString() : 'unknown';
-        CfChallengeLogger.log('[CfRefresh] Turnstile 错误: $error');
+        CfChallengeLogger.log('[CfRefresh] Turnstile error: $error');
         unawaited(_syncAndCheckCookies('turnstile_error', gen));
         _recordFailure('turnstile_error:$error', gen: gen, restart: true);
         return null;
@@ -470,7 +482,9 @@ document.close();
       return;
     }
     if (_staleReloads >= _maxReloadsBeforeRestart) {
-      CfChallengeLogger.log('[CfRefresh] 原地重载 $_staleReloads 次仍无更新,退回完全重建');
+      CfChallengeLogger.log(
+        '[CfRefresh] No update after $_staleReloads in-place reloads; falling back to full rebuild',
+      );
       _staleReloads = 0;
       _scheduleRestart(reason, gen: gen);
       return;
@@ -494,7 +508,9 @@ document.close();
       // 立即再次触发
       _lastCookieAdvanceAt = DateTime.now();
     } catch (e) {
-      CfChallengeLogger.log('[CfRefresh] 原地重载失败,退回完全重建: $e');
+      CfChallengeLogger.log(
+        '[CfRefresh] In-place reload failed; falling back to full rebuild: $e',
+      );
       _staleReloads = 0;
       _scheduleRestart(reason, gen: gen);
     }
@@ -502,7 +518,9 @@ document.close();
 
   Future<void> _disposeWebView({required String reason}) {
     if (_isDisposing) {
-      CfChallengeLogger.log('[CfRefresh] 忽略重复 dispose 请求: $reason');
+      CfChallengeLogger.log(
+        '[CfRefresh] Ignoring duplicate dispose request: $reason',
+      );
       return _disposingFuture ?? Future.value();
     }
     final future = _disposeWebViewImpl(reason);
@@ -536,7 +554,7 @@ document.close();
         controller.removeJavaScriptHandler(handlerName: 'onTurnstileError');
       }
     } catch (e) {
-      CfChallengeLogger.log('[CfRefresh] 移除 JS handlers 异常: $e');
+      CfChallengeLogger.log('[CfRefresh] JS handler removal exception: $e');
     }
 
     if (controller != null || wv != null) {
@@ -546,7 +564,7 @@ document.close();
     try {
       await wv?.dispose();
     } catch (e) {
-      CfChallengeLogger.log('[CfRefresh] WebView dispose 异常: $e');
+      CfChallengeLogger.log('[CfRefresh] WebView disposal exception: $e');
     } finally {
       _isDisposing = false;
     }
@@ -557,7 +575,9 @@ document.close();
     );
 
     if (_shouldBeRunning && !_isRunning && _isForeground) {
-      CfChallengeLogger.log('[CfRefresh] dispose 后按期望状态重启 WebView');
+      CfChallengeLogger.log(
+        '[CfRefresh] Restarting WebView after disposal to restore expected state',
+      );
       _startWebView();
     }
   }
@@ -572,7 +592,9 @@ document.close();
     if (includeInitialTimeout) {
       _initialTimer = Timer(_initialTimeout, () {
         if (!_canHandleGeneration(gen)) return;
-        CfChallengeLogger.log('[CfRefresh] Turnstile 初始运行超时，准备重建');
+        CfChallengeLogger.log(
+          '[CfRefresh] Turnstile initial run timed out; preparing rebuild',
+        );
         unawaited(_syncAndCheckCookies('initial_timeout', gen));
         _recordFailure('initial_timeout', gen: gen, restart: true);
       });
@@ -629,16 +651,15 @@ document.close();
     // 后自然补上。初始 Turnstile 运行期(_initialTimer 未清)只恢复不
     // 挂起,避免把首次验证拖到超时误判重建。
     if (io.Platform.isAndroid) {
-      _scrollPauseTicker = Timer.periodic(
-        const Duration(milliseconds: 500),
-        (_) {
-          if (!_canHandleGeneration(gen)) {
-            _scrollPauseTicker?.cancel();
-            return;
-          }
-          unawaited(_updateScrollPause());
-        },
-      );
+      _scrollPauseTicker = Timer.periodic(const Duration(milliseconds: 500), (
+        _,
+      ) {
+        if (!_canHandleGeneration(gen)) {
+          _scrollPauseTicker?.cancel();
+          return;
+        }
+        unawaited(_updateScrollPause());
+      });
     }
   }
 
@@ -660,7 +681,7 @@ document.close();
       }
     } catch (e) {
       _webViewPausedForScroll = false;
-      CfChallengeLogger.log('[CfRefresh] 滚动挂起/恢复失败: $e');
+      CfChallengeLogger.log('[CfRefresh] Scroll suspend/resume failed: $e');
     }
   }
 
@@ -682,7 +703,9 @@ document.close();
       final snapshot = await _readClearanceSnapshot();
       if (snapshot == null) {
         if (reason != 'poll' && reason != 'health') {
-          CfChallengeLogger.log('[CfRefresh] 同步后未找到 cf_clearance: $reason');
+          CfChallengeLogger.log(
+            '[CfRefresh] cf_clearance not found after sync: $reason',
+          );
         }
         return false;
       }
@@ -707,7 +730,9 @@ document.close();
       return advanced;
     } catch (e) {
       if (reason != 'poll' && reason != 'health') {
-        CfChallengeLogger.log('[CfRefresh] cookie 同步失败: reason=$reason $e');
+        CfChallengeLogger.log(
+          '[CfRefresh] Cookie sync failed: reason=$reason $e',
+        );
       }
       return false;
     } finally {
@@ -811,7 +836,7 @@ document.close();
         );
         return;
       }
-      CfChallengeLogger.log('[CfRefresh] 执行延迟 restart: $reason');
+      CfChallengeLogger.log('[CfRefresh] Executing delayed restart: $reason');
       if (_isRunning) {
         _generation++;
         unawaited(_disposeWebView(reason: 'restart:$reason'));
@@ -831,7 +856,7 @@ document.close();
         );
         return;
       }
-      CfChallengeLogger.log('[CfRefresh] 执行延迟 stop: $reason');
+      CfChallengeLogger.log('[CfRefresh] Executing delayed stop: $reason');
       stop();
     });
   }

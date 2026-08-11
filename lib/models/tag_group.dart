@@ -15,9 +15,11 @@ class TagGroup {
     return TagGroup(
       id: json['id'] as int? ?? 0,
       name: json['name'] as String? ?? '',
-      tagNames: (json['tag_names'] as List<dynamic>?)
-          ?.map((e) => e.toString())
-          .toList() ?? [],
+      tagNames:
+          (json['tag_names'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
       onePerTopic: json['one_per_topic'] as bool? ?? false,
     );
   }
@@ -30,9 +32,11 @@ class TagGroupResponse {
 
   factory TagGroupResponse.fromJson(Map<String, dynamic> json) {
     return TagGroupResponse(
-      tagGroups: (json['tag_groups'] as List<dynamic>?)
-          ?.map((e) => TagGroup.fromJson(e as Map<String, dynamic>))
-          .toList() ?? [],
+      tagGroups:
+          (json['tag_groups'] as List<dynamic>?)
+              ?.map((e) => TagGroup.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
 }

@@ -29,7 +29,9 @@ void main() {
         'http://1.2.3.4:443',
       );
       expect(
-        SystemProxyDetector.parseProxyServer('http=1.2.3.4:80;socks=1.2.3.4:1080'),
+        SystemProxyDetector.parseProxyServer(
+          'http=1.2.3.4:80;socks=1.2.3.4:1080',
+        ),
         'http://1.2.3.4:80',
       );
       expect(

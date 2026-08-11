@@ -117,8 +117,7 @@ class AiChatMessage {
       if (responseTokens != null) 'responseTokens': responseTokens,
       if (cachedTokens != null) 'cachedTokens': cachedTokens,
       if (optimizedPrompt != null) 'optimizedPrompt': optimizedPrompt,
-      if (optimizerModelName != null)
-        'optimizerModelName': optimizerModelName,
+      if (optimizerModelName != null) 'optimizerModelName': optimizerModelName,
     };
   }
 

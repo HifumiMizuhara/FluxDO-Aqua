@@ -35,7 +35,8 @@ class FileCookieStore {
       final cookies = <CanonicalCookie>[];
       for (final entry in jsonValue.whereType<Map>()) {
         try {
-          cookies.add(CanonicalCookie.fromJson(Map<String, dynamic>.from(entry)));
+          cookies
+              .add(CanonicalCookie.fromJson(Map<String, dynamic>.from(entry)));
         } catch (_) {
           // 跳过单个解析失败的 cookie，不影响其余
         }

@@ -32,7 +32,10 @@ class AiProvidersPage extends ConsumerWidget {
               // 供应商管理
               _SettingsEntry(
                 icon: Symbols.dns_rounded,
-                title: AiL10n.current.addProvider.replaceAll('添加', '').trim().isEmpty
+                title: AiL10n.current.addProvider
+                        .replaceAll('添加', '')
+                        .trim()
+                        .isEmpty
                     ? 'Providers'
                     : AiL10n.current.addProvider.replaceAll('添加', '').trim(),
                 subtitle: providerCount > 0
@@ -73,8 +76,7 @@ class AiProvidersPage extends ConsumerWidget {
                 subtitle: AiL10n.current.quickPromptsManageHint,
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (_) => const PromptPresetsPage()),
+                  MaterialPageRoute(builder: (_) => const PromptPresetsPage()),
                 ),
               ),
               // 高级设置

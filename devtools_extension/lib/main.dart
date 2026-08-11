@@ -17,8 +17,6 @@ class FluxdoCookieDevToolsExtension extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const DevToolsExtension(
-      child: CookieEngineExtension(),
-    );
+    return const DevToolsExtension(child: CookieEngineExtension());
   }
 }

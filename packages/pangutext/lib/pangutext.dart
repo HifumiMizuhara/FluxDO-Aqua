@@ -1,5 +1,9 @@
 class _PlaceholderReplacer {
-  _PlaceholderReplacer(this._placeholder, this._startDelimiter, this._endDelimiter) {
+  _PlaceholderReplacer(
+    this._placeholder,
+    this._startDelimiter,
+    this._endDelimiter,
+  ) {
     _pattern = RegExp(
       '${RegExp.escape(_startDelimiter)}$_placeholder(\\d+)${RegExp.escape(_endDelimiter)}',
     );
@@ -85,46 +89,53 @@ class Pangu {
 
   static final RegExp _anyCjk = RegExp('[$_cjk]');
 
-  static final RegExp _cjkPunctuation =
-      RegExp('([$_cjk])([!;,\\?:]+)(?=[$_cjk$_an])');
-  static final RegExp _anPunctuationCjk =
-      RegExp('([$_an])([!;,\\?]+)([$_cjk])');
-  static final RegExp _cjkTilde =
-      RegExp('([$_cjk])(~+)(?!=)(?=[$_cjk$_an])');
+  static final RegExp _cjkPunctuation = RegExp(
+    '([$_cjk])([!;,\\?:]+)(?=[$_cjk$_an])',
+  );
+  static final RegExp _anPunctuationCjk = RegExp(
+    '([$_an])([!;,\\?]+)([$_cjk])',
+  );
+  static final RegExp _cjkTilde = RegExp('([$_cjk])(~+)(?!=)(?=[$_cjk$_an])');
   static final RegExp _cjkTildeEquals = RegExp('([$_cjk])(~=)');
-  static final RegExp _cjkPeriod =
-      RegExp('([$_cjk])(\\.)(?![$_an\\./])(?=[$_cjk$_an])');
-  static final RegExp _anPeriodCjk =
-      RegExp('([$_an])(\\.)([$_cjk])');
+  static final RegExp _cjkPeriod = RegExp(
+    '([$_cjk])(\\.)(?![$_an\\./])(?=[$_cjk$_an])',
+  );
+  static final RegExp _anPeriodCjk = RegExp('([$_an])(\\.)([$_cjk])');
   static final RegExp _anColonCjk = RegExp('([$_an])(:)([$_cjk])');
   static final RegExp _dotsCjk = RegExp('([\\.]{2,}|\u2026)([$_cjk])');
-  static final RegExp _fixCjkColonAns =
-      RegExp('([$_cjk])\\:([$_upperAn\\(\\)])');
+  static final RegExp _fixCjkColonAns = RegExp(
+    '([$_cjk])\\:([$_upperAn\\(\\)])',
+  );
 
   static final RegExp _cjkQuote = RegExp('([$_cjk])([$_quotes])');
   static final RegExp _quoteCjk = RegExp('([$_quotes])([$_cjk])');
-  static final RegExp _fixQuoteAnyQuote =
-      RegExp('([$_quotes]+)[ ]*(.+?)[ ]*([$_quotes]+)');
+  static final RegExp _fixQuoteAnyQuote = RegExp(
+    '([$_quotes]+)[ ]*(.+?)[ ]*([$_quotes]+)',
+  );
   static final RegExp _quoteAn = RegExp('([\u201d])([$_an])');
   static final RegExp _cjkQuoteAn = RegExp('([$_cjk])(")([$_an])');
 
-  static final RegExp _cjkSingleQuoteButPossessive =
-      RegExp("([$_cjk])('[^s])");
+  static final RegExp _cjkSingleQuoteButPossessive = RegExp("([$_cjk])('[^s])");
   static final RegExp _singleQuoteCjk = RegExp("(')([$_cjk])");
-  static final RegExp _fixPossessiveSingleQuote =
-      RegExp("([$_an$_cjk])( )('s)");
+  static final RegExp _fixPossessiveSingleQuote = RegExp(
+    "([$_an$_cjk])( )('s)",
+  );
 
-  static final RegExp _hashAnsCjkHash =
-      RegExp('([$_cjk])(#)([$_cjk]+)(#)([$_cjk])');
+  static final RegExp _hashAnsCjkHash = RegExp(
+    '([$_cjk])(#)([$_cjk]+)(#)([$_cjk])',
+  );
   static final RegExp _cjkHash = RegExp('([$_cjk])(#([^ ]))');
   static final RegExp _hashCjk = RegExp('(([^ ])#)([$_cjk])');
 
-  static final RegExp _cjkOperatorAns =
-      RegExp('([$_cjk])([$_operatorsWithHyphen])([$_an])');
-  static final RegExp _ansOperatorCjk =
-      RegExp('([$_an])([$_operatorsWithHyphen])([$_cjk])');
-  static final RegExp _ansOperatorAns =
-      RegExp('([$_an])([$_operatorsNoHyphen])([$_an])');
+  static final RegExp _cjkOperatorAns = RegExp(
+    '([$_cjk])([$_operatorsWithHyphen])([$_an])',
+  );
+  static final RegExp _ansOperatorCjk = RegExp(
+    '([$_an])([$_operatorsWithHyphen])([$_cjk])',
+  );
+  static final RegExp _ansOperatorAns = RegExp(
+    '([$_an])([$_operatorsNoHyphen])([$_an])',
+  );
 
   static final RegExp _ansHyphenAnsNotCompound = RegExp(
     '([A-Za-z])(-(?![a-z]))([A-Za-z0-9])|([A-Za-z]+[0-9]+)(-(?![a-z]))([0-9])|([0-9])(-(?![a-z0-9]))([A-Za-z])',
@@ -135,8 +146,9 @@ class Pangu {
   static final RegExp _ansSlashCjk = RegExp('([$_an])([/])([$_cjk])');
   static final RegExp _ansSlashAns = RegExp('([$_an])([/])([$_an])');
 
-  static final RegExp _singleLetterGradeCjk =
-      RegExp('\\b([$_a])([$_gradeOperators])([$_cjk])');
+  static final RegExp _singleLetterGradeCjk = RegExp(
+    '\\b([$_a])([$_gradeOperators])([$_cjk])',
+  );
 
   static final RegExp _cjkLessThan = RegExp('([$_cjk])(<)([$_an])');
   static final RegExp _lessThanCjk = RegExp('([$_an])(<)([$_cjk])');
@@ -145,10 +157,12 @@ class Pangu {
   static final RegExp _ansLessThanAns = RegExp('([$_an])(<)([$_an])');
   static final RegExp _ansGreaterThanAns = RegExp('([$_an])(>)([$_an])');
 
-  static final RegExp _cjkLeftBracket =
-      RegExp('([$_cjk])([$_leftBracketsExtended])');
-  static final RegExp _rightBracketCjk =
-      RegExp('([$_rightBracketsExtended])([$_cjk])');
+  static final RegExp _cjkLeftBracket = RegExp(
+    '([$_cjk])([$_leftBracketsExtended])',
+  );
+  static final RegExp _rightBracketCjk = RegExp(
+    '([$_rightBracketsExtended])([$_cjk])',
+  );
   static final RegExp _ansCjkLeftBracketAnyRightBracket = RegExp(
     '([$_an$_cjk])[ ]*([\u201c])([$_an$_cjk\\-_ ]+)([\u201d])',
   );
@@ -156,10 +170,12 @@ class Pangu {
     '([\u201c])([$_an$_cjk\\-_ ]+)([\u201d])[ ]*([$_an$_cjk])',
   );
 
-  static final RegExp _rightBracketAn =
-      RegExp('([$_rightBracketsBasic])([$_an])');
-  static final RegExp _anLeftBracket =
-      RegExp('([$_an])([$_leftBracketsBasic])');
+  static final RegExp _rightBracketAn = RegExp(
+    '([$_rightBracketsBasic])([$_an])',
+  );
+  static final RegExp _anLeftBracket = RegExp(
+    '([$_an])([$_leftBracketsBasic])',
+  );
   static final RegExp _anCharsOnly = RegExp('^[$_an]*\$');
 
   static final RegExp _cjkUnixAbsoluteFilePath = RegExp(
@@ -202,7 +218,11 @@ class Pangu {
     var newText = text;
 
     // 保护 Markdown 围栏代码块
-    final fenceCodeManager = _PlaceholderReplacer('FENCE_CODE_', '\uE006', '\uE007');
+    final fenceCodeManager = _PlaceholderReplacer(
+      'FENCE_CODE_',
+      '\uE006',
+      '\uE007',
+    );
     newText = newText.replaceAllMapped(RegExp('```[\\s\\S]*?```'), (match) {
       return fenceCodeManager.store(match.group(0) ?? '');
     });
@@ -211,7 +231,11 @@ class Pangu {
     });
 
     // 保护 HTML 代码块/样式/脚本
-    final htmlBlockManager = _PlaceholderReplacer('HTML_BLOCK_', '\uE012', '\uE013');
+    final htmlBlockManager = _PlaceholderReplacer(
+      'HTML_BLOCK_',
+      '\uE012',
+      '\uE013',
+    );
     newText = newText.replaceAllMapped(
       RegExp('<pre\\b[^>]*>[\\s\\S]*?<\\/pre>', caseSensitive: false),
       (match) => htmlBlockManager.store(match.group(0) ?? ''),
@@ -230,22 +254,33 @@ class Pangu {
     );
 
     // 保护行内代码
-    final backtickManager =
-        _PlaceholderReplacer('BACKTICK_CONTENT_', '\uE004', '\uE005');
+    final backtickManager = _PlaceholderReplacer(
+      'BACKTICK_CONTENT_',
+      '\uE004',
+      '\uE005',
+    );
     newText = newText.replaceAllMapped(RegExp('`([^`]+)`'), (match) {
       final content = match.group(1) ?? '';
       return '`${backtickManager.store(content)}`';
     });
 
     // 保护 Markdown 链接/图片
-    final markdownLinkManager = _PlaceholderReplacer('MD_LINK_', '\uE008', '\uE009');
+    final markdownLinkManager = _PlaceholderReplacer(
+      'MD_LINK_',
+      '\uE008',
+      '\uE009',
+    );
     newText = newText.replaceAllMapped(
       RegExp('!?\\[[^\\]]*\\]\\([^\\)\\s]+(?:\\s+[^\\)]*)?\\)'),
       (match) => markdownLinkManager.store(match.group(0) ?? ''),
     );
 
     // 保护自动链接（<http://...>）
-    final autoLinkManager = _PlaceholderReplacer('AUTO_LINK_', '\uE00A', '\uE00B');
+    final autoLinkManager = _PlaceholderReplacer(
+      'AUTO_LINK_',
+      '\uE00A',
+      '\uE00B',
+    );
     newText = newText.replaceAllMapped(RegExp('<https?://[^>]+>'), (match) {
       return autoLinkManager.store(match.group(0) ?? '');
     });
@@ -257,14 +292,21 @@ class Pangu {
     });
 
     // 保护 HTML 实体
-    final entityManager = _PlaceholderReplacer('HTML_ENTITY_', '\uE00E', '\uE00F');
+    final entityManager = _PlaceholderReplacer(
+      'HTML_ENTITY_',
+      '\uE00E',
+      '\uE00F',
+    );
     newText = newText.replaceAllMapped(RegExp('&[A-Za-z0-9#]+;'), (match) {
       return entityManager.store(match.group(0) ?? '');
     });
 
     // 保护 Markdown 粗体/斜体/删除线标记
-    final mdFormattingManager =
-        _PlaceholderReplacer('MD_FMT_', '\uE014', '\uE015');
+    final mdFormattingManager = _PlaceholderReplacer(
+      'MD_FMT_',
+      '\uE014',
+      '\uE015',
+    );
     // ***bold italic*** (三星号，最先匹配)
     newText = newText.replaceAllMapped(
       RegExp(r'\*{3}(?!\s)(.+?)(?<!\s)\*{3}'),
@@ -287,8 +329,11 @@ class Pangu {
     );
 
     // 保护 BBCode 标签 ([b], [/b], [color=red], [url="..."] 等)
-    final bbcodeTagManager =
-        _PlaceholderReplacer('BBCODE_TAG_', '\uE016', '\uE017');
+    final bbcodeTagManager = _PlaceholderReplacer(
+      'BBCODE_TAG_',
+      '\uE016',
+      '\uE017',
+    );
     var hasBbcodeTags = false;
     if (newText.contains('[')) {
       final bbcodePattern = RegExp(r'\[/?[a-zA-Z][a-zA-Z0-9]*(?:=[^\]]*)?]');
@@ -300,14 +345,16 @@ class Pangu {
       }
     }
 
-    final htmlTagManager =
-        _PlaceholderReplacer('HTML_TAG_PLACEHOLDER_', '\uE000', '\uE001');
+    final htmlTagManager = _PlaceholderReplacer(
+      'HTML_TAG_PLACEHOLDER_',
+      '\uE000',
+      '\uE001',
+    );
     var hasHtmlTags = false;
 
     if (newText.contains('<')) {
       hasHtmlTags = true;
-      final htmlTagPattern =
-          RegExp('</?[a-zA-Z][a-zA-Z0-9]*(?:\\s+[^>]*)?>');
+      final htmlTagPattern = RegExp('</?[a-zA-Z][a-zA-Z0-9]*(?:\\s+[^>]*)?>');
 
       newText = newText.replaceAllMapped(htmlTagPattern, (match) {
         return htmlTagManager.store(match.group(0) ?? '');
@@ -336,14 +383,21 @@ class Pangu {
 
     newText = _replaceWithGroups(newText, _fixPossessiveSingleQuote, r"$1's");
 
-    final singleQuoteCjkManager =
-        _PlaceholderReplacer('SINGLE_QUOTE_CJK_PLACEHOLDER_', '\uE030', '\uE031');
+    final singleQuoteCjkManager = _PlaceholderReplacer(
+      'SINGLE_QUOTE_CJK_PLACEHOLDER_',
+      '\uE030',
+      '\uE031',
+    );
     final singleQuotePureCjk = RegExp('(\')([$_cjk]+)(\')');
     newText = newText.replaceAllMapped(singleQuotePureCjk, (match) {
       return singleQuoteCjkManager.store(match.group(0) ?? '');
     });
 
-    newText = _replaceWithGroups(newText, _cjkSingleQuoteButPossessive, r'$1 $2');
+    newText = _replaceWithGroups(
+      newText,
+      _cjkSingleQuoteButPossessive,
+      r'$1 $2',
+    );
     newText = _replaceWithGroups(newText, _singleQuoteCjk, r'$1 $2');
 
     newText = singleQuoteCjkManager.restore(newText);
@@ -387,13 +441,19 @@ class Pangu {
     newText = _replaceWithGroups(newText, _ansOperatorAns, r'$1 $2 $3');
 
     newText = newText.replaceAllMapped(_ansHyphenAnsNotCompound, (match) {
-      if (match.group(1) != null && match.group(2) != null && match.group(3) != null) {
+      if (match.group(1) != null &&
+          match.group(2) != null &&
+          match.group(3) != null) {
         return '${match.group(1)} ${match.group(2)} ${match.group(3)}';
       }
-      if (match.group(4) != null && match.group(5) != null && match.group(6) != null) {
+      if (match.group(4) != null &&
+          match.group(5) != null &&
+          match.group(6) != null) {
         return '${match.group(4)} ${match.group(5)} ${match.group(6)}';
       }
-      if (match.group(7) != null && match.group(8) != null && match.group(9) != null) {
+      if (match.group(7) != null &&
+          match.group(8) != null &&
+          match.group(9) != null) {
         return '${match.group(7)} ${match.group(8)} ${match.group(9)}';
       }
       return match.group(0) ?? '';
@@ -410,12 +470,23 @@ class Pangu {
     newText = _replaceWithGroups(newText, _cjkUnixRelativeFilePath, r'$1 $2');
     newText = _replaceWithGroups(newText, _cjkWindowsPath, r'$1 $2');
 
-    newText = _replaceWithGroups(newText, _unixAbsoluteFilePathSlashCjk, r'$1 $2');
-    newText = _replaceWithGroups(newText, _unixRelativeFilePathSlashCjk, r'$1 $2');
+    newText = _replaceWithGroups(
+      newText,
+      _unixAbsoluteFilePathSlashCjk,
+      r'$1 $2',
+    );
+    newText = _replaceWithGroups(
+      newText,
+      _unixRelativeFilePathSlashCjk,
+      r'$1 $2',
+    );
 
     if (slashCount == 1) {
-      final filePathManager =
-          _PlaceholderReplacer('FILE_PATH_PLACEHOLDER_', '\uE020', '\uE021');
+      final filePathManager = _PlaceholderReplacer(
+        'FILE_PATH_PLACEHOLDER_',
+        '\uE020',
+        '\uE021',
+      );
       final allFilePathPattern = RegExp(
         '(${_unixAbsoluteFilePath.pattern}|${_unixRelativeFilePath.pattern})',
       );
@@ -435,8 +506,16 @@ class Pangu {
 
     newText = _replaceWithGroups(newText, _cjkLeftBracket, r'$1 $2');
     newText = _replaceWithGroups(newText, _rightBracketCjk, r'$1 $2');
-    newText = _replaceWithGroups(newText, _ansCjkLeftBracketAnyRightBracket, r'$1 $2$3$4');
-    newText = _replaceWithGroups(newText, _leftBracketAnyRightBracketAnsCjk, r'$1$2$3 $4');
+    newText = _replaceWithGroups(
+      newText,
+      _ansCjkLeftBracketAnyRightBracket,
+      r'$1 $2$3$4',
+    );
+    newText = _replaceWithGroups(
+      newText,
+      _leftBracketAnyRightBracketAnsCjk,
+      r'$1$2$3 $4',
+    );
 
     newText = _replaceAnLeftBracket(newText);
     newText = _replaceWithGroups(newText, _rightBracketAn, r'$1 $2');

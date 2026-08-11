@@ -315,7 +315,9 @@ class AiProviderListNotifier extends StateNotifier<List<AiProvider>> {
     pinnedItems.insert(newIndex, moved);
     final otherItems =
         state.where((provider) => provider.pinned != pinned).toList();
-    state = pinned ? [...pinnedItems, ...otherItems] : [...otherItems, ...pinnedItems];
+    state = pinned
+        ? [...pinnedItems, ...otherItems]
+        : [...otherItems, ...pinnedItems];
     await _save();
   }
 

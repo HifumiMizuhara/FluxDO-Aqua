@@ -26,7 +26,8 @@ class AppStateRefresher {
   static void refreshAll(ProviderContainer container) {
     // 去抖：2 秒内重复调用直接跳过（如 authStateProvider listener + _goToLogin 同时触发）
     final now = DateTime.now();
-    if (_lastRefreshTime != null && now.difference(_lastRefreshTime!) < const Duration(seconds: 2)) {
+    if (_lastRefreshTime != null &&
+        now.difference(_lastRefreshTime!) < const Duration(seconds: 2)) {
       return;
     }
     _lastRefreshTime = now;
@@ -58,8 +59,12 @@ class AppStateRefresher {
     }
     // 重置筛选/排序/标签（会通过 signal listener 触发话题列表刷新，
     // 无需再手动 invalidate 话题列表）
-    container.read(topicFilterProvider.notifier).setFilter(TopicListFilter.latest);
-    container.read(topicSortOrderProvider.notifier).setOrder(TopicSortOrder.defaultOrder);
+    container
+        .read(topicFilterProvider.notifier)
+        .setFilter(TopicListFilter.latest);
+    container
+        .read(topicSortOrderProvider.notifier)
+        .setOrder(TopicSortOrder.defaultOrder);
     container.read(topicSortAscendingProvider.notifier).setAscending(false);
     final pinnedIds = container.read(pinnedCategoriesProvider);
     container.read(tabTagsProvider(null).notifier).state = [];
@@ -90,7 +95,7 @@ class AppStateRefresher {
   /// 第一批：主页渲染必需的 provider
   /// 用户信息、分类列表（tab 栏依赖）
   static final List<void Function(ProviderContainer container)>
-      _coreRefreshers = [
+  _coreRefreshers = [
     (c) => c.invalidate(currentUserProvider),
     (c) => c.invalidate(categoriesProvider),
     (c) => c.invalidate(topicTrackingStateMetaProvider),
@@ -99,7 +104,7 @@ class AppStateRefresher {
 
   /// 第二批：非首屏必需，延迟执行以降低并发请求量
   static final List<void Function(ProviderContainer container)>
-      _deferredRefreshers = [
+  _deferredRefreshers = [
     (c) => c.invalidate(userSummaryProvider),
     (c) => c.invalidate(notificationListProvider),
     (c) => c.invalidate(tagsProvider),

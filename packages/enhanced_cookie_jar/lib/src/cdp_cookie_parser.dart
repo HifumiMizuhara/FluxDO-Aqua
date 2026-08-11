@@ -23,11 +23,11 @@ class CdpCookieParser {
     final rawDomain = map['domain']?.toString();
     final resolvedOriginUrl = originUrl ?? map['url']?.toString();
     final originHost = Uri.tryParse(resolvedOriginUrl ?? '')?.host;
-    final hostOnly = map['hostOnly'] == true
-        ? true
-        : !(rawDomain?.startsWith('.') ?? false);
-    final domain =
-        (rawDomain == null || rawDomain.isEmpty) && hostOnly ? originHost : rawDomain;
+    final hostOnly =
+        map['hostOnly'] == true ? true : !(rawDomain?.startsWith('.') ?? false);
+    final domain = (rawDomain == null || rawDomain.isEmpty) && hostOnly
+        ? originHost
+        : rawDomain;
     final sameSiteRaw = map['sameSite']?.toString();
     final partitionKey = _parsePartitionKey(map['partitionKey']);
 
@@ -43,7 +43,8 @@ class CdpCookieParser {
       hostOnly: hostOnly,
       persistent: map['session'] == true ? false : expiresAt != null,
       creationTime: _parseSeconds(map['creation']) ?? DateTime.now().toUtc(),
-      lastAccessTime: _parseSeconds(map['lastAccess']) ?? DateTime.now().toUtc(),
+      lastAccessTime:
+          _parseSeconds(map['lastAccess']) ?? DateTime.now().toUtc(),
       priority: map['priority']?.toString(),
       sameParty: map['sameParty'] == true,
       sourceScheme: map['sourceScheme']?.toString(),

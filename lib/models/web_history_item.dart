@@ -11,17 +11,16 @@ class WebHistoryItem {
   });
 
   Map<String, dynamic> toJson() => {
-        'url': url,
-        'title': title,
-        'visitedAt': visitedAt.toIso8601String(),
-      };
+    'url': url,
+    'title': title,
+    'visitedAt': visitedAt.toIso8601String(),
+  };
 
-  factory WebHistoryItem.fromJson(Map<String, dynamic> json) =>
-      WebHistoryItem(
-        url: json['url'] as String,
-        title: json['title'] as String,
-        visitedAt: DateTime.parse(json['visitedAt'] as String),
-      );
+  factory WebHistoryItem.fromJson(Map<String, dynamic> json) => WebHistoryItem(
+    url: json['url'] as String,
+    title: json['title'] as String,
+    visitedAt: DateTime.parse(json['visitedAt'] as String),
+  );
 
   WebHistoryItem copyWith({String? title, DateTime? visitedAt}) =>
       WebHistoryItem(

@@ -61,8 +61,7 @@ void main() {
       );
 
       expect(adapter.lastOptions!.method, 'GET');
-      expect(adapter.lastOptions!.path,
-          'https://api.example.com/v1/hello?x=1');
+      expect(adapter.lastOptions!.path, 'https://api.example.com/v1/hello?x=1');
       expect(adapter.lastOptions!.headers['authorization'], 'Bearer abc');
       expect(adapter.lastOptions!.headers['x-test'], '1');
       expect(response.statusCode, 200);

@@ -75,6 +75,7 @@ class TopicSessionNotifier extends Notifier<TopicSessionState> {
 
 /// 话题会话状态 Provider
 /// family 参数为 topicId
-final topicSessionProvider = NotifierProvider.family<TopicSessionNotifier, TopicSessionState, int>(
-  TopicSessionNotifier.new,
-);
+final topicSessionProvider =
+    NotifierProvider.family<TopicSessionNotifier, TopicSessionState, int>(
+      TopicSessionNotifier.new,
+    );

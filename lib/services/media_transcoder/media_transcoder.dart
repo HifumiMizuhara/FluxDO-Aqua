@@ -74,17 +74,17 @@ class TranscodeSpec {
   final int audioChannels;
 
   Map<String, Object?> toChannelMap() => {
-        'input': input,
-        'output': output,
-        'audioOnly': audioOnly,
-        'audioBitrate': audioBitrate,
-        'videoBitrate': videoBitrate,
-        'videoCodec': videoCodec,
-        'maxHeight': maxHeight,
-        'fps': fps,
-        'audioSampleRate': audioSampleRate,
-        'audioChannels': audioChannels,
-      };
+    'input': input,
+    'output': output,
+    'audioOnly': audioOnly,
+    'audioBitrate': audioBitrate,
+    'videoBitrate': videoBitrate,
+    'videoCodec': videoCodec,
+    'maxHeight': maxHeight,
+    'fps': fps,
+    'audioSampleRate': audioSampleRate,
+    'audioChannels': audioChannels,
+  };
 }
 
 abstract class MediaTranscoder {
@@ -141,8 +141,7 @@ class _ChannelTranscoder extends MediaTranscoder {
 
   @override
   Future<bool> transcode(TranscodeSpec spec) async {
-    final res =
-        await _ch.invokeMethod<bool>('transcode', spec.toChannelMap());
+    final res = await _ch.invokeMethod<bool>('transcode', spec.toChannelMap());
     return res ?? false;
   }
 

@@ -90,14 +90,13 @@ class BlobImageCache {
   /// 时间戳;mtime 精度要求是"天"级,会话内重复 touch 纯浪费 IO)。
   static final Set<String> _touched = {};
 
-  static Future<Directory> _ensureRoot() =>
-      _rootFuture ??= (() async {
-        final tmp = await getTemporaryDirectory();
-        final dir = Directory('${tmp.path}/$dirName');
-        await dir.create(recursive: true);
-        _root = dir;
-        return dir;
-      })();
+  static Future<Directory> _ensureRoot() => _rootFuture ??= (() async {
+    final tmp = await getTemporaryDirectory();
+    final dir = Directory('${tmp.path}/$dirName');
+    await dir.create(recursive: true);
+    _root = dir;
+    return dir;
+  })();
 
   /// 确定性寻址:bucket 目录 + md5(key)。无扩展名 —— Flutter codec 按
   /// magic bytes 嗅探格式,SVG 探测也读文件头,都不依赖后缀。
@@ -130,7 +129,7 @@ class BlobImageCache {
       await tmp.writeAsBytes(bytes, flush: true);
       await tmp.rename(file.path);
     } catch (e) {
-      debugPrint('[BlobImageCache] write 失败 $bucket/$key: $e');
+      debugPrint('[BlobImageCache] Write failed $bucket/$key: $e');
     }
   }
 
@@ -154,18 +153,18 @@ class BlobImageCache {
     final inflightKey = '$bucket|$url';
     return _inflight[inflightKey] ??=
         _download(bucket, url, priority, onProgress).whenComplete(() {
-      _inflight.remove(inflightKey);
-    });
+          _inflight.remove(inflightKey);
+        });
   }
 
   /// 按 bucket 选下载通道:emoji(KB 级,RTT 主导)走 12 槽 small
   /// 高并发;贴纸原文件(面板预取型大动图)独立 3 槽防饿死内容;
   /// 其余(正文/头像/原图/外部)走 6 槽 content。
   static DownloadChannel _channelOf(String bucket) => switch (bucket) {
-        emojiBucket => DownloadChannel.small,
-        stickerOriginalBucket => DownloadChannel.sticker,
-        _ => DownloadChannel.content,
-      };
+    emojiBucket => DownloadChannel.small,
+    stickerOriginalBucket => DownloadChannel.sticker,
+    _ => DownloadChannel.content,
+  };
 
   /// 视野优先级信号(Telegram bumpPriority 同款语义):
   /// [bump] = 图片首帧 paint(真进视口)→ 排队中的请求插到高优队列;
@@ -190,8 +189,10 @@ class BlobImageCache {
       onProgress: onProgress,
     );
     if (bytes.isEmpty) {
-      throw HttpException('BlobImageCache: empty body for $url',
-          uri: Uri.parse(url));
+      throw HttpException(
+        'BlobImageCache: empty body for $url',
+        uri: Uri.parse(url),
+      );
     }
     await write(bucket, url, bytes);
     return bytes;
@@ -221,7 +222,7 @@ class BlobImageCache {
       if (await contains(bucket, url)) return;
       await fetch(bucket, url);
     } catch (e) {
-      debugPrint('[BlobImageCache] precache 失败 $url: $e');
+      debugPrint('[BlobImageCache] Precache failed $url: $e');
     }
   }
 
@@ -229,9 +230,7 @@ class BlobImageCache {
   /// (最坏情况 = 常用文件被当旧文件删掉,下次重新下载)。
   static void _touch(File file) {
     if (!_touched.add(file.path)) return;
-    unawaited(
-      file.setLastModified(DateTime.now()).catchError((Object _) {}),
-    );
+    unawaited(file.setLastModified(DateTime.now()).catchError((Object _) {}));
   }
 
   /// 淘汰扫描:按 bucket 保留期删 mtime 过期文件 + 大图 bucket 超出
@@ -271,8 +270,11 @@ class BlobImageCache {
                 f.deleteSync();
                 count++;
               } else if (!isTmp) {
-                alive.add(
-                    (path: f.path, mtime: stat.modified, size: stat.size));
+                alive.add((
+                  path: f.path,
+                  mtime: stat.modified,
+                  size: stat.size,
+                ));
               }
             } catch (_) {}
           }
@@ -295,10 +297,12 @@ class BlobImageCache {
         return count;
       });
       if (deleted > 0) {
-        debugPrint('[BlobImageCache] sweep 删除 $deleted 个过期/超限文件');
+        debugPrint(
+          '[BlobImageCache] Sweep deleted $deleted expired/over-limit files',
+        );
       }
     } catch (e) {
-      debugPrint('[BlobImageCache] sweep 失败: $e');
+      debugPrint('[BlobImageCache] Sweep failed: $e');
     }
   }
 
@@ -309,7 +313,7 @@ class BlobImageCache {
     try {
       if (await dir.exists()) await dir.delete(recursive: true);
     } catch (e) {
-      debugPrint('[BlobImageCache] clearBucket $bucket 失败: $e');
+      debugPrint('[BlobImageCache] clearBucket $bucket failed: $e');
     }
     _touched.removeWhere((p) => p.startsWith(dir.path));
   }
@@ -321,7 +325,7 @@ class BlobImageCache {
       if (await root.exists()) await root.delete(recursive: true);
       await root.create(recursive: true);
     } catch (e) {
-      debugPrint('[BlobImageCache] clearAll 失败: $e');
+      debugPrint('[BlobImageCache] clearAll failed: $e');
     }
     _touched.clear();
   }
@@ -387,10 +391,12 @@ class BlobImageProvider extends ImageProvider<BlobImageProvider> {
         priority: key.priority,
         onProgress: (received, total) {
           if (chunkEvents.isClosed) return;
-          chunkEvents.add(ImageChunkEvent(
-            cumulativeBytesLoaded: received,
-            expectedTotalBytes: total,
-          ));
+          chunkEvents.add(
+            ImageChunkEvent(
+              cumulativeBytesLoaded: received,
+              expectedTotalBytes: total,
+            ),
+          );
         },
       );
       final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);

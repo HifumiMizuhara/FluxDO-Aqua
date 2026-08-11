@@ -12,4 +12,3 @@ export 'package:material_symbols_icons/symbols.dart' show Symbols;
 export 'src/app_icon.dart';
 export 'src/app_icons.dart';
 export 'src/icon_painters.dart';
-

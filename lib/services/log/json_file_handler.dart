@@ -40,7 +40,8 @@ class JsonFileHandler extends ReportHandler {
       'timestamp': report.dateTime.toIso8601String(),
       'level': 'error',
       'type': 'general',
-      'message': customParams['message']?.toString() ??
+      'message':
+          customParams['message']?.toString() ??
           report.error?.toString() ??
           'Unknown error',
       if (customParams['tag'] != null) 'tag': customParams['tag'],

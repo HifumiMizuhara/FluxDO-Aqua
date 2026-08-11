@@ -274,8 +274,7 @@ class TopicPoster {
     // 内嵌在 poster 里,没有 user_id,也没有顶层 users 表。列表接口则相反
     // (user_id + 顶层 users)。两种形状都要吃下。
     final embeddedUser = json['user'] as Map<String, dynamic>?;
-    final userId =
-        json['user_id'] as int? ?? embeddedUser?['id'] as int? ?? 0;
+    final userId = json['user_id'] as int? ?? embeddedUser?['id'] as int? ?? 0;
     return TopicPoster(
       userId: userId,
       description: json['description'] as String? ?? '',
@@ -1292,8 +1291,7 @@ class Post {
       postVotingVoteCount: postVotingVoteCount ?? this.postVotingVoteCount,
       postVotingUserVotedDirection: clearPostVotingDirection
           ? null
-          : (postVotingUserVotedDirection ??
-              this.postVotingUserVotedDirection),
+          : (postVotingUserVotedDirection ?? this.postVotingUserVotedDirection),
       postVotingHasVotes: postVotingHasVotes ?? this.postVotingHasVotes,
       postVotingComments: postVotingComments ?? this.postVotingComments,
       postVotingCommentsCount:

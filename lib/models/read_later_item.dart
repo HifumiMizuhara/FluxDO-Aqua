@@ -15,29 +15,29 @@ class ReadLaterItem {
   });
 
   Map<String, dynamic> toJson() => {
-        'topicId': topicId,
-        'title': title,
-        'scrollToPostNumber': scrollToPostNumber,
-        'excerpt': excerpt,
-        'addedAt': addedAt.toIso8601String(),
-      };
+    'topicId': topicId,
+    'title': title,
+    'scrollToPostNumber': scrollToPostNumber,
+    'excerpt': excerpt,
+    'addedAt': addedAt.toIso8601String(),
+  };
 
   factory ReadLaterItem.fromJson(Map<String, dynamic> json) => ReadLaterItem(
-        topicId: json['topicId'] as int,
-        title: json['title'] as String,
-        scrollToPostNumber: json['scrollToPostNumber'] as int?,
-        excerpt: json['excerpt'] as String?,
-        addedAt: DateTime.parse(json['addedAt'] as String),
-      );
+    topicId: json['topicId'] as int,
+    title: json['title'] as String,
+    scrollToPostNumber: json['scrollToPostNumber'] as int?,
+    excerpt: json['excerpt'] as String?,
+    addedAt: DateTime.parse(json['addedAt'] as String),
+  );
 
   /// 创建一个更新了阅读位置的副本
   ReadLaterItem copyWith({int? scrollToPostNumber}) => ReadLaterItem(
-        topicId: topicId,
-        title: title,
-        scrollToPostNumber: scrollToPostNumber ?? this.scrollToPostNumber,
-        excerpt: excerpt,
-        addedAt: addedAt,
-      );
+    topicId: topicId,
+    title: title,
+    scrollToPostNumber: scrollToPostNumber ?? this.scrollToPostNumber,
+    excerpt: excerpt,
+    addedAt: addedAt,
+  );
 
   /// 从 cooked HTML 提取纯文本摘录（截断到 [maxLength] 字符）
   ///

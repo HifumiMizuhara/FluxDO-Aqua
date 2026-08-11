@@ -50,7 +50,9 @@ class ChatNotificationAlertNotifier extends Notifier<void> {
       final title = data['translated_title'] as String? ?? username;
       final excerpt = data['excerpt'] as String? ?? '';
 
-      debugPrint('[ChatAlert] 系统通知: channel=$channelId title=$title');
+      debugPrint(
+        '[ChatAlert] 系统通知: channel=$channelId title=$title',
+      );
 
       LocalNotificationService().show(
         title: title,

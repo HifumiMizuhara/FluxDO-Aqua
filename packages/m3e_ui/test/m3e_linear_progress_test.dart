@@ -20,7 +20,9 @@ void main() {
     for (final v in [0.0, 0.05, 0.3, 0.7, 0.96, 1.0]) {
       await tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(body: Center(child: M3eLinearProgress(value: v))),
+          home: Scaffold(
+            body: Center(child: M3eLinearProgress(value: v)),
+          ),
         ),
       );
       // 覆盖振幅 500ms 过渡与波形滚动。
@@ -32,9 +34,7 @@ void main() {
   });
 
   testWidgets('M3E 关闭时回退 LinearProgressIndicator', (tester) async {
-    final theme = ThemeData(
-      extensions: const [M3eFlags(enabled: false)],
-    );
+    final theme = ThemeData(extensions: const [M3eFlags(enabled: false)]);
     await tester.pumpWidget(
       MaterialApp(
         theme: theme,

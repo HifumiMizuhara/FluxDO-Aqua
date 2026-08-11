@@ -15,11 +15,13 @@ const String _apkUpdateChannelId = 'apk_update';
 
 /// 本地系统通知服务
 class LocalNotificationService {
-  static final LocalNotificationService _instance = LocalNotificationService._internal();
+  static final LocalNotificationService _instance =
+      LocalNotificationService._internal();
   factory LocalNotificationService() => _instance;
   LocalNotificationService._internal();
 
-  final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _plugin =
+      FlutterLocalNotificationsPlugin();
   bool _initialized = false;
   bool _permissionGranted = false;
 
@@ -27,13 +29,17 @@ class LocalNotificationService {
   Future<void> initialize() async {
     if (_initialized) return;
 
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
     const darwinSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
     );
-    const linuxSettings = LinuxInitializationSettings(defaultActionName: 'Open');
+    const linuxSettings = LinuxInitializationSettings(
+      defaultActionName: 'Open',
+    );
     const windowsSettings = WindowsInitializationSettings(
       appName: 'FluxDO',
       appUserModelId: 'Com.FluxDO.FluxDO',
@@ -53,15 +59,17 @@ class LocalNotificationService {
       onDidReceiveNotificationResponse: _onNotificationTapped,
     );
     _initialized = true;
-    debugPrint('[LocalNotification] 初始化完成');
-    
+    debugPrint('[LocalNotification] initializationcomplete');
+
     // 请求通知权限 (Android 13+)
     await _requestPermission();
   }
 
   /// 通知点击回调
   void _onNotificationTapped(NotificationResponse response) {
-    debugPrint('[LocalNotification] 通知被点击: payload=${response.payload}');
+    debugPrint(
+      '[LocalNotification] 跳转到${isMessage ? "私信" : "话题"}: $topicId, 帖子: $postNumber',
+    );
 
     final payload = response.payload;
     if (payload == null || payload.isEmpty) return;
@@ -106,20 +114,20 @@ class LocalNotificationService {
       openNotificationPage(context, page);
       return;
     }
-    navigatorKey.currentState?.push(
-      MaterialPageRoute(builder: (_) => page),
-    );
+    navigatorKey.currentState?.push(MaterialPageRoute(builder: (_) => page));
   }
 
   /// 请求通知权限
   Future<void> _requestPermission() async {
     // Android 平台请求权限
-    final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
+    final androidPlugin = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     if (androidPlugin != null) {
       final granted = await androidPlugin.requestNotificationsPermission();
       _permissionGranted = granted ?? false;
-      debugPrint('[LocalNotification] Android 权限: $_permissionGranted');
+      debugPrint('[LocalNotification] Android permission: $_permissionGranted');
     } else {
       // 非 Android 平台默认已授权
       _permissionGranted = true;
@@ -141,7 +149,9 @@ class LocalNotificationService {
     }
 
     if (!_permissionGranted) {
-      debugPrint('[LocalNotification] 权限未授予，跳过通知');
+      debugPrint(
+        '[LocalNotification] 权限未授予，跳过通知',
+      );
       return;
     }
 
@@ -162,8 +172,9 @@ class LocalNotificationService {
       windows: const WindowsNotificationDetails(),
     );
 
-    final notificationId = id ?? DateTime.now().millisecondsSinceEpoch.remainder(100000);
-    
+    final notificationId =
+        id ?? DateTime.now().millisecondsSinceEpoch.remainder(100000);
+
     // 构建 payload 用于点击回调:私信用 message: 前缀,走私信自己的
     // 平行视界栈,不能跟普通话题共用 topic: 前缀(否则左栏会显示信息流)。
     // chat 通知用 chat: 前缀直达聊天窗。
@@ -176,9 +187,15 @@ class LocalNotificationService {
           ? '$prefix:$topicId:$postNumber'
           : '$prefix:$topicId';
     }
-    
-    await _plugin.show(id: notificationId, title: title, body: body, notificationDetails: details, payload: payload);
-    debugPrint('[LocalNotification] 已发送: $title, payload=$payload');
+
+    await _plugin.show(
+      id: notificationId,
+      title: title,
+      body: body,
+      notificationDetails: details,
+      payload: payload,
+    );
+    debugPrint('[LocalNotification] send: $title, payload=$payload');
   }
 
   /// 显示 APK 下载进度通知（持续更新同一条）。

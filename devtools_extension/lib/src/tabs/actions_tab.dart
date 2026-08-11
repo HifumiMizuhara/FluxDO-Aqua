@@ -13,8 +13,7 @@ class ActionsTab extends StatefulWidget {
 }
 
 class _ActionsTabState extends State<ActionsTab> {
-  final _urlController =
-      TextEditingController(text: 'https://linux.do');
+  final _urlController = TextEditingController(text: 'https://linux.do');
   String _selectedName = '_t';
   String _selectedIntent = 'ensureUnique';
   String? _lastResult;
@@ -83,7 +82,10 @@ class _ActionsTabState extends State<ActionsTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Sweep', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text(
+                  'Sweep',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 8),
                 Row(
                   children: [

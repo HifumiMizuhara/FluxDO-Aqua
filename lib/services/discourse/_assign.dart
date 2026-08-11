@@ -57,9 +57,7 @@ mixin _AssignMixin on _DiscourseServiceBase {
   Future<AssignSuggestions> fetchAssignSuggestions() async {
     try {
       final response = await _dio.get('/assign/suggestions');
-      return AssignSuggestions.fromJson(
-        response.data as Map<String, dynamic>,
-      );
+      return AssignSuggestions.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
       _throwApiError(e);
     }

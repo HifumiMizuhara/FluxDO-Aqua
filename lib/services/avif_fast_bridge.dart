@@ -66,11 +66,8 @@ class AvifFastFrame {
   final Duration duration;
 }
 
-typedef _NativeCall = int Function(
-  int port,
-  ffi.Pointer<ffi.UnsignedChar> ptr,
-  int len,
-);
+typedef _NativeCall =
+    int Function(int port, ffi.Pointer<ffi.UnsignedChar> ptr, int len);
 
 class AvifFastBridge {
   AvifFastBridge._();
@@ -112,12 +109,14 @@ class AvifFastBridge {
   static Future<AvifFastFrame> frameToImageForTest(
     Uint8List buf, {
     int? maxDim,
-  }) =>
-      _frameToImage(buf, maxDim: maxDim);
+  }) => _frameToImage(buf, maxDim: maxDim);
 
   /// 初始化 Rust 端 decoder(容器解析,不解帧),与官方桥共用同一个
   /// key 索引的 decoder 注册表。
-  static Future<AvifInfoLite> initDecoder(String key, Uint8List avifBytes) async {
+  static Future<AvifInfoLite> initDecoder(
+    String key,
+    Uint8List avifBytes,
+  ) async {
     final api = _apiOrNull!;
     final response = await _call(
       _encodeKeyRequest(key, avifBytes),
@@ -209,8 +208,11 @@ class AvifFastBridge {
         case 0x18: // field 3 varint
           imageCount = _readVarint(buf, c);
         case 0x21: // field 4 fixed64 (double)
-          durationSec =
-              ByteData.sublistView(buf, c.o, c.o + 8).getFloat64(0, Endian.little);
+          durationSec = ByteData.sublistView(
+            buf,
+            c.o,
+            c.o + 8,
+          ).getFloat64(0, Endian.little);
           c.o += 8;
         default:
           _skipField(buf, c, tag & 7);
@@ -242,8 +244,11 @@ class AvifFastBridge {
           rgba = Uint8List.sublistView(buf, c.o, c.o + len); // 零拷贝
           c.o += len;
         case 0x11: // field 2 fixed64 (double)
-          durationSec =
-              ByteData.sublistView(buf, c.o, c.o + 8).getFloat64(0, Endian.little);
+          durationSec = ByteData.sublistView(
+            buf,
+            c.o,
+            c.o + 8,
+          ).getFloat64(0, Endian.little);
           c.o += 8;
         case 0x18: // field 3 varint
           width = _readVarint(buf, c);
@@ -253,7 +258,10 @@ class AvifFastBridge {
           _skipField(buf, c, tag & 7);
       }
     }
-    if (rgba == null || width <= 0 || height <= 0 || rgba.length < width * height * 4) {
+    if (rgba == null ||
+        width <= 0 ||
+        height <= 0 ||
+        rgba.length < width * height * 4) {
       throw StateError(
         'AvifFastBridge: malformed frame response '
         '(w=$width h=$height rgba=${rgba?.length})',
