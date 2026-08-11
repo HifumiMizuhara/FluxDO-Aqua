@@ -82,15 +82,37 @@ class RenderSignetLayer extends ConsumerStatefulWidget {
   ConsumerState<RenderSignetLayer> createState() => _RenderSignetLayerState();
 }
 
-class _RenderSignetLayerState extends ConsumerState<RenderSignetLayer> {
+class _RenderSignetLayerState extends ConsumerState<RenderSignetLayer>
+    with WidgetsBindingObserver {
   ui.Image? _tile;
   int? _tileId;
   double? _tileDpr;
 
+  /// 图块出生在 GPU 不可用窗口期(iOS 预热/后台唤起启动,Metal 禁止
+  /// 提交命令),toImageSync 会拿到 Impeller 的 magenta 占位纹理;它
+  /// 被终身缓存后经 plus 笔糊满全屏 = 整屏泛紫(2026-08 真实用户
+  /// 反馈,状态栏正常、Flutter 内容全紫、杀进程自愈,特征全部吻合)。
+  /// 防线:非 resumed 状态建的图块打上此标记,回前台后销毁重建。
+  bool _tileSuspect = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _tile?.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _tileSuspect) {
+      setState(_clearTiles);
+    }
   }
 
   void _clearTiles() {
@@ -98,6 +120,7 @@ class _RenderSignetLayerState extends ConsumerState<RenderSignetLayer> {
     _tile = null;
     _tileId = null;
     _tileDpr = null;
+    _tileSuspect = false;
   }
 
   @override
@@ -127,6 +150,9 @@ class _RenderSignetLayerState extends ConsumerState<RenderSignetLayer> {
       _tile = buildSignetSignalTile(id, dpr);
       _tileId = id;
       _tileDpr = dpr;
+      // 生命周期未知(启动早期)同样视为可疑:宁可回前台多重建一次
+      _tileSuspect =
+          WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed;
     }
 
     // 两笔的 dst 依赖语义(srcATop/plus)要求指令直接落在 app 内容
