@@ -362,6 +362,8 @@ void _showLanguagePicker(
     (l10n.appearance_languageZhTW, const Locale('zh', 'TW')),
     (l10n.appearance_languageZhHK, const Locale('zh', 'HK')),
     (l10n.appearance_languageEn, const Locale('en', 'US')),
+    (l10n.appearance_languageJa, const Locale('ja', 'JP')),
+    (l10n.appearance_languageKo, const Locale('ko', 'KR')),
   ];
 
   AppBottomSheet.show<void>(

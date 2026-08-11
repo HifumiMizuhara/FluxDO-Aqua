@@ -1,0 +1,16 @@
+{
+  "@@locale": "ko",
+  "preheat_logoutConfirm": "로그아웃하시겠습니까? 로그아웃하면 로컬 로그인 정보가 삭제됩니다.",
+  "preheat_logoutMessage": "사용자가 직접 로그아웃함 (미리 불러오기 실패 화면)",
+  "preheat_networkSettings": "네트워크 설정",
+  "preheat_retryConnection": "다시 연결",
+  "preheat_userSkipped": "사용자가 미리 불러오기를 건너뜀",
+  "table_rowCount": "{count}행",
+  "@table_rowCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
+}
