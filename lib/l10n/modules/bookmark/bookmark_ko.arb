@@ -1,0 +1,65 @@
+{
+  "@@locale": "ko",
+  "bookmark_deleteConfirm": "이 북마크를 삭제할까요?",
+  "bookmark_editBookmark": "북마크 편집",
+  "bookmark_nameHint": "메모 추가...",
+  "bookmark_nameLabel": "북마크 이름 (선택)",
+  "bookmark_reminderCustom": "사용자 지정",
+  "bookmark_reminderExpired": "알림 기한이 지났습니다",
+  "bookmark_reminderNextWeek": "다음 주",
+  "bookmark_reminderThreeDays": "3일 후",
+  "bookmark_reminderTime": "알림: {time}",
+  "bookmark_reminderTomorrow": "내일",
+  "bookmark_reminderTwoHours": "2시간 후",
+  "bookmark_removed": "북마크를 삭제했습니다",
+  "bookmark_setReminder": "알림 설정",
+  "bookmarks_cancelReminder": "알림 취소",
+  "bookmarks_deleted": "북마크를 삭제했습니다",
+  "bookmarks_initialSyncing": "북마크를 동기화하는 중…",
+  "bookmarks_empty": "북마크가 없습니다",
+  "bookmarks_emptySearchHint": "키워드를 입력해 북마크를 검색하세요",
+  "bookmarks_expired": " 기한 지남",
+  "bookmarks_reminderCancelled": "알림을 취소했습니다",
+  "bookmarks_searchHint": "북마크 검색...",
+  "bookmarks_title": "내 북마크",
+  "bookmarks_workspaceOpenedCount": "{count}개 열림",
+  "@bookmarks_workspaceOpenedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bookmarks_syncBookmarks": "북마크 동기화",
+  "bookmarks_syncCompleted": "동기화 완료: 새로 추가·수정 {upserted}개, 삭제 {deleted}개",
+  "@bookmarks_syncCompleted": {
+    "placeholders": {
+      "upserted": {
+        "type": "int"
+      },
+      "deleted": {
+        "type": "int"
+      }
+    }
+  },
+  "bookmarks_syncUpToDate": "북마크가 최신 상태입니다",
+  "bookmarks_syncFailed": "동기화에 실패했습니다. 잠시 후 다시 시도해 주세요",
+  "readLater_title": "나중에 읽기",
+  "readLater_continueReading": "이어서 읽기",
+  "readLater_readAt": "#{postNumber}까지",
+  "@readLater_readAt": {
+    "placeholders": {
+      "postNumber": {
+        "type": "int"
+      }
+    }
+  },
+  "readLater_addedTime": "{time}에 추가함",
+  "@readLater_addedTime": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  }
+}

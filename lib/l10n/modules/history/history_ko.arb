@@ -4,8 +4,8 @@
   "browsingHistory_emptySearchHint": "키워드를 입력해 기록을 검색하세요",
   "browsingHistory_searchHint": "열람 기록 검색...",
   "browsingHistory_title": "열람 기록",
-  "myTopics_empty": "주제가 없습니다",
-  "myTopics_emptySearchHint": "키워드를 입력해 내 주제를 검색하세요",
-  "myTopics_searchHint": "내 주제 검색...",
-  "myTopics_title": "내 주제"
+  "myTopics_empty": "글이 없습니다",
+  "myTopics_emptySearchHint": "키워드를 입력해 내 글을 검색하세요",
+  "myTopics_searchHint": "내 글 검색...",
+  "myTopics_title": "내 글"
 }
