@@ -1,0 +1,22 @@
+{
+  "@@locale": "ja",
+  "nav_bookmarks": "ブックマーク",
+  "nav_drafts": "下書き",
+  "nav_history": "履歴",
+  "nav_home": "ホーム",
+  "nav_messages": "メッセージ",
+  "nav_mine": "マイページ",
+  "nav_notifications": "通知",
+  "toast_authorizationFailed": "認証に失敗しました: {error}",
+  "toast_credentialCleared": "認証情報を消去しました",
+  "toast_credentialIncomplete": "認証情報をすべて入力してください",
+  "toast_credentialSaved": "認証情報を保存しました",
+  "toast_networkDisconnected": "ネットワークが切断されました",
+  "toast_networkRestored": "ネットワークが復旧しました",
+  "toast_operationFailedRetry": "操作に失敗しました。再試行してください",
+  "toast_pressAgainToExit": "もう一度戻るを押すと終了します",
+  "toast_rewardError": "投げ銭に失敗しました: {error}",
+  "toast_rewardFailed": "投げ銭に失敗しました",
+  "toast_rewardNotConfigured": "先に投げ銭の認証情報を設定してください",
+  "toast_rewardSuccess": "投げ銭を送りました！"
+}

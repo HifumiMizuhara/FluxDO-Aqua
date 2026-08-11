@@ -1,0 +1,41 @@
+{
+  "@@locale": "ja",
+  "seeking_title": "追跡",
+  "seeking_addUser": "ユーザーを追加",
+  "seeking_addUserHint": "ユーザー名を入力",
+  "seeking_removeUser": "追跡をやめる",
+  "seeking_userExists": "このユーザーはすでに追跡中です",
+  "seeking_userLimit": "追跡できるのは {max} 人までです",
+  "@seeking_userLimit": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "seeking_syncFollow": "フォローを同期",
+  "seeking_syncFollowDone": "フォロー中のユーザー {count} 人を取り込みました",
+  "@seeking_syncFollowDone": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "seeking_syncFollowFailed": "フォローの同期に失敗しました。しばらくしてからお試しください",
+  "seeking_userNotFound": "ユーザーが見つかりません",
+  "seeking_addUserFailed": "ユーザーの追加に失敗しました。しばらくしてからお試しください",
+  "seeking_paceTitle": "取得頻度",
+  "seeking_paceHigh": "高",
+  "seeking_paceMedium": "中",
+  "seeking_paceLow": "低",
+  "seeking_emptyHint": "アクティビティを追跡したいユーザーを追加してください。\n有効にすると、投稿・返信・いいね・リアクション・ブーストを自動で取得します",
+  "seeking_waitingData": "最初のデータを待っています…",
+  "seeking_disabledHint": "追跡はオフです。右上のスイッチで開始してください",
+  "seeking_rateLimited": "レート制限中です。次の 1 分まで一時停止し、その後自動で再開します",
+  "seeking_typePost": "が投稿しました",
+  "seeking_typeReply": "が返信しました:",
+  "seeking_typeLike": "がいいねしました:",
+  "seeking_typeReaction": "がリアクションしました:",
+  "seeking_typeBoost": "がブーストしました:"
+}
