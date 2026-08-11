@@ -1,0 +1,19 @@
+{
+  "@@locale": "ja",
+  "time_days": "{count} 日",
+  "time_daysAgo": "{count} 日前",
+  "time_fullDate": "{year}/{month}/{day}",
+  "time_hours": "{count} 時間",
+  "time_hoursAgo": "{count} 時間前",
+  "time_justNow": "たった今",
+  "time_minutes": "{count} 分",
+  "time_minutesAgo": "{count} 分前",
+  "time_monthsAgo": "{count} か月前",
+  "time_seconds": "{count} 秒",
+  "time_shortDate": "{month}/{day}",
+  "time_today": "今日",
+  "time_tooltipTime": "{year}/{month}/{day} {hour}:{minute}:{second}",
+  "time_weeksAgo": "{count} 週間前",
+  "time_yearsAgo": "{count} 年前",
+  "time_yesterday": "昨日"
+}

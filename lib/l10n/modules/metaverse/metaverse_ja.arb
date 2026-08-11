@@ -1,0 +1,19 @@
+{
+  "@@locale": "ja",
+  "chat_thread": "スレッド",
+  "github_commentedOn": " がコメントしました: ",
+  "github_moreFiles": "... 他 {count} 件のファイル",
+  "github_viewFullCode": "コード全体を表示",
+  "metaverse_authFailed": "認証に失敗しました: {error}",
+  "metaverse_cdkAuthSuccess": "CDK の認証に成功しました",
+  "metaverse_cdkDesc": "アカウントを連携して CDK を利用",
+  "metaverse_cdkReauthSuccess": "CDK の再認証に成功しました",
+  "metaverse_cdkService": "CDK サービス",
+  "metaverse_comingSoon": "他のサービスは近日公開...",
+  "metaverse_ldcAuthSuccess": "LDC の認証に成功しました",
+  "metaverse_ldcDesc": "アカウントを連携してポイントを利用",
+  "metaverse_ldcReauthSuccess": "LDC の再認証に成功しました",
+  "metaverse_ldcService": "LDC ポイントサービス",
+  "metaverse_myServices": "マイサービス",
+  "metaverse_title": "メタバース"
+}
