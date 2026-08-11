@@ -1,4 +1,5 @@
 import 'dart:async' show unawaited;
+import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
@@ -221,14 +222,21 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   /// 中的交互(如下滑关闭)不再随载体销毁。
   final Map<int, ImageGestureController> _gestureControllers = {};
 
-  /// 退场缩放归位的两路钩子(路由动画反转 = 按钮/程序化 pop;
-  /// userGestureInProgress = 预测返回/iOS 拖拽)。缩放是
-  /// RawGestureImage 的画布级变换,Hero 飞行只收缩布局盒子,飞行中
-  /// 逐帧拿「全屏布局的缩放裁切」往小盒子里画,内容乱跳;落地换回
-  /// 源端正常图又突变一次 —— 放大后返回的闪烁即此。pop 启动瞬间
-  /// (飞行测量前)把缩放归位,飞行全程 contain,与源端无缝。
+  /// 退场缩放处理。缩放是 RawGestureImage 的画布级变换,Hero 飞行只
+  /// 收缩布局盒子,两者叠加会闪烁(飞行中内容乱跳+落地突变),故飞行
+  /// 起跳前缩放必须回到 1.0 contain。两条路径:
+  /// - 按钮/程序化 pop:reverse 首帧瞬时归位(无进度可跟,跳变弱);
+  /// - 预测返回/iOS 拖拽:手势进度驱动**松弛** —— 认领后路由动画值
+  ///   即 1-进度,把 scale/offset 按 animation.value 从起始态 lerp 到
+  ///   contain。拖越多收越拢;cancel 时动画弹回 1.0,同一 lerp 自动
+  ///   恢复原缩放;commit 时残余 snap 到 1.0 再起飞。
   ModalRoute<dynamic>? _route;
   ValueListenable<bool>? _navUserGesture;
+
+  /// 松弛会话:手势开始时捕获的起始缩放态(null = 无会话)
+  double? _relaxStartScale;
+  Offset? _relaxStartOffset;
+  bool _relaxListening = false;
 
   ImageGestureController _obtainGestureController(
     int index, {
@@ -411,18 +419,68 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
 
   /// 按钮/程序化 pop:路由动画转 reverse 的第一帧归位缩放,
   /// 早于 HeroController 对 to 路由的测量与飞行起跳。
+  /// 手势 commit 的收尾也走 reverse —— 此时把松弛残余 snap 掉。
   void _onRouteAnimationStatus(AnimationStatus status) {
     if (status == AnimationStatus.reverse) {
+      _endZoomRelaxation();
       _resetZoomForExit();
     }
   }
 
-  /// 预测返回/iOS 拖拽:手势置位即预归位。手势期间查看器整页被
-  /// 转场层拖动,画布级缩放对跟手观感无增益,提前归位换飞行无缝。
+  /// 预测返回/iOS 拖拽:手势置位开启缩放松弛会话(跟手渐进归位,
+  /// cancel 自动恢复);手势结束(cancel 弹回后)收会话。
   void _onNavUserGestureChanged() {
-    if (_navUserGesture?.value == true && (_route?.isCurrent ?? false)) {
-      _resetZoomForExit();
+    final active = _navUserGesture?.value == true;
+    if (active && (_route?.isCurrent ?? false)) {
+      _beginZoomRelaxation();
+    } else if (!active) {
+      _endZoomRelaxation(restore: true);
     }
+  }
+
+  void _beginZoomRelaxation() {
+    if (_relaxListening) return;
+    final controller = _gestureControllers[currentIndex];
+    final details = controller?.details;
+    final scale = details?.totalScale ?? 1.0;
+    if (controller == null || scale <= 1.0) return;
+    // 双击缩放动画可能在途:以当前帧值为起点即可,无需显式 stop
+    // (松弛每帧覆写 details,动画回灌会被下一帧覆盖)
+    _relaxStartScale = scale;
+    _relaxStartOffset = details?.offset ?? Offset.zero;
+    _relaxListening = true;
+    _route?.animation?.addListener(_onRelaxTick);
+    _onRelaxTick();
+  }
+
+  /// 手势进度驱动:认领后 route.animation.value = 1 - 手势进度。
+  /// t=1(未拖)= 起始缩放,t 越小越收拢到 contain。
+  void _onRelaxTick() {
+    final t = _route?.animation?.value ?? 1.0;
+    final startScale = _relaxStartScale;
+    final controller = _gestureControllers[currentIndex];
+    if (startScale == null || controller == null) return;
+    final eased = Curves.easeOut.transform(1.0 - t.clamp(0.0, 1.0));
+    final scale = lerpDouble(startScale, 1.0, eased)!;
+    final offset = Offset.lerp(_relaxStartOffset, Offset.zero, eased)!;
+    controller.details = GestureDetails(
+      totalScale: scale,
+      offset: offset,
+      userOffset: false,
+      gestureDetails: controller.details,
+    );
+  }
+
+  /// [restore] = cancel 路径:动画已弹回 1.0,末帧 lerp 即原缩放,
+  /// 只需摘监听;commit/按钮路径动画在反转,摘监听后由
+  /// [_resetZoomForExit] 收残余。
+  void _endZoomRelaxation({bool restore = false}) {
+    if (!_relaxListening) return;
+    _relaxListening = false;
+    _route?.animation?.removeListener(_onRelaxTick);
+    if (restore) _onRelaxTick();
+    _relaxStartScale = null;
+    _relaxStartOffset = null;
   }
 
   void _resetZoomForExit() {
@@ -434,6 +492,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
 
   @override
   void dispose() {
+    _endZoomRelaxation();
     _route?.animation?.removeStatusListener(_onRouteAnimationStatus);
     _navUserGesture?.removeListener(_onNavUserGestureChanged);
     _dynamicContentLease.release();
