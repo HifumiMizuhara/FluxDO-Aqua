@@ -2,30 +2,35 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../widgets/common/predictive_back_cupertino_transitions.dart'
+    show predictiveBackGestureActive;
+
 /// Android 预测返回派发保持器。
 ///
-/// 修两个「系统层接管返回」病灶(均为 OnBackInvokedCallback 被注销
-/// 或失效,手势根本不进 Flutter,vendored 转场的任何认领逻辑都轮
-/// 不到执行):
+/// 引擎收到 setFrameworkHandlesBack(false) 会立即从 OS dispatcher
+/// **注销** OnBackInvokedCallback(FlutterActivity.java 730-734);注销
+/// 状态下手势不进 Flutter,由系统按「关闭 Activity」接管 —— 整窗
+/// 缩小、窗外黑底(黑在窗外,windowBackground 管不到)。三个保持窗:
 ///
-/// 1. 连划黑边:单次返回模式下 pop 一启动被弹路由即出账,
-///    navigator.canPop() 同帧翻 false,默认 onNavigationNotification
-///    立刻 setFrameworkHandlesBack(false) → 引擎注销回调 → 退场动画
-///    期间的第二划被系统当「关闭 Activity」接管,整窗缩小、窗外纯黑
-///    (黑在窗外,windowBackground 管不到)。修法:退场动画存续期间
-///    强制上报 canHandlePop=true,窗口结束按最后真实值回写。
-/// 2. 锁屏后预测返回失效:paused 期间任何路由变动照常下发
-///    setFrameworkHandlesBack,引擎侧注册态可能在锁屏窗口内被翻错
-///    (Activity 重建等路径还会整个丢失),回前台无人补发。修法:
-///    resumed 时无条件按当前值重发一次,注册态与框架对齐。
+/// 1. pop 退场动画存续期间(连划第二下要能进 Flutter);
+/// 2. **预测返回手势进行中**(手势中途注销会把这条手势拦腰截断,
+///    剩余 progress/commit 由系统接管当场出黑底 —— 手势期路由态
+///    变化很常见:静默认领 commit 的排队 maybePop、上一路由退场
+///    收尾等都会触发 NavigationNotification);
+/// 3. resumed 无条件重发当前值(锁屏窗口内被翻错的注册态自愈)。
 ///
 /// 双击退出模式下根路由 canPop 恒 false → canHandlePop 恒 true,
-/// 病灶 1 自然不存在;病灶 2 的 resume 重发两种模式都受益。
+/// 保持窗自然无操作。
 class BackDispatchHold extends NavigatorObserver with WidgetsBindingObserver {
+  BackDispatchHold() {
+    predictiveBackGestureActive.addListener(_onGestureActiveChanged);
+  }
+
   bool _lastCanHandlePop = false;
   bool _everNotified = false;
   bool _attached = false;
   int _activeExitTransitions = 0;
+  bool? _lastSent;
   AppLifecycleState? get _lifecycleState =>
       WidgetsBinding.instance.lifecycleState;
 
@@ -42,10 +47,16 @@ class BackDispatchHold extends NavigatorObserver with WidgetsBindingObserver {
     return true;
   }
 
+  void _onGestureActiveChanged() {
+    // 手势结束:hold 解除,按真实值回写;手势开始:确保注册在位
+    _push();
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // 回前台:引擎注册态可能在锁屏窗口被翻错/丢失,按当前值重发对齐
     if (state == AppLifecycleState.resumed) {
+      _lastSent = null; // 强制重发,不受去重挡路
       _push();
     }
   }
@@ -81,9 +92,21 @@ class BackDispatchHold extends NavigatorObserver with WidgetsBindingObserver {
       case AppLifecycleState.resumed:
       case AppLifecycleState.hidden:
       case AppLifecycleState.paused:
-        SystemNavigator.setFrameworkHandlesBack(
-          _lastCanHandlePop || _activeExitTransitions > 0,
-        );
+        final bool value =
+            _lastCanHandlePop ||
+            _activeExitTransitions > 0 ||
+            predictiveBackGestureActive.value;
+        if (value == _lastSent) return;
+        _lastSent = value;
+        assert(() {
+          debugPrint(
+            '[BackDispatch] setFrameworkHandlesBack($value) '
+            'canPop=$_lastCanHandlePop exits=$_activeExitTransitions '
+            'gesture=${predictiveBackGestureActive.value}',
+          );
+          return true;
+        }());
+        SystemNavigator.setFrameworkHandlesBack(value);
     }
   }
 }

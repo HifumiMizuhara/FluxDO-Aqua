@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fluxdo/services/navigation/back_dispatch_hold.dart';
+import 'package:fluxdo/widgets/common/predictive_back_cupertino_transitions.dart'
+    show predictiveBackGestureActive;
 
 /// BackDispatchHold:退场动画窗口内 setFrameworkHandlesBack 不得翻
 /// false(翻了=引擎注销 OnBackInvokedCallback,第二划被系统当「关
@@ -27,6 +29,7 @@ void main() {
   });
 
   tearDown(() {
+    predictiveBackGestureActive.value = false;
     binding.defaultBinaryMessenger.setMockMethodCallHandler(
       SystemChannels.platform,
       null,
@@ -92,5 +95,32 @@ void main() {
 
     expect(sentValues, contains(true),
         reason: '回前台必须重发,修锁屏后引擎注册态失联');
+  });
+
+  testWidgets('预测返回手势进行中不撤注册(即使 canPop 已翻 false)',
+      (tester) async {
+    binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpWidget(buildApp());
+    await tester.tap(find.text('page A'));
+    await tester.pumpAndSettle();
+
+    sentValues.clear();
+    // 模拟手势活跃(detector 认领时置位;含静默认领)
+    predictiveBackGestureActive.value = true;
+    // 手势中路由态变化把 canPop 翻 false(如静默认领 commit 的排队
+    // pop、退场收尾),默认实现会立刻注销回调把手势拦腰截断
+    tester.state<NavigatorState>(find.byType(Navigator)).pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+    await tester.pump();
+    expect(sentValues.contains(false), isFalse,
+        reason: '手势进行中下发 false = 注销回调 = 手势被系统接管出黑底');
+
+    // 手势结束:按真实值回写
+    predictiveBackGestureActive.value = false;
+    await tester.pump();
+    expect(sentValues.isNotEmpty, isTrue);
+    expect(sentValues.last, isFalse, reason: '手势结束后应回写真实值');
   });
 }

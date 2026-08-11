@@ -39,6 +39,10 @@
 //    cancelBackGesture 会打到上一次手势的陈旧认领者,无配对 start 的
 //    handleCancelBackGesture 令 userGesture 计数下溢,预测返回全局
 //    静默失效(浮层不查计数故独活)。phase 非 start/update 一律忽略。
+// 10. 全局手势活跃标记 [predictiveBackGestureActive](上游没有):
+//    BackDispatchHold 据此在手势进行中不撤 OnBackInvokedCallback
+//    注册 —— 否则第二划拖过退场窗口边界时被中途注销,系统当场接管
+//    出黑底。认领(含静默)置 true,commit/cancel/锁屏代打清 false。
 //
 // Copyright 2014 The Flutter Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
@@ -53,6 +57,14 @@ import 'package:flutter/services.dart';
 
 final Expando<ValueNotifier<bool>> _predictiveBackGestureStates =
     Expando<ValueNotifier<bool>>('predictive back gesture state');
+
+/// 差异点 10:预测返回手势是否活跃(任一 detector 已认领,含静默
+/// 认领)。BackDispatchHold 在手势进行中保持 OnBackInvokedCallback
+/// 注册不被撤销 —— 引擎收到 setFrameworkHandlesBack(false) 会立刻
+/// unregister,进行中的手势被截断,后续 progress/commit 直接改由
+/// 系统接管(整窗缩小黑底)。
+final ValueNotifier<bool> predictiveBackGestureActive =
+    ValueNotifier<bool>(false);
 
 ValueNotifier<bool>? _predictiveBackGestureStateFor(PageRoute<dynamic> route) {
   final navigator = route.navigator;
@@ -274,6 +286,7 @@ class _PredictiveBackGestureDetectorState
       if (_shouldClaimDuringTransition) {
         _gestureForceCancelled = false;
         _silentClaim = true;
+        predictiveBackGestureActive.value = true;
         return true;
       }
       return false;
@@ -283,6 +296,7 @@ class _PredictiveBackGestureDetectorState
     _silentClaim = false;
     phase = _PredictiveBackPhase.start;
     _ownsPredictiveBackGesture = true;
+    predictiveBackGestureActive.value = true;
     _predictiveBackGestureStateFor(widget.route)?.value = true;
     widget.route.handleStartBackGesture(progress: 1 - backEvent.progress);
     startBackEvent = currentBackEvent = backEvent;
@@ -302,6 +316,7 @@ class _PredictiveBackGestureDetectorState
 
   @override
   void handleCancelBackGesture() {
+    predictiveBackGestureActive.value = false;
     if (_gestureForceCancelled) return;
     if (_silentClaim) {
       _silentClaim = false;
@@ -326,6 +341,7 @@ class _PredictiveBackGestureDetectorState
 
   @override
   void handleCommitBackGesture() {
+    predictiveBackGestureActive.value = false;
     if (_gestureForceCancelled) return;
     if (_silentClaim) {
       _silentClaim = false;
@@ -375,6 +391,7 @@ class _PredictiveBackGestureDetectorState
     // 转场期静默认领没碰路由动画,锁屏只需弃掉认领
     if (_silentClaim) {
       _silentClaim = false;
+      predictiveBackGestureActive.value = false;
       return;
     }
     if (!_ownsPredictiveBackGesture || _gestureForceCancelled) return;
@@ -384,6 +401,7 @@ class _PredictiveBackGestureDetectorState
     }
 
     _gestureForceCancelled = true;
+    predictiveBackGestureActive.value = false;
     phase = _PredictiveBackPhase.cancel;
     widget.route.handleCancelBackGesture();
     startBackEvent = currentBackEvent = null;
@@ -442,11 +460,13 @@ class _PredictiveBackGestureDetectorState
     // dispose 可能发生在树锁定期间(被弹路由退场动画结束帧),同步
     // notify 手势 flag 会命中 markNeedsBuild-when-locked 断言;
     // 延迟到帧后清理。
-    if (_ownsPredictiveBackGesture) {
+    if (_ownsPredictiveBackGesture || _silentClaim) {
       _ownsPredictiveBackGesture = false;
+      _silentClaim = false;
       final route = widget.route;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _predictiveBackGestureStateFor(route)?.value = false;
+        predictiveBackGestureActive.value = false;
       });
     }
     _userGestureInProgress?.removeListener(_handleUserGestureChanged);
