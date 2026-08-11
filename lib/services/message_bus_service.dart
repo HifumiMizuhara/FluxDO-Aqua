@@ -703,7 +703,9 @@ class MessageBusService {
   void _deliverMessage(MessageBusMessage message) {
     final sub = _subscriptions[message.channel];
     if (sub != null) {
-      for (final callback in sub.callbacks) {
+      // 回调内常同步触发重订阅改到这个列表,直接遍历会炸
+      // ConcurrentModificationError,异常冒到 _processChunk 会吞掉整个 chunk
+      for (final callback in List<MessageBusCallback>.of(sub.callbacks)) {
         try {
           callback(message);
         } catch (e) {
