@@ -27,6 +27,12 @@ class CsrfTokenService {
   /// 正在进行的 CSRF 刷新请求（防止并发重复请求，与 Discourse 前端的 activeCsrfRequest 对齐）
   Future<void>? _activeCsrfRequest;
 
+  /// 上次刷新失败的时刻。冷却窗口内不再重复打 /session/csrf:
+  /// 被 CF 速率限制盯上时(429 挑战页),每次用户重试都再撞一次盾只会
+  /// 越刷越差,必须掐断重试风暴。
+  DateTime? _lastFailureAt;
+  static const _failureCooldown = Duration(seconds: 30);
+
   String? get csrfToken => _csrfToken;
 
   /// 初始化：从本地存储恢复 CSRF token
@@ -46,12 +52,21 @@ class CsrfTokenService {
   /// 清空 CSRF token（BAD CSRF 时调用，下次 POST 前会自动刷新）
   void clearCsrfToken() {
     _csrfToken = null;
+    // BAD CSRF 说明业务请求已到达服务端(非 CF 拦截),放行下一次刷新
+    _lastFailureAt = null;
     unawaited(_storage.delete(key: _csrfTokenKey));
   }
 
   /// 从主站 /session/csrf 获取新的 CSRF token
   /// 带去重：多个并发调用共享同一个请求（对齐 Discourse 前端的 updateCsrfToken）
+  /// 带失败冷却：上次失败后 30s 内直接返回，不重复请求
   Future<void> updateCsrfToken() {
+    final lastFailureAt = _lastFailureAt;
+    if (_activeCsrfRequest == null &&
+        lastFailureAt != null &&
+        DateTime.now().difference(lastFailureAt) < _failureCooldown) {
+      return Future.value();
+    }
     _activeCsrfRequest ??= _fetchCsrfToken().whenComplete(() {
       _activeCsrfRequest = null;
     });
@@ -122,6 +137,7 @@ class CsrfTokenService {
       );
       final csrf = (response.data as Map<String, dynamic>?)?['csrf'] as String?;
       if (csrf != null && csrf.isNotEmpty) {
+        _lastFailureAt = null;
         setCsrfToken(csrf);
         debugPrint('[CsrfTokenService] CSRF token 已刷新');
         AppLogger.info(
@@ -136,6 +152,7 @@ class CsrfTokenService {
         );
       }
     } on DioException catch (e) {
+      _lastFailureAt = DateTime.now();
       final statusCode = e.response?.statusCode;
       final uri = e.requestOptions.uri.toString();
       final responseText = e.response?.data?.toString();
@@ -145,9 +162,16 @@ class CsrfTokenService {
               0,
               responseText.length > 200 ? 200 : responseText.length,
             );
+      // 诊断 CF 挑战判定:这三个头决定 isCfChallengeResponse 是否命中,
+      // 某些传输通道下头部可能缺失/走样,失败日志里必须留痕。
+      final headers = e.response?.headers;
+      final serverHeader = headers?.value('server');
+      final cfMitigated = headers?.value('cf-mitigated');
+      final contentType = headers?.value('content-type');
       final message =
           'CSRF token 刷新失败: status=$statusCode, url=$uri, '
-          'type=${e.type}, response=$responsePreview';
+          'type=${e.type}, server=$serverHeader, cfMitigated=$cfMitigated, '
+          'contentType=$contentType, response=$responsePreview';
       debugPrint('[CsrfTokenService] $message');
       AppLogger.warning(
         message,
@@ -158,9 +182,13 @@ class CsrfTokenService {
           'statusCode': statusCode,
           'url': uri,
           'errorType': e.type.toString(),
+          'serverHeader': serverHeader,
+          'cfMitigated': cfMitigated,
+          'contentType': contentType,
         },
       );
     } catch (e, stackTrace) {
+      _lastFailureAt = DateTime.now();
       debugPrint('[CsrfTokenService] CSRF token 刷新失败: $e');
       AppLogger.error(
         'CSRF token 刷新异常',
@@ -174,6 +202,7 @@ class CsrfTokenService {
   /// 重置（登出时调用）
   Future<void> reset() async {
     _csrfToken = null;
+    _lastFailureAt = null;
     await _storage.delete(key: _csrfTokenKey);
   }
 }

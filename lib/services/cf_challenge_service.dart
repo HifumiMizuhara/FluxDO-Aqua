@@ -273,18 +273,20 @@ class CfChallengeService {
     if (response == null) return false;
     final headers = response.headers;
 
-    // 1. 必须来自 Cloudflare
-    final server = headers.value('server') ?? '';
-    if (!server.toLowerCase().contains('cloudflare')) return false;
-
-    // 2. cf-mitigated: challenge — CF 官方权威信号, 不依赖 content-type
+    // 1. cf-mitigated: challenge — CF 官方权威信号,单独命中即判定。
+    //    不再把 server 头当前置闸:部分传输通道下响应头可能缺失/走样,
+    //    server 头一票否决会让挑战型 429 永远进不了验证自愈链路。
     final cfMitigated = headers.value('cf-mitigated') ?? '';
     if (cfMitigated.contains('challenge')) return true;
 
-    // 3. fallback: 老版本 CF 或某些路径不带 cf-mitigated, 用 body 兜底,
-    //    但 body 兜底只对 text/html 走 — 避免误判 Discourse 自己的 plaintext 403。
+    // 2. fallback: 不带 cf-mitigated 时用 body 兜底。挑战页一定是 text/html,
+    //    content-type 明确为其他类型则排除(避免误判 Discourse 自己的
+    //    plaintext/JSON 403);content-type 缺失时放行 body 判定,
+    //    isCfChallenge 的标记(cf_chl_opt 等)足够特异,不会误伤业务响应。
     final contentType = headers.value('content-type') ?? '';
-    if (!contentType.contains('text/html')) return false;
+    if (contentType.isNotEmpty && !contentType.contains('text/html')) {
+      return false;
+    }
 
     return isCfChallenge(response.data);
   }
