@@ -1,0 +1,16 @@
+{
+  "@@locale": "ja",
+  "preheat_logoutConfirm": "ログアウトしますか？ローカルのログイン情報が削除されます。",
+  "preheat_logoutMessage": "ユーザーによるログアウト（プリロード失敗画面）",
+  "preheat_networkSettings": "ネットワーク設定",
+  "preheat_retryConnection": "再接続",
+  "preheat_userSkipped": "ユーザーがプリロードをスキップしました",
+  "table_rowCount": "{count} 行",
+  "@table_rowCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
+}
