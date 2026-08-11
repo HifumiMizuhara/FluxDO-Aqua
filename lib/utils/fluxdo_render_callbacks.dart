@@ -40,7 +40,9 @@ import '../widgets/common/smart_avatar.dart';
 import '../widgets/post/quote_image_scope.dart';
 import '../widgets/content/animated_svg_view.dart';
 import '../widgets/content/audio/discourse_audio_player.dart';
+import '../widgets/content/signature_animation_scope.dart';
 import '../widgets/content/svg_view.dart';
+import '../widgets/content/svg_web_view.dart';
 import '../widgets/content/discourse_html_content/builders/iframe_builder.dart'
     show IframeWidget, IframeAttributes;
 import '../widgets/content/discourse_html_content/builders/image_carousel_builder.dart'
@@ -278,13 +280,15 @@ class FluxdoRenderCallbacks {
     )) {
       return;
     }
-    Navigator.of(ctx).push(MaterialPageRoute(
-      builder: (_) => TopicDetailPage(
-        topicId: topicId,
-        initialTitle: topicSlug,
-        scrollToPostNumber: postNumber,
+    Navigator.of(ctx).push(
+      MaterialPageRoute(
+        builder: (_) => TopicDetailPage(
+          topicId: topicId,
+          initialTitle: topicSlug,
+          scrollToPostNumber: postNumber,
+        ),
       ),
-    ));
+    );
   }
 
   // ==========================================================================
@@ -477,9 +481,7 @@ class FluxdoRenderCallbacks {
           errorBuilder: (c, failedUrl, error) =>
               _VideoErrorFallback(url: failedUrl, error: error),
           loadingBuilder: (c, _, child) => Center(
-            child: posterUrl != null
-                ? child
-                : const LoadingSpinner(size: 24),
+            child: posterUrl != null ? child : const LoadingSpinner(size: 24),
           ),
         ),
       ),
@@ -747,7 +749,8 @@ class FluxdoRenderCallbacks {
   /// 端渲染等价;解码纹理量不变(ResizeImage 仍按显示宽 × dpr cap)。
   static String? _pickSrcsetUrl(ImageRun image, double dpr) {
     if (image.srcset.isEmpty) return null;
-    final sorted = [...image.srcset]..sort((a, b) => a.scale.compareTo(b.scale));
+    final sorted = [...image.srcset]
+      ..sort((a, b) => a.scale.compareTo(b.scale));
     for (final c in sorted) {
       if (c.scale >= dpr - 0.01) return c.url;
     }
@@ -1216,8 +1219,7 @@ class FluxdoRenderCallbacks {
               // 档位影响。
               final srcsetUrl = DiscourseImageUtils.isUploadUrl(image.src)
                   ? null
-                  : _pickSrcsetUrl(
-                      image, MediaQuery.devicePixelRatioOf(ctx));
+                  : _pickSrcsetUrl(image, MediaQuery.devicePixelRatioOf(ctx));
               final displayUrl = srcsetUrl == null
                   ? resolvedUrl
                   : UrlHelper.resolveUrlWithCdn(srcsetUrl);
@@ -1255,14 +1257,14 @@ class FluxdoRenderCallbacks {
                   // 风险,能不用就不用)。
                   final hasLightbox = image.lightboxUrl != null;
                   final fullUrl = image.lightboxUrl ?? resolvedUrl;
-                  var resolvedFullUrl =
-                      DiscourseImageUtils.isUploadUrl(fullUrl)
+                  var resolvedFullUrl = DiscourseImageUtils.isUploadUrl(fullUrl)
                       ? (DiscourseImageUtils.getCachedUploadUrl(fullUrl) ??
                             fullUrl)
                       : UrlHelper.resolveUrlWithCdn(fullUrl);
                   if (!hasLightbox) {
-                    resolvedFullUrl =
-                        DiscourseImageUtils.getOriginalUrl(resolvedFullUrl);
+                    resolvedFullUrl = DiscourseImageUtils.getOriginalUrl(
+                      resolvedFullUrl,
+                    );
                   }
                   // 画廊数据在点击时才解析(长帖懒解析场景首次点图会触发
                   // 全 chunk parse,离散动作可接受;之后命中缓存)。
@@ -1396,7 +1398,8 @@ class FluxdoRenderCallbacks {
     final base62Sha1 = image.base62Sha1;
     if (base62Sha1 != null && base62Sha1.isNotEmpty) {
       src = 'upload://$base62Sha1';
-      final ext = HtmlToMarkdown.extensionFromUrl(image.src) ??
+      final ext =
+          HtmlToMarkdown.extensionFromUrl(image.src) ??
           HtmlToMarkdown.extensionFromUrl(image.lightboxUrl) ??
           HtmlToMarkdown.extensionFromUrl(image.origSrc);
       if (ext != null) src = '$src.$ext';
@@ -1435,6 +1438,10 @@ class FluxdoRenderCallbacks {
           svgSource,
           dark: dark,
         );
+
+        if (SignatureAnimationScope.useWebViewOf(context)) {
+          return SvgWebView(svgSource: resolved);
+        }
 
         if (AnimatedSvgView.hasAnimations(resolved)) {
           return AnimatedSvgView(svgSource: resolved);

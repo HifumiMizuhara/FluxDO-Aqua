@@ -8,6 +8,8 @@ import '../../services/blob_image_cache.dart';
 import '../../services/media_geometry_memo.dart';
 import '../../utils/svg_utils.dart';
 import 'animated_svg_view.dart';
+import 'signature_animation_scope.dart';
+import 'svg_web_view.dart';
 
 /// url → 嗅探/解析产物会话级缓存:sliver 回收重挂载零 IO 零重解析。
 /// (ScalableImage 不可变可共享;动画源串交给 AnimatedSvgView,其内部
@@ -39,23 +41,34 @@ class _SvgContentCache {
 class _SvgEntry {
   final String? animatedSource; // 动画 SVG:原始源码
   final ScalableImage? si; // 静态 SVG:解析产物
+  final String? source; // WebView 路由使用的原始源码
   final int cost;
 
   const _SvgEntry.animated(String source)
-      : animatedSource = source,
-        si = null,
-        cost = source.length * 2;
+    : animatedSource = source,
+      si = null,
+      source = source,
+      cost = source.length * 2;
 
-  _SvgEntry.static_(ScalableImage this.si)
-      : animatedSource = null,
-        cost = 64 << 10; // 粗估,静态图通常很小
+  _SvgEntry.static_(ScalableImage this.si, String source)
+    : animatedSource = null,
+      source = source,
+      cost = 64 << 10; // 粗估,静态图通常很小
+
+  const _SvgEntry.source(String source)
+    : animatedSource = null,
+      si = null,
+      source = source,
+      cost = source.length * 2;
 
   const _SvgEntry.error()
-      : animatedSource = null,
-        si = null,
-        cost = 0;
+    : animatedSource = null,
+      si = null,
+      source = null,
+      cost = 0;
 
-  bool get isError => animatedSource == null && si == null;
+  bool get isError =>
+      animatedSource == null && si == null && source == null;
 }
 
 /// utf8 解码 + 动画嗅探;顶层函数以便大文件走 compute() 不阻塞 UI isolate。
@@ -66,6 +79,7 @@ class _SvgEntry {
 
 /// 网络 SVG 的统一入口:下载 → 按内容嗅探动画 → 路由。
 ///
+/// - 签名开关开启时 → [SvgWebView](CSS/SMIL 浏览器管线);
 /// - 静态 SVG → [SvgUtils.sanitize] + jovial_svg(轻、成熟);
 /// - 动画 SVG(CSS @keyframes/SMIL)→ [AnimatedSvgView]
 ///   (full_svg_flutter,首帧快照缓存 + 点击播放 + 防注入剥离)。
@@ -106,17 +120,18 @@ class DiscourseSvgView extends StatefulWidget {
 }
 
 class _DiscourseSvgViewState extends State<DiscourseSvgView> {
-
   /// 大文件门槛:utf8 解码+动画嗅探全量扫描挪 isolate。
   static const int _bigFileBytes = 256 << 10;
 
   ScalableImage? _si;
   String? _animatedSource;
+  String? _source;
   bool _error = false;
   Brightness? _brightness;
+  bool? _useWebView;
 
   String get _cacheKey =>
-      '${widget.url}|${_brightness == Brightness.dark ? 'd' : 'l'}';
+      '${widget.url}|${_brightness == Brightness.dark ? 'd' : 'l'}|${_useWebView == true ? 'w' : 'n'}';
 
   @override
   void didChangeDependencies() {
@@ -124,10 +139,13 @@ class _DiscourseSvgViewState extends State<DiscourseSvgView> {
     // 首次挂载与主题切换都从这里驱动:prefers-color-scheme 求值结果
     // 随亮暗不同,缓存键含主题,切主题即重载出对应配色。
     final b = Theme.of(context).brightness;
-    if (b != _brightness) {
+    final useWebView = SignatureAnimationScope.useWebViewOf(context);
+    if (b != _brightness || useWebView != _useWebView) {
       _brightness = b;
+      _useWebView = useWebView;
       _si = null;
       _animatedSource = null;
+      _source = null;
       _error = false;
       _restoreOrLoad();
     }
@@ -139,6 +157,7 @@ class _DiscourseSvgViewState extends State<DiscourseSvgView> {
     if (oldWidget.url != widget.url) {
       _si = null;
       _animatedSource = null;
+      _source = null;
       _error = false;
       _restoreOrLoad();
     }
@@ -153,6 +172,7 @@ class _DiscourseSvgViewState extends State<DiscourseSvgView> {
       } else {
         _si = cached.si;
         _animatedSource = cached.animatedSource;
+        _source = cached.source;
       }
       return;
     }
@@ -163,8 +183,10 @@ class _DiscourseSvgViewState extends State<DiscourseSvgView> {
     final url = widget.url;
     final cacheKey = _cacheKey;
     try {
-      final bytes =
-          await BlobImageCache.fetch(BlobImageCache.contentBucket, url);
+      final bytes = await BlobImageCache.fetch(
+        BlobImageCache.contentBucket,
+        url,
+      );
       if (!mounted || _cacheKey != cacheKey) return;
 
       // 大文件的解码+嗅探是全量字符串扫描,挪 isolate
@@ -183,13 +205,23 @@ class _DiscourseSvgViewState extends State<DiscourseSvgView> {
         // 动画 SVG 路由 full_svg_flutter(防注入剥离在 AnimatedSvgView 内做)
         final geo = AnimatedSvgView.rootGeometryOf(content);
         final memoW = geo.naturalW;
-        final memoH = geo.naturalH ??
-            (memoW != null ? memoW / geo.aspect : null);
+        final memoH =
+            geo.naturalH ?? (memoW != null ? memoW / geo.aspect : null);
         if (memoW != null && memoH != null) {
           MediaGeometryMemo.remember(url, memoW, memoH);
         }
         _SvgContentCache.put(cacheKey, _SvgEntry.animated(content));
-        setState(() => _animatedSource = content);
+        setState(() {
+          _animatedSource = content;
+          _source = content;
+        });
+        return;
+      }
+
+      if (_useWebView == true) {
+        // WebView 路由不依赖 jovial_svg 的静态 SVG 支持范围。
+        _SvgContentCache.put(cacheKey, _SvgEntry.source(content));
+        setState(() => _source = content);
         return;
       }
 
@@ -202,8 +234,11 @@ class _DiscourseSvgViewState extends State<DiscourseSvgView> {
         if (vp.width > 0 && vp.height > 0) {
           MediaGeometryMemo.remember(url, vp.width, vp.height);
         }
-        _SvgContentCache.put(cacheKey, _SvgEntry.static_(si));
-        setState(() => _si = si);
+        _SvgContentCache.put(cacheKey, _SvgEntry.static_(si, content));
+        setState(() {
+          _si = si;
+          _source = content;
+        });
       }
     } catch (_) {
       if (mounted && _cacheKey == cacheKey) {
@@ -215,6 +250,15 @@ class _DiscourseSvgViewState extends State<DiscourseSvgView> {
 
   @override
   Widget build(BuildContext context) {
+    if (SignatureAnimationScope.useWebViewOf(context) && _source != null) {
+      return SvgWebView(
+        svgSource: _source!,
+        width: widget.width,
+        height: widget.height,
+        alignment: widget.alignment,
+      );
+    }
+
     if (_animatedSource != null) {
       final view = AnimatedSvgView(
         svgSource: _animatedSource!,
@@ -272,9 +316,7 @@ class _DiscourseSvgViewState extends State<DiscourseSvgView> {
     return SizedBox(
       width: widget.width,
       height: widget.height ?? 100,
-      child: const Center(
-        child: LoadingSpinner(size: 20),
-      ),
+      child: const Center(child: LoadingSpinner(size: 20)),
     );
   }
 }
@@ -312,7 +354,6 @@ class SvgSniffFallback extends StatefulWidget {
 }
 
 class _SvgSniffFallbackState extends State<SvgSniffFallback> {
-
   /// url → 嗅探结论(会话级,同图反复失败不重复读盘)。
   static final Map<String, bool> _verdicts = <String, bool>{};
 
@@ -337,8 +378,10 @@ class _SvgSniffFallbackState extends State<SvgSniffFallback> {
   Future<void> _sniff() async {
     final url = widget.url;
     try {
-      final bytes =
-          await BlobImageCache.fetch(BlobImageCache.contentBucket, url);
+      final bytes = await BlobImageCache.fetch(
+        BlobImageCache.contentBucket,
+        url,
+      );
       final verdict = SvgUtils.isSvgBytes(bytes);
       _verdicts[url] = verdict;
       if (mounted && widget.url == url) setState(() => _isSvg = verdict);
@@ -371,10 +414,9 @@ class _SvgSniffFallbackState extends State<SvgSniffFallback> {
           width: widget.width,
           height: widget.height,
           decoration: BoxDecoration(
-            color: Theme.of(context)
-                .colorScheme
-                .surfaceContainerHighest
-                .withValues(alpha: 0.2),
+            color: Theme.of(
+              context,
+            ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(8),
           ),
         );

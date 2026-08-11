@@ -106,6 +106,11 @@ class _PostSignatureBlockState extends ConsumerState<PostSignatureBlock> {
         (preferences) => preferences.adaptiveSignatureFrameRate,
       ),
     );
+    final useWebView = ref.watch(
+      preferencesProvider.select(
+        (preferences) => preferences.signatureSvgWebView,
+      ),
+    );
 
     // URL 模式:user_signature 是图片地址(advanced 关)。合法性已由
     // shouldRender 把关;此处兜底——非法地址(历史脏数据可为任意
@@ -164,6 +169,7 @@ class _PostSignatureBlockState extends ConsumerState<PostSignatureBlock> {
         ),
         child: SignatureAnimationScope(
           adaptiveFrameRate: adaptiveFrameRate,
+          useWebView: useWebView,
           child: content,
         ),
       ),

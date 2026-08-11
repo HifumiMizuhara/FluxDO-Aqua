@@ -198,6 +198,9 @@ class AppPreferences {
   /// 小尾巴动画 SVG 自适应帧率
   final bool adaptiveSignatureFrameRate;
 
+  /// 使用系统 WebView 绘制用户签名中的 SVG。
+  final bool signatureSvgWebView;
+
   /// Boost 弹幕化（默认关闭）
   final bool boostDanmaku;
 
@@ -292,6 +295,7 @@ class AppPreferences {
     required this.dialogBlur,
     this.showSignatures = false,
     this.adaptiveSignatureFrameRate = true,
+    this.signatureSvgWebView = false,
     this.boostDanmaku = false,
     this.showSuggestedTopics = true,
     this.defaultNestedView = false,
@@ -348,6 +352,7 @@ class AppPreferences {
     bool? dialogBlur,
     bool? showSignatures,
     bool? adaptiveSignatureFrameRate,
+    bool? signatureSvgWebView,
     bool? boostDanmaku,
     bool? showSuggestedTopics,
     bool? defaultNestedView,
@@ -401,8 +406,7 @@ class AppPreferences {
       aiPostReviewModelKey: identical(aiPostReviewModelKey, _unset)
           ? this.aiPostReviewModelKey
           : aiPostReviewModelKey as String?,
-      aiTranslationEnabled:
-          aiTranslationEnabled ?? this.aiTranslationEnabled,
+      aiTranslationEnabled: aiTranslationEnabled ?? this.aiTranslationEnabled,
       aiTranslationTargetLanguage:
           identical(aiTranslationTargetLanguage, _unset)
           ? this.aiTranslationTargetLanguage
@@ -417,6 +421,7 @@ class AppPreferences {
       showSignatures: showSignatures ?? this.showSignatures,
       adaptiveSignatureFrameRate:
           adaptiveSignatureFrameRate ?? this.adaptiveSignatureFrameRate,
+      signatureSvgWebView: signatureSvgWebView ?? this.signatureSvgWebView,
       boostDanmaku: boostDanmaku ?? this.boostDanmaku,
       showSuggestedTopics: showSuggestedTopics ?? this.showSuggestedTopics,
       defaultNestedView: defaultNestedView ?? this.defaultNestedView,
@@ -491,6 +496,7 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
   static const String _showSignaturesKey = 'pref_show_signatures';
   static const String _adaptiveSignatureFrameRateKey =
       'pref_adaptive_signature_frame_rate';
+  static const String _signatureSvgWebViewKey = 'pref_signature_svg_webview';
   static const String _boostDanmakuKey = 'pref_boost_danmaku';
   static const String _showSuggestedTopicsKey = 'pref_show_suggested_topics';
   static const String _defaultNestedViewKey = 'pref_default_nested_view';
@@ -547,8 +553,7 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
               _prefs.getStringList(_blockedUsernamesKey) ?? const [],
           crashlytics: _prefs.getBool(_crashlyticsKey) ?? true,
           portraitLock: _prefs.getBool(_portraitLockKey) ?? false,
-          fullscreenSwipeBack:
-              _prefs.getBool(_fullscreenSwipeBackKey) ?? false,
+          fullscreenSwipeBack: _prefs.getBool(_fullscreenSwipeBackKey) ?? false,
           exitOnSingleBack: _prefs.getBool(_exitOnSingleBackKey) ?? false,
           hideBarOnScroll: _prefs.getBool(_hideBarOnScrollKey) ?? true,
           clearCacheOnExit: _prefs.getBool(_clearCacheOnExitKey) ?? false,
@@ -572,9 +577,10 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
           showSignatures: _prefs.getBool(_showSignaturesKey) ?? false,
           adaptiveSignatureFrameRate:
               _prefs.getBool(_adaptiveSignatureFrameRateKey) ?? true,
+          signatureSvgWebView:
+              _prefs.getBool(_signatureSvgWebViewKey) ?? false,
           boostDanmaku: _prefs.getBool(_boostDanmakuKey) ?? false,
-          showSuggestedTopics:
-              _prefs.getBool(_showSuggestedTopicsKey) ?? true,
+          showSuggestedTopics: _prefs.getBool(_showSuggestedTopicsKey) ?? true,
           defaultNestedView: _prefs.getBool(_defaultNestedViewKey) ?? false,
           nestedLineStyle: NestedLineStyle.fromString(
             _prefs.getString(_nestedLineStyleKey),
@@ -849,6 +855,11 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
   Future<void> setAdaptiveSignatureFrameRate(bool enabled) async {
     state = state.copyWith(adaptiveSignatureFrameRate: enabled);
     await _prefs.setBool(_adaptiveSignatureFrameRateKey, enabled);
+  }
+
+  Future<void> setSignatureSvgWebView(bool enabled) async {
+    state = state.copyWith(signatureSvgWebView: enabled);
+    await _prefs.setBool(_signatureSvgWebViewKey, enabled);
   }
 
   Future<void> setBoostDanmaku(bool enabled) async {

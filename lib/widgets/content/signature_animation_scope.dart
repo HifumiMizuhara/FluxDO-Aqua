@@ -8,10 +8,12 @@ class SignatureAnimationScope extends InheritedWidget {
   const SignatureAnimationScope({
     super.key,
     required this.adaptiveFrameRate,
+    required this.useWebView,
     required super.child,
   });
 
   final bool adaptiveFrameRate;
+  final bool useWebView;
 
   static bool adaptiveFrameRateOf(BuildContext context) {
     return context
@@ -20,8 +22,16 @@ class SignatureAnimationScope extends InheritedWidget {
         false;
   }
 
+  static bool useWebViewOf(BuildContext context) {
+    return context
+            .dependOnInheritedWidgetOfExactType<SignatureAnimationScope>()
+            ?.useWebView ??
+        false;
+  }
+
   @override
   bool updateShouldNotify(SignatureAnimationScope oldWidget) {
-    return adaptiveFrameRate != oldWidget.adaptiveFrameRate;
+    return adaptiveFrameRate != oldWidget.adaptiveFrameRate ||
+        useWebView != oldWidget.useWebView;
   }
 }
