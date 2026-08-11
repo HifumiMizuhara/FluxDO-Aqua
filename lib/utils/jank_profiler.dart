@@ -129,10 +129,10 @@ class JankProfiler {
     final service = _service;
     if (service == null) return;
 
-    final startUs =
-        timing.timestampInMicroseconds(FramePhase.vsyncStart);
-    final endUs =
-        timing.timestampInMicroseconds(FramePhase.rasterFinishWallTime);
+    final startUs = timing.timestampInMicroseconds(FramePhase.vsyncStart);
+    final endUs = timing.timestampInMicroseconds(
+      FramePhase.rasterFinishWallTime,
+    );
     final extent = (endUs - startUs).clamp(1000, _maxWindowUs);
 
     unawaited(() async {

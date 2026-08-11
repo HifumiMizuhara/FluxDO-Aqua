@@ -85,8 +85,9 @@ class CachedImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasTargetSize = memCacheWidth != null || memCacheHeight != null;
-    final targetSize =
-        hasTargetSize ? (memCacheWidth ?? memCacheHeight)! : null;
+    final targetSize = hasTargetSize
+        ? (memCacheWidth ?? memCacheHeight)!
+        : null;
 
     final provider = _resolveProvider(hasTargetSize, targetSize);
 

@@ -165,9 +165,8 @@ List<SettingsGroup> buildPreferencesGroups(BuildContext context) {
           subtitle: l10n.preferences_composerLiveRenderDesc,
           icon: Symbols.preview_rounded,
           getValue: (ref) => ref.watch(preferencesProvider).composerLiveRender,
-          onChanged: (ref, v) => ref
-              .read(preferencesProvider.notifier)
-              .setComposerLiveRender(v),
+          onChanged: (ref, v) =>
+              ref.read(preferencesProvider.notifier).setComposerLiveRender(v),
           // 即时渲染(ir)是富文本编辑器的模式,源码编辑器无显形概念
           enabledWhen: (ref) => ref.watch(preferencesProvider).useRichComposer,
         ),

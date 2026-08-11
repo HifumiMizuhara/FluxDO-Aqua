@@ -14,7 +14,11 @@ import '../../media_player/controls/playback_speed_menu.dart';
 /// 由主项目 FluxdoRenderCallbacks.forPost 的 audioBuilder 注入;子包不绑
 /// just_audio(平台插件 + 体积)。
 class DiscourseAudioPlayer extends StatefulWidget {
-  const DiscourseAudioPlayer({super.key, required this.url, this.voice = false});
+  const DiscourseAudioPlayer({
+    super.key,
+    required this.url,
+    this.voice = false,
+  });
 
   /// 已解析好的真实音频 URL(非 upload:// 短链)。
   final String url;
@@ -49,7 +53,7 @@ class _DiscourseAudioPlayerState extends State<DiscourseAudioPlayer> {
     } catch (e) {
       // 平台差异排查的关键线索:AVFoundation 对容器/扩展名远比
       // ExoPlayer 挑剔,失败原因只在这里可见(对齐 DiscourseVideoPlayer)
-      debugPrint('[Audio] 加载失败 url=${widget.url} error=$e');
+      debugPrint('[Audio] loadfailed url=${widget.url} error=$e');
       if (mounted) setState(() => _error = e);
     }
   }
@@ -92,13 +96,19 @@ class _DiscourseAudioPlayerState extends State<DiscourseAudioPlayer> {
     if (_error != null) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.error_outline_rounded, size: 18, color: scheme.error),
-          const SizedBox(width: 6),
-          Text(context.l10n.mediaPlayer_voiceLoadFailed,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: scheme.onSurfaceVariant)),
-        ]),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline_rounded, size: 18, color: scheme.error),
+            const SizedBox(width: 6),
+            Text(
+              context.l10n.mediaPlayer_voiceLoadFailed,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
       );
     }
     return Padding(
@@ -114,8 +124,7 @@ class _DiscourseAudioPlayerState extends State<DiscourseAudioPlayer> {
               borderRadius: BorderRadius.circular(22),
               onTap: !_ready
                   ? null
-                  : () =>
-                      _player.playing ? _player.pause() : _player.play(),
+                  : () => _player.playing ? _player.pause() : _player.play(),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(10, 8, 14, 8),
                 child: StreamBuilder<PlayerState>(
@@ -141,19 +150,19 @@ class _DiscourseAudioPlayerState extends State<DiscourseAudioPlayer> {
                             builder: (context, posSnap) {
                               final pos = posSnap.data ?? Duration.zero;
                               final total = _player.duration;
-                              final progress = (total == null ||
-                                      total.inMilliseconds == 0)
+                              final progress =
+                                  (total == null || total.inMilliseconds == 0)
                                   ? 0.0
-                                  : (pos.inMilliseconds /
-                                          total.inMilliseconds)
-                                      .clamp(0.0, 1.0);
+                                  : (pos.inMilliseconds / total.inMilliseconds)
+                                        .clamp(0.0, 1.0);
                               return CustomPaint(
                                 painter: _VoiceBarsPainter(
                                   seed: widget.url.hashCode,
                                   progress: progress,
                                   played: scheme.onPrimaryContainer,
-                                  rest: scheme.onPrimaryContainer
-                                      .withValues(alpha: 0.35),
+                                  rest: scheme.onPrimaryContainer.withValues(
+                                    alpha: 0.35,
+                                  ),
                                 ),
                               );
                             },
@@ -174,7 +183,7 @@ class _DiscourseAudioPlayerState extends State<DiscourseAudioPlayer> {
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: scheme.onPrimaryContainer,
                                 fontFeatures: const [
-                                  FontFeature.tabularFigures()
+                                  FontFeature.tabularFigures(),
                                 ],
                               ),
                             );
@@ -205,16 +214,24 @@ class _DiscourseAudioPlayerState extends State<DiscourseAudioPlayer> {
           border: Border.all(color: scheme.outlineVariant, width: 1),
         ),
         child: _error != null
-            ? Row(children: [
-                Icon(Icons.error_outline_rounded,
-                    size: 20, color: scheme.error),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(context.l10n.mediaPlayer_audioLoadFailed,
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: scheme.onSurfaceVariant)),
-                ),
-              ])
+            ? Row(
+                children: [
+                  Icon(
+                    Icons.error_outline_rounded,
+                    size: 20,
+                    color: scheme.error,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      context.l10n.mediaPlayer_audioLoadFailed,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              )
             : StreamBuilder<PlayerState>(
                 stream: _player.playerStateStream,
                 builder: (context, snap) {
@@ -222,9 +239,11 @@ class _DiscourseAudioPlayerState extends State<DiscourseAudioPlayer> {
                   return Row(
                     children: [
                       IconButton(
-                        icon: Icon(playing
-                            ? Icons.pause_rounded
-                            : Icons.play_arrow_rounded),
+                        icon: Icon(
+                          playing
+                              ? Icons.pause_rounded
+                              : Icons.play_arrow_rounded,
+                        ),
                         color: scheme.primary,
                         onPressed: !_ready
                             ? null
@@ -253,19 +272,25 @@ class _DiscourseAudioPlayerState extends State<DiscourseAudioPlayer> {
                                   onChanged: !_ready
                                       ? null
                                       : (v) => _player.seek(
-                                          Duration(milliseconds: v.round())),
+                                          Duration(milliseconds: v.round()),
+                                        ),
                                 ),
                                 Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(horizontal: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
                                   child: Row(
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text(_fmt(pos),
-                                          style: theme.textTheme.bodySmall),
-                                      Text(_fmt(_player.duration),
-                                          style: theme.textTheme.bodySmall),
+                                      Text(
+                                        _fmt(pos),
+                                        style: theme.textTheme.bodySmall,
+                                      ),
+                                      Text(
+                                        _fmt(_player.duration),
+                                        style: theme.textTheme.bodySmall,
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -290,8 +315,7 @@ class _DiscourseAudioPlayerState extends State<DiscourseAudioPlayer> {
                                 },
                           style: TextButton.styleFrom(
                             minimumSize: const Size(40, 32),
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
                             foregroundColor: _speed == 1.0
                                 ? scheme.onSurfaceVariant
                                 : scheme.primary,
@@ -362,4 +386,3 @@ class _VoiceBarsPainter extends CustomPainter {
       old.played != played ||
       old.rest != rest;
 }
-

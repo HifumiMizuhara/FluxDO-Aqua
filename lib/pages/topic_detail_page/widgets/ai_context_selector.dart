@@ -28,7 +28,11 @@ class AiContextSelector extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Symbols.article_rounded, size: 16, color: theme.colorScheme.onSurfaceVariant),
+            Icon(
+              Symbols.article_rounded,
+              size: 16,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
             const SizedBox(width: 4),
             Text(
               currentScope.label,
@@ -36,7 +40,11 @@ class AiContextSelector extends StatelessWidget {
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-            Icon(Symbols.arrow_drop_down_rounded, size: 18, color: theme.colorScheme.onSurfaceVariant),
+            Icon(
+              Symbols.arrow_drop_down_rounded,
+              size: 18,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ],
         ),
       ),
@@ -46,7 +54,11 @@ class AiContextSelector extends StatelessWidget {
           child: Row(
             children: [
               if (scope == currentScope)
-                Icon(Symbols.check_rounded, size: 18, color: theme.colorScheme.primary)
+                Icon(
+                  Symbols.check_rounded,
+                  size: 18,
+                  color: theme.colorScheme.primary,
+                )
               else
                 const SizedBox(width: 18),
               const SizedBox(width: 8),

@@ -5,21 +5,37 @@ import 'package:fluxdo/utils/webm_opus_to_caf.dart';
 
 // ── 合成 EBML 构造器 ──────────────────────────────────────────────
 
-List<int> _el(List<int> id, List<int> payload) =>
-    [...id, 0x80 | payload.length, ...payload];
+List<int> _el(List<int> id, List<int> payload) => [
+  ...id,
+  0x80 | payload.length,
+  ...payload,
+];
 
 /// OpusHead:ver 1 / 1ch / pre-skip 312 / 48000Hz / gain 0 / mapping 0
 final _opusHead = [
   ...'OpusHead'.codeUnits,
-  1, 1, 0x38, 0x01, 0x80, 0xBB, 0x00, 0x00, 0, 0, 0,
+  1,
+  1,
+  0x38,
+  0x01,
+  0x80,
+  0xBB,
+  0x00,
+  0x00,
+  0,
+  0,
+  0,
 ];
 
 List<int> _trackEntry(String codecId, {int number = 1, List<int>? private}) =>
-    _el([0xAE], [
-      ..._el([0xD7], [number]),
-      ..._el([0x86], codecId.codeUnits),
-      if (private != null) ..._el([0x63, 0xA2], private),
-    ]);
+    _el(
+      [0xAE],
+      [
+        ..._el([0xD7], [number]),
+        ..._el([0x86], codecId.codeUnits),
+        if (private != null) ..._el([0x63, 0xA2], private),
+      ],
+    );
 
 /// SimpleBlock:track vint + int16 时间戳 + flags + opus 包
 List<int> _simpleBlock(List<int> pkt, {int flags = 0, int track = 1}) =>
@@ -30,11 +46,19 @@ Uint8List _webm({
   required List<List<int>> blocks,
   bool unknownSize = false,
 }) {
-  final tracks = _el([0x16, 0x54, 0xAE, 0x6B], trackEntries.expand((e) => e).toList());
-  final cluster = _el([0x1F, 0x43, 0xB6, 0x75], [
-    ..._el([0xE7], [0]), // Timestamp
-    ...blocks.expand((e) => e),
-  ]);
+  final tracks = _el([
+    0x16,
+    0x54,
+    0xAE,
+    0x6B,
+  ], trackEntries.expand((e) => e).toList());
+  final cluster = _el(
+    [0x1F, 0x43, 0xB6, 0x75],
+    [
+      ..._el([0xE7], [0]), // Timestamp
+      ...blocks.expand((e) => e),
+    ],
+  );
   final body = [...tracks, ...cluster];
   final segment = unknownSize
       // size vint 全 1(0xFF)= unknown-size,MediaRecorder 流式输出常见
@@ -68,10 +92,12 @@ Map<String, Uint8List> _cafChunks(Uint8List caf) {
 void main() {
   group('webmOpusToCaf', () {
     test('单 Opus 轨 webm → 结构正确的 CAF', () {
-      final caf = webmOpusToCaf(_webm(
-        trackEntries: [_trackEntry('A_OPUS', private: _opusHead)],
-        blocks: [_simpleBlock(_pkt60ms1), _simpleBlock(_pkt60ms2)],
-      ));
+      final caf = webmOpusToCaf(
+        _webm(
+          trackEntries: [_trackEntry('A_OPUS', private: _opusHead)],
+          blocks: [_simpleBlock(_pkt60ms1), _simpleBlock(_pkt60ms2)],
+        ),
+      );
       expect(caf, isNotNull);
       final chunks = _cafChunks(caf!);
 
@@ -93,57 +119,69 @@ void main() {
     });
 
     test('unknown-size Segment/Cluster 照常提取', () {
-      final caf = webmOpusToCaf(_webm(
-        trackEntries: [_trackEntry('A_OPUS', private: _opusHead)],
-        blocks: [_simpleBlock(_pkt60ms1)],
-        unknownSize: true,
-      ));
+      final caf = webmOpusToCaf(
+        _webm(
+          trackEntries: [_trackEntry('A_OPUS', private: _opusHead)],
+          blocks: [_simpleBlock(_pkt60ms1)],
+          unknownSize: true,
+        ),
+      );
       expect(caf, isNotNull);
     });
 
     test('含视频轨的 webm 不接管', () {
-      final caf = webmOpusToCaf(_webm(
-        trackEntries: [
-          _trackEntry('V_VP9', number: 1),
-          _trackEntry('A_OPUS', number: 2, private: _opusHead),
-        ],
-        blocks: [_simpleBlock(_pkt60ms1, track: 2)],
-      ));
+      final caf = webmOpusToCaf(
+        _webm(
+          trackEntries: [
+            _trackEntry('V_VP9', number: 1),
+            _trackEntry('A_OPUS', number: 2, private: _opusHead),
+          ],
+          blocks: [_simpleBlock(_pkt60ms1, track: 2)],
+        ),
+      );
       expect(caf, isNull);
     });
 
     test('vorbis 音轨不接管(CoreAudio 不支持)', () {
-      final caf = webmOpusToCaf(_webm(
-        trackEntries: [_trackEntry('A_VORBIS', private: _opusHead)],
-        blocks: [_simpleBlock(_pkt60ms1)],
-      ));
+      final caf = webmOpusToCaf(
+        _webm(
+          trackEntries: [_trackEntry('A_VORBIS', private: _opusHead)],
+          blocks: [_simpleBlock(_pkt60ms1)],
+        ),
+      );
       expect(caf, isNull);
     });
 
     test('包帧数不恒定不接管(仅实证过恒定形态)', () {
-      final caf = webmOpusToCaf(_webm(
-        trackEntries: [_trackEntry('A_OPUS', private: _opusHead)],
-        blocks: [_simpleBlock(_pkt60ms1), _simpleBlock(_pkt20ms)],
-      ));
+      final caf = webmOpusToCaf(
+        _webm(
+          trackEntries: [_trackEntry('A_OPUS', private: _opusHead)],
+          blocks: [_simpleBlock(_pkt60ms1), _simpleBlock(_pkt20ms)],
+        ),
+      );
       expect(caf, isNull);
     });
 
     test('lacing 不接管', () {
-      final caf = webmOpusToCaf(_webm(
-        trackEntries: [_trackEntry('A_OPUS', private: _opusHead)],
-        blocks: [_simpleBlock(_pkt60ms1, flags: 0x02)],
-      ));
+      final caf = webmOpusToCaf(
+        _webm(
+          trackEntries: [_trackEntry('A_OPUS', private: _opusHead)],
+          blocks: [_simpleBlock(_pkt60ms1, flags: 0x02)],
+        ),
+      );
       expect(caf, isNull);
     });
 
     test('非 opus 轨的 block 被忽略', () {
-      final caf = webmOpusToCaf(_webm(
-        trackEntries: [_trackEntry('A_OPUS', number: 2, private: _opusHead)],
-        blocks: [
-          _simpleBlock([0x00, 0x01], track: 1), // 其他轨,应忽略
-          _simpleBlock(_pkt60ms1, track: 2),
-        ],
-      ));
+      final caf = webmOpusToCaf(
+        _webm(
+          trackEntries: [_trackEntry('A_OPUS', number: 2, private: _opusHead)],
+          blocks: [
+            _simpleBlock([0x00, 0x01], track: 1), // 其他轨,应忽略
+            _simpleBlock(_pkt60ms1, track: 2),
+          ],
+        ),
+      );
       expect(caf, isNotNull);
       final chunks = _cafChunks(caf!);
       expect(ByteData.sublistView(chunks['pakt']!).getInt64(0), 1);

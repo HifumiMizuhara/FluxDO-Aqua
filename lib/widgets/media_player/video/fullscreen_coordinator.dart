@@ -76,9 +76,9 @@ class FullscreenMediaCoordinator with WidgetsBindingObserver, WindowListener {
       // 竖滑亮度手势改的是 app 级亮度,不随全屏退出自动复原,必须
       // 显式 reset 回系统值 —— 否则整个 app 都停留在调过的亮度
       unawaited(
-        ScreenBrightness()
-            .resetApplicationScreenBrightness()
-            .catchError((_) {}),
+        ScreenBrightness().resetApplicationScreenBrightness().catchError(
+          (_) {},
+        ),
       );
       // 状态栏恢复不能直接切 edgeToEdge:Flutter 3.41+ 引擎在
       // EDGE_TO_EDGE 分支不清除 immersiveSticky 设置的

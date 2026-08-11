@@ -44,8 +44,7 @@ class BottomNavSettingsPage extends ConsumerStatefulWidget {
       _BottomNavSettingsPageState();
 }
 
-class _BottomNavSettingsPageState
-    extends ConsumerState<BottomNavSettingsPage> {
+class _BottomNavSettingsPageState extends ConsumerState<BottomNavSettingsPage> {
   static const int _minCount = 2;
 
   /// 手机横向底栏容易被挤,上限保守;平板竖排 rail 空间宽裕给到 7;
@@ -66,9 +65,7 @@ class _BottomNavSettingsPageState
   @override
   void initState() {
     super.initState();
-    _enabledIds = List<String>.from(
-      ref.read(preferencesProvider).bottomNavIds,
-    );
+    _enabledIds = List<String>.from(ref.read(preferencesProvider).bottomNavIds);
     _sanitize();
   }
 
@@ -125,9 +122,7 @@ class _BottomNavSettingsPageState
 
   Future<void> _addEntry(NavEntry entry) async {
     if (_enabledIds.length >= _maxCount) {
-      ToastService.showInfo(
-        S.current.bottomNav_editorMaxReached(_maxCount),
-      );
+      ToastService.showInfo(S.current.bottomNav_editorMaxReached(_maxCount));
       return;
     }
     setState(() => _enabledIds.add(entry.id));
@@ -137,9 +132,7 @@ class _BottomNavSettingsPageState
   Future<void> _removeEntry(NavEntry entry) async {
     if (entry.locked) return;
     if (_enabledIds.length <= _minCount) {
-      ToastService.showInfo(
-        S.current.bottomNav_editorMinReached(_minCount),
-      );
+      ToastService.showInfo(S.current.bottomNav_editorMinReached(_minCount));
       return;
     }
     setState(() => _enabledIds.remove(entry.id));
@@ -179,10 +172,11 @@ class _BottomNavSettingsPageState
 
     final all = NavEntryRegistry.buildAll();
     final byId = {for (final e in all) e.id: e};
-    final enabled =
-        _enabledIds.map((id) => byId[id]).whereType<NavEntry>().toList();
-    final available =
-        all.where((e) => !_enabledIds.contains(e.id)).toList();
+    final enabled = _enabledIds
+        .map((id) => byId[id])
+        .whereType<NavEntry>()
+        .toList();
+    final available = all.where((e) => !_enabledIds.contains(e.id)).toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -226,15 +220,13 @@ class _BottomNavSettingsPageState
           const SizedBox(height: 20),
           _SectionHeader(
             title: l10n.bottomNav_editorAvailable,
-            subtitle:
-                available.isEmpty ? l10n.bottomNav_editorEmptyAvailable : null,
+            subtitle: available.isEmpty
+                ? l10n.bottomNav_editorEmptyAvailable
+                : null,
           ),
           if (available.isEmpty)
             Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 12,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               child: Text(
                 l10n.bottomNav_editorEmptyAvailable,
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -250,10 +242,8 @@ class _BottomNavSettingsPageState
                   for (final entry in available)
                     _AvailableTile(
                       entry: entry,
-                      canAdd: NavEntryRegistry.isAvailable(
-                            entry,
-                            user,
-                          ) &&
+                      canAdd:
+                          NavEntryRegistry.isAvailable(entry, user) &&
                           enabled.length < _maxCount,
                       needsLogin: entry.requiresLogin && user == null,
                       onAdd: () => _addEntry(entry),
@@ -453,8 +443,9 @@ class _PreviewItem extends StatelessWidget {
                       child: Icon(
                         Symbols.lock_rounded,
                         size: 14,
-                        color: theme.colorScheme.onSurfaceVariant
-                            .withValues(alpha: 0.55),
+                        color: theme.colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.55,
+                        ),
                       ),
                     ),
                 ],
@@ -506,8 +497,7 @@ class _PointerAwareDragStartListener extends StatelessWidget {
         final list = SliverReorderableList.maybeOf(context);
         if (list == null) return;
         final recognizer = switch (event.kind) {
-          PointerDeviceKind.mouse ||
-          PointerDeviceKind.trackpad =>
+          PointerDeviceKind.mouse || PointerDeviceKind.trackpad =>
             ImmediateMultiDragGestureRecognizer(debugOwner: this),
           _ => DelayedMultiDragGestureRecognizer(debugOwner: this),
         };

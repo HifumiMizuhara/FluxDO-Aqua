@@ -53,7 +53,7 @@ class MediaGestureLayer extends StatefulWidget {
 
   /// 竖滑手势 HUD 数据回调(isVolume, value, visible)。
   final void Function(bool isVolume, double value, bool visible)?
-      onVerticalAdjust;
+  onVerticalAdjust;
 
   /// 竖滑调音量/亮度,仅移动端全屏开。
   final bool enableVerticalGestures;
@@ -64,8 +64,12 @@ class MediaGestureLayer extends StatefulWidget {
 
   /// 横滑中的目标位置预览(null = 拖动结束,HUD 应隐藏)。
   /// [cancelArmed]:手指已拖入顶部取消区,松开将不提交。
-  final void Function(Duration? target,
-      {required bool forward, required bool cancelArmed})? onSeekPreview;
+  final void Function(
+    Duration? target, {
+    required bool forward,
+    required bool cancelArmed,
+  })?
+  onSeekPreview;
 
   /// 横滑松手提交。
   final ValueChanged<Duration>? onSeekCommit;
@@ -108,8 +112,7 @@ class _MediaGestureLayerState extends State<MediaGestureLayer> {
   double _verticalAccum = 0;
   Timer? _hudHideTimer;
 
-  bool get _verticalEnabled =>
-      widget.enableVerticalGestures && _isMobile;
+  bool get _verticalEnabled => widget.enableVerticalGestures && _isMobile;
 
   bool get _seekGestureEnabled =>
       _isMobile &&
@@ -173,8 +176,11 @@ class _MediaGestureLayerState extends State<MediaGestureLayer> {
       _seekCancelArmed = cancelArmed;
       HapticFeedback.selectionClick();
     }
-    widget.onSeekPreview
-        ?.call(target, forward: _seekForward, cancelArmed: cancelArmed);
+    widget.onSeekPreview?.call(
+      target,
+      forward: _seekForward,
+      cancelArmed: cancelArmed,
+    );
   }
 
   void _endSeekDrag({required bool commit}) {
@@ -184,8 +190,7 @@ class _MediaGestureLayerState extends State<MediaGestureLayer> {
     _seekBase = null;
     _seekTarget = null;
     _seekCancelArmed = false;
-    widget.onSeekPreview
-        ?.call(null, forward: _seekForward, cancelArmed: false);
+    widget.onSeekPreview?.call(null, forward: _seekForward, cancelArmed: false);
     if (commit && !cancelled && target != null) {
       widget.onSeekCommit?.call(target);
     }
@@ -224,8 +229,7 @@ class _MediaGestureLayerState extends State<MediaGestureLayer> {
       VolumeController.instance.showSystemUI = false;
       unawaited(VolumeController.instance.setVolume(value));
     } else {
-      unawaited(
-          ScreenBrightness().setApplicationScreenBrightness(value));
+      unawaited(ScreenBrightness().setApplicationScreenBrightness(value));
     }
   }
 
@@ -284,16 +288,17 @@ class _MediaGestureLayerState extends State<MediaGestureLayer> {
         _longPressActive = false;
         widget.onLongPressSpeedChanged(false);
       },
-      onHorizontalDragStart:
-          _seekGestureEnabled ? _startSeekDrag : null,
-      onHorizontalDragUpdate:
-          _seekGestureEnabled ? _updateSeekDrag : null,
-      onHorizontalDragEnd:
-          _seekGestureEnabled ? (_) => _endSeekDrag(commit: true) : null,
-      onHorizontalDragCancel:
-          _seekGestureEnabled ? () => _endSeekDrag(commit: false) : null,
-      onVerticalDragStart:
-          _verticalEnabled ? (d) => unawaited(_startVertical(d)) : null,
+      onHorizontalDragStart: _seekGestureEnabled ? _startSeekDrag : null,
+      onHorizontalDragUpdate: _seekGestureEnabled ? _updateSeekDrag : null,
+      onHorizontalDragEnd: _seekGestureEnabled
+          ? (_) => _endSeekDrag(commit: true)
+          : null,
+      onHorizontalDragCancel: _seekGestureEnabled
+          ? () => _endSeekDrag(commit: false)
+          : null,
+      onVerticalDragStart: _verticalEnabled
+          ? (d) => unawaited(_startVertical(d))
+          : null,
       onVerticalDragUpdate: _verticalEnabled ? _updateVertical : null,
       onVerticalDragEnd: _verticalEnabled ? (_) => _endVertical() : null,
       onVerticalDragCancel: _verticalEnabled ? _endVertical : null,

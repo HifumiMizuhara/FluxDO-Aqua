@@ -32,7 +32,8 @@ class HttpProxyCard extends StatelessWidget {
       builder: (context, _) {
         final proxySettings = proxyService.notifier.value;
         final dohEnabled = networkService.notifier.value.dohEnabled;
-        final isSuppressedByVpn = vpnService.enabled && vpnService.isProxySuppressed;
+        final isSuppressedByVpn =
+            vpnService.enabled && vpnService.isProxySuppressed;
         return _HttpProxyCardInner(
           proxySettings: proxySettings,
           dohEnabled: dohEnabled,
@@ -68,7 +69,8 @@ class _HttpProxyCardInner extends StatelessWidget {
         final isTesting = proxyService.isTesting.value;
         final testResult = proxyService.testResultNotifier.value;
         // VPN 活跃 + 自动切换开启 = 接管期，代理开关在此期间一律锁定
-        final vpnLocked = VpnAutoToggleService.instance.enabled &&
+        final vpnLocked =
+            VpnAutoToggleService.instance.enabled &&
             VpnAutoToggleService.instance.vpnActive;
 
         return SegmentedCardGroup(
@@ -81,11 +83,13 @@ class _HttpProxyCardInner extends StatelessWidget {
               subtitle: Text(
                 vpnLocked
                     ? (isSuppressedByVpn
-                        ? context.l10n.httpProxy_suppressedByVpn
-                        : context.l10n.vpnToggle_lockedHint)
+                          ? context.l10n.httpProxy_suppressedByVpn
+                          : context.l10n.vpnToggle_lockedHint)
                     : proxySettings.enabled
-                        ? context.l10n.httpProxy_enabledDesc(proxySettings.protocol.displayName)
-                        : context.l10n.httpProxy_disabledDesc,
+                    ? context.l10n.httpProxy_enabledDesc(
+                        proxySettings.protocol.displayName,
+                      )
+                    : context.l10n.httpProxy_disabledDesc,
               ),
               secondary: Icon(
                 (vpnLocked ? isSuppressedByVpn : proxySettings.enabled)
@@ -100,7 +104,7 @@ class _HttpProxyCardInner extends StatelessWidget {
               value: vpnLocked ? isSuppressedByVpn : proxySettings.enabled,
               onChanged: vpnLocked
                   ? (value) =>
-                      VpnAutoToggleService.instance.setProxySuppressed(value)
+                        VpnAutoToggleService.instance.setProxySuppressed(value)
                   : (value) async {
                       if (value && !proxySettings.hasServer) {
                         final saved = await _showProxyConfigDialog(
@@ -118,7 +122,8 @@ class _HttpProxyCardInner extends StatelessWidget {
                       }
 
                       final previous = proxyService.testResultNotifier.value;
-                      final shouldRetest = previous == null ||
+                      final shouldRetest =
+                          previous == null ||
                           !previous.success ||
                           DateTime.now().difference(previous.testedAt) >
                               const Duration(seconds: 30);
@@ -145,7 +150,9 @@ class _HttpProxyCardInner extends StatelessWidget {
                 ListTile(
                   leading: const Icon(Symbols.person_rounded),
                   title: Text(context.l10n.httpProxy_auth),
-                  subtitle: Text(context.l10n.httpProxy_username(proxySettings.username!)),
+                  subtitle: Text(
+                    context.l10n.httpProxy_username(proxySettings.username!),
+                  ),
                   dense: true,
                 ),
               Column(
@@ -169,7 +176,9 @@ class _HttpProxyCardInner extends StatelessWidget {
                             onPressed: () => _runProxyTest(showToast: true),
                             child: Text(context.l10n.common_test),
                           ),
-                    onTap: isTesting ? null : () => _runProxyTest(showToast: true),
+                    onTap: isTesting
+                        ? null
+                        : () => _runProxyTest(showToast: true),
                   ),
                   if (proxySettings.enabled && dohEnabled)
                     Padding(
@@ -198,7 +207,10 @@ class _HttpProxyCardInner extends StatelessWidget {
             ],
             if (!proxySettings.enabled)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 child: Row(
                   children: [
                     Icon(
@@ -229,8 +241,9 @@ class _HttpProxyCardInner extends StatelessWidget {
     final result = await proxyService.testCurrentAvailability();
     if (showToast) {
       if (result.success) {
-        final latency =
-            result.latency == null ? '' : ' · ${result.latency!.inMilliseconds}ms';
+        final latency = result.latency == null
+            ? ''
+            : ' · ${result.latency!.inMilliseconds}ms';
         ToastService.showSuccess('${result.detail}$latency');
       } else {
         ToastService.showError(result.detail);
@@ -248,13 +261,16 @@ class _HttpProxyCardInner extends StatelessWidget {
     final portController = TextEditingController(
       text: proxySettings.port > 0 ? proxySettings.port.toString() : '',
     );
-    final usernameController =
-        TextEditingController(text: proxySettings.username ?? '');
-    final passwordController =
-        TextEditingController(text: proxySettings.password ?? '');
+    final usernameController = TextEditingController(
+      text: proxySettings.username ?? '',
+    );
+    final passwordController = TextEditingController(
+      text: proxySettings.password ?? '',
+    );
 
     var selectedProtocol = proxySettings.protocol;
-    var requireAuth = !proxySettings.isShadowsocks &&
+    var requireAuth =
+        !proxySettings.isShadowsocks &&
         ((proxySettings.username?.isNotEmpty ?? false) ||
             (proxySettings.password?.isNotEmpty ?? false));
     var selectedCipher = proxySettings.cipher.isNotEmpty
@@ -278,7 +294,9 @@ class _HttpProxyCardInner extends StatelessWidget {
                   children: [
                     DropdownButtonFormField<UpstreamProxyProtocol>(
                       initialValue: selectedProtocol,
-                      decoration: InputDecoration(labelText: dialogContext.l10n.httpProxy_protocol),
+                      decoration: InputDecoration(
+                        labelText: dialogContext.l10n.httpProxy_protocol,
+                      ),
                       items: UpstreamProxyProtocol.values
                           .map(
                             (item) => DropdownMenuItem<UpstreamProxyProtocol>(
@@ -324,7 +342,9 @@ class _HttpProxyCardInner extends StatelessWidget {
                             });
                             ToastService.showSuccess(
                               imported.remarks?.isNotEmpty == true
-                                  ? S.current.httpProxy_importedNode(imported.remarks!)
+                                  ? S.current.httpProxy_importedNode(
+                                      imported.remarks!,
+                                    )
                                   : S.current.httpProxy_ssImportSuccess,
                             );
                           },
@@ -338,7 +358,8 @@ class _HttpProxyCardInner extends StatelessWidget {
                       controller: hostController,
                       decoration: InputDecoration(
                         labelText: dialogContext.l10n.httpProxy_serverAddress,
-                        hintText: dialogContext.l10n.httpProxy_serverAddressHint,
+                        hintText:
+                            dialogContext.l10n.httpProxy_serverAddressHint,
                       ),
                       keyboardType: TextInputType.url,
                       textInputAction: TextInputAction.next,
@@ -357,7 +378,9 @@ class _HttpProxyCardInner extends StatelessWidget {
                     if (isShadowsocks) ...[
                       DropdownButtonFormField<String>(
                         initialValue: selectedCipher,
-                        decoration: InputDecoration(labelText: dialogContext.l10n.httpProxy_cipher),
+                        decoration: InputDecoration(
+                          labelText: dialogContext.l10n.httpProxy_cipher,
+                        ),
                         items: ProxySettingsService.supportedShadowsocksCiphers
                             .map(
                               (item) => DropdownMenuItem<String>(
@@ -379,8 +402,9 @@ class _HttpProxyCardInner extends StatelessWidget {
                       TextField(
                         controller: passwordController,
                         decoration: InputDecoration(
-                          labelText:
-                              isShadowsocks2022 ? dialogContext.l10n.httpProxy_keyBase64Psk : dialogContext.l10n.httpProxy_password,
+                          labelText: isShadowsocks2022
+                              ? dialogContext.l10n.httpProxy_keyBase64Psk
+                              : dialogContext.l10n.httpProxy_password,
                           hintText: isShadowsocks2022
                               ? dialogContext.l10n.httpProxy_base64PskHint
                               : null,
@@ -405,13 +429,18 @@ class _HttpProxyCardInner extends StatelessWidget {
                         const SizedBox(height: 8),
                         TextField(
                           controller: usernameController,
-                          decoration: InputDecoration(labelText: dialogContext.l10n.httpProxy_usernameLabel),
+                          decoration: InputDecoration(
+                            labelText:
+                                dialogContext.l10n.httpProxy_usernameLabel,
+                          ),
                           textInputAction: TextInputAction.next,
                         ),
                         const SizedBox(height: 12),
                         TextField(
                           controller: passwordController,
-                          decoration: InputDecoration(labelText: dialogContext.l10n.httpProxy_password),
+                          decoration: InputDecoration(
+                            labelText: dialogContext.l10n.httpProxy_password,
+                          ),
                           obscureText: true,
                         ),
                       ],
@@ -429,7 +458,9 @@ class _HttpProxyCardInner extends StatelessWidget {
                     final host = hostController.text.trim();
                     final portText = portController.text.trim();
                     if (host.isEmpty || portText.isEmpty) {
-                      ToastService.showInfo(S.current.httpProxy_fillServerAndPort);
+                      ToastService.showInfo(
+                        S.current.httpProxy_fillServerAndPort,
+                      );
                       return;
                     }
                     final port = int.tryParse(portText);
@@ -440,17 +471,19 @@ class _HttpProxyCardInner extends StatelessWidget {
                     if (isShadowsocks) {
                       final normalizedCipher =
                           ProxySettingsService.normalizeShadowsocksCipher(
-                        selectedCipher,
-                      );
+                            selectedCipher,
+                          );
                       if (normalizedCipher.isEmpty) {
-                        ToastService.showError(S.current.httpProxy_selectSsCipher);
+                        ToastService.showError(
+                          S.current.httpProxy_selectSsCipher,
+                        );
                         return;
                       }
                       final secretError =
                           ProxySettingsService.validateShadowsocksSecret(
-                        cipher: normalizedCipher,
-                        secret: passwordController.text.trim(),
-                      );
+                            cipher: normalizedCipher,
+                            secret: passwordController.text.trim(),
+                          );
                       if (secretError != null) {
                         ToastService.showError(secretError);
                         return;
@@ -543,7 +576,9 @@ class _HttpProxyCardInner extends StatelessWidget {
 
   String _buildProxySummary(ProxySettings settings) {
     if (settings.isShadowsocks) {
-      final cipher = settings.cipher.trim().isEmpty ? S.current.httpProxy_cipherNotSet : settings.cipher;
+      final cipher = settings.cipher.trim().isEmpty
+          ? S.current.httpProxy_cipherNotSet
+          : settings.cipher;
       return '${settings.protocol.displayName} · ${settings.host}:${settings.port} · $cipher';
     }
     return '${settings.protocol.displayName} · ${settings.host}:${settings.port}';
@@ -556,7 +591,9 @@ class _HttpProxyCardInner extends StatelessWidget {
     if (testResult == null) {
       return Symbols.checklist_rtl_rounded;
     }
-    return testResult.success ? Symbols.check_circle_rounded : Symbols.error_rounded;
+    return testResult.success
+        ? Symbols.check_circle_rounded
+        : Symbols.error_rounded;
   }
 
   Color? _resolveTestColor(
@@ -567,7 +604,9 @@ class _HttpProxyCardInner extends StatelessWidget {
     if (isTesting || testResult == null) {
       return theme.colorScheme.primary;
     }
-    return testResult.success ? theme.colorScheme.primary : theme.colorScheme.error;
+    return testResult.success
+        ? theme.colorScheme.primary
+        : theme.colorScheme.error;
   }
 
   String _buildTestSubtitle({

@@ -206,7 +206,7 @@ class _QrLoginPanelState extends State<_QrLoginPanel> {
         _payload = null;
         _otpDeadline = null;
       });
-      debugPrint('[QrLoginSheet] 生成失败: $e');
+      debugPrint('[QrLoginSheet] generatefailed: $e');
     }
   }
 
@@ -332,9 +332,7 @@ class _QrLoginPanelState extends State<_QrLoginPanel> {
           onPressed: _confirmAndGenerate,
           icon: const Icon(Symbols.qr_code_rounded),
           label: Text(context.l10n.login_qrGenerateAction),
-          style: FilledButton.styleFrom(
-            minimumSize: const Size.fromHeight(48),
-          ),
+          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
         ),
       ],
     );

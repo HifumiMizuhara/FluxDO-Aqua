@@ -123,11 +123,8 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
   /// didUpdateWidget，两处都手动失效即可安全复用
   List<NestedNode>? _visibleChildrenCache;
 
-  List<NestedNode> get _visibleChildren =>
-      _visibleChildrenCache ??= BlockedUserFilter.visibleNestedNodes(
-        _children,
-        widget.blockedUsernames,
-      );
+  List<NestedNode> get _visibleChildren => _visibleChildrenCache ??=
+      BlockedUserFilter.visibleNestedNodes(_children, widget.blockedUsernames);
 
   @override
   void didUpdateWidget(covariant NestedPostCard oldWidget) {
@@ -596,32 +593,33 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
         Listener(
           behavior: HitTestBehavior.translucent,
           onPointerDown: (_) => CodeSelectionContextTracker.instance.clear(),
-          child: FluxdoRenderCallbacks.forPost(
-            post: post,
-            topicId: widget.topicId,
-          ).render(
-            cookedHtml: post.cooked,
-            baseTextStyle: theme.textTheme.bodyMedium?.copyWith(
-              height: 1.5,
-              fontSize:
-                  (theme.textTheme.bodyMedium?.fontSize ?? 14) *
-                  ref.watch(preferencesProvider).contentFontScale,
-            ),
-            selectionEnabled: true,
-            selectionScopeId: post.id,
-            onQuoteRequest: widget.onQuoteSelection == null
-                ? null
-                : (plainText) => widget.onQuoteSelection!(plainText, post),
-            onCopyQuoteRequest: (plainText) =>
-                QuoteSelectionHelper.copyQuoteToClipboard(
-                  selectedText: plainText,
-                  post: post,
-                  topicId: widget.topicId,
+          child:
+              FluxdoRenderCallbacks.forPost(
+                post: post,
+                topicId: widget.topicId,
+              ).render(
+                cookedHtml: post.cooked,
+                baseTextStyle: theme.textTheme.bodyMedium?.copyWith(
+                  height: 1.5,
+                  fontSize:
+                      (theme.textTheme.bodyMedium?.fontSize ?? 14) *
+                      ref.watch(preferencesProvider).contentFontScale,
                 ),
-            onCopyToast: () => ToastService.showSuccess(
-              context.l10n.common_copiedToClipboard,
-            ),
-          ),
+                selectionEnabled: true,
+                selectionScopeId: post.id,
+                onQuoteRequest: widget.onQuoteSelection == null
+                    ? null
+                    : (plainText) => widget.onQuoteSelection!(plainText, post),
+                onCopyQuoteRequest: (plainText) =>
+                    QuoteSelectionHelper.copyQuoteToClipboard(
+                      selectedText: plainText,
+                      post: post,
+                      topicId: widget.topicId,
+                    ),
+                onCopyToast: () => ToastService.showSuccess(
+                  context.l10n.common_copiedToClipboard,
+                ),
+              ),
         ),
         // 用户签名
         if (PostSignatureBlock.shouldRender(

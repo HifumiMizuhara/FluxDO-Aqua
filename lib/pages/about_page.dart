@@ -74,7 +74,11 @@ class _AboutPageState extends State<AboutPage> {
       setState(() => _developerMode = enabled);
     }
     if (!mounted) return;
-    ToastService.showSuccess(enabled ? S.current.about_developerModeEnabled : S.current.about_developerModeClosed);
+    ToastService.showSuccess(
+      enabled
+          ? S.current.about_developerModeEnabled
+          : S.current.about_developerModeClosed,
+    );
   }
 
   Future<void> _loadVersion() async {
@@ -143,17 +147,18 @@ class _AboutPageState extends State<AboutPage> {
 
   /// 在浏览器中打开
   void _openInBrowser(String url) {
-    launchUrl(
-      Uri.parse(url),
-      mode: LaunchMode.externalApplication,
-    );
+    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
   }
 
   void _showNoUpdateDialog(String currentVersion) {
     showAppDialog(
       context: context,
       builder: (context) => AlertDialog(
-        icon: const Icon(Symbols.check_circle_rounded, size: 48, color: Colors.green),
+        icon: const Icon(
+          Symbols.check_circle_rounded,
+          size: 48,
+          color: Colors.green,
+        ),
         title: Text(context.l10n.about_latestVersion),
         content: Text(context.l10n.about_noUpdateContent(currentVersion)),
         actions: [
@@ -188,10 +193,7 @@ class _AboutPageState extends State<AboutPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(context.l10n.about_title),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: Text(context.l10n.about_title), centerTitle: true),
       body: ListView(
         children: [
           const SizedBox(height: 40),
@@ -272,7 +274,9 @@ class _AboutPageState extends State<AboutPage> {
                 if (_developerMode)
                   SwitchListTile(
                     title: Text(context.l10n.about_developerMode),
-                    subtitle: Text(context.l10n.about_tapToDisableDeveloperMode),
+                    subtitle: Text(
+                      context.l10n.about_tapToDisableDeveloperMode,
+                    ),
                     value: true,
                     onChanged: (value) {
                       if (!value) {
@@ -361,10 +365,17 @@ class _AboutPageState extends State<AboutPage> {
   }) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      leading: Icon(icon, color: Theme.of(context).colorScheme.onSurfaceVariant),
+      leading: Icon(
+        icon,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
       title: Text(title),
       subtitle: subtitle != null ? Text(subtitle) : null,
-      trailing: const Icon(Symbols.chevron_right_rounded, size: 20, color: Colors.grey),
+      trailing: const Icon(
+        Symbols.chevron_right_rounded,
+        size: 20,
+        color: Colors.grey,
+      ),
       onTap: onTap,
     );
   }

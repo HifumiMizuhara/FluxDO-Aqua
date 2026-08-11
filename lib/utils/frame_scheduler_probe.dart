@@ -57,8 +57,11 @@ mixin FrameSchedulerProbe on WidgetsFlutterBinding {
   }
 
   @override
-  int scheduleFrameCallback(FrameCallback callback,
-      {bool rescheduling = false, bool scheduleNewFrame = true}) {
+  int scheduleFrameCallback(
+    FrameCallback callback, {
+    bool rescheduling = false,
+    bool scheduleNewFrame = true,
+  }) {
     if (FrameJankMonitor.isRunning) {
       if (!rescheduling) {
         // 首次注册 = 动画/ticker 启动点,栈里有业务帧。记名。
@@ -72,8 +75,11 @@ mixin FrameSchedulerProbe on WidgetsFlutterBinding {
         _captured.add(_callbackOrigins[callback] ?? '(启动早于监控)');
       }
     }
-    return super.scheduleFrameCallback(callback,
-        rescheduling: rescheduling, scheduleNewFrame: scheduleNewFrame);
+    return super.scheduleFrameCallback(
+      callback,
+      rescheduling: rescheduling,
+      scheduleNewFrame: scheduleNewFrame,
+    );
   }
 
   @override
@@ -122,7 +128,7 @@ mixin FrameSchedulerProbe on WidgetsFlutterBinding {
       FrameJankMonitor.logEvent(
         'SPIN-PROF',
         'transient=$lastTransientCount 武装帧无调度注册'
-        '(帧源可能是引擎侧/warm-up,或空转恰好停止)',
+            '(帧源可能是引擎侧/warm-up,或空转恰好停止)',
       );
       return;
     }

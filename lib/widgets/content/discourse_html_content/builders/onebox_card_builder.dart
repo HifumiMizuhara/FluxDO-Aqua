@@ -206,7 +206,8 @@ Widget _buildByType({
     }
   } catch (e, stackTrace) {
     debugPrint(
-        '=== Onebox Build Error [$type] ===\nError: $e\nStackTrace: $stackTrace');
+      '=== Onebox Build Error [$type] ===\nError: $e\nStackTrace: $stackTrace',
+    );
     // 专用 builder 失败时回退到默认样式
     return _buildSafeDefault(
       context: context,

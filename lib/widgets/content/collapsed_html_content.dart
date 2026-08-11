@@ -25,7 +25,7 @@ class CollapsedHtmlContent extends StatelessWidget {
 
   Widget _buildRichText(BuildContext context) {
     final spans = _parseHtmlToSpans(html, textStyle, context);
-    
+
     return Text.rich(
       TextSpan(children: spans),
       maxLines: maxLines,
@@ -34,15 +34,19 @@ class CollapsedHtmlContent extends StatelessWidget {
     );
   }
 
-  List<InlineSpan> _parseHtmlToSpans(String htmlContent, TextStyle? style, BuildContext context) {
+  List<InlineSpan> _parseHtmlToSpans(
+    String htmlContent,
+    TextStyle? style,
+    BuildContext context,
+  ) {
     final List<InlineSpan> spans = [];
     final imgRegExp = RegExp(
       r'''<img[^>]+src=["']([^"']+)["'][^>]*alt=["']([^"']*)["'][^>]*>|<img[^>]+alt=["']([^"']*)["'][^>]*src=["']([^"']+)["'][^>]*>''',
       caseSensitive: false,
     );
-    
+
     int lastIndex = 0;
-    
+
     // 简单的解析循环
     for (final match in imgRegExp.allMatches(htmlContent)) {
       // 添加前面的文本
@@ -62,10 +66,10 @@ class CollapsedHtmlContent extends StatelessWidget {
       if (src != null && isEmoji) {
         // 修正相对路径
         final fullUrl = UrlHelper.resolveUrlWithCdn(src);
-        
+
         // 计算合适的 Emoji 尺寸
         final double emojiSize = (style?.fontSize ?? 14.0) * 1.3;
-        
+
         spans.add(
           WidgetSpan(
             alignment: PlaceholderAlignment.middle,
@@ -79,10 +83,10 @@ class CollapsedHtmlContent extends StatelessWidget {
           ),
         );
       } else {
-         // 非 emoji 图片，或者是普通图片，在简介里通常不显示大图，或者显示 alt
-         if (alt != null && alt.isNotEmpty) {
-           spans.add(TextSpan(text: alt, style: style));
-         }
+        // 非 emoji 图片，或者是普通图片，在简介里通常不显示大图，或者显示 alt
+        if (alt != null && alt.isNotEmpty) {
+          spans.add(TextSpan(text: alt, style: style));
+        }
       }
 
       lastIndex = match.end;
@@ -102,7 +106,10 @@ class CollapsedHtmlContent extends StatelessWidget {
   String _stripTags(String html) {
     // 移除所有 HTML 标签，只保留内容
     // 替换 <br> 为换行
-    var text = html.replaceAll(RegExp(r'<br\s*\/?>', caseSensitive: false), '\n');
+    var text = html.replaceAll(
+      RegExp(r'<br\s*\/?>', caseSensitive: false),
+      '\n',
+    );
     // 移除其他标签
     text = text.replaceAll(RegExp(r'<[^>]*>'), '');
     // 解码实体字符 (简单处理)

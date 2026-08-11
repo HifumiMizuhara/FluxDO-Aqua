@@ -144,9 +144,7 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
       body: Column(
         children: [
           if (_isLoading || _isCompletingLogin)
-            M3eLinearProgress(
-              value: _isCompletingLogin ? null : _progress,
-            ),
+            M3eLinearProgress(value: _isCompletingLogin ? null : _progress),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -518,7 +516,9 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
             _isLoading = false;
           });
         }
-        debugPrint('[Login] 已检测到 currentUser=$username，但尚未读到 _t，等待后续同步');
+        debugPrint(
+          '[Login] 已检测到 currentUser=$username，但尚未读到 _t，等待后续同步',
+        );
         _scheduleLoginRecheck(controller);
         return;
       }
@@ -529,7 +529,9 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
             _isLoading = false;
           });
         }
-        debugPrint('[Login] 登录 WebView 流程已过期，跳过会话同步');
+        debugPrint(
+          '[Login] 登录 WebView 流程已过期，跳过会话同步',
+        );
         return;
       }
 
@@ -837,7 +839,9 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
       final reusedPreloaded = await LoginReadyCoordinator(
         hydrateFromHtml: PreloadedDataService().hydrateFromHtml,
         refreshPreloadedData: () async {
-          debugPrint('[Login] 当前页面无可复用首页数据，回退到 HTTP refresh');
+          debugPrint(
+            '[Login] 当前页面无可复用首页数据，回退到 HTTP refresh',
+          );
           await PreloadedDataService().refresh();
         },
         notifyLoginReady: (finalToken) {
@@ -869,7 +873,9 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
         'jarAuthCookies': jarAuthCookies,
       });
     } on TimeoutException {
-      debugPrint('[Login] 登录态收尾超时（${finalizeTimeout.inSeconds}s），走兜底广播');
+      debugPrint(
+        'event': 'login_bootstrap_timeout',
+      );
       LogWriter.instance.write({
         'timestamp': DateTime.now().toIso8601String(),
         'level': 'warning',
@@ -986,7 +992,9 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
       await completer.future.timeout(timeout);
       return true;
     } on TimeoutException {
-      debugPrint('[Login] 等待指纹上报超时(${timeout.inMilliseconds}ms)，继续登录流程');
+      debugPrint(
+        '[Login] 等待指纹上报超时(${timeout.inMilliseconds}ms)，继续登录流程',
+      );
       return _fingerprintDone;
     }
   }
@@ -1013,7 +1021,9 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
     try {
       await future.timeout(const Duration(seconds: 2));
     } catch (e) {
-      debugPrint('[Login] 等待初始 Cookie 回放完成失败: $e');
+      debugPrint(
+        '[Login] 等待初始 Cookie 回放完成失败: $e',
+      );
     }
   }
 
@@ -1052,7 +1062,9 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
 
   void _scheduleLoginRecheck(InAppWebViewController controller) {
     if (_recheckCount >= _maxRechecks) {
-      debugPrint('[Login] 已达最大重试次数($_maxRechecks)，停止重试');
+      debugPrint(
+        '[Login] 已达最大重试次数($_maxRechecks)，停止重试',
+      );
       return;
     }
     _recheckCount++;

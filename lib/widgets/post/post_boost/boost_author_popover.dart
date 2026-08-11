@@ -150,8 +150,7 @@ class _BoostPopoverLayoutDelegate extends SingleChildLayoutDelegate {
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
     final maxWidth = math.min(_maxWidth, constraints.maxWidth - _margin * 2);
-    final maxHeight =
-        constraints.maxHeight - safeInsets.vertical - _margin * 2;
+    final maxHeight = constraints.maxHeight - safeInsets.vertical - _margin * 2;
     return BoxConstraints(
       maxWidth: math.max(0, maxWidth),
       maxHeight: math.max(0, maxHeight),
@@ -247,7 +246,8 @@ class _BoostAuthorPopoverCard extends StatelessWidget {
             children: [
               InkWell(
                 onTap: canViewAuthor
-                    ? () => _select(context, BoostAuthorPopoverAction.authorCard)
+                    ? () =>
+                          _select(context, BoostAuthorPopoverAction.authorCard)
                     : null,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),

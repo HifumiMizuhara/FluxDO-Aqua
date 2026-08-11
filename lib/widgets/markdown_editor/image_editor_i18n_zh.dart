@@ -83,9 +83,7 @@ I18n buildImageEditorI18nZh() => I18n(
     bottomNavigationBarText: S.current.imageEditor_filter,
     back: S.current.common_back,
     done: S.current.common_done,
-    filters: I18nFilters(
-      none: S.current.imageEditor_noFilter,
-    ),
+    filters: I18nFilters(none: S.current.imageEditor_noFilter),
   ),
   tuneEditor: I18nTuneEditor(
     bottomNavigationBarText: S.current.imageEditor_adjust,

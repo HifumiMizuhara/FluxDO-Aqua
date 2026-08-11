@@ -100,9 +100,7 @@ class _BannerHeader extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: isDark
-            ? const Color(0xFF2E7D32)
-            : const Color(0xFF43A047),
+        color: isDark ? const Color(0xFF2E7D32) : const Color(0xFF43A047),
       ),
       child: Row(
         children: [
@@ -175,7 +173,9 @@ class _AnswerRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           InkWell(
-            onTap: hasExcerpt ? onToggle : () => onJumpToPost?.call(answer.postNumber),
+            onTap: hasExcerpt
+                ? onToggle
+                : () => onJumpToPost?.call(answer.postNumber),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: Row(
@@ -221,7 +221,9 @@ class _AnswerRow extends StatelessWidget {
                   ),
                   if (hasExcerpt)
                     Icon(
-                      expanded ? Symbols.expand_less_rounded : Symbols.expand_more_rounded,
+                      expanded
+                          ? Symbols.expand_less_rounded
+                          : Symbols.expand_more_rounded,
                       size: 20,
                       color: theme.colorScheme.onSurfaceVariant,
                     )
@@ -301,4 +303,3 @@ class _ExpandedExcerpt extends StatelessWidget {
     );
   }
 }
-

@@ -117,7 +117,7 @@ class _QrLoginScanPageState extends State<QrLoginScanPage> {
         await _controller?.start();
       } catch (_) {}
     } catch (e) {
-      debugPrint('[QrLoginScan] 登录失败: $e');
+      debugPrint('[QrLoginScan] loginfailed: $e');
       if (!mounted) return;
       ToastService.showError(S.current.login_qrScanFailed);
       setState(() {
@@ -173,7 +173,10 @@ class _QrLoginScanPageState extends State<QrLoginScanPage> {
                       const LoadingSpinner(),
                       if (_statusMessage != null) ...[
                         const SizedBox(height: 16),
-                        Text(_statusMessage!, style: theme.textTheme.bodyMedium),
+                        Text(
+                          _statusMessage!,
+                          style: theme.textTheme.bodyMedium,
+                        ),
                       ],
                     ],
                   ),
@@ -274,9 +277,7 @@ class _QrLoginScanPageState extends State<QrLoginScanPage> {
                 onPressed: _handling ? null : _pickFromGallery,
                 icon: const Icon(Symbols.photo_library_rounded),
                 label: Text(context.l10n.login_qrPickImage),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(220, 52),
-                ),
+                style: FilledButton.styleFrom(minimumSize: const Size(220, 52)),
               ),
             ],
           ),
@@ -287,10 +288,7 @@ class _QrLoginScanPageState extends State<QrLoginScanPage> {
 }
 
 class _CameraErrorPane extends StatelessWidget {
-  const _CameraErrorPane({
-    required this.message,
-    required this.onPickImage,
-  });
+  const _CameraErrorPane({required this.message, required this.onPickImage});
 
   final String message;
   final VoidCallback onPickImage;

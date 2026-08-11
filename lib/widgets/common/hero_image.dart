@@ -139,9 +139,7 @@ class _CoverContainPainter extends CustomPainter {
 
     // 圆形来源(头像):t=0 端圆角=短边一半(正圆),线性收到 0;
     // 常规来源用固定 radius 收到 0
-    final double r0 = circular
-        ? math.min(dst.width, dst.height) / 2
-        : radius;
+    final double r0 = circular ? math.min(dst.width, dst.height) / 2 : radius;
     final double r = r0 * (1 - t);
     if (r > 0) {
       canvas.save();
@@ -244,10 +242,7 @@ class _HeroImageState extends State<HeroImage> {
 
   @override
   void dispose() {
-    HeroVisibilityController.instance.unregisterSource(
-      widget.heroTag,
-      context,
-    );
+    HeroVisibilityController.instance.unregisterSource(widget.heroTag, context);
     super.dispose();
   }
 
@@ -275,26 +270,29 @@ class _HeroImageState extends State<HeroImage> {
             transitionOnUserGestures: true,
             // 飞行动画：pop 飞行结束时设置 isPopping;网格瓦片来源
             // (coverFlight)换裁切插值飞行体,否则返回纯图片
-            flightShuttleBuilder: (flightContext, animation, direction, fromContext, toContext) {
-              if (direction == HeroFlightDirection.pop) {
-                void listener(AnimationStatus status) {
-                  if (status == AnimationStatus.completed || status == AnimationStatus.dismissed) {
-                    animation.removeStatusListener(listener);
-                    HeroVisibilityController.instance.startPopping();
+            flightShuttleBuilder:
+                (flightContext, animation, direction, fromContext, toContext) {
+                  if (direction == HeroFlightDirection.pop) {
+                    void listener(AnimationStatus status) {
+                      if (status == AnimationStatus.completed ||
+                          status == AnimationStatus.dismissed) {
+                        animation.removeStatusListener(listener);
+                        HeroVisibilityController.instance.startPopping();
+                      }
+                    }
+
+                    animation.addStatusListener(listener);
                   }
-                }
-                animation.addStatusListener(listener);
-              }
-              if (widget.coverFlight && widget.flightImage != null) {
-                return CoverContainFlightImage(
-                  image: widget.flightImage!,
-                  animation: animation,
-                  radius: widget.flightRadius,
-                  fallback: child,
-                );
-              }
-              return child;
-            },
+                  if (widget.coverFlight && widget.flightImage != null) {
+                    return CoverContainFlightImage(
+                      image: widget.flightImage!,
+                      animation: animation,
+                      radius: widget.flightRadius,
+                      fallback: child,
+                    );
+                  }
+                  return child;
+                },
             // 飞行期间源端占位 - 直接读取最新状态
             placeholderBuilder: (context, heroSize, _) {
               final ctrl = HeroVisibilityController.instance;

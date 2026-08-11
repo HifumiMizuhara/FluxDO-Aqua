@@ -65,15 +65,16 @@ class _PostVotingCommentsViewState
   final FocusNode _composerFocus = FocusNode();
 
   /// 评论字数上限:站点 post_voting_comment_max_raw_length,缺省 600
-  late final int _maxLength = (PreloadedDataService()
-              .siteSettingsSync?['post_voting_comment_max_raw_length']
-          as num?)
+  late final int _maxLength =
+      (PreloadedDataService()
+                  .siteSettingsSync?['post_voting_comment_max_raw_length']
+              as num?)
           ?.toInt() ??
       600;
 
   /// 评论最短长度:站点 min_post_length,缺省 1
-  late final int _minLength = (PreloadedDataService()
-              .siteSettingsSync?['min_post_length'] as num?)
+  late final int _minLength =
+      (PreloadedDataService().siteSettingsSync?['min_post_length'] as num?)
           ?.toInt() ??
       1;
 

@@ -172,7 +172,10 @@ class _NotificationLevelSheet extends StatelessWidget {
                 ),
               ),
               trailing: isSelected
-                  ? Icon(Symbols.check_rounded, color: theme.colorScheme.primary)
+                  ? Icon(
+                      Symbols.check_rounded,
+                      color: theme.colorScheme.primary,
+                    )
                   : null,
               onTap: () => onSelected(level),
             );
@@ -347,7 +350,10 @@ class _CategoryNotificationLevelSheet extends StatelessWidget {
                 ),
               ),
               trailing: isSelected
-                  ? Icon(Symbols.check_rounded, color: theme.colorScheme.primary)
+                  ? Icon(
+                      Symbols.check_rounded,
+                      color: theme.colorScheme.primary,
+                    )
                   : null,
               onTap: () => onSelected(level),
             );

@@ -93,13 +93,13 @@ void main() {
     await tester.pump();
     // 饼图的 CustomPaint(区别于框架自带),按 key 或 painter 类型找
     final customPaints = find.byWidgetPredicate(
-      (w) => w is CustomPaint && w.painter.runtimeType.toString() == '_PiePainter',
+      (w) =>
+          w is CustomPaint && w.painter.runtimeType.toString() == '_PiePainter',
     );
     expect(customPaints, findsOneWidget, reason: '应出现饼图 painter');
   });
 
-  testWidgets('API chart_type=pie 为主源:cooked 无属性也画饼图(线上真实形态)',
-      (tester) async {
+  testWidgets('API chart_type=pie 为主源:cooked 无属性也画饼图(线上真实形态)', (tester) async {
     // 线上 rawHtml 链路 data-poll-charttype 可能缺失,API poll 对象带
     // chart_type: "pie" —— 判定必须以 API 为主源
     const cookedNoChart = '''
@@ -110,13 +110,16 @@ void main() {
     <li data-poll-option-id="bbb">选项B</li>
   </ul></div>
 </div>''';
-    await tester.pumpWidget(host(
-      makePost(voters: 275, votes: ['aaa'], apiChartType: 'pie'),
-      cooked: cookedNoChart,
-    ));
+    await tester.pumpWidget(
+      host(
+        makePost(voters: 275, votes: ['aaa'], apiChartType: 'pie'),
+        cooked: cookedNoChart,
+      ),
+    );
     await tester.pump();
     final customPaints = find.byWidgetPredicate(
-      (w) => w is CustomPaint && w.painter.runtimeType.toString() == '_PiePainter',
+      (w) =>
+          w is CustomPaint && w.painter.runtimeType.toString() == '_PiePainter',
     );
     expect(customPaints, findsOneWidget, reason: 'API chart_type 应独立触发饼图');
   });
@@ -125,7 +128,8 @@ void main() {
     await tester.pumpWidget(host(makePost(voters: 0, votes: [])));
     await tester.pump();
     final customPaints = find.byWidgetPredicate(
-      (w) => w is CustomPaint && w.painter.runtimeType.toString() == '_PiePainter',
+      (w) =>
+          w is CustomPaint && w.painter.runtimeType.toString() == '_PiePainter',
     );
     expect(customPaints, findsNothing);
   });

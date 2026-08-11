@@ -61,7 +61,14 @@ class PollSpec {
 
   /// 表单托管的属性键(小写),写回时从 extraAttrs 排除
   static const _managedKeys = {
-    'type', 'results', 'public', 'charttype', 'min', 'max', 'step', 'close',
+    'type',
+    'results',
+    'public',
+    'charttype',
+    'min',
+    'max',
+    'step',
+    'close',
   };
 
   /// 从 `[poll ...]...[/poll]` BBCode 反解析(编辑已有投票的表单预填)。
@@ -76,7 +83,8 @@ class PollSpec {
     for (final a in RegExp(
       r'''(\w+)=(?:"([^"]*)"|'([^']*)'|(\S+))''',
     ).allMatches(m.group(1)!)) {
-      attrs[a.group(1)!.toLowerCase()] = a.group(2) ?? a.group(3) ?? a.group(4)!;
+      attrs[a.group(1)!.toLowerCase()] =
+          a.group(2) ?? a.group(3) ?? a.group(4)!;
     }
 
     String title = '';
@@ -191,15 +199,17 @@ class _PollBuilderDialogState extends State<_PollBuilderDialog> {
   late String _chartType = widget.initial?.chartType ?? 'bar';
   late DateTime? _close = widget.initial?.close;
   // 编辑态默认展开高级区(带了非默认高级属性时用户需要看得见)
-  late bool _showAdvanced = widget.initial != null &&
+  late bool _showAdvanced =
+      widget.initial != null &&
       (widget.initial!.results != 'always' ||
           !widget.initial!.public ||
           widget.initial!.chartType != 'bar' ||
           widget.initial!.close != null);
   String? _error;
 
-  late final TextEditingController _title =
-      TextEditingController(text: widget.initial?.title ?? '');
+  late final TextEditingController _title = TextEditingController(
+    text: widget.initial?.title ?? '',
+  );
   late final List<TextEditingController> _options = [
     for (final o in widget.initial?.options ?? const <String>[])
       TextEditingController(text: o),
@@ -209,14 +219,16 @@ class _PollBuilderDialogState extends State<_PollBuilderDialog> {
     ],
   ];
   // multiple: min/max;number: min/max/step
-  late final TextEditingController _min =
-      TextEditingController(text: '${widget.initial?.min ?? 1}');
+  late final TextEditingController _min = TextEditingController(
+    text: '${widget.initial?.min ?? 1}',
+  );
   late final TextEditingController _max = TextEditingController(
     text:
         '${widget.initial?.max ?? (widget.initial?.type == kPollTypeNumber ? 10 : 2)}',
   );
-  late final TextEditingController _step =
-      TextEditingController(text: '${widget.initial?.step ?? 1}');
+  late final TextEditingController _step = TextEditingController(
+    text: '${widget.initial?.step ?? 1}',
+  );
 
   @override
   void dispose() {
@@ -231,9 +243,9 @@ class _PollBuilderDialogState extends State<_PollBuilderDialog> {
   }
 
   List<String> get _validOptions => [
-        for (final c in _options)
-          if (c.text.trim().isNotEmpty) c.text.trim(),
-      ];
+    for (final c in _options)
+      if (c.text.trim().isNotEmpty) c.text.trim(),
+  ];
 
   /// 切类型时重置数字区默认值(官方 enforceMinMaxValues 同思路)。
   void _onTypeChanged(String type) {
@@ -264,15 +276,17 @@ class _PollBuilderDialogState extends State<_PollBuilderDialog> {
       return null;
     }
     if (_type == kPollTypeMultiple) {
-      if (min == null || max == null || min < 1 || min > max ||
+      if (min == null ||
+          max == null ||
+          min < 1 ||
+          min > max ||
           max > options.length) {
         _error = '需满足 1 ≤ 最少 ≤ 最多 ≤ 选项数(${options.length})';
         return null;
       }
     }
     if (_type == kPollTypeNumber) {
-      if (min == null || max == null || step == null || min < 0 ||
-          max < min) {
+      if (min == null || max == null || step == null || min < 0 || max < min) {
         _error = '需满足最小值 ≤ 最大值';
         return null;
       }
@@ -326,8 +340,13 @@ class _PollBuilderDialogState extends State<_PollBuilderDialog> {
     );
     if (!mounted) return;
     setState(() {
-      _close = DateTime(date.year, date.month, date.day, time?.hour ?? 12,
-          time?.minute ?? 0);
+      _close = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time?.hour ?? 12,
+        time?.minute ?? 0,
+      );
     });
   }
 
@@ -370,11 +389,14 @@ class _PollBuilderDialogState extends State<_PollBuilderDialog> {
               M3eButtonGroup<String>(
                 items: const [
                   M3eButtonGroupItem(
-                      value: kPollTypeRegular, label: Text('单选')),
+                    value: kPollTypeRegular,
+                    label: Text('单选'),
+                  ),
                   M3eButtonGroupItem(
-                      value: kPollTypeMultiple, label: Text('多选')),
-                  M3eButtonGroupItem(
-                      value: kPollTypeNumber, label: Text('评分')),
+                    value: kPollTypeMultiple,
+                    label: Text('多选'),
+                  ),
+                  M3eButtonGroupItem(value: kPollTypeNumber, label: Text('评分')),
                 ],
                 selected: _type,
                 onSelected: _onTypeChanged,
@@ -410,7 +432,8 @@ class _PollBuilderDialogState extends State<_PollBuilderDialog> {
                           onPressed: _options.length <= 1
                               ? null
                               : () => setState(
-                                  () => _options.removeAt(i).dispose()),
+                                  () => _options.removeAt(i).dispose(),
+                                ),
                         ),
                       ],
                     ),
@@ -420,28 +443,32 @@ class _PollBuilderDialogState extends State<_PollBuilderDialog> {
                   child: TextButton.icon(
                     icon: const Icon(Icons.add, size: 16),
                     label: const Text('添加选项'),
-                    onPressed: () => setState(
-                        () => _options.add(TextEditingController())),
+                    onPressed: () =>
+                        setState(() => _options.add(TextEditingController())),
                   ),
                 ),
               ],
               if (_type == kPollTypeMultiple)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
-                  child: Row(children: [
-                    _numField(_min, '至少选'),
-                    const SizedBox(width: 8),
-                    _numField(_max, '至多选'),
-                  ]),
+                  child: Row(
+                    children: [
+                      _numField(_min, '至少选'),
+                      const SizedBox(width: 8),
+                      _numField(_max, '至多选'),
+                    ],
+                  ),
                 ),
               if (isNumber)
-                Row(children: [
-                  _numField(_min, '最小值'),
-                  const SizedBox(width: 8),
-                  _numField(_max, '最大值'),
-                  const SizedBox(width: 8),
-                  _numField(_step, '步长'),
-                ]),
+                Row(
+                  children: [
+                    _numField(_min, '最小值'),
+                    const SizedBox(width: 8),
+                    _numField(_max, '最大值'),
+                    const SizedBox(width: 8),
+                    _numField(_step, '步长'),
+                  ],
+                ),
               const SizedBox(height: 4),
               // 高级选项折叠区(仿官方 showAdvanced)
               InkWell(
@@ -481,8 +508,7 @@ class _PollBuilderDialogState extends State<_PollBuilderDialog> {
                     for (final (v, label) in kPollResults)
                       DropdownMenuItem(value: v, child: Text(label)),
                   ],
-                  onChanged: (v) =>
-                      setState(() => _results = v ?? 'always'),
+                  onChanged: (v) => setState(() => _results = v ?? 'always'),
                 ),
                 SwitchListTile(
                   value: _public,
@@ -494,46 +520,47 @@ class _PollBuilderDialogState extends State<_PollBuilderDialog> {
                 if (!isNumber)
                   Row(
                     children: [
-                      Text('图表',
-                          style: TextStyle(
-                              fontSize: 13,
-                              color: scheme.onSurfaceVariant)),
+                      Text(
+                        '图表',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
                       const SizedBox(width: 10),
                       ChoiceChip(
-                        label: const Text('柱状',
-                            style: TextStyle(fontSize: 12)),
+                        label: const Text('柱状', style: TextStyle(fontSize: 12)),
                         selected: _chartType == 'bar',
                         visualDensity: VisualDensity.compact,
-                        onSelected: (_) =>
-                            setState(() => _chartType = 'bar'),
+                        onSelected: (_) => setState(() => _chartType = 'bar'),
                       ),
                       const SizedBox(width: 6),
                       ChoiceChip(
-                        label: const Text('饼图',
-                            style: TextStyle(fontSize: 12)),
+                        label: const Text('饼图', style: TextStyle(fontSize: 12)),
                         selected: _chartType == 'pie',
                         visualDensity: VisualDensity.compact,
-                        onSelected: (_) =>
-                            setState(() => _chartType = 'pie'),
+                        onSelected: (_) => setState(() => _chartType = 'pie'),
                       ),
                     ],
                   ),
                 const SizedBox(height: 8),
-                Row(children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.schedule_outlined, size: 16),
-                      label: Text(_closeLabel),
-                      onPressed: _pickClose,
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.schedule_outlined, size: 16),
+                        label: Text(_closeLabel),
+                        onPressed: _pickClose,
+                      ),
                     ),
-                  ),
-                  if (_close != null)
-                    IconButton(
-                      tooltip: '清除自动关闭',
-                      icon: const Icon(Icons.close, size: 16),
-                      onPressed: () => setState(() => _close = null),
-                    ),
-                ]),
+                    if (_close != null)
+                      IconButton(
+                        tooltip: '清除自动关闭',
+                        icon: const Icon(Icons.close, size: 16),
+                        onPressed: () => setState(() => _close = null),
+                      ),
+                  ],
+                ),
               ],
               if (_error != null)
                 Padding(

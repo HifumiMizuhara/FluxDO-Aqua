@@ -17,8 +17,7 @@ class NotionSettingsPage extends ConsumerStatefulWidget {
   const NotionSettingsPage({super.key});
 
   @override
-  ConsumerState<NotionSettingsPage> createState() =>
-      _NotionSettingsPageState();
+  ConsumerState<NotionSettingsPage> createState() => _NotionSettingsPageState();
 }
 
 class _NotionSettingsPageState extends ConsumerState<NotionSettingsPage> {
@@ -103,10 +102,9 @@ class _NotionSettingsPageState extends ConsumerState<NotionSettingsPage> {
       await ref
           .read(notionConfigProvider.notifier)
           .update(
-            ref.read(notionConfigProvider).copyWith(
-              integrationToken: token,
-              databaseId: dbId,
-            ),
+            ref
+                .read(notionConfigProvider)
+                .copyWith(integrationToken: token, databaseId: dbId),
           );
       if (!mounted) return;
       ToastService.showSuccess(S.current.notion_testOk(title));
@@ -238,16 +236,15 @@ class _NotionSettingsPageState extends ConsumerState<NotionSettingsPage> {
           ],
 
           if (!showSteps) ...[
-            _ConfiguredBanner(
-              onEdit: () => setState(() => _editing = true),
-            ),
+            _ConfiguredBanner(onEdit: () => setState(() => _editing = true)),
           ] else ...[
             // Step 1: Token
             _StepCard(
               index: 1,
               title: context.l10n.notion_step1Title,
               body: context.l10n.notion_step1Body,
-              done: cfg.integrationToken != null &&
+              done:
+                  cfg.integrationToken != null &&
                   cfg.integrationToken!.isNotEmpty,
               children: [
                 const SizedBox(height: 8),
@@ -293,8 +290,7 @@ class _NotionSettingsPageState extends ConsumerState<NotionSettingsPage> {
               index: 2,
               title: context.l10n.notion_step2Title,
               body: context.l10n.notion_step2Body,
-              done:
-                  cfg.databaseId != null && cfg.databaseId!.isNotEmpty,
+              done: cfg.databaseId != null && cfg.databaseId!.isNotEmpty,
               children: [
                 const SizedBox(height: 12),
                 TextField(
@@ -417,9 +413,7 @@ class _NotionSettingsPageState extends ConsumerState<NotionSettingsPage> {
                         items: [
                           M3eButtonGroupItem(
                             value: NotionSyncScope.firstPostOnly,
-                            label: Text(
-                              context.l10n.export_firstPostOnly,
-                            ),
+                            label: Text(context.l10n.export_firstPostOnly),
                           ),
                           M3eButtonGroupItem(
                             value: NotionSyncScope.allPosts,
@@ -536,8 +530,10 @@ class _UpgradeBanner extends StatelessWidget {
               label: Text(context.l10n.notion_upgradeAction),
               style: FilledButton.styleFrom(
                 backgroundColor: accent,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
               ),
             ),
           ),

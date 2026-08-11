@@ -32,8 +32,7 @@ const Duration kReactionPickerOpenDelay = Duration(milliseconds: 80);
 
 /// 长按手势识别阈值:必须 ≥ kReactionPickerOpenDelay + _kEnterDuration,
 /// 保证 onLongPressStart 触发时 picker 动画已完整跑完,haptic 与视觉完成同时发生
-const Duration kReactionPickerLongPressDuration =
-    Duration(milliseconds: 260);
+const Duration kReactionPickerLongPressDuration = Duration(milliseconds: 260);
 
 // ============================== 控制器 ==============================
 
@@ -58,12 +57,11 @@ class ReactionPickerController {
   // 查 TickerMode 这一 inherited widget,因为 element 已 inactive,抛
   // "Looking up a deactivated widget's ancestor is unsafe"。
   AnimationController? _animation;
-  AnimationController get animation =>
-      _animation ??= AnimationController(
-        vsync: vsync,
-        duration: _kEnterDuration,
-        reverseDuration: _kExitDuration,
-      );
+  AnimationController get animation => _animation ??= AnimationController(
+    vsync: vsync,
+    duration: _kEnterDuration,
+    reverseDuration: _kExitDuration,
+  );
 
   OverlayEntry? _entry;
   _OverlayBinding? _binding;
@@ -147,12 +145,14 @@ class ReactionPickerController {
     _computeGeometry(context);
 
     final overlay = Overlay.of(context, rootOverlay: true);
-    _entry = OverlayEntry(builder: (_) {
-      return _ReactionPickerOverlay(
-        controller: this,
-        onBindingReady: (b) => _binding = b,
-      );
-    });
+    _entry = OverlayEntry(
+      builder: (_) {
+        return _ReactionPickerOverlay(
+          controller: this,
+          onBindingReady: (b) => _binding = b,
+        );
+      },
+    );
     overlay.insert(_entry!);
 
     _attachScrollListeners(context);
@@ -221,7 +221,10 @@ class ReactionPickerController {
     final rows = (count / _kCrossAxisCount).ceil();
 
     _pickerWidth =
-        (_kItemSize * cols) + (_kItemSpacing * (cols - 1)) + (_kPadding * 2) + 4.0;
+        (_kItemSize * cols) +
+        (_kItemSpacing * (cols - 1)) +
+        (_kPadding * 2) +
+        4.0;
     _pickerHeight =
         (_kItemSize * rows) + (_kItemSpacing * (rows - 1)) + (_kPadding * 2);
 
@@ -359,7 +362,8 @@ class ReactionPickerController {
   void onDesktopPointerHover(Offset globalPos) {
     if (!isOpen || _mode != ReactionPickerMode.desktop) return;
     final inSafe =
-        pickerRect.inflate(8).contains(globalPos) || _buttonRect.contains(globalPos);
+        pickerRect.inflate(8).contains(globalPos) ||
+        _buttonRect.contains(globalPos);
     if (inSafe) {
       onDesktopHoverEnterSafeZone();
       updateHighlight(globalPos);
@@ -411,10 +415,7 @@ class _ReactionPickerLifecycleObserver extends WidgetsBindingObserver {
 
 /// Overlay state 暴露给 controller 的回调接口
 class _OverlayBinding {
-  _OverlayBinding({
-    required this.itemRects,
-    required this.reportItemRect,
-  });
+  _OverlayBinding({required this.itemRects, required this.reportItemRect});
 
   final List<Rect?> itemRects;
   final void Function(int index, Rect rect) reportItemRect;
@@ -436,17 +437,16 @@ class _ReactionPickerOverlay extends StatefulWidget {
 }
 
 class _ReactionPickerOverlayState extends State<_ReactionPickerOverlay> {
-  late final List<Rect?> _itemRects =
-      List<Rect?>.filled(widget.controller.reactions.length, null);
+  late final List<Rect?> _itemRects = List<Rect?>.filled(
+    widget.controller.reactions.length,
+    null,
+  );
 
   @override
   void initState() {
     super.initState();
     widget.onBindingReady(
-      _OverlayBinding(
-        itemRects: _itemRects,
-        reportItemRect: _reportItemRect,
-      ),
+      _OverlayBinding(itemRects: _itemRects, reportItemRect: _reportItemRect),
     );
   }
 

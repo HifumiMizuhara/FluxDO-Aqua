@@ -98,6 +98,7 @@ class PaneFilmstrip extends StatefulWidget {
   final int viewportPanes;
 
   final double masterWidth;
+
   /// 非空 = 在每个层格/空态的左缘画 1px 分隔线。线是格缘的一部分,
   /// 随格子平移(常显,与车厢一体);格子落位屏最左时不画。
   /// 投影模式恒不画。
@@ -189,8 +190,7 @@ class _PaneFilmstripState extends State<PaneFilmstrip>
     if (widget.viewportPanes <= 1) {
       layout[masterCellKey] = Rect.fromLTWH(-d * v, 0, v, h);
       for (var i = 0; i < d; i++) {
-        layout[widget.panes[i].key!] =
-            Rect.fromLTWH((i + 1 - d) * v, 0, v, h);
+        layout[widget.panes[i].key!] = Rect.fromLTWH((i + 1 - d) * v, 0, v, h);
       }
       return layout;
     }
@@ -387,8 +387,7 @@ class _PaneFilmstripState extends State<PaneFilmstrip>
 
         final d = widget.panes.length;
         final projecting = widget.viewportPanes <= 1;
-        final rightLeft =
-            projecting ? 0.0 : widget.masterWidth;
+        final rightLeft = projecting ? 0.0 : widget.masterWidth;
         final topKey = d > 0 ? widget.panes.last.key : null;
 
         Widget band = AnimatedBuilder(
@@ -416,7 +415,8 @@ class _PaneFilmstripState extends State<PaneFilmstrip>
             final fillsInsteadOfEmpty =
                 widget.masterFillsWhenEmpty && !widget.pinMaster;
             final needEmpty = d == 0 || _cells.values.any((c) => c.exiting);
-            final showEmpty = widget.emptyPane != null &&
+            final showEmpty =
+                widget.emptyPane != null &&
                 !projecting &&
                 needEmpty &&
                 !fillsInsteadOfEmpty;
@@ -445,8 +445,7 @@ class _PaneFilmstripState extends State<PaneFilmstrip>
               if (dragDx != 0 && entry.key == topKey) left += dragDx;
               final width = cell.to.width;
               final zoneLeft = isMaster ? 0.0 : clipLeft;
-              final visible =
-                  left + width > zoneLeft && left < size.width;
+              final visible = left + width > zoneLeft && left < size.width;
               final interactive = !cell.exiting && visible;
               final positioned = Positioned(
                 // Stack 子项必须带 key:空态/新格插入会改变列表结构,

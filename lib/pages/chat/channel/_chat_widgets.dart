@@ -451,12 +451,7 @@ class _MessageUploads extends StatelessWidget {
         filenames: [for (final u in images) u.originalFilename],
       ),
       // transitionOnUserGestures:预测返回(user gesture)时也要飞回
-      child: Hero(
-        tag: heroTag,
-        transitionOnUserGestures: true,
-        child: image,
-      ),
+      child: Hero(tag: heroTag, transitionOnUserGestures: true, child: image),
     );
   }
 }
-

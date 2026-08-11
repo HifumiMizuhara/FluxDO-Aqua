@@ -311,7 +311,9 @@ class _PrivateMessageTabViewState extends ConsumerState<_PrivateMessageTabView>
   void _onItemTap(Topic topic) {
     final canShowDetailPane = MasterDetailLayout.canShowBothPanesFor(context);
     if (canShowDetailPane) {
-      ref.read(selectedMessageProvider.notifier).select(
+      ref
+          .read(selectedMessageProvider.notifier)
+          .select(
             topicId: topic.id,
             initialTitle: topic.title,
             scrollToPostNumber: topic.lastReadPostNumber,
@@ -371,7 +373,11 @@ class _PrivateMessageTabViewState extends ConsumerState<_PrivateMessageTabView>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Symbols.mail_rounded, size: 64, color: Colors.grey),
+                  const Icon(
+                    Symbols.mail_rounded,
+                    size: 64,
+                    color: Colors.grey,
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     context.l10n.privateMessages_empty,
@@ -386,35 +392,37 @@ class _PrivateMessageTabViewState extends ConsumerState<_PrivateMessageTabView>
             topics: topics,
             messageStyle: true,
             child: ListView.builder(
-            controller: _scrollController,
-            // 底部让出 extendBody 注入的底栏高度
-            padding: EdgeInsets.fromLTRB(
-              12,
-              12,
-              12,
-              12 + MediaQuery.paddingOf(context).bottom,
-            ),
-            itemCount: topics.length + 1,
-            itemBuilder: (context, index) {
-              if (index == topics.length) {
-                return _buildPaginationFooter(notifier);
-              }
+              controller: _scrollController,
+              // 底部让出 extendBody 注入的底栏高度
+              padding: EdgeInsets.fromLTRB(
+                12,
+                12,
+                12,
+                12 + MediaQuery.paddingOf(context).bottom,
+              ),
+              itemCount: topics.length + 1,
+              itemBuilder: (context, index) {
+                if (index == topics.length) {
+                  return _buildPaginationFooter(notifier);
+                }
 
-              final topic = topics[index];
-              final enableLongPress = ref
-                  .watch(preferencesProvider)
-                  .longPressPreview;
-              final selectedTopicId = ref.watch(selectedMessageProvider).topicId;
-              return buildTopicItem(
-                context: context,
-                topic: topic,
-                isSelected: selectedTopicId == topic.id,
-                onTap: () => _onItemTap(topic),
-                enableLongPress: enableLongPress,
-                // 私信语义同邮件:发件人优先的 Gmail 式布局
-                messageStyle: true,
-              );
-            },
+                final topic = topics[index];
+                final enableLongPress = ref
+                    .watch(preferencesProvider)
+                    .longPressPreview;
+                final selectedTopicId = ref
+                    .watch(selectedMessageProvider)
+                    .topicId;
+                return buildTopicItem(
+                  context: context,
+                  topic: topic,
+                  isSelected: selectedTopicId == topic.id,
+                  onTap: () => _onItemTap(topic),
+                  enableLongPress: enableLongPress,
+                  // 私信语义同邮件:发件人优先的 Gmail 式布局
+                  messageStyle: true,
+                );
+              },
             ),
           );
         },

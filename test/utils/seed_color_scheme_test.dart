@@ -47,8 +47,9 @@ void main() {
       SeedColorScheme.from(seedColor: Color(0xFF000000 + i));
     }
 
-    expect(SeedColorScheme.cachedCount, lessThanOrEqualTo(
-      SeedColorScheme.maxEntries,
-    ));
+    expect(
+      SeedColorScheme.cachedCount,
+      lessThanOrEqualTo(SeedColorScheme.maxEntries),
+    );
   });
 }

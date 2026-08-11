@@ -354,16 +354,19 @@ class _BadgeInfoCard extends StatelessWidget {
                 ),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: FluxdoRenderCallbacks.generic(
-                heroTagNamespace: 'badge_${badge.id}_longdesc',
-              ).render(
-                cookedHtml: EmojiHandler().replaceEmojis(badge.longDescription!),
-                baseTextStyle: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  height: 1.5,
-                ),
-                selectionEnabled: false,
-              ),
+              child:
+                  FluxdoRenderCallbacks.generic(
+                    heroTagNamespace: 'badge_${badge.id}_longdesc',
+                  ).render(
+                    cookedHtml: EmojiHandler().replaceEmojis(
+                      badge.longDescription!,
+                    ),
+                    baseTextStyle: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      height: 1.5,
+                    ),
+                    selectionEnabled: false,
+                  ),
             ),
           ],
 
@@ -537,9 +540,10 @@ class _UserBadgeItem extends StatelessWidget {
   void _navigateToUser(BuildContext context) {
     // 宽屏进本页右栏,窄屏全屏 push(平行视界宿主标准分流)。
     if (MasterDetailLayout.canShowBothPanesFor(context)) {
-      ProviderScope.containerOf(context, listen: false)
-          .read(selectedBadgePaneProvider.notifier)
-          .selectProfile(user.username);
+      ProviderScope.containerOf(
+        context,
+        listen: false,
+      ).read(selectedBadgePaneProvider.notifier).selectProfile(user.username);
       return;
     }
     Navigator.push(

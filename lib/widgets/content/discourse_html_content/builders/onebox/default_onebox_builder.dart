@@ -11,12 +11,16 @@ Widget buildDefaultOnebox({
   List<LinkCount>? linkCounts,
 }) {
   // 提取点击数（支持 data-clicks 属性）
-  final clickCount = extractClickCountFromOnebox(element, linkCounts: linkCounts);
+  final clickCount = extractClickCountFromOnebox(
+    element,
+    linkCounts: linkCounts,
+  );
 
   // 提取标题
   final h4Element = element.querySelector('h4');
   final h3Element = element.querySelector('h3');
-  final titleLink = h4Element?.querySelector('a') ?? h3Element?.querySelector('a');
+  final titleLink =
+      h4Element?.querySelector('a') ?? h3Element?.querySelector('a');
   final title = titleLink?.text ?? h3Element?.text ?? h4Element?.text ?? '';
   // titleLink 可能为空（如 Google Play onebox 的 h3 不含 <a>），回退到 extractUrl
   final url = titleLink?.attributes['href'] ?? extractUrl(element);

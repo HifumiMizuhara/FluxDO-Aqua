@@ -170,7 +170,9 @@ class _DraggableFloatingPillState extends State<DraggableFloatingPill>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Symbols.gpp_maybe_rounded, fill: _isExpanded ? 1 : 0,
+                    Icon(
+                      Symbols.gpp_maybe_rounded,
+                      fill: _isExpanded ? 1 : 0,
                       size: 20,
                       color: contentColor,
                     ),

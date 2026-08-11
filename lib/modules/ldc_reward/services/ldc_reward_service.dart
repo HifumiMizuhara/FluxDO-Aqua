@@ -10,7 +10,8 @@ import '../models/reward_result.dart';
 /// LDC 打赏 API 服务
 /// 复用 DiscourseDio（含 CF 验证拦截器），通过 Basic Auth header 认证
 class LdcRewardService {
-  static const String _distributeUrl = 'https://credit.linux.do/epay/pay/distribute';
+  static const String _distributeUrl =
+      'https://credit.linux.do/epay/pay/distribute';
 
   /// 服务端错误消息可能的字段名（按优先级尝试）
   static const List<String> _errorMsgKeys = [
@@ -29,10 +30,11 @@ class LdcRewardService {
   final Dio _dio;
 
   LdcRewardService({required String clientId, required String clientSecret})
-      : _authHeader = 'Basic ${base64Encode(utf8.encode('$clientId:$clientSecret'))}',
-        _clientIdPrefix = clientId.substring(0, min(4, clientId.length)),
-        _clientSecretLen = clientSecret.length,
-        _dio = DiscourseDio.create();
+    : _authHeader =
+          'Basic ${base64Encode(utf8.encode('$clientId:$clientSecret'))}',
+      _clientIdPrefix = clientId.substring(0, min(4, clientId.length)),
+      _clientSecretLen = clientSecret.length,
+      _dio = DiscourseDio.create();
 
   /// 执行打赏
   Future<LdcRewardResult> distribute(LdcRewardRequest request) async {
@@ -49,7 +51,9 @@ class LdcRewardService {
       );
 
       if (response.statusCode == 200 && response.data is Map<String, dynamic>) {
-        return LdcRewardResult.fromResponse(response.data as Map<String, dynamic>);
+        return LdcRewardResult.fromResponse(
+          response.data as Map<String, dynamic>,
+        );
       }
 
       _logFailure(
@@ -57,7 +61,9 @@ class LdcRewardService {
         body: response.data,
         tradeNo: request.outTradeNo,
       );
-      return LdcRewardResult.error(S.current.reward_httpError(response.statusCode ?? 0));
+      return LdcRewardResult.error(
+        S.current.reward_httpError(response.statusCode ?? 0),
+      );
     } on DioException catch (e) {
       final status = e.response?.statusCode;
       final body = e.response?.data;
@@ -80,7 +86,9 @@ class LdcRewardService {
       if (status == 401) {
         return LdcRewardResult.error(S.current.reward_authFailed);
       }
-      return LdcRewardResult.error(S.current.reward_networkError(e.message ?? ''));
+      return LdcRewardResult.error(
+        S.current.reward_networkError(e.message ?? ''),
+      );
     } catch (e) {
       return LdcRewardResult.error(S.current.reward_unknownError(e.toString()));
     }
@@ -118,9 +126,12 @@ class LdcRewardService {
     required String tradeNo,
     String? dioMessage,
   }) {
-    final bodyStr = body is Map ? jsonEncode(body) : body?.toString() ?? '<null>';
-    final truncated =
-        bodyStr.length > 500 ? '${bodyStr.substring(0, 500)}…' : bodyStr;
+    final bodyStr = body is Map
+        ? jsonEncode(body)
+        : body?.toString() ?? '<null>';
+    final truncated = bodyStr.length > 500
+        ? '${bodyStr.substring(0, 500)}…'
+        : bodyStr;
     debugPrint(
       '[LdcReward] distribute failed | status=$status '
       'clientIdPrefix=$_clientIdPrefix*** secretLen=$_clientSecretLen '

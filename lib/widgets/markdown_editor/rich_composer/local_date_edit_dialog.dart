@@ -64,14 +64,15 @@ class _LocalDateEditDialogState extends State<_LocalDateEditDialog> {
     super.dispose();
   }
 
-  String get _dateStr => '${_date.year.toString().padLeft(4, '0')}-'
+  String get _dateStr =>
+      '${_date.year.toString().padLeft(4, '0')}-'
       '${_date.month.toString().padLeft(2, '0')}-'
       '${_date.day.toString().padLeft(2, '0')}';
 
   String? get _timeStr => _time == null
       ? null
       : '${_time!.hour.toString().padLeft(2, '0')}:'
-          '${_time!.minute.toString().padLeft(2, '0')}';
+            '${_time!.minute.toString().padLeft(2, '0')}';
 
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
@@ -105,8 +106,7 @@ class _LocalDateEditDialogState extends State<_LocalDateEditDialog> {
       countdown: _countdown,
       range: init?.range,
       // 编辑态显示文本:无服务端预渲染,拼本地可读串
-      fallbackText:
-          _timeStr == null ? _dateStr : '$_dateStr $_timeStr',
+      fallbackText: _timeStr == null ? _dateStr : '$_dateStr $_timeStr',
     );
   }
 
@@ -118,29 +118,31 @@ class _LocalDateEditDialogState extends State<_LocalDateEditDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                icon: const Icon(Icons.calendar_today_outlined, size: 16),
-                label: Text(_dateStr),
-                onPressed: _pickDate,
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.calendar_today_outlined, size: 16),
+                  label: Text(_dateStr),
+                  onPressed: _pickDate,
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: OutlinedButton.icon(
-                icon: const Icon(Icons.schedule_outlined, size: 16),
-                label: Text(_timeStr ?? '全天'),
-                onPressed: _pickTime,
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.schedule_outlined, size: 16),
+                  label: Text(_timeStr ?? '全天'),
+                  onPressed: _pickTime,
+                ),
               ),
-            ),
-            if (_time != null)
-              IconButton(
-                tooltip: '清除时间',
-                icon: const Icon(Icons.close, size: 16),
-                onPressed: () => setState(() => _time = null),
-              ),
-          ]),
+              if (_time != null)
+                IconButton(
+                  tooltip: '清除时间',
+                  icon: const Icon(Icons.close, size: 16),
+                  onPressed: () => setState(() => _time = null),
+                ),
+            ],
+          ),
           const SizedBox(height: 12),
           TextField(
             controller: _timezoneController,

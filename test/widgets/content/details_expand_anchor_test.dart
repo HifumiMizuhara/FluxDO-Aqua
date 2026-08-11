@@ -79,7 +79,8 @@ void main() {
       expect(
         (now.dy - before.dy).abs(),
         lessThan(1.0),
-        reason: 'inBeforeRegion=$inBeforeRegion 第 $i 帧 header 漂移 '
+        reason:
+            'inBeforeRegion=$inBeforeRegion 第 $i 帧 header 漂移 '
             '${(now.dy - before.dy).toStringAsFixed(1)}px',
       );
     }
@@ -89,13 +90,13 @@ void main() {
     await run(tester, inBeforeRegion: false);
   });
 
-  testWidgets('details 在 before-center(reverse)区展开,header 原地不动',
-      (tester) async {
+  testWidgets('details 在 before-center(reverse)区展开,header 原地不动', (
+    tester,
+  ) async {
     await run(tester, inBeforeRegion: true);
   });
 
-  testWidgets('未注入 hook 时 reverse 区展开会顶出 header(现状基线)',
-      (tester) async {
+  testWidgets('未注入 hook 时 reverse 区展开会顶出 header(现状基线)', (tester) async {
     FoldShiftHook.onFrame = null;
     final centerKey = UniqueKey();
     await tester.pumpWidget(

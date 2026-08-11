@@ -144,8 +144,7 @@ class EmojiPopoverController with ChangeNotifier, WidgetsBindingObserver {
     if (anchorBox == null || !anchorBox.attached) {
       return const SizedBox.shrink();
     }
-    final anchorRect =
-        anchorBox.localToGlobal(Offset.zero) & anchorBox.size;
+    final anchorRect = anchorBox.localToGlobal(Offset.zero) & anchorBox.size;
     final screenSize = MediaQuery.sizeOf(context);
     final viewPadding = MediaQuery.viewPaddingOf(context);
 
@@ -157,9 +156,9 @@ class EmojiPopoverController with ChangeNotifier, WidgetsBindingObserver {
 
     // 上/下翻转:优先上方(按钮在编辑器工具栏,弹上方不遮编辑区),
     // 两侧都不足取大侧并缩高,防窗口极矮 overflow
-    final spaceAbove =
-        anchorRect.top - viewPadding.top - _kPopoverMargin * 2;
-    final spaceBelow = screenSize.height -
+    final spaceAbove = anchorRect.top - viewPadding.top - _kPopoverMargin * 2;
+    final spaceBelow =
+        screenSize.height -
         viewPadding.bottom -
         anchorRect.bottom -
         _kPopoverMargin * 2;
@@ -217,17 +216,13 @@ class EmojiPopoverController with ChangeNotifier, WidgetsBindingObserver {
                 // 比 Material elevation 的默认投影轻盈(桌面弹层观感)
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(
-                      alpha: isDark ? 0.45 : 0.14,
-                    ),
+                    color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.14),
                     blurRadius: 32,
                     spreadRadius: -4,
                     offset: const Offset(0, 12),
                   ),
                   BoxShadow(
-                    color: Colors.black.withValues(
-                      alpha: isDark ? 0.30 : 0.08,
-                    ),
+                    color: Colors.black.withValues(alpha: isDark ? 0.30 : 0.08),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -244,10 +239,7 @@ class EmojiPopoverController with ChangeNotifier, WidgetsBindingObserver {
                 ),
               ),
               // Overlay 里没有 Material 祖先,面板内 InkWell 需要
-              child: Material(
-                type: MaterialType.transparency,
-                child: panel,
-              ),
+              child: Material(type: MaterialType.transparency, child: panel),
             ),
           ),
         ),
@@ -289,8 +281,10 @@ class _PopoverShellState extends State<_PopoverShell>
     curve: Curves.easeOutCubic,
     reverseCurve: Curves.easeInCubic,
   );
-  late final Animation<double> _scale =
-      Tween<double>(begin: 0.94, end: 1.0).animate(_scaleCurve);
+  late final Animation<double> _scale = Tween<double>(
+    begin: 0.94,
+    end: 1.0,
+  ).animate(_scaleCurve);
 
   @override
   void initState() {

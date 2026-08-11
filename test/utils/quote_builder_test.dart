@@ -37,10 +37,7 @@ void main() {
       postNumber: 3,
       topicId: 42,
     );
-    expect(
-      quote,
-      startsWith('[quote="张三, post:3, topic:42, username:sam"]\n'),
-    );
+    expect(quote, startsWith('[quote="张三, post:3, topic:42, username:sam"]\n'));
   });
 
   test('显示名里的引号字符被剥离,不产出非法 bbcode', () {
@@ -53,7 +50,9 @@ void main() {
     );
     expect(
       quote,
-      startsWith('[quote="He said hi 和 中文引号, post:3, topic:42, username:sam"]\n'),
+      startsWith(
+        '[quote="He said hi 和 中文引号, post:3, topic:42, username:sam"]\n',
+      ),
     );
   });
 

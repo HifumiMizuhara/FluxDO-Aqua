@@ -25,7 +25,9 @@ import 'package:flutter/widgets.dart';
 const double _kMinFlingVelocity = 1.0; // Screen widths per second.
 
 // The duration it takes for a dropped swipe page animation to complete.
-const Duration _kDroppedSwipePageAnimationDuration = Duration(milliseconds: 350);
+const Duration _kDroppedSwipePageAnimationDuration = Duration(
+  milliseconds: 350,
+);
 
 /// 全屏侧滑返回装饰器:转场视觉完全委托 [inner],仅在转场树里追加一个
 /// 覆盖整页的 iOS 式返回手势探测器。
@@ -40,7 +42,8 @@ class FullscreenSwipeBackTransitionsBuilder extends PageTransitionsBuilder {
   final PageTransitionsBuilder inner;
 
   @override
-  DelegatedTransitionBuilder? get delegatedTransition => inner.delegatedTransition;
+  DelegatedTransitionBuilder? get delegatedTransition =>
+      inner.delegatedTransition;
 
   @override
   Duration get transitionDuration => inner.transitionDuration;
@@ -58,7 +61,13 @@ class FullscreenSwipeBackTransitionsBuilder extends PageTransitionsBuilder {
   ) {
     // 竖向弹出的 fullscreenDialog 不挂水平返回手势(官方 Cupertino 同约定)。
     if (route.fullscreenDialog) {
-      return inner.buildTransitions(route, context, animation, secondaryAnimation, child);
+      return inner.buildTransitions(
+        route,
+        context,
+        animation,
+        secondaryAnimation,
+        child,
+      );
     }
     return inner.buildTransitions(
       route,
@@ -169,7 +178,9 @@ class _FullscreenBackGestureDetectorState<T>
     assert(mounted);
     assert(_backGestureController != null);
     _backGestureController!.dragEnd(
-      _convertToLogical(details.velocity.pixelsPerSecond.dx / context.size!.width),
+      _convertToLogical(
+        details.velocity.pixelsPerSecond.dx / context.size!.width,
+      ),
     );
     _backGestureController = null;
   }

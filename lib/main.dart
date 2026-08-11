@@ -379,7 +379,7 @@ Future<void> main() async {
       await RhttpSettingsService.instance.forceDisable();
     }
   } catch (e) {
-    debugPrint('[rhttp] 初始化异常: $e');
+    debugPrint('[rhttp] initialization exception: $e');
     await RhttpSettingsService.instance.forceDisable();
   }
 
@@ -1286,7 +1286,7 @@ class _MainPageState extends ConsumerState<MainPage>
       unawaited(ConnectivityService().check());
       unawaited(_checkClipboardTopicLink());
     } catch (e) {
-      debugPrint('[MainPage] 恢复前台失败: $e');
+      debugPrint('[MainPage] resumeforegroundfailed: $e');
     } finally {
       BrowserTrustCoordinator.instance.resumeFromBackground(reason: 'resume');
     }
@@ -1536,74 +1536,74 @@ class _MainPageState extends ConsumerState<MainPage>
       valueListenable: NotificationQuickPanel.visible,
       builder: (context, notificationPanelVisible, _) =>
           ValueListenableBuilder<bool>(
-        // 平行视界投影态(窄屏详情全宽盖在 tab 体内)开着时返回由
-        // PaneProjectionBackScope 消费,根层完全让位:不弹退出 toast。
-        valueListenable: PaneProjectionBackScope.hasActiveProjection,
-        builder: (context, paneProjectionOpen, _) => PopScope(
-          canPop:
-              routeCanPopInternally ||
-              (!notificationPanelVisible &&
-                  !paneProjectionOpen &&
-                  !requireDoubleBackToExit),
-          onPopInvokedWithResult: (bool didPop, dynamic result) {
-            if (didPop) return;
-            // 分类侧栏通过 LocalHistoryEntry 消费返回；这里保留兜底，覆盖
-            // 抽屉正在收尾动画等 LocalHistory 尚未同步的短暂状态。
-            if (CategoryDrawerHost.isOpen) {
-              CategoryDrawerHost.close();
-              return;
-            }
-            if (NotificationQuickPanel.isVisible) {
-              NotificationQuickPanel.dismiss();
-              return;
-            }
-            // 投影态:PaneProjectionBackScope 的 PopEntry 自己消费本次
-            // 返回(关投影层),根层不做双击退出。
-            if (PaneProjectionBackScope.hasActiveProjection.value) {
-              return;
-            }
-            if (requireDoubleBackToExit) {
-              if (_backExitGuard.shouldExit()) {
-                SystemNavigator.pop();
-              } else {
-                ToastService.showInfo(S.current.toast_pressAgainToExit);
-              }
-            }
-          },
-          child: AdaptiveScaffold(
-            selectedIndex: selectedBottomIndex,
-            onDestinationSelected: _onDestinationSelected,
-            destinations: destinations,
-            railBottomLeading: (user != null && !hasNotificationEntry)
-                ? const NotificationIconButton()
-                : null,
-            hideNavigationRail: hideNavigationRail,
-            // 投影态底栏隐藏:详情全宽盖在 tab 体内,底栏还留着会像
-            // "详情页悬在 tab 骨架上";合成路由时代盖住一切,投影态
-            // 用显式谓词达成同样观感。
-            hideBottomNavigation: paneProjectionOpen,
-            body: IndexedStack(
-              index: safePageIndex,
-              children: [
-                for (int i = 0; i < pageEntries.length; i++)
-                  KeyedSubtree(
-                    key: ValueKey('nav-entry-${pageEntries[i].id}'),
-                    child: TickerMode(
-                      enabled: safePageIndex == i,
-                      child: ExcludeFocus(
-                        excluding: safePageIndex != i,
-                        child: pageEntries[i].pageBuilder!(
-                          context,
-                          safePageIndex == i,
+            // 平行视界投影态(窄屏详情全宽盖在 tab 体内)开着时返回由
+            // PaneProjectionBackScope 消费,根层完全让位:不弹退出 toast。
+            valueListenable: PaneProjectionBackScope.hasActiveProjection,
+            builder: (context, paneProjectionOpen, _) => PopScope(
+              canPop:
+                  routeCanPopInternally ||
+                  (!notificationPanelVisible &&
+                      !paneProjectionOpen &&
+                      !requireDoubleBackToExit),
+              onPopInvokedWithResult: (bool didPop, dynamic result) {
+                if (didPop) return;
+                // 分类侧栏通过 LocalHistoryEntry 消费返回；这里保留兜底，覆盖
+                // 抽屉正在收尾动画等 LocalHistory 尚未同步的短暂状态。
+                if (CategoryDrawerHost.isOpen) {
+                  CategoryDrawerHost.close();
+                  return;
+                }
+                if (NotificationQuickPanel.isVisible) {
+                  NotificationQuickPanel.dismiss();
+                  return;
+                }
+                // 投影态:PaneProjectionBackScope 的 PopEntry 自己消费本次
+                // 返回(关投影层),根层不做双击退出。
+                if (PaneProjectionBackScope.hasActiveProjection.value) {
+                  return;
+                }
+                if (requireDoubleBackToExit) {
+                  if (_backExitGuard.shouldExit()) {
+                    SystemNavigator.pop();
+                  } else {
+                    ToastService.showInfo(S.current.toast_pressAgainToExit);
+                  }
+                }
+              },
+              child: AdaptiveScaffold(
+                selectedIndex: selectedBottomIndex,
+                onDestinationSelected: _onDestinationSelected,
+                destinations: destinations,
+                railBottomLeading: (user != null && !hasNotificationEntry)
+                    ? const NotificationIconButton()
+                    : null,
+                hideNavigationRail: hideNavigationRail,
+                // 投影态底栏隐藏:详情全宽盖在 tab 体内,底栏还留着会像
+                // "详情页悬在 tab 骨架上";合成路由时代盖住一切,投影态
+                // 用显式谓词达成同样观感。
+                hideBottomNavigation: paneProjectionOpen,
+                body: IndexedStack(
+                  index: safePageIndex,
+                  children: [
+                    for (int i = 0; i < pageEntries.length; i++)
+                      KeyedSubtree(
+                        key: ValueKey('nav-entry-${pageEntries[i].id}'),
+                        child: TickerMode(
+                          enabled: safePageIndex == i,
+                          child: ExcludeFocus(
+                            excluding: safePageIndex != i,
+                            child: pageEntries[i].pageBuilder!(
+                              context,
+                              safePageIndex == i,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-              ],
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
-      ),
     );
 
     // 桌面端需要 Focus 以接收全局快捷键

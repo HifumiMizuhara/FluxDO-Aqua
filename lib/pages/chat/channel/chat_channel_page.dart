@@ -1405,4 +1405,3 @@ class _ChatChannelPageState extends ConsumerState<ChatChannelPage>
     return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 }
-

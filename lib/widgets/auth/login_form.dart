@@ -19,7 +19,8 @@ class LoginForm extends StatefulWidget {
     required String identifier,
     required String password,
     required bool rememberCredentials,
-  }) onSubmit;
+  })
+  onSubmit;
 
   /// 忘记密码点击 (一般跳 webview)。
   final VoidCallback? onForgotPassword;

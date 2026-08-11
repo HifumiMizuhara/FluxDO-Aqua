@@ -36,8 +36,7 @@ enum LogTypeFilter {
       LogTypeFilter.general => type == 'general',
       LogTypeFilter.request => type == 'request',
       LogTypeFilter.lifecycle => type == 'lifecycle',
-      LogTypeFilter.cookie =>
-        type == 'cookie_trace' || type == 'cookie_engine',
+      LogTypeFilter.cookie => type == 'cookie_trace' || type == 'cookie_engine',
       LogTypeFilter.network => type == 'network',
       LogTypeFilter.cfChallenge => type == 'cf_challenge',
       LogTypeFilter.auth => type == 'auth',
@@ -226,7 +225,7 @@ class _AppLogsPageState extends State<AppLogsPage> {
       if (!mounted) return;
 
       final buf = StringBuffer()
-        ..writeln('## 设备信息')
+        ..writeln('## Device information')
         ..writeln('```')
         ..writeln(deviceInfo)
         ..writeln('```')
@@ -235,20 +234,20 @@ class _AppLogsPageState extends State<AppLogsPage> {
       // 完整日志附件
       if (attachmentMarkdown != null) {
         buf
-          ..writeln('## 完整日志')
+          ..writeln('## Full log')
           ..writeln(attachmentMarkdown)
           ..writeln();
       }
 
       // 行内日志摘要（截断避免超长）
-      buf.writeln('## 日志摘要');
+      buf.writeln('## Log summary');
       buf.writeln('```');
       const maxLogLength = 30000;
       if (logContent.length > maxLogLength) {
-        buf.writeln('... (已截断，仅保留最近日志)');
+        buf.writeln('... (truncated; keeping recent entries only)');
         buf.writeln(logContent.substring(logContent.length - maxLogLength));
       } else {
-        buf.writeln(logContent.isEmpty ? '(无日志)' : logContent);
+        buf.writeln(logContent.isEmpty ? '(no logs)' : logContent);
       }
       buf.writeln('```');
 
@@ -285,8 +284,7 @@ class _AppLogsPageState extends State<AppLogsPage> {
     final scheme = Theme.of(context).colorScheme;
     final level = entry['level']?.toString() ?? 'error';
     final statusCode = entry['statusCode'];
-    if (level == 'error' ||
-        (statusCode is int && statusCode >= 400)) {
+    if (level == 'error' || (statusCode is int && statusCode >= 400)) {
       return scheme.error;
     }
     if (level == 'warning') return Colors.orange;
@@ -411,10 +409,13 @@ class _AppLogsPageState extends State<AppLogsPage> {
                 final detail = StringBuffer()
                   ..writeln('${S.current.appLogs_time}: $timestamp')
                   ..writeln('${S.current.appLogs_event}: $eventLabel');
-                if (appVersion != null) detail.writeln('${S.current.appLogs_version}: $appVersion');
+                if (appVersion != null)
+                  detail.writeln('${S.current.appLogs_version}: $appVersion');
                 detail.writeln('${S.current.appLogs_message}: $message');
-                if (username != null) detail.writeln('${S.current.appLogs_user}: $username');
-                if (reason != null) detail.writeln('${S.current.appLogs_reason}: $reason');
+                if (username != null)
+                  detail.writeln('${S.current.appLogs_user}: $username');
+                if (reason != null)
+                  detail.writeln('${S.current.appLogs_reason}: $reason');
                 Clipboard.setData(ClipboardData(text: detail.toString()));
                 ToastService.showSuccess(S.current.common_copiedToClipboard);
               },
@@ -427,11 +428,14 @@ class _AppLogsPageState extends State<AppLogsPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               _buildDetailField(context.l10n.appLogs_time, timestamp),
-              if (appVersion != null) _buildDetailField(context.l10n.appLogs_version, appVersion),
+              if (appVersion != null)
+                _buildDetailField(context.l10n.appLogs_version, appVersion),
               _buildDetailField(context.l10n.appLogs_event, eventLabel),
               _buildDetailField(context.l10n.appLogs_message, message),
-              if (username != null) _buildDetailField(context.l10n.appLogs_user, username),
-              if (reason != null) _buildDetailField(context.l10n.appLogs_reason, reason),
+              if (username != null)
+                _buildDetailField(context.l10n.appLogs_user, username),
+              if (reason != null)
+                _buildDetailField(context.l10n.appLogs_reason, reason),
             ],
           ),
         ),
@@ -476,13 +480,16 @@ class _AppLogsPageState extends State<AppLogsPage> {
                 final detail = StringBuffer()
                   ..writeln('${S.current.appLogs_time}: $timestamp')
                   ..writeln('${S.current.appLogs_level}: $level');
-                if (appVersion != null) detail.writeln('${S.current.appLogs_version}: $appVersion');
-                if (tag != null) detail.writeln('${S.current.appLogs_tag}: $tag');
+                if (appVersion != null)
+                  detail.writeln('${S.current.appLogs_version}: $appVersion');
+                if (tag != null)
+                  detail.writeln('${S.current.appLogs_tag}: $tag');
                 detail.writeln('${S.current.appLogs_message}: $message');
                 if (error != null && error != message) {
                   detail.writeln('${S.current.appLogs_error}: $error');
                 }
-                if (errorType != null) detail.writeln('${S.current.appLogs_type}: $errorType');
+                if (errorType != null)
+                  detail.writeln('${S.current.appLogs_type}: $errorType');
                 for (final e in extras.entries) {
                   detail.writeln('${e.key}: ${e.value}');
                 }
@@ -504,11 +511,13 @@ class _AppLogsPageState extends State<AppLogsPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               _buildDetailField(context.l10n.appLogs_time, timestamp),
-              if (appVersion != null) _buildDetailField(context.l10n.appLogs_version, appVersion),
+              if (appVersion != null)
+                _buildDetailField(context.l10n.appLogs_version, appVersion),
               _buildDetailField(context.l10n.appLogs_message, message),
               if (error != null && error != message)
                 _buildDetailField(context.l10n.appLogs_error, error),
-              if (errorType != null) _buildDetailField(context.l10n.appLogs_errorType, errorType),
+              if (errorType != null)
+                _buildDetailField(context.l10n.appLogs_errorType, errorType),
               if (extras.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Text(
@@ -534,9 +543,9 @@ class _AppLogsPageState extends State<AppLogsPage> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .surfaceContainerHighest,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: SelectableText(
@@ -590,9 +599,14 @@ class _AppLogsPageState extends State<AppLogsPage> {
                   ..writeln('${S.current.appLogs_method}: $method')
                   ..writeln('URL: $url')
                   ..writeln('${S.current.appLogs_statusCode}: $statusCode');
-                if (duration != null) detail.writeln('${S.current.appLogs_duration}: ${duration}ms');
+                if (duration != null)
+                  detail.writeln(
+                    '${S.current.appLogs_duration}: ${duration}ms',
+                  );
                 if (adapter != null) {
-                  detail.writeln('${S.current.networkAdapter_adapterType}: $adapter');
+                  detail.writeln(
+                    '${S.current.networkAdapter_adapterType}: $adapter',
+                  );
                 }
                 detail.writeln('${S.current.appLogs_level}: $level');
                 for (final e in extras.entries) {
@@ -614,13 +628,21 @@ class _AppLogsPageState extends State<AppLogsPage> {
               _buildDetailField('URL', url),
               _buildDetailField(context.l10n.appLogs_statusCode, statusCode),
               if (duration != null)
-                _buildDetailField(context.l10n.appLogs_duration, '${duration}ms'),
+                _buildDetailField(
+                  context.l10n.appLogs_duration,
+                  '${duration}ms',
+                ),
               if (adapter != null)
                 _buildDetailField(
                   context.l10n.networkAdapter_adapterType,
                   adapter,
                 ),
-              _buildDetailField(context.l10n.appLogs_level, level == 'warning' ? context.l10n.common_loadFailed : context.l10n.common_done),
+              _buildDetailField(
+                context.l10n.appLogs_level,
+                level == 'warning'
+                    ? context.l10n.common_loadFailed
+                    : context.l10n.common_done,
+              ),
               if (extras.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Text(
@@ -659,10 +681,7 @@ class _AppLogsPageState extends State<AppLogsPage> {
             ),
           ),
           const SizedBox(height: 2),
-          SelectableText(
-            value,
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
+          SelectableText(value, style: Theme.of(context).textTheme.bodyMedium),
         ],
       ),
     );
@@ -845,10 +864,7 @@ class _AppLogsPageState extends State<AppLogsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: _buildAppBar(),
-      body: _buildBody(),
-    );
+    return Scaffold(appBar: _buildAppBar(), body: _buildBody());
   }
 
   Widget _buildBody() {
@@ -883,10 +899,9 @@ class _AppLogsPageState extends State<AppLogsPage> {
         _buildFilterBar(),
         Divider(
           height: 1,
-          color: Theme.of(context)
-              .colorScheme
-              .outlineVariant
-              .withValues(alpha: 0.3),
+          color: Theme.of(
+            context,
+          ).colorScheme.outlineVariant.withValues(alpha: 0.3),
         ),
         // 日志列表
         Expanded(
@@ -1030,8 +1045,8 @@ class _AppLogsPageState extends State<AppLogsPage> {
       final statusColor = statusCode >= 400
           ? scheme.error
           : statusCode >= 300
-              ? Colors.orange
-              : Colors.green;
+          ? Colors.orange
+          : Colors.green;
       final rest = subtitle.startsWith('$statusCode')
           ? subtitle.substring('$statusCode'.length)
           : ' $subtitle';
@@ -1200,8 +1215,9 @@ class _AppLogsPageState extends State<AppLogsPage> {
           border: active
               ? null
               : Border.all(
-                  color:
-                      theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+                  color: theme.colorScheme.outlineVariant.withValues(
+                    alpha: 0.4,
+                  ),
                 ),
           borderRadius: BorderRadius.circular(8),
         ),

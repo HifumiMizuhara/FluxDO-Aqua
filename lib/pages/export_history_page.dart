@@ -341,8 +341,9 @@ class _ExportEntryCard extends StatelessWidget {
                           Text(TimeUtils.formatRelativeTime(entry.createdAt)),
                           if (entry.postCount != null)
                             Text(
-                              context.l10n
-                                  .exportHistory_postCount(entry.postCount!),
+                              context.l10n.exportHistory_postCount(
+                                entry.postCount!,
+                              ),
                             ),
                           if (entry.size != null && entry.size! > 0)
                             Text(_formatSize(entry.size!)),
@@ -393,9 +394,10 @@ class _ExportEntryCard extends StatelessWidget {
 
   IconData get _trailingIcon => switch (entry.targetType) {
     ExportHistoryTarget.notion => Symbols.north_east_rounded,
-    ExportHistoryTarget.localFile => PlatformUtils.isDesktop
-        ? Symbols.folder_open_rounded
-        : Symbols.ios_share_rounded,
+    ExportHistoryTarget.localFile =>
+      PlatformUtils.isDesktop
+          ? Symbols.folder_open_rounded
+          : Symbols.ios_share_rounded,
   };
 
   String _formatSize(int bytes) {

@@ -19,11 +19,15 @@ class GithubOneboxBuilder {
     final url = extractUrl(element);
 
     // 提取仓库信息
-    final h3Element = element.querySelector('h3') ?? element.querySelector('h4');
+    final h3Element =
+        element.querySelector('h3') ?? element.querySelector('h4');
     final titleLink = h3Element?.querySelector('a');
 
     // 提取点击数
-    final clickCount = extractClickCountFromOnebox(element, linkCounts: linkCounts);
+    final clickCount = extractClickCountFromOnebox(
+      element,
+      linkCounts: linkCounts,
+    );
 
     final repoName = titleLink?.text ?? '';
 
@@ -36,8 +40,8 @@ class GithubOneboxBuilder {
     final stats = _extractGithubStats(statsRow);
 
     // 提取缩略图/头像
-    final imgElement = element.querySelector('img.thumbnail') ??
-        element.querySelector('img');
+    final imgElement =
+        element.querySelector('img.thumbnail') ?? element.querySelector('img');
     final imageUrl = imgElement?.attributes['src'] ?? '';
 
     // 提取语言信息
@@ -147,11 +151,15 @@ class GithubOneboxBuilder {
       final isDark = theme.brightness == Brightness.dark;
 
       // 提取文件信息 - 可能是 h3 或 h4
-      final titleElement = element.querySelector('h4') ?? element.querySelector('h3');
+      final titleElement =
+          element.querySelector('h4') ?? element.querySelector('h3');
       final titleLink = titleElement?.querySelector('a');
 
       // 提取点击数
-      final clickCount = extractClickCountFromOnebox(element, linkCounts: linkCounts);
+      final clickCount = extractClickCountFromOnebox(
+        element,
+        linkCounts: linkCounts,
+      );
 
       final fileName = titleLink?.text?.trim() ?? '';
 
@@ -179,10 +187,12 @@ class GithubOneboxBuilder {
       // 从文件名检测语言
       final language = _detectLanguageFromFileName(fileName);
 
-      final bgColor =
-          isDark ? const Color(0xff282a36) : const Color(0xfff6f8fa);
-      final borderColor =
-          theme.colorScheme.outlineVariant.withValues(alpha: 0.3);
+      final bgColor = isDark
+          ? const Color(0xff282a36)
+          : const Color(0xfff6f8fa);
+      final borderColor = theme.colorScheme.outlineVariant.withValues(
+        alpha: 0.3,
+      );
 
       return Container(
         margin: const EdgeInsets.symmetric(vertical: 8),
@@ -199,15 +209,18 @@ class GithubOneboxBuilder {
             children: [
               // 文件头
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: isDark
                       ? Colors.white.withValues(alpha: 0.05)
                       : Colors.black.withValues(alpha: 0.03),
                   border: Border(bottom: BorderSide(color: borderColor)),
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(7)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(7),
+                  ),
                 ),
                 child: Row(
                   children: [
@@ -290,7 +303,10 @@ class GithubOneboxBuilder {
                 // 截断提示
                 if (_isCodeTruncated(codeText))
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       border: Border(top: BorderSide(color: borderColor)),
                     ),
@@ -338,11 +354,15 @@ class GithubOneboxBuilder {
     List<LinkCount>? linkCounts,
   }) {
     // 提取标题和描述
-    final h3Element = element.querySelector('h3') ?? element.querySelector('h4');
+    final h3Element =
+        element.querySelector('h3') ?? element.querySelector('h4');
     final titleLink = h3Element?.querySelector('a');
 
     // 提取点击数
-    final clickCount = extractClickCountFromOnebox(element, linkCounts: linkCounts);
+    final clickCount = extractClickCountFromOnebox(
+      element,
+      linkCounts: linkCounts,
+    );
 
     final title = titleLink?.text?.trim() ?? 'GitHub File';
 
@@ -446,16 +466,21 @@ class GithubOneboxBuilder {
     final url = extractUrl(element);
 
     // 提取标题
-    final h3Element = element.querySelector('h3') ?? element.querySelector('h4');
+    final h3Element =
+        element.querySelector('h3') ?? element.querySelector('h4');
     final titleLink = h3Element?.querySelector('a');
 
     // 提取点击数
-    final clickCount = extractClickCountFromOnebox(element, linkCounts: linkCounts);
+    final clickCount = extractClickCountFromOnebox(
+      element,
+      linkCounts: linkCounts,
+    );
 
     final title = titleLink?.text ?? '';
 
     // 提取状态
-    final statusElement = element.querySelector('.issue-state') ??
+    final statusElement =
+        element.querySelector('.issue-state') ??
         element.querySelector('.state');
     final statusText = statusElement?.text?.trim().toLowerCase() ?? '';
     final isOpen = statusText.contains('open');
@@ -465,12 +490,12 @@ class GithubOneboxBuilder {
     final issueNumber = _extractIssueNumber(url);
 
     // 提取作者和日期
-    final authorElement = element.querySelector('.author') ??
-        element.querySelector('.user');
+    final authorElement =
+        element.querySelector('.author') ?? element.querySelector('.user');
     final author = authorElement?.text?.trim() ?? '';
 
-    final dateElement = element.querySelector('.created-at') ??
-        element.querySelector('time');
+    final dateElement =
+        element.querySelector('.created-at') ?? element.querySelector('time');
     final date = dateElement?.text?.trim() ?? '';
 
     // 提取标签
@@ -592,17 +617,21 @@ class GithubOneboxBuilder {
     final url = extractUrl(element);
 
     // 提取标题
-    final h3Element = element.querySelector('h3') ?? element.querySelector('h4');
+    final h3Element =
+        element.querySelector('h3') ?? element.querySelector('h4');
     final titleLink = h3Element?.querySelector('a');
 
     // 提取点击数
-    final clickCount = extractClickCountFromOnebox(element, linkCounts: linkCounts);
+    final clickCount = extractClickCountFromOnebox(
+      element,
+      linkCounts: linkCounts,
+    );
 
     final title = titleLink?.text ?? '';
 
     // 提取状态
-    final statusElement = element.querySelector('.pr-state') ??
-        element.querySelector('.state');
+    final statusElement =
+        element.querySelector('.pr-state') ?? element.querySelector('.state');
     final statusText = statusElement?.text?.trim().toLowerCase() ?? '';
     final isOpen = statusText.contains('open');
     final isMerged = statusText.contains('merged');
@@ -612,7 +641,8 @@ class GithubOneboxBuilder {
     final prNumber = _extractIssueNumber(url);
 
     // 提取分支信息
-    final branchInfo = element.querySelector('.branch-info') ??
+    final branchInfo =
+        element.querySelector('.branch-info') ??
         element.querySelector('.base-ref');
     final branches = branchInfo?.text?.trim() ?? '';
 
@@ -623,8 +653,8 @@ class GithubOneboxBuilder {
     final deletions = deletionsElement?.text?.trim();
 
     // 提取作者和日期
-    final authorElement = element.querySelector('.author') ??
-        element.querySelector('.user');
+    final authorElement =
+        element.querySelector('.author') ?? element.querySelector('.user');
     final author = authorElement?.text?.trim() ?? '';
 
     final dateElement = element.querySelector('time');
@@ -753,13 +783,17 @@ class GithubOneboxBuilder {
     final url = extractUrl(element);
 
     // 提取点击数
-    final clickCount = extractClickCountFromOnebox(element, linkCounts: linkCounts);
+    final clickCount = extractClickCountFromOnebox(
+      element,
+      linkCounts: linkCounts,
+    );
 
     // 提取评论者信息 - h4 内第一个 a 是评论者
     final h4Element = element.querySelector('h4');
     final commentAuthorLink = h4Element?.querySelector('a');
     final authorName = commentAuthorLink?.text?.trim() ?? '';
-    final authorAvatar = h4Element?.querySelector('img')?.attributes['src'] ?? '';
+    final authorAvatar =
+        h4Element?.querySelector('img')?.attributes['src'] ?? '';
 
     // 提取 PR/Issue 标题 - h4 内最后一个 a 是标题链接
     final allLinks = h4Element?.querySelectorAll('a');
@@ -772,7 +806,8 @@ class GithubOneboxBuilder {
     final branchElements = element.querySelectorAll('.branches code');
     String branches = '';
     if (branchElements != null && branchElements.length >= 2) {
-      branches = '${branchElements.first.text?.trim()} ← ${branchElements.last.text?.trim()}';
+      branches =
+          '${branchElements.first.text?.trim()} ← ${branchElements.last.text?.trim()}';
     } else if (branchElements != null && branchElements.length == 1) {
       branches = branchElements.first.text?.trim() ?? '';
     }
@@ -886,11 +921,15 @@ class GithubOneboxBuilder {
   }) {
     final url = extractUrl(element);
 
-    final h3Element = element.querySelector('h3') ?? element.querySelector('h4');
+    final h3Element =
+        element.querySelector('h3') ?? element.querySelector('h4');
     final titleLink = h3Element?.querySelector('a');
 
     // 提取点击数
-    final clickCount = extractClickCountFromOnebox(element, linkCounts: linkCounts);
+    final clickCount = extractClickCountFromOnebox(
+      element,
+      linkCounts: linkCounts,
+    );
 
     final message = titleLink?.text ?? '';
 
@@ -898,8 +937,8 @@ class GithubOneboxBuilder {
     final commitHash = _extractCommitHash(url);
 
     // 提取作者
-    final authorElement = element.querySelector('.author') ??
-        element.querySelector('.user');
+    final authorElement =
+        element.querySelector('.author') ?? element.querySelector('.user');
     final author = authorElement?.text?.trim() ?? '';
 
     // 提取日期
@@ -917,11 +956,7 @@ class GithubOneboxBuilder {
         children: [
           // 头像
           if (avatarUrl.isNotEmpty) ...[
-            OneboxAvatar(
-              imageUrl: avatarUrl,
-              size: 36,
-              borderRadius: 18,
-            ),
+            OneboxAvatar(imageUrl: avatarUrl, size: 36, borderRadius: 18),
             const SizedBox(width: 12),
           ],
           Expanded(
@@ -944,7 +979,9 @@ class GithubOneboxBuilder {
                     if (commitHash != null) ...[
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: theme.colorScheme.surfaceContainerHigh,
                           borderRadius: BorderRadius.circular(4),
@@ -994,11 +1031,15 @@ class GithubOneboxBuilder {
     final isDark = theme.brightness == Brightness.dark;
 
     // 提取 Gist 信息
-    final h3Element = element.querySelector('h3') ?? element.querySelector('h4');
+    final h3Element =
+        element.querySelector('h3') ?? element.querySelector('h4');
     final titleLink = h3Element?.querySelector('a');
 
     // 提取点击数
-    final clickCount = extractClickCountFromOnebox(element, linkCounts: linkCounts);
+    final clickCount = extractClickCountFromOnebox(
+      element,
+      linkCounts: linkCounts,
+    );
 
     final title = titleLink?.text ?? 'Gist';
 
@@ -1007,11 +1048,11 @@ class GithubOneboxBuilder {
     final description = descElement?.text ?? '';
 
     // 提取代码预览
-    final codeElement = element.querySelector('pre') ?? element.querySelector('code');
+    final codeElement =
+        element.querySelector('pre') ?? element.querySelector('code');
     final codeText = codeElement?.text ?? '';
 
-    final bgColor =
-        isDark ? const Color(0xff282a36) : const Color(0xfff6f8fa);
+    final bgColor = isDark ? const Color(0xff282a36) : const Color(0xfff6f8fa);
     final borderColor = theme.colorScheme.outlineVariant.withValues(alpha: 0.3);
 
     return Container(
@@ -1035,8 +1076,9 @@ class GithubOneboxBuilder {
                     ? Colors.white.withValues(alpha: 0.05)
                     : Colors.black.withValues(alpha: 0.03),
                 border: Border(bottom: BorderSide(color: borderColor)),
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(7)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(7),
+                ),
               ),
               child: Row(
                 children: [
@@ -1102,11 +1144,15 @@ class GithubOneboxBuilder {
   }) {
     final url = extractUrl(element);
 
-    final h3Element = element.querySelector('h3') ?? element.querySelector('h4');
+    final h3Element =
+        element.querySelector('h3') ?? element.querySelector('h4');
     final titleLink = h3Element?.querySelector('a');
 
     // 提取点击数
-    final clickCount = extractClickCountFromOnebox(element, linkCounts: linkCounts);
+    final clickCount = extractClickCountFromOnebox(
+      element,
+      linkCounts: linkCounts,
+    );
 
     final folderName = titleLink?.text ?? '';
 
@@ -1115,7 +1161,8 @@ class GithubOneboxBuilder {
     final description = descElement?.text ?? '';
 
     // 提取文件列表
-    final fileElements = element.querySelectorAll('.github-file-item') +
+    final fileElements =
+        element.querySelectorAll('.github-file-item') +
         element.querySelectorAll('li');
     final files = <String>[];
     for (final file in fileElements) {
@@ -1133,7 +1180,11 @@ class GithubOneboxBuilder {
           // 文件夹名
           Row(
             children: [
-              const Icon(Symbols.folder_rounded, size: 20, color: Color(0xFF54aeff)),
+              const Icon(
+                Symbols.folder_rounded,
+                size: 20,
+                color: Color(0xFF54aeff),
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -1164,28 +1215,34 @@ class GithubOneboxBuilder {
           // 文件列表
           if (files.isNotEmpty) ...[
             const SizedBox(height: 8),
-            ...files.take(5).map((file) => Padding(
-                  padding: const EdgeInsets.only(bottom: 2),
-                  child: Row(
-                    children: [
-                      Icon(
-                        file.endsWith('/') ? Symbols.folder_rounded : Symbols.description_rounded,
-                        size: 14,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          file,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                          overflow: TextOverflow.ellipsis,
+            ...files
+                .take(5)
+                .map(
+                  (file) => Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Row(
+                      children: [
+                        Icon(
+                          file.endsWith('/')
+                              ? Symbols.folder_rounded
+                              : Symbols.description_rounded,
+                          size: 14,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            file,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                )),
+                ),
             if (files.length > 5)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
@@ -1213,21 +1270,29 @@ class GithubOneboxBuilder {
     final url = extractUrl(element);
 
     // 提取 workflow 信息
-    final h3Element = element.querySelector('h3') ?? element.querySelector('h4');
+    final h3Element =
+        element.querySelector('h3') ?? element.querySelector('h4');
     final titleLink = h3Element?.querySelector('a');
 
     // 提取点击数
-    final clickCount = extractClickCountFromOnebox(element, linkCounts: linkCounts);
+    final clickCount = extractClickCountFromOnebox(
+      element,
+      linkCounts: linkCounts,
+    );
 
     final workflowName = titleLink?.text ?? '';
 
     // 提取状态
-    final statusElement = element.querySelector('.workflow-status') ??
+    final statusElement =
+        element.querySelector('.workflow-status') ??
         element.querySelector('.status');
     final statusText = statusElement?.text?.trim().toLowerCase() ?? '';
-    final isSuccess = statusText.contains('success') || statusText.contains('completed');
-    final isFailed = statusText.contains('failed') || statusText.contains('failure');
-    final isRunning = statusText.contains('running') || statusText.contains('in_progress');
+    final isSuccess =
+        statusText.contains('success') || statusText.contains('completed');
+    final isFailed =
+        statusText.contains('failed') || statusText.contains('failure');
+    final isRunning =
+        statusText.contains('running') || statusText.contains('in_progress');
 
     // 提取运行信息
     final runInfo = element.querySelector('.run-info');
@@ -1336,28 +1401,43 @@ _GithubStats _extractGithubStats(dynamic statsRow) {
   final text = statsRow.text ?? '';
 
   // 匹配 star 数
-  final starMatch = RegExp(r'(\d+[\d,]*)\s*(stars?|⭐)', caseSensitive: false).firstMatch(text);
+  final starMatch = RegExp(
+    r'(\d+[\d,]*)\s*(stars?|⭐)',
+    caseSensitive: false,
+  ).firstMatch(text);
   if (starMatch != null) stars = starMatch.group(1);
 
   // 匹配 fork 数
-  final forkMatch = RegExp(r'(\d+[\d,]*)\s*(forks?|🍴)', caseSensitive: false).firstMatch(text);
+  final forkMatch = RegExp(
+    r'(\d+[\d,]*)\s*(forks?|🍴)',
+    caseSensitive: false,
+  ).firstMatch(text);
   if (forkMatch != null) forks = forkMatch.group(1);
 
   // 尝试从子元素中提取
-  final statElements = statsRow.querySelectorAll('.github-stat, .repo-stat, span');
+  final statElements = statsRow.querySelectorAll(
+    '.github-stat, .repo-stat, span',
+  );
   for (final stat in statElements) {
     final statText = stat.text?.trim() ?? '';
-    if (statText.contains('star') || stat.querySelector('svg.octicon-star') != null) {
+    if (statText.contains('star') ||
+        stat.querySelector('svg.octicon-star') != null) {
       final match = RegExp(r'(\d+[\d,]*)').firstMatch(statText);
       if (match != null) stars ??= match.group(1);
     }
-    if (statText.contains('fork') || stat.querySelector('svg.octicon-repo-forked') != null) {
+    if (statText.contains('fork') ||
+        stat.querySelector('svg.octicon-repo-forked') != null) {
       final match = RegExp(r'(\d+[\d,]*)').firstMatch(statText);
       if (match != null) forks ??= match.group(1);
     }
   }
 
-  return _GithubStats(stars: stars, forks: forks, watchers: watchers, issues: issues);
+  return _GithubStats(
+    stars: stars,
+    forks: forks,
+    watchers: watchers,
+    issues: issues,
+  );
 }
 
 String? _extractIssueNumber(String url) {
@@ -1372,7 +1452,9 @@ String? _extractCommitHash(String url) {
 }
 
 Color? _extractColorFromStyle(String style) {
-  final match = RegExp(r'background-color:\s*#([a-fA-F0-9]{6})').firstMatch(style);
+  final match = RegExp(
+    r'background-color:\s*#([a-fA-F0-9]{6})',
+  ).firstMatch(style);
   if (match != null) {
     final hex = match.group(1)!;
     return Color(int.parse('FF$hex', radix: 16));
@@ -1446,4 +1528,3 @@ Future<void> _launchUrl(BuildContext context, String url) async {
   if (url.isEmpty) return;
   await launchContentLink(context, url);
 }
-

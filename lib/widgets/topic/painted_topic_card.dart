@@ -244,8 +244,11 @@ class _RenderTopicCard extends RenderBox
       canvas.drawParagraph(icon, rect.topLeft + offset + l.titleOffset);
     }
     for (final (rect, url) in l.titleEmojis) {
-      final img = TopicCardImages.lookup(url, this,
-          bucket: BlobImageCache.emojiBucket);
+      final img = TopicCardImages.lookup(
+        url,
+        this,
+        bucket: BlobImageCache.emojiBucket,
+      );
       if (img != null) {
         canvas.drawImageRect(
           img,
@@ -267,35 +270,38 @@ class _RenderTopicCard extends RenderBox
       final avatarRect = l.avatarRect.shift(offset);
       final avatar = l.avatarUrl == null
           ? null
-          : TopicCardImages.lookup(l.avatarUrl!, this,
-              bucket: BlobImageCache.avatarBucket);
+          : TopicCardImages.lookup(
+              l.avatarUrl!,
+              this,
+              bucket: BlobImageCache.avatarBucket,
+            );
       if (avatar != null) {
         canvas.save();
         // linux.do 站点定制:个别账号头像方形化,画布直绘不走 SmartAvatar,
         // 得同一份 isSquareAvatarUrl 判断,不然图是方的、这里裁切还是圆的。
         final clipPath = isSquareAvatarUrl(l.avatarUrl)
-            ? (Path()
-                ..addRRect(
-                  RRect.fromRectAndRadius(
-                    avatarRect,
-                    Radius.circular(avatarRect.shortestSide * 0.1),
-                  ),
-                ))
+            ? (Path()..addRRect(
+                RRect.fromRectAndRadius(
+                  avatarRect,
+                  Radius.circular(avatarRect.shortestSide * 0.1),
+                ),
+              ))
             : (Path()..addOval(avatarRect));
         canvas.clipPath(clipPath);
         canvas.drawImageRect(
           avatar,
           Rect.fromLTWH(
-              0, 0, avatar.width.toDouble(), avatar.height.toDouble()),
+            0,
+            0,
+            avatar.width.toDouble(),
+            avatar.height.toDouble(),
+          ),
           avatarRect,
           Paint()..filterQuality = FilterQuality.low,
         );
         canvas.restore();
       } else {
-        canvas.drawOval(
-          avatarRect,
-          Paint()..color = const Color(0x14888888),
-        );
+        canvas.drawOval(avatarRect, Paint()..color = const Color(0x14888888));
       }
     }
 
@@ -395,7 +401,10 @@ class TopicCardImages {
   /// 空闲预解码(TopicCardPrewarmScope):无发起方 RenderObject,命中
   /// /在途都免费返回;miss 时登记空 waiter 集发起解码 —— 后续真实
   /// 挂载若在解码完成前 lookup,会并入同一份 waiter 正常收到补画。
-  static void prewarm(String url, {String bucket = BlobImageCache.avatarBucket}) {
+  static void prewarm(
+    String url, {
+    String bucket = BlobImageCache.avatarBucket,
+  }) {
     if (_images.containsKey(url) || _waiters.containsKey(url)) return;
     _waiters[url] = {};
     unawaited(_load(url, bucket));
@@ -410,20 +419,20 @@ class TopicCardImages {
       }
       final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
       // 头像显示 32dp、emoji ~19dp;96px 解码对两者都双倍富余
-      final codec =
-          await PaintingBinding.instance.instantiateImageCodecWithSize(
-        buffer,
-        getTargetSize: (w, h) {
-          if (w <= 96 && h <= 96) {
-            return ui.TargetImageSize(width: w, height: h);
-          }
-          final ratio = 96 / (w > h ? w : h);
-          return ui.TargetImageSize(
-            width: (w * ratio).round(),
-            height: (h * ratio).round(),
+      final codec = await PaintingBinding.instance
+          .instantiateImageCodecWithSize(
+            buffer,
+            getTargetSize: (w, h) {
+              if (w <= 96 && h <= 96) {
+                return ui.TargetImageSize(width: w, height: h);
+              }
+              final ratio = 96 / (w > h ? w : h);
+              return ui.TargetImageSize(
+                width: (w * ratio).round(),
+                height: (h * ratio).round(),
+              );
+            },
           );
-        },
-      );
       final frame = await codec.getNextFrame();
       codec.dispose();
       if (_images.length >= _cap) {

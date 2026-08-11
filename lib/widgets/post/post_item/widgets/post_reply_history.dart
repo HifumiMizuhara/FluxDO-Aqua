@@ -147,19 +147,20 @@ class PostReplyHistory extends StatelessWidget {
                                 child: SingleChildScrollView(
                                   physics: const NeverScrollableScrollPhysics(),
                                   // 回复历史预览:改用自研 FluxdoRender 只读渲染(关闭选区)
-                                  child: FluxdoRenderCallbacks.generic(
-                                    heroTagNamespace:
-                                        'reply_history_${replyPost.postNumber}',
-                                  ).render(
-                                    cookedHtml: replyPost.cooked,
-                                    baseTextStyle: theme.textTheme.bodySmall
-                                        ?.copyWith(
-                                          fontSize: 13 * contentFontScale,
-                                          height: 1.4,
-                                        ),
-                                    compact: true,
-                                    selectionEnabled: false,
-                                  ),
+                                  child:
+                                      FluxdoRenderCallbacks.generic(
+                                        heroTagNamespace:
+                                            'reply_history_${replyPost.postNumber}',
+                                      ).render(
+                                        cookedHtml: replyPost.cooked,
+                                        baseTextStyle: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              fontSize: 13 * contentFontScale,
+                                              height: 1.4,
+                                            ),
+                                        compact: true,
+                                        selectionEnabled: false,
+                                      ),
                                 ),
                               ),
                             ),

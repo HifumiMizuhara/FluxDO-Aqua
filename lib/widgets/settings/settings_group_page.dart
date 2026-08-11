@@ -114,9 +114,7 @@ class _SettingsGroupPageState extends ConsumerState<SettingsGroupPage> {
     }
 
     return SegmentedCardGroup(
-      children: [
-        for (final item in effectiveItems) _buildItem(theme, item),
-      ],
+      children: [for (final item in effectiveItems) _buildItem(theme, item)],
     );
   }
 

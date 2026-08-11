@@ -176,7 +176,9 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
                             return;
                           }
                         } catch (error) {
-                          debugPrint('[LdcReward] 读取凭证失败: $error');
+                          debugPrint(
+                            '[LdcReward] 读取凭证失败: $error',
+                          );
                           ToastService.showError(
                             S.current.common_operationFailed(error.toString()),
                           );

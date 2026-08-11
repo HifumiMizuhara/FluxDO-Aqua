@@ -2,10 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fluxdo/utils/paged_async_notifier.dart';
 
-final _pagedTestProvider =
-    AsyncNotifierProvider<_PagedTestNotifier, List<int>>(
-      _PagedTestNotifier.new,
-    );
+final _pagedTestProvider = AsyncNotifierProvider<_PagedTestNotifier, List<int>>(
+  _PagedTestNotifier.new,
+);
 
 class _PagedTestNotifier extends AsyncNotifier<List<int>>
     with PagedAsyncNotifierMixin<int> {
@@ -55,41 +54,47 @@ void main() {
     return container;
   }
 
-  test('runPagedLoadMore advances page only when response is non-empty', () async {
-    final container = createContainer();
-    expect(await container.read(_pagedTestProvider.future), [1, 2]);
+  test(
+    'runPagedLoadMore advances page only when response is non-empty',
+    () async {
+      final container = createContainer();
+      expect(await container.read(_pagedTestProvider.future), [1, 2]);
 
-    final notifier = container.read(_pagedTestProvider.notifier);
-    expect(notifier.currentPage, 0);
-    expect(notifier.hasMore, isTrue);
+      final notifier = container.read(_pagedTestProvider.notifier);
+      expect(notifier.currentPage, 0);
+      expect(notifier.hasMore, isTrue);
 
-    await notifier.loadMore();
-    expect(container.read(_pagedTestProvider).value, [1, 2, 3]);
-    expect(notifier.currentPage, 1);
-    expect(notifier.hasMore, isTrue);
+      await notifier.loadMore();
+      expect(container.read(_pagedTestProvider).value, [1, 2, 3]);
+      expect(notifier.currentPage, 1);
+      expect(notifier.hasMore, isTrue);
 
-    await notifier.loadMore();
-    expect(container.read(_pagedTestProvider).value, [1, 2, 3]);
-    expect(notifier.currentPage, 1);
-    expect(notifier.hasMore, isFalse);
-  });
+      await notifier.loadMore();
+      expect(container.read(_pagedTestProvider).value, [1, 2, 3]);
+      expect(notifier.currentPage, 1);
+      expect(notifier.hasMore, isFalse);
+    },
+  );
 
-  test('runPagedLoadMore keeps previous data on failure and retry reloads', () async {
-    final container = createContainer();
-    expect(await container.read(_pagedTestProvider.future), [1, 2]);
+  test(
+    'runPagedLoadMore keeps previous data on failure and retry reloads',
+    () async {
+      final container = createContainer();
+      expect(await container.read(_pagedTestProvider.future), [1, 2]);
 
-    final notifier = container.read(_pagedTestProvider.notifier);
-    notifier.failNextLoadMore = true;
+      final notifier = container.read(_pagedTestProvider.notifier);
+      notifier.failNextLoadMore = true;
 
-    await notifier.loadMore();
-    expect(container.read(_pagedTestProvider).value, [1, 2]);
-    expect(notifier.isLoadMoreFailed, isTrue);
+      await notifier.loadMore();
+      expect(container.read(_pagedTestProvider).value, [1, 2]);
+      expect(notifier.isLoadMoreFailed, isTrue);
 
-    await notifier.loadMore();
-    expect(notifier.loadMoreCalls, 1);
+      await notifier.loadMore();
+      expect(notifier.loadMoreCalls, 1);
 
-    await notifier.retryLoadMore();
-    expect(container.read(_pagedTestProvider).value, [1, 2, 3]);
-    expect(notifier.isLoadMoreFailed, isFalse);
-  });
+      await notifier.retryLoadMore();
+      expect(container.read(_pagedTestProvider).value, [1, 2, 3]);
+      expect(notifier.isLoadMoreFailed, isFalse);
+    },
+  );
 }

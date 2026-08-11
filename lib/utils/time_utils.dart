@@ -31,7 +31,9 @@ class TimeUtils {
       tz.setLocalLocation(tz.getLocation(name));
       _localTimezone = name;
     } catch (e) {
-      debugPrint('[TimeUtils] 获取本地时区失败，回退 UTC: $e');
+      debugPrint(
+        '[TimeUtils] Failed to get local timezone; falling back to UTC: $e',
+      );
     }
   }
 
@@ -150,8 +152,10 @@ class TimeUtils {
     if (diff.inMinutes < 60) return S.current.time_minutesAgo(diff.inMinutes);
     if (diff.inHours < 24) return S.current.time_hoursAgo(diff.inHours);
     if (diff.inDays < 7) return S.current.time_daysAgo(diff.inDays);
-    if (diff.inDays < 30) return S.current.time_weeksAgo((diff.inDays / 7).floor());
-    if (diff.inDays < 365) return S.current.time_monthsAgo((diff.inDays / 30).floor());
+    if (diff.inDays < 30)
+      return S.current.time_weeksAgo((diff.inDays / 7).floor());
+    if (diff.inDays < 365)
+      return S.current.time_monthsAgo((diff.inDays / 30).floor());
     return S.current.time_yearsAgo((diff.inDays / 365).floor());
   }
 
@@ -190,7 +194,14 @@ class TimeUtils {
     final hh = time.hour.toString().padLeft(2, '0');
     final mm = time.minute.toString().padLeft(2, '0');
     final ss = time.second.toString().padLeft(2, '0');
-    return S.current.time_tooltipTime(time.year, time.month, time.day, hh, mm, ss);
+    return S.current.time_tooltipTime(
+      time.year,
+      time.month,
+      time.day,
+      hh,
+      mm,
+      ss,
+    );
   }
 
   /// 格式化时间为智能日期标签
@@ -203,8 +214,10 @@ class TimeUtils {
     final date = DateTime(time.year, time.month, time.day);
 
     if (date == today) return S.current.time_today;
-    if (date == today.subtract(const Duration(days: 1))) return S.current.time_yesterday;
-    if (time.year == now.year) return S.current.time_shortDate(time.month, time.day);
+    if (date == today.subtract(const Duration(days: 1)))
+      return S.current.time_yesterday;
+    if (time.year == now.year)
+      return S.current.time_shortDate(time.month, time.day);
     return S.current.time_fullDate(time.year, time.month, time.day);
   }
 

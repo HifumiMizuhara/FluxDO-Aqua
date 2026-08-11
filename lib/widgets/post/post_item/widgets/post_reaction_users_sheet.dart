@@ -126,7 +126,11 @@ class _PostReactionUsersSheetState extends State<PostReactionUsersSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Symbols.error_rounded, color: theme.colorScheme.error, size: 32),
+            Icon(
+              Symbols.error_rounded,
+              color: theme.colorScheme.error,
+              size: 32,
+            ),
             const SizedBox(height: 8),
             Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
           ],
@@ -150,7 +154,10 @@ class _PostReactionUsersSheetState extends State<PostReactionUsersSheet> {
       contentPadding: EdgeInsets.zero,
       titleWidget: Row(
         children: [
-          Icon(Symbols.emoji_emotions_rounded, color: theme.colorScheme.primary),
+          Icon(
+            Symbols.emoji_emotions_rounded,
+            color: theme.colorScheme.primary,
+          ),
           const SizedBox(width: 8),
           Text(
             context.l10n.post_reactions,

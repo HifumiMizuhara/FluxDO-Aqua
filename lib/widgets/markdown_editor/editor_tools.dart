@@ -27,7 +27,7 @@ class EditorTool {
 
   /// 二级弹出菜单选中回调
   final void Function(MarkdownToolbarState toolbar, String value)?
-      onMenuSelected;
+  onMenuSelected;
 
   const EditorTool({
     required this.id,
@@ -37,9 +37,9 @@ class EditorTool {
     this.menuItems,
     this.onMenuSelected,
   }) : assert(
-          (action != null) != (menuItems != null && onMenuSelected != null),
-          '普通工具提供 action，菜单工具提供 menuItems + onMenuSelected',
-        );
+         (action != null) != (menuItems != null && onMenuSelected != null),
+         '普通工具提供 action，菜单工具提供 menuItems + onMenuSelected',
+       );
 
   bool get hasMenu => menuItems != null;
 }
@@ -94,15 +94,21 @@ final List<EditorTool> editorTools = [
     id: 'bold',
     icon: const FaIcon(FontAwesomeIcons.bold),
     label: (s) => s.toolPanel_bold,
-    action: (t) => t.wrapSelection('**', '**',
-        placeholder: S.current.toolbar_boldPlaceholder),
+    action: (t) => t.wrapSelection(
+      '**',
+      '**',
+      placeholder: S.current.toolbar_boldPlaceholder,
+    ),
   ),
   EditorTool(
     id: 'italic',
     icon: const FaIcon(FontAwesomeIcons.italic),
     label: (s) => s.toolPanel_italic,
-    action: (t) =>
-        t.wrapSelection('*', '*', placeholder: S.current.toolbar_italicPlaceholder),
+    action: (t) => t.wrapSelection(
+      '*',
+      '*',
+      placeholder: S.current.toolbar_italicPlaceholder,
+    ),
   ),
   EditorTool(
     id: 'strikethrough',

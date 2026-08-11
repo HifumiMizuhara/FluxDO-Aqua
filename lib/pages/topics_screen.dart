@@ -185,38 +185,39 @@ class _TopicsScreenState extends ConsumerState<TopicsScreen> {
         stackProvider: selectedTopicProvider,
         isActive: widget.isActive,
         child: MasterDetailLayout(
-        // 压栈时左栏显示的是"上一层"内容而不是列表，才是真正的平行
-        // 视界——放宽到接近对半分；master 还是列表时维持列表该有的窄栏。
-        //
-        // 例外：上一层是**草稿列表**时它本质仍是列表（一列卡片），
-        // 对半分太宽、右边话题被挤扁 —— 按列表口径给窄栏。
-        maxMasterRatio: selectedTopic.isStacked && !_masterIsListLike
-            ? 0.8
-            : MasterDetailLayout.defaultMaxMasterRatio,
-        preferredMasterRatio:
-            selectedTopic.isStacked && !_masterIsListLike ? 0.5 : 0.25,
-        projectDetailWhenNarrow: true,
-        // 胶片带:列表也在带上,压栈时被顶出左侧、倒二层格顶上左栏
-        // (旧"上一层预览"形态,由容器统一承担,预览格 State 全保)。
-        pinMaster: false,
-        master: _wrapPaneTap(
-          ActivePane.master,
-          _buildMasterPane(selectedTopic),
-        ),
-        panes: [
-          for (var i = 0; i < selectedTopic.stack.length; i++)
-            _buildPaneCell(selectedTopic, i),
-        ],
-        // 压栈时 master 显示的是话题预览（不可交互，见
-        // TopicDetailPage.truncateOnPush 注释），不是列表——"新建话题"这个
-        // FAB 只在 master 真的是列表时才有意义，之前没跟着切换，压栈后
-        // 预览一个话题下面还挂着"新建话题"的加号，容易被当成回复按钮。
-        masterFloatingActionButton: user != null && !selectedTopic.isStacked
-            ? _TopicsFab(
-                onCreateTopic: () => _createTopic(context, ref),
-                onOpenDrafts: () => _openDrafts(context),
-              )
-            : null,
+          // 压栈时左栏显示的是"上一层"内容而不是列表，才是真正的平行
+          // 视界——放宽到接近对半分；master 还是列表时维持列表该有的窄栏。
+          //
+          // 例外：上一层是**草稿列表**时它本质仍是列表（一列卡片），
+          // 对半分太宽、右边话题被挤扁 —— 按列表口径给窄栏。
+          maxMasterRatio: selectedTopic.isStacked && !_masterIsListLike
+              ? 0.8
+              : MasterDetailLayout.defaultMaxMasterRatio,
+          preferredMasterRatio: selectedTopic.isStacked && !_masterIsListLike
+              ? 0.5
+              : 0.25,
+          projectDetailWhenNarrow: true,
+          // 胶片带:列表也在带上,压栈时被顶出左侧、倒二层格顶上左栏
+          // (旧"上一层预览"形态,由容器统一承担,预览格 State 全保)。
+          pinMaster: false,
+          master: _wrapPaneTap(
+            ActivePane.master,
+            _buildMasterPane(selectedTopic),
+          ),
+          panes: [
+            for (var i = 0; i < selectedTopic.stack.length; i++)
+              _buildPaneCell(selectedTopic, i),
+          ],
+          // 压栈时 master 显示的是话题预览（不可交互，见
+          // TopicDetailPage.truncateOnPush 注释），不是列表——"新建话题"这个
+          // FAB 只在 master 真的是列表时才有意义，之前没跟着切换，压栈后
+          // 预览一个话题下面还挂着"新建话题"的加号，容易被当成回复按钮。
+          masterFloatingActionButton: user != null && !selectedTopic.isStacked
+              ? _TopicsFab(
+                  onCreateTopic: () => _createTopic(context, ref),
+                  onOpenDrafts: () => _openDrafts(context),
+                )
+              : null,
         ),
       ),
     );

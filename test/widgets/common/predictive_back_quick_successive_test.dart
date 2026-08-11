@@ -38,13 +38,12 @@ void main() {
                   MaterialPageRoute<void>(
                     builder: (innerContext) => Scaffold(
                       body: TextButton(
-                        onPressed: () =>
-                            Navigator.of(innerContext).push<void>(
-                              MaterialPageRoute<void>(
-                                builder: (_) =>
-                                    const Scaffold(body: Text('page C')),
-                              ),
-                            ),
+                        onPressed: () => Navigator.of(innerContext).push<void>(
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                const Scaffold(body: Text('page C')),
+                          ),
+                        ),
                         child: const Text('page B'),
                       ),
                     ),
@@ -90,8 +89,7 @@ void main() {
         ),
         (ByteData? reply) {
           if (reply != null) {
-            final decoded =
-                const StandardMethodCodec().decodeEnvelope(reply);
+            final decoded = const StandardMethodCodec().decodeEnvelope(reply);
             claimed = decoded == true;
           }
         },
@@ -129,13 +127,12 @@ void main() {
                   MaterialPageRoute<void>(
                     builder: (innerContext) => Scaffold(
                       body: TextButton(
-                        onPressed: () =>
-                            Navigator.of(innerContext).push<void>(
-                              MaterialPageRoute<void>(
-                                builder: (_) =>
-                                    const Scaffold(body: Text('page C')),
-                              ),
-                            ),
+                        onPressed: () => Navigator.of(innerContext).push<void>(
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                const Scaffold(body: Text('page C')),
+                          ),
+                        ),
                         child: const Text('page B'),
                       ),
                     ),

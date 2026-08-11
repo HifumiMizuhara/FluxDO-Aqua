@@ -36,13 +36,18 @@ class QuoteSelectionHelper {
     required int topicId,
     CodeSelectionContext? fallbackCodeContext,
   }) {
-    final codePayload = CodeSelectionContextTracker.instance.decodePayload(selectedText);
+    final codePayload = CodeSelectionContextTracker.instance.decodePayload(
+      selectedText,
+    );
     final plainSelectedText = codePayload?.text ?? selectedText;
     final codeContext = codePayload?.context ?? fallbackCodeContext;
     String markdown;
 
     // extractHtml 内置全选快路径:选中内容等于整帖时直接返回完整 cooked。
-    final htmlFragment = HtmlTextMapper.extractHtml(post.cooked, plainSelectedText);
+    final htmlFragment = HtmlTextMapper.extractHtml(
+      post.cooked,
+      plainSelectedText,
+    );
     if (htmlFragment != null) {
       markdown = HtmlToMarkdown.convert(htmlFragment);
       if (markdown.trim().isEmpty) {

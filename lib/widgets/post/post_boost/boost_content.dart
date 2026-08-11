@@ -44,15 +44,17 @@ List<BoostGroup> groupBoostsByContent(List<Boost> boosts) {
     grouped[key]!.add(boost);
   }
 
-  return order.map((key) {
-    final items = grouped[key]!;
-    final parsed = BoostContentParser.parse(items.first.cooked);
-    return BoostGroup(
-      displayText: parsed.displayText,
-      groupingKey: key,
-      boosts: List<Boost>.unmodifiable(items),
-    );
-  }).toList(growable: false);
+  return order
+      .map((key) {
+        final items = grouped[key]!;
+        final parsed = BoostContentParser.parse(items.first.cooked);
+        return BoostGroup(
+          displayText: parsed.displayText,
+          groupingKey: key,
+          boosts: List<Boost>.unmodifiable(items),
+        );
+      })
+      .toList(growable: false);
 }
 
 class BoostContentParser {
@@ -184,7 +186,8 @@ class _BoostTextWriter {
     }
 
     _buffer.write(text);
-    _endsWithWhitespace = text.runes.isNotEmpty &&
+    _endsWithWhitespace =
+        text.runes.isNotEmpty &&
         String.fromCharCode(text.runes.last).trim().isEmpty;
   }
 

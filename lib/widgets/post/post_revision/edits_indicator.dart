@@ -42,16 +42,14 @@ class EditsIndicator extends StatelessWidget {
     final enabled = canEnterEditor || canShowHistory;
 
     final tooltip = _buildTooltip(context, enabled: enabled);
-    final iconData = post.wiki ? Symbols.auto_stories_rounded : Symbols.edit_rounded;
+    final iconData = post.wiki
+        ? Symbols.auto_stories_rounded
+        : Symbols.edit_rounded;
 
     final content = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          iconData,
-          size: 12,
-          color: enabled ? color : disabledColor,
-        ),
+        Icon(iconData, size: 12, color: enabled ? color : disabledColor),
         if (post.editsCount > 0) ...[
           const SizedBox(width: 2),
           Text(
@@ -88,11 +86,7 @@ class EditsIndicator extends StatelessWidget {
             child: content,
           );
 
-    return Tooltip(
-      message: tooltip,
-      preferBelow: false,
-      child: tappable,
-    );
+    return Tooltip(message: tooltip, preferBelow: false, child: tappable);
   }
 
   String _buildTooltip(BuildContext context, {required bool enabled}) {

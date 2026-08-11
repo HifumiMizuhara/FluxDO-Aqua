@@ -20,8 +20,9 @@ import 'topic_detail_page/topic_detail_page.dart';
 import 'create_topic_page.dart';
 
 /// 待审核内容列表 Provider
-final pendingPostsProvider =
-    FutureProvider.autoDispose<List<PendingPost>>((ref) async {
+final pendingPostsProvider = FutureProvider.autoDispose<List<PendingPost>>((
+  ref,
+) async {
   final service = ref.watch(discourseServiceProvider);
   return service.getMyPendingPosts();
 });
@@ -114,10 +115,9 @@ class _PendingPostsPageState extends ConsumerState<PendingPostsPage> {
   void _openTopic(PendingPost pending) {
     // 宽屏进右栏,窄屏全屏 push(平行视界宿主标准分流)。
     if (MasterDetailLayout.canShowBothPanesFor(context)) {
-      ref.read(selectedPendingPaneProvider.notifier).select(
-            topicId: pending.topicId!,
-            initialTitle: pending.title,
-          );
+      ref
+          .read(selectedPendingPaneProvider.notifier)
+          .select(topicId: pending.topicId!, initialTitle: pending.title);
       return;
     }
     Navigator.push(
@@ -160,8 +160,7 @@ class _PendingPostsPageState extends ConsumerState<PendingPostsPage> {
                     : () async {
                         setState(() => isDeleting = true);
                         try {
-                          await DiscourseService()
-                              .deleteReviewable(pending.id);
+                          await DiscourseService().deleteReviewable(pending.id);
                           if (dialogContext.mounted) {
                             Navigator.pop(dialogContext, true);
                           }

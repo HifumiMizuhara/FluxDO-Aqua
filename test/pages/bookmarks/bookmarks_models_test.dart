@@ -121,10 +121,11 @@ void main() {
       _bookmarkTopic(topicId: 3, bookmarkId: 103, bookmarkName: '   '),
     ]);
 
-    expect(
-      summaries.map((summary) => summary.filterKey),
-      [unsetBookmarkNameFilterKey, 'beta', 'image'],
-    );
+    expect(summaries.map((summary) => summary.filterKey), [
+      unsetBookmarkNameFilterKey,
+      'beta',
+      'image',
+    ]);
   });
 
   test('重复页不再产生新书签时会停止继续拉取', () async {

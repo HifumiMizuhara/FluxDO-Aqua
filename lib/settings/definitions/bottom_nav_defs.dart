@@ -110,10 +110,7 @@ class _ActionOptionTile extends StatelessWidget {
             ),
       title: Text(action.label),
       trailing: selected
-          ? Icon(
-              Symbols.check_rounded,
-              color: theme.colorScheme.primary,
-            )
+          ? Icon(Symbols.check_rounded, color: theme.colorScheme.primary)
           : null,
       onTap: onTap,
     );

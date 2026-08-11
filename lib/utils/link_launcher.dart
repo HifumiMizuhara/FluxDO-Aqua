@@ -209,7 +209,6 @@ Future<void> launchContentLink(
     return;
   }
 
-
   // 3. 图片直链(站点自己的域名/CDN/S3 CDN)→ 直接用内置查看器打开,
   //    与网页端一致(点图直接看大图,不当"外部链接"走离站确认弹窗)。
   //    只信任站点自己配置的域名——不是随便一个图片后缀的外链都放行。
@@ -219,7 +218,10 @@ Future<void> launchContentLink(
     );
     final uri = Uri.tryParse(fullUrl);
     if (uri != null && UrlHelper.isTrustedImageHost(uri)) {
-      await ImageViewerPage.open(context, DiscourseImageUtils.getOriginalUrl(fullUrl));
+      await ImageViewerPage.open(
+        context,
+        DiscourseImageUtils.getOriginalUrl(fullUrl),
+      );
       return;
     }
   }

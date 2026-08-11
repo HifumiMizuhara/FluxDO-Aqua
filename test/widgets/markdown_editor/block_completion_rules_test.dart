@@ -43,7 +43,12 @@ void main() {
 
   group('公式与表格', () {
     test(r'$$ → 公式块', () {
-      expect(at([r'$$'])!.markdown, r'$$' '\n\n' r'$$');
+      expect(
+        at([r'$$'])!.markdown,
+        r'$$'
+        '\n\n'
+        r'$$',
+      );
     });
 
     test('表头行 → 补分隔行与空数据行', () {
@@ -60,7 +65,13 @@ void main() {
 
   group('块级 HTML', () {
     test('</details> 回溯到 <details> 聚合整段', () {
-      final texts = ['前文', '<details>', '<summary>标题</summary>', '内容', '</details>'];
+      final texts = [
+        '前文',
+        '<details>',
+        '<summary>标题</summary>',
+        '内容',
+        '</details>',
+      ];
       final hit = at(texts)!;
       expect(hit.from, 1);
       expect(hit.to, 4);
@@ -178,7 +189,14 @@ void main() {
       ]) {
         expect(at([raw]), isNull, reason: raw);
       }
-      for (final tag in ['note', 'aside', 'table', 'chat', 'floatl', 'floatr']) {
+      for (final tag in [
+        'note',
+        'aside',
+        'table',
+        'chat',
+        'floatl',
+        'floatr',
+      ]) {
         expect(at(['[$tag]', '内容', '[/$tag]']), isNull, reason: tag);
         expect(at(['[$tag]内容[/$tag]']), isNull, reason: tag);
       }

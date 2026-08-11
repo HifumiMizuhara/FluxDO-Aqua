@@ -194,7 +194,8 @@ class ImageCompressionStrategyFactory {
         );
       default:
         return PassthroughImageCompressionStrategy(
-            displayName: S.current.imageFormat_generic);
+          displayName: S.current.imageFormat_generic,
+        );
     }
   }
 }

@@ -107,7 +107,11 @@ class _StickerMarketSheetState extends ConsumerState<StickerMarketSheet> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Symbols.error_rounded, size: 48, color: theme.colorScheme.outline),
+          Icon(
+            Symbols.error_rounded,
+            size: 48,
+            color: theme.colorScheme.outline,
+          ),
           const SizedBox(height: 12),
           Text(
             S.current.sticker_marketLoadFailed,

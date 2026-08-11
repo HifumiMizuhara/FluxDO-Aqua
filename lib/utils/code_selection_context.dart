@@ -9,7 +9,8 @@ class CodeSelectionContextTracker {
 
   static const String _payloadPrefix = '\u{E000}CODEQUOTE:';
 
-  static final CodeSelectionContextTracker instance = CodeSelectionContextTracker._();
+  static final CodeSelectionContextTracker instance =
+      CodeSelectionContextTracker._();
 
   CodeSelectionContext? _current;
 
@@ -34,7 +35,8 @@ class CodeSelectionContextTracker {
 
   String encodePayload(String selectedText, {CodeSelectionContext? context}) {
     final text = selectedText.replaceAll('\r\n', '\n');
-    final language = context?.language?.trim() ?? _current?.language?.trim() ?? '';
+    final language =
+        context?.language?.trim() ?? _current?.language?.trim() ?? '';
     return '$_payloadPrefix$language\n$text';
   }
 
@@ -49,7 +51,9 @@ class CodeSelectionContextTracker {
     final text = payload.substring(newlineIndex + 1);
     return (
       text: text,
-      context: CodeSelectionContext(language: language.isEmpty ? null : language),
+      context: CodeSelectionContext(
+        language: language.isEmpty ? null : language,
+      ),
     );
   }
 }

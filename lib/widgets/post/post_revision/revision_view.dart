@@ -105,8 +105,9 @@ class _PostRevisionViewState extends ConsumerState<PostRevisionView> {
   Future<void> _hideRevision() async {
     final revision = _revision;
     if (revision == null) return;
-    final successMessage =
-        context.l10n.postRevision_hideSuccess(revision.currentRevision);
+    final successMessage = context.l10n.postRevision_hideSuccess(
+      revision.currentRevision,
+    );
     await _runStaffAction(
       () => _service.hidePostRevision(widget.postId, revision.currentRevision),
       successMessage: successMessage,
@@ -117,8 +118,9 @@ class _PostRevisionViewState extends ConsumerState<PostRevisionView> {
   Future<void> _showRevision() async {
     final revision = _revision;
     if (revision == null) return;
-    final successMessage =
-        context.l10n.postRevision_showSuccess(revision.currentRevision);
+    final successMessage = context.l10n.postRevision_showSuccess(
+      revision.currentRevision,
+    );
     await _runStaffAction(
       () => _service.showPostRevision(widget.postId, revision.currentRevision),
       successMessage: successMessage,
@@ -135,10 +137,14 @@ class _PostRevisionViewState extends ConsumerState<PostRevisionView> {
       body: l10n.postRevision_revertConfirmBody,
     );
     if (!confirmed) return;
-    final successMessage =
-        l10n.postRevision_revertSuccess(revision.currentRevision);
+    final successMessage = l10n.postRevision_revertSuccess(
+      revision.currentRevision,
+    );
     await _runStaffAction(
-      () => _service.revertPostToRevision(widget.postId, revision.currentRevision),
+      () => _service.revertPostToRevision(
+        widget.postId,
+        revision.currentRevision,
+      ),
       successMessage: successMessage,
       closeAfter: true,
     );
@@ -213,7 +219,9 @@ class _PostRevisionViewState extends ConsumerState<PostRevisionView> {
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
               style: destructive
-                  ? TextButton.styleFrom(foregroundColor: theme.colorScheme.error)
+                  ? TextButton.styleFrom(
+                      foregroundColor: theme.colorScheme.error,
+                    )
                   : null,
               child: Text(dialogContext.l10n.common_confirm),
             ),
@@ -230,7 +238,10 @@ class _PostRevisionViewState extends ConsumerState<PostRevisionView> {
       return const Center(child: LoadingSpinner(size: 36));
     }
     if (_error != null && _revision == null) {
-      return _ErrorView(error: _error!, onRetry: () => _load(widget.initialRevision));
+      return _ErrorView(
+        error: _error!,
+        onRetry: () => _load(widget.initialRevision),
+      );
     }
     final revision = _revision;
     if (revision == null) {
@@ -387,7 +398,11 @@ class _RevisionToolbar extends StatelessWidget {
                         Text(_modeLabel(l10n, mode)),
                         if (mode == diffMode) ...[
                           const SizedBox(width: 8),
-                          Icon(Symbols.check_rounded, size: 16, color: theme.colorScheme.primary),
+                          Icon(
+                            Symbols.check_rounded,
+                            size: 16,
+                            color: theme.colorScheme.primary,
+                          ),
                         ],
                       ],
                     ),
@@ -504,7 +519,10 @@ class _AuthorMeta extends StatelessWidget {
               ),
               if (revision.currentHidden)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: theme.colorScheme.errorContainer,
                     borderRadius: BorderRadius.circular(4),
@@ -554,67 +572,83 @@ class _MetaChanges extends ConsumerWidget {
     final entries = <_MetaEntry>[];
     final title = revision.titleChanges;
     if (title != null) {
-      entries.add(_MetaEntry(
-        label: l10n.postRevision_titleChange,
-        previous: title.previous ?? '—',
-        current: title.current ?? '—',
-      ));
+      entries.add(
+        _MetaEntry(
+          label: l10n.postRevision_titleChange,
+          previous: title.previous ?? '—',
+          current: title.current ?? '—',
+        ),
+      );
     }
     final category = revision.categoryIdChanges;
     if (category != null) {
-      entries.add(_MetaEntry(
-        label: l10n.postRevision_categoryChange,
-        previous: _categoryName(categoryMap, category.previous),
-        current: _categoryName(categoryMap, category.current),
-      ));
+      entries.add(
+        _MetaEntry(
+          label: l10n.postRevision_categoryChange,
+          previous: _categoryName(categoryMap, category.previous),
+          current: _categoryName(categoryMap, category.current),
+        ),
+      );
     }
     final tags = revision.tagsChanges;
     if (tags != null) {
-      entries.add(_MetaEntry(
-        label: l10n.postRevision_tagsChange,
-        previous: tags.previous?.join(', ') ?? '—',
-        current: tags.current?.join(', ') ?? '—',
-      ));
+      entries.add(
+        _MetaEntry(
+          label: l10n.postRevision_tagsChange,
+          previous: tags.previous?.join(', ') ?? '—',
+          current: tags.current?.join(', ') ?? '—',
+        ),
+      );
     }
     final wiki = revision.wikiChanges;
     if (wiki != null) {
-      entries.add(_MetaEntry(
-        label: l10n.postRevision_wikiChange,
-        previous: '${wiki.previous ?? false}',
-        current: '${wiki.current ?? false}',
-      ));
+      entries.add(
+        _MetaEntry(
+          label: l10n.postRevision_wikiChange,
+          previous: '${wiki.previous ?? false}',
+          current: '${wiki.current ?? false}',
+        ),
+      );
     }
     final postType = revision.postTypeChanges;
     if (postType != null) {
-      entries.add(_MetaEntry(
-        label: l10n.postRevision_postTypeChange,
-        previous: '${postType.previous}',
-        current: '${postType.current}',
-      ));
+      entries.add(
+        _MetaEntry(
+          label: l10n.postRevision_postTypeChange,
+          previous: '${postType.previous}',
+          current: '${postType.current}',
+        ),
+      );
     }
     final replyTo = revision.replyToPostNumberChanges;
     if (replyTo != null) {
-      entries.add(_MetaEntry(
-        label: l10n.postRevision_replyToChange,
-        previous: replyTo.previous != null ? '#${replyTo.previous}' : '—',
-        current: replyTo.current != null ? '#${replyTo.current}' : '—',
-      ));
+      entries.add(
+        _MetaEntry(
+          label: l10n.postRevision_replyToChange,
+          previous: replyTo.previous != null ? '#${replyTo.previous}' : '—',
+          current: replyTo.current != null ? '#${replyTo.current}' : '—',
+        ),
+      );
     }
     final user = revision.userChanges;
     if (user != null) {
-      entries.add(_MetaEntry(
-        label: l10n.postRevision_userChange,
-        previous: user.previousUsername ?? '—',
-        current: user.currentUsername ?? '—',
-      ));
+      entries.add(
+        _MetaEntry(
+          label: l10n.postRevision_userChange,
+          previous: user.previousUsername ?? '—',
+          current: user.currentUsername ?? '—',
+        ),
+      );
     }
     final locale = revision.localeChanges;
     if (locale != null) {
-      entries.add(_MetaEntry(
-        label: l10n.postRevision_localeChange,
-        previous: locale.previous ?? '—',
-        current: locale.current ?? '—',
-      ));
+      entries.add(
+        _MetaEntry(
+          label: l10n.postRevision_localeChange,
+          previous: locale.previous ?? '—',
+          current: locale.current ?? '—',
+        ),
+      );
     }
 
     if (entries.isEmpty) return const SizedBox.shrink();
@@ -764,8 +798,9 @@ class _BodyDiff extends StatelessWidget {
       case _DiffMode.inline:
         final html = body.inline ?? body.sideBySide ?? body.sideBySideMarkdown;
         if (html == null || html.isEmpty) return const SizedBox.shrink();
-        return FluxdoRenderCallbacks.generic(heroTagNamespace: 'revision_inline')
-            .render(cookedHtml: html, selectionEnabled: false);
+        return FluxdoRenderCallbacks.generic(
+          heroTagNamespace: 'revision_inline',
+        ).render(cookedHtml: html, selectionEnabled: false);
 
       case _DiffMode.sideBySide:
         final raw = body.sideBySide ?? body.sideBySideMarkdown ?? body.inline;
@@ -774,13 +809,11 @@ class _BodyDiff extends StatelessWidget {
         // 拆开用 Row 渲染(单列 fallback 走新引擎 FluxdoRender)。
         final parts = _splitSideBySide(raw);
         if (parts == null) {
-          return FluxdoRenderCallbacks.generic(heroTagNamespace: 'revision_sbs')
-              .render(cookedHtml: raw, selectionEnabled: false);
+          return FluxdoRenderCallbacks.generic(
+            heroTagNamespace: 'revision_sbs',
+          ).render(cookedHtml: raw, selectionEnabled: false);
         }
-        return _TwoColumnDiff(
-          previousHtml: parts.$1,
-          currentHtml: parts.$2,
-        );
+        return _TwoColumnDiff(previousHtml: parts.$1, currentHtml: parts.$2);
 
       case _DiffMode.sideBySideMarkdown:
         final raw = body.sideBySideMarkdown ?? body.sideBySide ?? body.inline;
@@ -790,8 +823,9 @@ class _BodyDiff extends StatelessWidget {
         // 拆成左右两列原始 markdown 文本,各自渲染到 _TwoColumnDiff。
         final parts = _splitSideBySideMarkdown(raw);
         if (parts == null) {
-          return FluxdoRenderCallbacks.generic(heroTagNamespace: 'revision_sbsmd')
-              .render(cookedHtml: raw, selectionEnabled: false);
+          return FluxdoRenderCallbacks.generic(
+            heroTagNamespace: 'revision_sbsmd',
+          ).render(cookedHtml: raw, selectionEnabled: false);
         }
         return _TwoColumnDiff(
           previousHtml: parts.$1,
@@ -839,6 +873,7 @@ class _BodyDiff extends StatelessWidget {
 class _TwoColumnDiff extends StatelessWidget {
   final String previousHtml;
   final String currentHtml;
+
   /// markdown 模式下内容是原始 markdown 文本(含 \n 与空白),用等宽字体并保留空白。
   final bool preformatted;
 
@@ -900,19 +935,20 @@ class _DiffColumn extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
       ),
       // 左右两列 processed 不同,用 hashCode 保证 heroTagNamespace 唯一。
-      child: FluxdoRenderCallbacks.generic(
-        heroTagNamespace: 'revision_col_${processed.hashCode}',
-      ).render(
-        cookedHtml: processed,
-        baseTextStyle: preformatted
-            ? theme.textTheme.bodySmall?.copyWith(
-                fontFamily: 'monospace',
-                fontSize: 12,
-                height: 1.5,
-              )
-            : null,
-        selectionEnabled: false,
-      ),
+      child:
+          FluxdoRenderCallbacks.generic(
+            heroTagNamespace: 'revision_col_${processed.hashCode}',
+          ).render(
+            cookedHtml: processed,
+            baseTextStyle: preformatted
+                ? theme.textTheme.bodySmall?.copyWith(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    height: 1.5,
+                  )
+                : null,
+            selectionEnabled: false,
+          ),
     );
   }
 }
@@ -1023,8 +1059,11 @@ class _ErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Symbols.error_rounded,
-                color: theme.colorScheme.error, size: 36),
+            Icon(
+              Symbols.error_rounded,
+              color: theme.colorScheme.error,
+              size: 36,
+            ),
             const SizedBox(height: 12),
             Text(
               l10n.postRevision_loadFailed,

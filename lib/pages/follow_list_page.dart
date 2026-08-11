@@ -75,82 +75,95 @@ class _FollowListPageState extends ConsumerState<FollowListPage> {
 
     final list = Scaffold(
       appBar: AppBar(
-        title: Text(widget.isFollowing ? context.l10n.followList_following : context.l10n.followList_followers),
+        title: Text(
+          widget.isFollowing
+              ? context.l10n.followList_following
+              : context.l10n.followList_followers,
+        ),
       ),
       body: _isLoading
           ? const Center(child: LoadingSpinner())
           : _error != null
-              ? ErrorView(
-                  error: _error!,
-                  stackTrace: _errorStack,
-                  onRetry: _loadUsers,
-                )
-              : _users == null || _users!.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Symbols.group_rounded, size: 48, color: Colors.grey[400]),
-                          const SizedBox(height: 8),
-                          Text(context.l10n.common_noData, style: TextStyle(color: Colors.grey[600])),
-                        ],
+          ? ErrorView(
+              error: _error!,
+              stackTrace: _errorStack,
+              onRetry: _loadUsers,
+            )
+          : _users == null || _users!.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Symbols.group_rounded,
+                    size: 48,
+                    color: Colors.grey[400],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    context.l10n.common_noData,
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            )
+          : M3eRefreshIndicator(
+              onRefresh: _loadUsers,
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: _users!.length,
+                itemBuilder: (context, index) {
+                  final user = _users![index];
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    clipBehavior: Clip.antiAlias,
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
                       ),
-                    )
-                  : M3eRefreshIndicator(
-                      onRefresh: _loadUsers,
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _users!.length,
-                        itemBuilder: (context, index) {
-                          final user = _users![index];
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            clipBehavior: Clip.antiAlias,
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              leading: SmartAvatar(
-                                imageUrl: user.avatarTemplate != null
-                                    ? user.getAvatarUrl(size: 96)
-                                    : null,
-                                radius: 24,
-                                fallbackText: user.username,
-                              ),
-                              title: Text(
-                                user.name?.isNotEmpty == true ? user.name! : user.username,
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              subtitle: Text(
-                                '@${user.username}',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                              onTap: () {
-                                // 宽屏进右栏,窄屏全屏 push。
-                                if (MasterDetailLayout.canShowBothPanesFor(
-                                  context,
-                                )) {
-                                  ref
-                                      .read(
-                                        selectedFollowPaneProvider.notifier,
-                                      )
-                                      .selectProfile(user.username);
-                                  return;
-                                }
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => UserProfilePage(username: user.username),
-                                  ),
-                                );
-                              },
-                            ),
-                          );
-                        },
+                      leading: SmartAvatar(
+                        imageUrl: user.avatarTemplate != null
+                            ? user.getAvatarUrl(size: 96)
+                            : null,
+                        radius: 24,
+                        fallbackText: user.username,
                       ),
+                      title: Text(
+                        user.name?.isNotEmpty == true
+                            ? user.name!
+                            : user.username,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      subtitle: Text(
+                        '@${user.username}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      onTap: () {
+                        // 宽屏进右栏,窄屏全屏 push。
+                        if (MasterDetailLayout.canShowBothPanesFor(context)) {
+                          ref
+                              .read(selectedFollowPaneProvider.notifier)
+                              .selectProfile(user.username);
+                          return;
+                        }
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                UserProfilePage(username: user.username),
+                          ),
+                        );
+                      },
                     ),
+                  );
+                },
+              ),
+            ),
     );
 
     return MasterDetailPaneHost(

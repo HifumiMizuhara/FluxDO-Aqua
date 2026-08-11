@@ -1063,4 +1063,3 @@ class _PendingAttachmentTile extends StatelessWidget {
 class _SendIntent extends Intent {
   const _SendIntent();
 }
-

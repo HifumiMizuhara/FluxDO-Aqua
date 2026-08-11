@@ -64,14 +64,21 @@ class HtmlTextMapper {
 
       // 单文本节点
       if (involvedNodes.length == 1) {
-        final isFullySelected = originalStart <= startNode.offset &&
+        final isFullySelected =
+            originalStart <= startNode.offset &&
             originalEnd >= startNode.offset + startNode.length;
         final codeContainer = _findCodeContainer(startNode.node);
 
         if (codeContainer != null) {
           final text = startNode.node.text ?? '';
-          final trimStart = (originalStart - startNode.offset).clamp(0, text.length);
-          final trimEnd = (originalEnd - startNode.offset).clamp(trimStart, text.length);
+          final trimStart = (originalStart - startNode.offset).clamp(
+            0,
+            text.length,
+          );
+          final trimEnd = (originalEnd - startNode.offset).clamp(
+            trimStart,
+            text.length,
+          );
           final selectedCode = text.substring(trimStart, trimEnd);
           if (selectedCode.isEmpty) return null;
           return _buildPartialCodeHtml(codeContainer, selectedCode);
@@ -86,7 +93,8 @@ class HtmlTextMapper {
           // 需要保留,退化成纯文本更安全。
           final parent = startNode.node.parentNode;
           if (parent is dom.Element &&
-              _normalize(parent.text) == _normalize(startNode.node.text ?? '')) {
+              _normalize(parent.text) ==
+                  _normalize(startNode.node.text ?? '')) {
             return parent.outerHtml;
           }
         }
@@ -100,7 +108,10 @@ class HtmlTextMapper {
 
       // 提取 LCA 中仅覆盖选中范围的子节点，裁剪边界文本
       return _extractRelevantChildren(
-        lca, involvedNodes, originalStart, originalEnd,
+        lca,
+        involvedNodes,
+        originalStart,
+        originalEnd,
       );
     } catch (_) {
       return null;
@@ -129,7 +140,10 @@ class HtmlTextMapper {
   }
 
   /// 构建仅包含选中代码文本的 HTML，保留代码块语义
-  static String _buildPartialCodeHtml(dom.Element container, String selectedCode) {
+  static String _buildPartialCodeHtml(
+    dom.Element container,
+    String selectedCode,
+  ) {
     final escapedCode = _escapeHtml(selectedCode);
     final name = container.localName?.toLowerCase();
 
@@ -154,12 +168,15 @@ class HtmlTextMapper {
     int originalStart,
     int originalEnd,
   ) {
-    final textInfos = involvedNodes
-        .where((info) =>
-            info.node.nodeType == dom.Node.TEXT_NODE &&
-            _containsNode(container, info.node))
-        .toList()
-      ..sort((a, b) => a.offset.compareTo(b.offset));
+    final textInfos =
+        involvedNodes
+            .where(
+              (info) =>
+                  info.node.nodeType == dom.Node.TEXT_NODE &&
+                  _containsNode(container, info.node),
+            )
+            .toList()
+          ..sort((a, b) => a.offset.compareTo(b.offset));
 
     final buffer = StringBuffer();
     for (final info in textInfos) {
@@ -287,7 +304,9 @@ class HtmlTextMapper {
     int originalEnd,
   ) {
     if (node.nodeType == dom.Node.TEXT_NODE) {
-      final info = involvedNodes.where((n) => identical(n.node, node)).firstOrNull;
+      final info = involvedNodes
+          .where((n) => identical(n.node, node))
+          .firstOrNull;
       if (info == null) return null;
 
       final text = node.text ?? '';
@@ -333,7 +352,10 @@ class HtmlTextMapper {
     return '<${node.localName}$attrs>$innerHtml</${node.localName}>';
   }
 
-  static bool _containsAnyInvolvedNode(dom.Node parent, List<_TextNodeInfo> involvedNodes) {
+  static bool _containsAnyInvolvedNode(
+    dom.Node parent,
+    List<_TextNodeInfo> involvedNodes,
+  ) {
     for (final info in involvedNodes) {
       if (_containsNode(parent, info.node)) {
         return true;
@@ -377,11 +399,9 @@ class HtmlTextMapper {
     if (node.nodeType == dom.Node.TEXT_NODE) {
       final text = node.text ?? '';
       if (text.isNotEmpty) {
-        result.add(_TextNodeInfo(
-          node: node,
-          offset: buffer.length,
-          length: text.length,
-        ));
+        result.add(
+          _TextNodeInfo(node: node, offset: buffer.length, length: text.length),
+        );
         buffer.write(text);
       }
       return;
@@ -390,22 +410,14 @@ class HtmlTextMapper {
     // 块级元素添加换行
     if (node is dom.Element && _isBlockElement(node.localName ?? '')) {
       if (buffer.isNotEmpty && !buffer.toString().endsWith('\n')) {
-        result.add(_TextNodeInfo(
-          node: node,
-          offset: buffer.length,
-          length: 1,
-        ));
+        result.add(_TextNodeInfo(node: node, offset: buffer.length, length: 1));
         buffer.write('\n');
       }
     }
 
     // br 标签
     if (node is dom.Element && node.localName == 'br') {
-      result.add(_TextNodeInfo(
-        node: node,
-        offset: buffer.length,
-        length: 1,
-      ));
+      result.add(_TextNodeInfo(node: node, offset: buffer.length, length: 1));
       buffer.write('\n');
       return;
     }
@@ -416,11 +428,9 @@ class HtmlTextMapper {
     if (node is dom.Element && node.localName == 'img') {
       final alt = node.attributes['title'] ?? node.attributes['alt'] ?? '';
       if (alt.isNotEmpty) {
-        result.add(_TextNodeInfo(
-          node: node,
-          offset: buffer.length,
-          length: alt.length,
-        ));
+        result.add(
+          _TextNodeInfo(node: node, offset: buffer.length, length: alt.length),
+        );
         buffer.write(alt);
       }
       return;
@@ -513,11 +523,34 @@ class HtmlTextMapper {
   /// 判断是否为块级元素
   static bool _isBlockElement(String name) {
     return const {
-      'p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-      'blockquote', 'pre', 'ul', 'ol', 'li', 'table', 'tr',
-      'td', 'th', 'section', 'article', 'aside', 'header',
-      'footer', 'nav', 'figure', 'figcaption', 'details',
-      'summary', 'hr',
+      'p',
+      'div',
+      'h1',
+      'h2',
+      'h3',
+      'h4',
+      'h5',
+      'h6',
+      'blockquote',
+      'pre',
+      'ul',
+      'ol',
+      'li',
+      'table',
+      'tr',
+      'td',
+      'th',
+      'section',
+      'article',
+      'aside',
+      'header',
+      'footer',
+      'nav',
+      'figure',
+      'figcaption',
+      'details',
+      'summary',
+      'hr',
     }.contains(name);
   }
 }

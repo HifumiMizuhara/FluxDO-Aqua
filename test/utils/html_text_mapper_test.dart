@@ -23,7 +23,8 @@ void main() {
   test('lightbox meta 遮罩文本不计入缓冲区,跨图片选区反查成功', () {
     // meta 是纯 CSS hover 遮罩,渲染选区里不存在;不排除会与 img 的
     // title/alt 重复贡献文本,把后续偏移量全部错位。
-    const cooked = '<p>前文</p>'
+    const cooked =
+        '<p>前文</p>'
         '<div class="lightbox-wrapper">'
         '<a class="lightbox" href="https://x.test/orig.png">'
         '<img src="https://x.test/opt.png" alt="img.png" title="img.png">'

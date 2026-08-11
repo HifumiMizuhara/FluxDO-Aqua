@@ -7,10 +7,10 @@ import 'package:fluxdo/widgets/markdown_editor/markdown_renderer.dart';
 import 'package:fluxdo_render/fluxdo_render.dart' show ImageRun;
 
 ImageRun _img(int index, {double? scale}) => ImageRun(
-      src: 'upload://x.jpeg',
-      scale: scale ?? 100,
-      previewImageIndex: index,
-    );
+  src: 'upload://x.jpeg',
+  scale: scale ?? 100,
+  previewImageIndex: index,
+);
 
 void main() {
   test('无后缀 → 加 `, 75%`', () {
@@ -30,7 +30,8 @@ void main() {
   });
 
   test('index 定位第 N 个 upload 图(跳过外链图)', () {
-    final raw = '![外链|10x10](https://x/a.png)\n'
+    final raw =
+        '![外链|10x10](https://x/a.png)\n'
         '![p0|100x100](upload://p0.png)\n'
         '![p1|200x200](upload://p1.png)';
     expect(
@@ -63,7 +64,8 @@ void main() {
   });
 
   test('行内 code 里的图片语法不计数(尾随反引号排除)', () {
-    final raw = '`![c|10x10](upload://code.png)` 后\n'
+    final raw =
+        '`![c|10x10](upload://code.png)` 后\n'
         '![真图|100x100](upload://real.png)';
     // code 里的匹配被 (?!(.*`)) 排除 → index 0 = 真图
     expect(

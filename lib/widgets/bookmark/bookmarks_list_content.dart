@@ -190,8 +190,8 @@ class BookmarksListContent extends ConsumerWidget {
       bandReminder: reminderAt == null
           ? null
           : (reminderExpired
-              ? context.l10n.bookmarks_expired
-              : ' ${TimeUtils.formatDetailTime(reminderAt)}'),
+                ? context.l10n.bookmarks_expired
+                : ' ${TimeUtils.formatDetailTime(reminderAt)}'),
       bandExpired: reminderExpired,
       statsAvailableWidth: statsAvailableWidth ?? 460,
       emojiUrlOf: topicCardEmojiUrlResolver,
@@ -270,27 +270,27 @@ class BookmarksListContent extends ConsumerWidget {
             onMiddleClick: () => onMiddleClick(topic),
             onLongPress: enableLongPress
                 ? () => TopicPreviewDialog.show(
-                      context,
-                      topic: topic,
-                      onOpen: () => onTap(topic),
-                      // chat 书签无话题上下文:正文直接用书签 excerpt,
-                      // 不按话题 id 拉详情(那个 id 是书签 id,必 404)
-                      firstPostLoader: topic.isChatMessageBookmark
-                          ? () async => topic.excerpt ?? ''
-                          : null,
-                      actions: topic.bookmarkId != null
-                          ? _buildPreviewActions(context, topic)
-                          : null,
-                      customActionPanelBuilder: topic.bookmarkId != null
-                          ? (_) => BookmarkPreviewQuickEditor(
-                                initialName: topic.bookmarkName,
-                                suggestions: bookmarkNameSuggestions,
-                                suggestionsLoader: bookmarkNameSuggestionsLoader,
-                                onSave: (value) =>
-                                    onQuickRenameBookmark(topic, value),
-                              )
-                          : null,
-                    )
+                    context,
+                    topic: topic,
+                    onOpen: () => onTap(topic),
+                    // chat 书签无话题上下文:正文直接用书签 excerpt,
+                    // 不按话题 id 拉详情(那个 id 是书签 id,必 404)
+                    firstPostLoader: topic.isChatMessageBookmark
+                        ? () async => topic.excerpt ?? ''
+                        : null,
+                    actions: topic.bookmarkId != null
+                        ? _buildPreviewActions(context, topic)
+                        : null,
+                    customActionPanelBuilder: topic.bookmarkId != null
+                        ? (_) => BookmarkPreviewQuickEditor(
+                            initialName: topic.bookmarkName,
+                            suggestions: bookmarkNameSuggestions,
+                            suggestionsLoader: bookmarkNameSuggestionsLoader,
+                            onSave: (value) =>
+                                onQuickRenameBookmark(topic, value),
+                          )
+                        : null,
+                  )
                 : null,
           );
           if (!isMobile) {

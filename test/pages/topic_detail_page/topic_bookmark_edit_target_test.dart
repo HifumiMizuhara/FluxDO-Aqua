@@ -69,9 +69,7 @@ void main() {
     final target = resolveTopicBookmarkEditTarget(
       detail: _detail(
         bookmarked: true,
-        posts: [
-          _post(id: 100, postNumber: 1),
-        ],
+        posts: [_post(id: 100, postNumber: 1)],
         stream: const [100],
       ),
       fallbackBookmarkId: 222,

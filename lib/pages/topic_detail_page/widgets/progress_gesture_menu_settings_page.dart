@@ -244,9 +244,7 @@ class _PreviewAreaState extends State<_PreviewArea> {
   }
 
   void _resetDragState() {
-    if (_draggingIndex == null &&
-        _hoverSlot == null &&
-        !_hoverDelete) {
+    if (_draggingIndex == null && _hoverSlot == null && !_hoverDelete) {
       return;
     }
     setState(() {

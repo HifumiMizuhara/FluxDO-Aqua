@@ -323,55 +323,55 @@ class _UserContentSearchViewState extends ConsumerState<UserContentSearchView> {
           child: SearchPostPrewarmScope(
             posts: searchState.results,
             child: ListView.builder(
-            controller: _scrollController,
-            addAutomaticKeepAlives: false,
-            padding: const EdgeInsets.all(16),
-            itemCount: searchState.results.length + 1,
-            itemBuilder: (context, index) {
-              if (index == searchState.results.length) {
-                return PagedListFooter(
-                  hasMore: searchState.hasMore,
-                  isLoadingMore:
-                      searchState.isLoading && searchState.results.isNotEmpty,
-                  isLoadMoreFailed: searchState.isLoadMoreFailed,
-                  onRetry: _retryLoadMore,
-                );
-              }
+              controller: _scrollController,
+              addAutomaticKeepAlives: false,
+              padding: const EdgeInsets.all(16),
+              itemCount: searchState.results.length + 1,
+              itemBuilder: (context, index) {
+                if (index == searchState.results.length) {
+                  return PagedListFooter(
+                    hasMore: searchState.hasMore,
+                    isLoadingMore:
+                        searchState.isLoading && searchState.results.isNotEmpty,
+                    isLoadMoreFailed: searchState.isLoadMoreFailed,
+                    onRetry: _retryLoadMore,
+                  );
+                }
 
-              final post = searchState.results[index];
-              final enableLongPress = ref
-                  .watch(preferencesProvider)
-                  .longPressPreview;
-              return SearchPostCard(
-                post: post,
-                onTap: () {
-                  final topic = post.topic;
-                  if (topic != null) {
-                    _openTopic(
-                      topicId: topic.id,
-                      title: topic.title,
-                      scrollToPostNumber: post.postNumber,
-                    );
-                  }
-                },
-                onLongPress: enableLongPress
-                    ? () => SearchPreviewDialog.show(
-                        context,
-                        post: post,
-                        onOpen: () {
-                          final topic = post.topic;
-                          if (topic != null) {
-                            _openTopic(
-                              topicId: topic.id,
-                              title: topic.title,
-                              scrollToPostNumber: post.postNumber,
-                            );
-                          }
-                        },
-                      )
-                    : null,
-              );
-            },
+                final post = searchState.results[index];
+                final enableLongPress = ref
+                    .watch(preferencesProvider)
+                    .longPressPreview;
+                return SearchPostCard(
+                  post: post,
+                  onTap: () {
+                    final topic = post.topic;
+                    if (topic != null) {
+                      _openTopic(
+                        topicId: topic.id,
+                        title: topic.title,
+                        scrollToPostNumber: post.postNumber,
+                      );
+                    }
+                  },
+                  onLongPress: enableLongPress
+                      ? () => SearchPreviewDialog.show(
+                          context,
+                          post: post,
+                          onOpen: () {
+                            final topic = post.topic;
+                            if (topic != null) {
+                              _openTopic(
+                                topicId: topic.id,
+                                title: topic.title,
+                                scrollToPostNumber: post.postNumber,
+                              );
+                            }
+                          },
+                        )
+                      : null,
+                );
+              },
             ),
           ),
         ),

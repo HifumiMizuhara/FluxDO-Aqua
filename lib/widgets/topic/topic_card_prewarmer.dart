@@ -94,9 +94,7 @@ class _CardPrewarmScopeState<T> extends State<CardPrewarmScope<T>> {
     void step() {
       if (canceled()) return;
       final items = widget.items;
-      final limit = items.length < _maxWarmCount
-          ? items.length
-          : _maxWarmCount;
+      final limit = items.length < _maxWarmCount ? items.length : _maxWarmCount;
       final stopwatch = Stopwatch()..start();
       final baked = <TopicCardLayout>[];
       while (index < limit && stopwatch.elapsedMicroseconds < _budgetMicros) {
@@ -149,8 +147,15 @@ class _CardPrewarmScopeState<T> extends State<CardPrewarmScope<T>> {
     }
 
     for (final l in layouts) {
-      for (final p in [l.band, l.title, l.excerpt, l.author, l.time,
-          l.catTags, l.stats]) {
+      for (final p in [
+        l.band,
+        l.title,
+        l.excerpt,
+        l.author,
+        l.time,
+        l.catTags,
+        l.stats,
+      ]) {
         if (p != null) draw(p);
       }
       for (final (_, p) in l.titleIcons) {

@@ -89,7 +89,9 @@ class UrlHelper {
 
     bool hostMatches(String? base) {
       if (base == null || base.isEmpty) return false;
-      final baseUri = Uri.tryParse(base.startsWith('//') ? 'https:$base' : base);
+      final baseUri = Uri.tryParse(
+        base.startsWith('//') ? 'https:$base' : base,
+      );
       final baseHost = baseUri?.host ?? '';
       if (baseHost.isEmpty) return false;
       return host == baseHost || host.endsWith('.$baseHost');

@@ -83,7 +83,10 @@ class _NestedPostAvatarState extends State<NestedPostAvatar> {
           imageUrl: imageUrl,
           radius: rect.shortestSide / 2,
           fallbackText: widget.username,
-          border: Border.all(color: Theme.of(ctx).colorScheme.primary, width: 2),
+          border: Border.all(
+            color: Theme.of(ctx).colorScheme.primary,
+            width: 2,
+          ),
         ),
       ),
       child: CompositedTransformTarget(

@@ -565,9 +565,7 @@ class LdcBalanceCard extends ConsumerWidget {
               right: -20,
               top: -20,
               child: Icon(
-                isExpired
-                    ? Symbols.lock_clock_rounded
-                    : Symbols.error_rounded,
+                isExpired ? Symbols.lock_clock_rounded : Symbols.error_rounded,
                 size: 150,
                 color: Colors.white.withValues(alpha: 0.1),
               ),

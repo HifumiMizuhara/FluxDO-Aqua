@@ -6,11 +6,7 @@ class LdcRewardResult {
   final String? tradeNo;
   final String? errorMsg;
 
-  const LdcRewardResult({
-    required this.success,
-    this.tradeNo,
-    this.errorMsg,
-  });
+  const LdcRewardResult({required this.success, this.tradeNo, this.errorMsg});
 
   /// 从 API 响应解析
   factory LdcRewardResult.fromResponse(Map<String, dynamic> json) {

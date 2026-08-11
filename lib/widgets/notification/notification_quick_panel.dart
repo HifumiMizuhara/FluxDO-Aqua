@@ -64,15 +64,13 @@ class NotificationQuickPanel {
         builder: (_) => const _MobileNotificationPanel(),
       ).then<void>((_) {});
       _mobileFuture = future;
-      future
-          .whenComplete(() {
-            if (identical(_mobileFuture, future)) {
-              _mobileFuture = null;
-              _mobileRoute = null;
-              _mobileDismissPending = false;
-            }
-          })
-          .ignore();
+      future.whenComplete(() {
+        if (identical(_mobileFuture, future)) {
+          _mobileFuture = null;
+          _mobileRoute = null;
+          _mobileDismissPending = false;
+        }
+      }).ignore();
       return future;
     }
 

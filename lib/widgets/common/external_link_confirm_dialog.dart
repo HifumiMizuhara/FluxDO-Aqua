@@ -320,7 +320,11 @@ class _LinkBlockedSheet extends StatelessWidget {
               color: Colors.red.withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Symbols.block_rounded, color: Colors.red, size: 28),
+            child: const Icon(
+              Symbols.block_rounded,
+              color: Colors.red,
+              size: 28,
+            ),
           ),
           const SizedBox(height: 16),
           Text(

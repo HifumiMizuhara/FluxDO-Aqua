@@ -36,7 +36,8 @@ class AiQuickPromptsBar extends ConsumerWidget {
     Map<String, String>? dimensionValues,
     String renderedPrompt,
     String? aspectRatio,
-  ) onPick;
+  )
+  onPick;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -118,8 +119,7 @@ class AiQuickPromptsBar extends ConsumerWidget {
         final rendered = preset.hasDimensions
             ? appendDimensionFragments(base, preset.dimensions, dimensionValues)
             : base;
-        final aspectValue =
-            dimensionValues?['aspect'] ?? preset.aspectRatio;
+        final aspectValue = dimensionValues?['aspect'] ?? preset.aspectRatio;
         onPick(preset, dimensionValues, rendered, aspectValue);
       },
     );

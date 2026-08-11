@@ -47,23 +47,22 @@ void main() {
     expect(detailSize.width, greaterThanOrEqualTo(400));
   });
 
-  testWidgets(
-    'desktop layout keeps the ratio upper bound near tablet size',
-    (tester) async {
-      await pumpLayout(tester, width: 1000);
+  testWidgets('desktop layout keeps the ratio upper bound near tablet size', (
+    tester,
+  ) async {
+    await pumpLayout(tester, width: 1000);
 
-      final masterSize = tester.getSize(
-        find.byKey(const ValueKey('master-pane')),
-      );
-      final detailSize = tester.getSize(
-        find.byKey(const ValueKey('detail-content')),
-      );
+    final masterSize = tester.getSize(
+      find.byKey(const ValueKey('master-pane')),
+    );
+    final detailSize = tester.getSize(
+      find.byKey(const ValueKey('detail-content')),
+    );
 
-      // preferred = max(200, 380) = 380，被 maxMasterRatio(0.3*1000=300) 压回
-      expect(masterSize.width, closeTo(300, 0.1));
-      expect(detailSize.width, greaterThanOrEqualTo(400));
-    },
-  );
+    // preferred = max(200, 380) = 380，被 maxMasterRatio(0.3*1000=300) 压回
+    expect(masterSize.width, closeTo(300, 0.1));
+    expect(detailSize.width, greaterThanOrEqualTo(400));
+  });
 
   testWidgets('narrow windows stay single pane', (tester) async {
     await pumpLayout(tester, width: 760);

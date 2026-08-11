@@ -59,16 +59,51 @@ final _openTagRe = RegExp(r'<([a-zA-Z][\w-]*)(\s[^>]*)?>');
 
 /// Discourse 白名单里的**块级** HTML 标签:整段变岛。
 const htmlBlockTags = {
-  'details', 'summary', 'div', 'table', 'blockquote', 'pre', 'ul', 'ol',
-  'aside', 'section', 'figure',
+  'details',
+  'summary',
+  'div',
+  'table',
+  'blockquote',
+  'pre',
+  'ul',
+  'ol',
+  'aside',
+  'section',
+  'figure',
 };
 
 /// Discourse 白名单里的**行内** HTML 标签:不变岛,只把本段送 cook
 /// 换成带正确行内节点的段落。
 const htmlInlineTags = {
-  'a', 'kbd', 'sup', 'sub', 'mark', 'small', 'big', 'ins', 'del', 's', 'u',
-  'b', 'i', 'em', 'strong', 'code', 'span', 'abbr', 'ruby', 'rt', 'rp',
-  'q', 'cite', 'dfn', 'time', 'var', 'samp', 'bdi', 'bdo',
+  'a',
+  'kbd',
+  'sup',
+  'sub',
+  'mark',
+  'small',
+  'big',
+  'ins',
+  'del',
+  's',
+  'u',
+  'b',
+  'i',
+  'em',
+  'strong',
+  'code',
+  'span',
+  'abbr',
+  'ruby',
+  'rt',
+  'rp',
+  'q',
+  'cite',
+  'dfn',
+  'time',
+  'var',
+  'samp',
+  'bdi',
+  'bdo',
 };
 
 /// 自闭合(void)行内标签:没有闭合标签,写出来就算完整。
@@ -89,8 +124,9 @@ bool hasCompleteInlineHtml(String text) {
 /// 本行是否是**单行写完**的块级 HTML(`<div>内容</div>`)。
 /// 返回标签名;不是则 null。
 String? _singleLineBlockHtml(String text) {
-  final m = RegExp(r'^<([a-zA-Z][\w-]*)(\s[^>]*)?>.*</([a-zA-Z][\w-]*)>$')
-      .firstMatch(text);
+  final m = RegExp(
+    r'^<([a-zA-Z][\w-]*)(\s[^>]*)?>.*</([a-zA-Z][\w-]*)>$',
+  ).firstMatch(text);
   if (m == null) return null;
   final open = m.group(1)!.toLowerCase();
   if (open != m.group(3)!.toLowerCase()) return null;
@@ -120,9 +156,7 @@ const bbcodeBlockTags = {
 /// - `font`:引擎不认,不支持;
 /// - `sup`/`sub`/`highlight`/`mark`:**BBCode 形式**引擎不认(HTML 形式
 ///   `<sup>` 才认,见 [htmlInlineTags])。
-const bbcodeInlineTags = {
-  'b', 'i', 'u', 's', 'url', 'email', 'img',
-};
+const bbcodeInlineTags = {'b', 'i', 'u', 's', 'url', 'email', 'img'};
 
 /// `[tag]` / `[tag=值]` / `[tag 属性=值]` 开标签。
 final _bbOpenRe = RegExp(r'\[([a-zA-Z][\w-]*)(=[^\]]*|\s[^\]]*)?\]');
@@ -179,7 +213,10 @@ BlockCompletion? detectBlockCompletion(List<String?> blockTexts, int index) {
     return BlockCompletion(
       from: index,
       to: index,
-      markdown: r'$$' '\n\n' r'$$',
+      markdown:
+          r'$$'
+          '\n\n'
+          r'$$',
     );
   }
   if (_tableRe.hasMatch(text)) {
@@ -199,7 +236,11 @@ BlockCompletion? detectBlockCompletion(List<String?> blockTexts, int index) {
   if (closing != null) {
     final tag = closing.group(1)!.toLowerCase();
     if (htmlBlockTags.contains(tag)) {
-      final openRe = RegExp('^<$tag' r'(\s[^>]*)?>$', caseSensitive: false);
+      final openRe = RegExp(
+        '^<$tag'
+        r'(\s[^>]*)?>$',
+        caseSensitive: false,
+      );
       // 上限 64 块:防超长文档里一个孤立 </div> 全文回溯
       for (var j = index - 1; j >= 0 && index - j <= 64; j--) {
         final t = blockTexts[j];
@@ -208,8 +249,9 @@ BlockCompletion? detectBlockCompletion(List<String?> blockTexts, int index) {
           return BlockCompletion(
             from: j,
             to: index,
-            markdown: [for (var k = j; k <= index; k++) blockTexts[k]!]
-                .join('\n'),
+            markdown: [
+              for (var k = j; k <= index; k++) blockTexts[k]!,
+            ].join('\n'),
           );
         }
       }
@@ -231,8 +273,9 @@ BlockCompletion? detectBlockCompletion(List<String?> blockTexts, int index) {
           return BlockCompletion(
             from: j,
             to: index,
-            markdown: [for (var k = j; k <= index; k++) blockTexts[k]!]
-                .join('\n'),
+            markdown: [
+              for (var k = j; k <= index; k++) blockTexts[k]!,
+            ].join('\n'),
           );
         }
       }

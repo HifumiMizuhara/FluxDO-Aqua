@@ -18,16 +18,10 @@ import '../../../models/topic.dart';
 class CurrentPostScope extends InheritedWidget {
   final Post post;
 
-  const CurrentPostScope({
-    super.key,
-    required this.post,
-    required super.child,
-  });
+  const CurrentPostScope({super.key, required this.post, required super.child});
 
   static Post? of(BuildContext context) {
-    return context
-        .dependOnInheritedWidgetOfExactType<CurrentPostScope>()
-        ?.post;
+    return context.dependOnInheritedWidgetOfExactType<CurrentPostScope>()?.post;
   }
 
   @override

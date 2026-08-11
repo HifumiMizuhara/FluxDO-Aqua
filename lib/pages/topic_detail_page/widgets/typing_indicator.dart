@@ -8,11 +8,7 @@ class TypingIndicator extends StatefulWidget {
   final TextStyle? textStyle;
   final String text;
 
-  const TypingIndicator({
-    super.key,
-    this.textStyle,
-    this.text = '',
-  });
+  const TypingIndicator({super.key, this.textStyle, this.text = ''});
 
   @override
   State<TypingIndicator> createState() => _TypingIndicatorState();
@@ -31,10 +27,7 @@ class _TypingIndicatorState extends State<TypingIndicator>
       vsync: this,
     )..repeat();
 
-    _dotCount = StepTween(
-      begin: 0,
-      end: 3,
-    ).animate(_controller);
+    _dotCount = StepTween(begin: 0, end: 3).animate(_controller);
   }
 
   @override
@@ -61,10 +54,7 @@ class _TypingIndicatorState extends State<TypingIndicator>
 class TypingAvatars extends StatelessWidget {
   final List<TypingUser> users;
 
-  const TypingAvatars({
-    super.key,
-    required this.users,
-  });
+  const TypingAvatars({super.key, required this.users});
 
   static const int maxVisible = 3;
   static const double avatarSize = 28.0;
@@ -80,7 +70,8 @@ class TypingAvatars extends StatelessWidget {
 
     final avatarsWidget = SizedBox(
       height: avatarSize,
-      width: avatarSize +
+      width:
+          avatarSize +
           (visibleUsers.length - 1) * (avatarSize - overlap) +
           (extraCount > 0 ? avatarSize - overlap : 0),
       child: Stack(

@@ -47,15 +47,18 @@ class BadgeUIUtils {
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
       colors: [
-        baseColor.withValues(alpha:isDark ? 0.25 : 0.15),
-        baseColor.withValues(alpha:isDark ? 0.10 : 0.05),
-        baseColor.withValues(alpha:isDark ? 0.02 : 0.01),
+        baseColor.withValues(alpha: isDark ? 0.25 : 0.15),
+        baseColor.withValues(alpha: isDark ? 0.10 : 0.05),
+        baseColor.withValues(alpha: isDark ? 0.02 : 0.01),
       ],
       stops: const [0.0, 0.6, 1.0],
     );
   }
 
-  static LinearGradient getHeaderGradient(BuildContext context, BadgeType type) {
+  static LinearGradient getHeaderGradient(
+    BuildContext context,
+    BadgeType type,
+  ) {
     final baseColor = getBadgeColor(context, type);
     final isDark = _isDark(context);
 
@@ -63,8 +66,8 @@ class BadgeUIUtils {
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [
-        baseColor.withValues(alpha:isDark ? 0.3 : 0.2),
-        baseColor.withValues(alpha:isDark ? 0.05 : 0.02),
+        baseColor.withValues(alpha: isDark ? 0.3 : 0.2),
+        baseColor.withValues(alpha: isDark ? 0.05 : 0.02),
       ],
     );
   }
@@ -84,12 +87,12 @@ class BadgeUIUtils {
       gradient: gradient,
       borderRadius: BorderRadius.circular(20), // Moderner, larger radius
       border: Border.all(
-        color: borderColor.withValues(alpha:isDark ? 0.3 : 0.2),
+        color: borderColor.withValues(alpha: isDark ? 0.3 : 0.2),
         width: 1.5,
       ),
       boxShadow: [
         BoxShadow(
-          color: borderColor.withValues(alpha:isDark ? 0.1 : 0.08),
+          color: borderColor.withValues(alpha: isDark ? 0.1 : 0.08),
           blurRadius: 16,
           offset: const Offset(0, 8), // Soft spread shadow
           spreadRadius: -4,

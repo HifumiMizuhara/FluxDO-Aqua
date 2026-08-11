@@ -9,19 +9,23 @@ void main() {
       expect(videoFormatHintFromMime('video/webm'), VideoFormat.other);
       expect(videoFormatHintFromMime('audio/mpeg'), VideoFormat.other);
       // 带参数与大小写
-      expect(videoFormatHintFromMime('Video/MP4; codecs="avc1"'),
-          VideoFormat.other);
+      expect(
+        videoFormatHintFromMime('Video/MP4; codecs="avc1"'),
+        VideoFormat.other,
+      );
     });
 
     test('流媒体协议映射', () {
-      expect(videoFormatHintFromMime('application/dash+xml'),
-          VideoFormat.dash);
-      expect(videoFormatHintFromMime('application/vnd.apple.mpegurl'),
-          VideoFormat.hls);
+      expect(videoFormatHintFromMime('application/dash+xml'), VideoFormat.dash);
       expect(
-          videoFormatHintFromMime('application/x-mpegurl'), VideoFormat.hls);
-      expect(videoFormatHintFromMime('application/vnd.ms-sstr+xml'),
-          VideoFormat.ss);
+        videoFormatHintFromMime('application/vnd.apple.mpegurl'),
+        VideoFormat.hls,
+      );
+      expect(videoFormatHintFromMime('application/x-mpegurl'), VideoFormat.hls);
+      expect(
+        videoFormatHintFromMime('application/vnd.ms-sstr+xml'),
+        VideoFormat.ss,
+      );
     });
 
     test('空/未知 → null', () {

@@ -100,8 +100,9 @@ class AmbientIconButton extends StatelessWidget {
       icon: Icon(icon),
       tooltip: tooltip,
       style: IconButton.styleFrom(
-        backgroundColor:
-            Theme.of(context).colorScheme.surface.withValues(alpha: 0.3),
+        backgroundColor: Theme.of(
+          context,
+        ).colorScheme.surface.withValues(alpha: 0.3),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       onPressed: onPressed,

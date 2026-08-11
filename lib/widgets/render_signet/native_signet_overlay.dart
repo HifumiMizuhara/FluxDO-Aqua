@@ -67,7 +67,7 @@ class NativeSignetOverlay {
       }
     } catch (e) {
       // 通道失败(如原生侧未注册)不重试:留给下一次 sync 触发。
-      debugPrint('[NativeSignetOverlay] 同步失败: $e');
+      debugPrint('[NativeSignetOverlay] syncfailed: $e');
     } finally {
       _pumping = false;
     }

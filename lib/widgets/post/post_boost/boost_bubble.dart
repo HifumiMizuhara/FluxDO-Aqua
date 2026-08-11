@@ -181,7 +181,9 @@ class _GroupedBoostBubble extends StatelessWidget {
               ),
               const SizedBox(width: 4),
               Icon(
-                expanded ? Symbols.keyboard_arrow_up_rounded : Symbols.keyboard_arrow_down_rounded,
+                expanded
+                    ? Symbols.keyboard_arrow_up_rounded
+                    : Symbols.keyboard_arrow_down_rounded,
                 size: 14,
                 color: theme.colorScheme.onSurfaceVariant,
               ),

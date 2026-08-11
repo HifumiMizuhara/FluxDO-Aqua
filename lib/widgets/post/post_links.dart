@@ -17,17 +17,14 @@ class PostLinks extends StatefulWidget {
   /// 最大折叠显示数量
   static const int maxCollapsedLinks = 5;
 
-  const PostLinks({
-    super.key,
-    this.linkCounts,
-    this.defaultExpanded = false,
-  });
+  const PostLinks({super.key, this.linkCounts, this.defaultExpanded = false});
 
   @override
   State<PostLinks> createState() => _PostLinksState();
 }
 
-class _PostLinksState extends State<PostLinks> with SingleTickerProviderStateMixin {
+class _PostLinksState extends State<PostLinks>
+    with SingleTickerProviderStateMixin {
   late bool _expanded = widget.defaultExpanded;
   bool _showAll = false; // 链接列表内部的"查看更多"
 
@@ -37,7 +34,13 @@ class _PostLinksState extends State<PostLinks> with SingleTickerProviderStateMix
 
     // 过滤：内部链接 + reflection + 有标题
     final filtered = widget.linkCounts!
-        .where((l) => l.internal && l.reflection && l.title != null && l.title!.isNotEmpty)
+        .where(
+          (l) =>
+              l.internal &&
+              l.reflection &&
+              l.title != null &&
+              l.title!.isNotEmpty,
+        )
         .toList();
 
     // 按标题去重
@@ -139,9 +142,14 @@ class _PostLinksState extends State<PostLinks> with SingleTickerProviderStateMix
                   ),
                   const SizedBox(width: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 1,
+                    ),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+                      color: theme.colorScheme.primaryContainer.withValues(
+                        alpha: 0.5,
+                      ),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -181,9 +189,13 @@ class _PostLinksState extends State<PostLinks> with SingleTickerProviderStateMix
                       Divider(
                         height: 1,
                         thickness: 0.5,
-                        color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+                        color: theme.colorScheme.outlineVariant.withValues(
+                          alpha: 0.3,
+                        ),
                       ),
-                      ..._displayedLinks.map((link) => _buildLinkItem(link, theme)),
+                      ..._displayedLinks.map(
+                        (link) => _buildLinkItem(link, theme),
+                      ),
                       if (_canShowMore)
                         InkWell(
                           onTap: () => setState(() => _showAll = true),

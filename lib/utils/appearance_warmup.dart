@@ -90,12 +90,12 @@ class AppearanceWarmup {
   /// 排版一次 MiSans 文本，触发字体 asset 的读取与 typeface 创建。
   static void _warmUpMiSansTypeface() {
     TextPainter(
-      text: const TextSpan(
-        text: 'MiSans',
-        style: TextStyle(fontFamily: 'MiSans'),
-      ),
-      textDirection: TextDirection.ltr,
-    )
+        text: const TextSpan(
+          text: 'MiSans',
+          style: TextStyle(fontFamily: 'MiSans'),
+        ),
+        textDirection: TextDirection.ltr,
+      )
       ..layout()
       ..dispose();
   }

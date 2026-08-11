@@ -600,7 +600,9 @@ class _ModelRow extends StatelessWidget {
                   ? context.l10n.ai_modelFavoriteRemove
                   : context.l10n.ai_modelFavoriteAdd,
               onPressed: onToggleFavorite,
-              icon: Icon(Symbols.favorite_rounded, fill: isFavorite ? 1 : 0,
+              icon: Icon(
+                Symbols.favorite_rounded,
+                fill: isFavorite ? 1 : 0,
                 size: 20,
                 color: isFavorite
                     ? theme.colorScheme.error

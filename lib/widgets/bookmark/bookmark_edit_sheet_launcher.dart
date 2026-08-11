@@ -35,7 +35,7 @@ Future<BookmarkEditResult?> showBookmarkEditSheetWithCachedNames(
     phase: 'launcher_prepare',
     traceId: resolvedTraceId,
     source: source,
-    message: '准备打开编辑书签面板',
+    message: 'Preparing to open bookmark editor panel',
     topicId: topicId,
     postId: postId,
     bookmarkId: bookmarkId,
@@ -65,7 +65,7 @@ Future<BookmarkEditResult?> showBookmarkEditSheetWithCachedNames(
       phase: 'launcher_throw',
       traceId: resolvedTraceId,
       source: source,
-      message: '打开编辑书签面板时抛出异常',
+      message: 'Exception while opening bookmark editor panel',
       topicId: topicId,
       postId: postId,
       bookmarkId: bookmarkId,
@@ -81,7 +81,7 @@ Future<BookmarkEditResult?> showBookmarkEditSheetWithCachedNames(
       phase: 'launcher_dismissed',
       traceId: resolvedTraceId,
       source: source,
-      message: '编辑书签面板已关闭且未返回结果',
+      message: 'Bookmark editor panel closed without a result',
       topicId: topicId,
       postId: postId,
       bookmarkId: bookmarkId,
@@ -98,17 +98,13 @@ Future<BookmarkEditResult?> showBookmarkEditSheetWithCachedNames(
 
   // 统一写穿透 BookmarksRepository：所有书签编辑入口（书签页 / 详情页 /
   // 帖子 footer / 预览卡）共用 launcher，本地缓存的同步收敛在这一处。
-  await _syncToBookmarkRepository(
-    ref,
-    bookmarkId: bookmarkId,
-    result: result,
-  );
+  await _syncToBookmarkRepository(ref, bookmarkId: bookmarkId, result: result);
 
   writeBookmarkEditTrace(
     phase: 'launcher_completed',
     traceId: resolvedTraceId,
     source: source,
-    message: '编辑书签面板返回结果',
+    message: 'Bookmark editor panel returned a result',
     topicId: topicId,
     postId: postId,
     bookmarkId: bookmarkId,

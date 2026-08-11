@@ -22,10 +22,26 @@ final ColorFilter saturationFilter = () {
   const sg = (1 - s) * 0.7152;
   const sb = (1 - s) * 0.0722;
   return ColorFilter.matrix(<double>[
-    sr + s, sg,     sb,     0, 0,
-    sr,     sg + s, sb,     0, 0,
-    sr,     sg,     sb + s, 0, 0,
-    0,      0,      0,      1, 0,
+    sr + s,
+    sg,
+    sb,
+    0,
+    0,
+    sr,
+    sg + s,
+    sb,
+    0,
+    0,
+    sr,
+    sg,
+    sb + s,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
   ]);
 }();
 

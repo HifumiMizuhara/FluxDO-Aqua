@@ -42,8 +42,12 @@ class FilterDropdown extends ConsumerWidget {
     final categoryId = ref.watch(currentTabCategoryIdProvider);
     // watch state 本身以触发 rebuild
     ref.watch(topicTrackingStateProvider);
-    final newCount = isLoggedIn ? trackingNotifier.countNew(categoryId: categoryId) : 0;
-    final unreadCount = isLoggedIn ? trackingNotifier.countUnread(categoryId: categoryId) : 0;
+    final newCount = isLoggedIn
+        ? trackingNotifier.countNew(categoryId: categoryId)
+        : 0;
+    final unreadCount = isLoggedIn
+        ? trackingNotifier.countUnread(categoryId: categoryId)
+        : 0;
 
     /// 获取筛选选项的显示文本（带计数）
     String optionLabel(TopicListFilter filter, String baseLabel) {
@@ -67,20 +71,32 @@ class FilterDropdown extends ConsumerWidget {
       tooltip: S.current.topic_filterTooltip(filterLabel(currentFilter)),
       itemBuilder: (context) {
         return filterOptions
-            .where((option) => isLoggedIn || (option.$1 != TopicListFilter.newTopics && option.$1 != TopicListFilter.unread && option.$1 != TopicListFilter.unseen))
-            .map((option) => PopupMenuItem<TopicListFilter>(
-                  value: option.$1,
-                  child: Row(
-                    children: [
-                      if (option.$1 == currentFilter)
-                        Icon(Symbols.check_rounded, size: 16, color: colorScheme.primary)
-                      else
-                        const SizedBox(width: 16),
-                      const SizedBox(width: 8),
-                      Text(optionLabel(option.$1, option.$2)),
-                    ],
-                  ),
-                ))
+            .where(
+              (option) =>
+                  isLoggedIn ||
+                  (option.$1 != TopicListFilter.newTopics &&
+                      option.$1 != TopicListFilter.unread &&
+                      option.$1 != TopicListFilter.unseen),
+            )
+            .map(
+              (option) => PopupMenuItem<TopicListFilter>(
+                value: option.$1,
+                child: Row(
+                  children: [
+                    if (option.$1 == currentFilter)
+                      Icon(
+                        Symbols.check_rounded,
+                        size: 16,
+                        color: colorScheme.primary,
+                      )
+                    else
+                      const SizedBox(width: 16),
+                    const SizedBox(width: 8),
+                    Text(optionLabel(option.$1, option.$2)),
+                  ],
+                ),
+              ),
+            )
             .toList();
       },
       child: style == DropdownStyle.compact
@@ -90,7 +106,11 @@ class FilterDropdown extends ConsumerWidget {
   }
 
   /// 根据筛选类型返回对应计数
-  static int _countForFilter(TopicListFilter filter, int newCount, int unreadCount) {
+  static int _countForFilter(
+    TopicListFilter filter,
+    int newCount,
+    int unreadCount,
+  ) {
     switch (filter) {
       case TopicListFilter.newTopics:
         return newCount + unreadCount;
@@ -120,7 +140,11 @@ class FilterDropdown extends ConsumerWidget {
             ),
           ),
           const SizedBox(width: 2),
-          Icon(Symbols.arrow_drop_down_rounded, size: 18, color: colorScheme.onSurfaceVariant),
+          Icon(
+            Symbols.arrow_drop_down_rounded,
+            size: 18,
+            color: colorScheme.onSurfaceVariant,
+          ),
         ],
       ),
     );
@@ -132,14 +156,15 @@ class FilterDropdown extends ConsumerWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Symbols.filter_list_rounded, size: 18, color: colorScheme.onSurfaceVariant),
+          Icon(
+            Symbols.filter_list_rounded,
+            size: 18,
+            color: colorScheme.onSurfaceVariant,
+          ),
           const SizedBox(width: 2),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 12,
-              color: colorScheme.onSurfaceVariant,
-            ),
+            style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
           ),
         ],
       ),
@@ -189,7 +214,11 @@ class OrderDropdown extends StatelessWidget {
             child: Row(
               children: [
                 if (isSelected)
-                  Icon(Symbols.check_rounded, size: 16, color: colorScheme.primary)
+                  Icon(
+                    Symbols.check_rounded,
+                    size: 16,
+                    color: colorScheme.primary,
+                  )
                 else
                   const SizedBox(width: 16),
                 const SizedBox(width: 8),
@@ -197,7 +226,9 @@ class OrderDropdown extends StatelessWidget {
                 // 当前选中的非默认项显示方向箭头
                 if (isSelected && order != TopicSortOrder.defaultOrder)
                   Icon(
-                    ascending ? Symbols.arrow_upward_rounded : Symbols.arrow_downward_rounded,
+                    ascending
+                        ? Symbols.arrow_upward_rounded
+                        : Symbols.arrow_downward_rounded,
                     size: 14,
                     color: colorScheme.primary,
                   ),
@@ -235,12 +266,18 @@ class OrderDropdown extends StatelessWidget {
           const SizedBox(width: 2),
           if (isActive)
             Icon(
-              ascending ? Symbols.arrow_upward_rounded : Symbols.arrow_downward_rounded,
+              ascending
+                  ? Symbols.arrow_upward_rounded
+                  : Symbols.arrow_downward_rounded,
               size: 14,
               color: colorScheme.primary,
             )
           else
-            Icon(Symbols.arrow_drop_down_rounded, size: 18, color: colorScheme.onSurfaceVariant),
+            Icon(
+              Symbols.arrow_drop_down_rounded,
+              size: 18,
+              color: colorScheme.onSurfaceVariant,
+            ),
         ],
       ),
     );
@@ -255,19 +292,20 @@ class OrderDropdown extends StatelessWidget {
           Icon(
             Symbols.sort_rounded,
             size: 18,
-            color: isActive ? colorScheme.primary : colorScheme.onSurfaceVariant,
+            color: isActive
+                ? colorScheme.primary
+                : colorScheme.onSurfaceVariant,
           ),
           if (isActive) ...[
             const SizedBox(width: 2),
             Text(
               currentOrder.label,
-              style: TextStyle(
-                fontSize: 12,
-                color: colorScheme.primary,
-              ),
+              style: TextStyle(fontSize: 12, color: colorScheme.primary),
             ),
             Icon(
-              ascending ? Symbols.arrow_upward_rounded : Symbols.arrow_downward_rounded,
+              ascending
+                  ? Symbols.arrow_upward_rounded
+                  : Symbols.arrow_downward_rounded,
               size: 12,
               color: colorScheme.primary,
             ),
@@ -320,7 +358,11 @@ class NewSubsetDropdown extends StatelessWidget {
             child: Row(
               children: [
                 if (isSelected)
-                  Icon(Symbols.check_rounded, size: 16, color: colorScheme.primary)
+                  Icon(
+                    Symbols.check_rounded,
+                    size: 16,
+                    color: colorScheme.primary,
+                  )
                 else
                   const SizedBox(width: 16),
                 const SizedBox(width: 8),
@@ -357,7 +399,11 @@ class NewSubsetDropdown extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 2),
-          Icon(Symbols.arrow_drop_down_rounded, size: 18, color: colorScheme.onSurfaceVariant),
+          Icon(
+            Symbols.arrow_drop_down_rounded,
+            size: 18,
+            color: colorScheme.onSurfaceVariant,
+          ),
         ],
       ),
     );

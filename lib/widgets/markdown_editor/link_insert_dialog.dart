@@ -82,8 +82,10 @@ class _LinkInsertDialogState extends State<LinkInsertDialog> {
       setState(() => _searching = true);
       List<SearchTopic> topics = const [];
       try {
-        final result =
-            await DiscourseService().search(query: q, typeFilter: 'topic');
+        final result = await DiscourseService().search(
+          query: q,
+          typeFilter: 'topic',
+        );
         // 话题信息挂在 posts[].topic 上,按话题去重
         final seen = <int>{};
         topics = [
@@ -186,22 +188,29 @@ class _LinkInsertDialogState extends State<LinkInsertDialog> {
                         onTap: () => _selectTopic(t),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 7),
-                          child: Row(children: [
-                            if (t.closed || t.archived) ...[
-                              Icon(Icons.lock_outline_rounded,
-                                  size: 13, color: scheme.onSurfaceVariant),
-                              const SizedBox(width: 4),
-                            ],
-                            Expanded(
-                              child: Text(
-                                t.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 13),
+                            horizontal: 10,
+                            vertical: 7,
+                          ),
+                          child: Row(
+                            children: [
+                              if (t.closed || t.archived) ...[
+                                Icon(
+                                  Icons.lock_outline_rounded,
+                                  size: 13,
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                                const SizedBox(width: 4),
+                              ],
+                              Expanded(
+                                child: Text(
+                                  t.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 13),
+                                ),
                               ),
-                            ),
-                          ]),
+                            ],
+                          ),
                         ),
                       );
                     },

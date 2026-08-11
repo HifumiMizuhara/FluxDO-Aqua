@@ -343,26 +343,20 @@ class BookmarksWorkspaceState {
       return copyWith(activeTabId: topicTabId(topicId), topicTabs: updatedTabs);
     }
 
-    final limited = _applyTopicTabLimit(
-      [
-        ...topicTabs,
-        BookmarkWorkspaceTopicTab(
-          topicId: topicId,
-          title: title,
-          scrollToPostNumber: scrollToPostNumber,
-          bookmarkId: bookmarkId,
-          bookmarkName: bookmarkName,
-          bookmarkReminderAt: bookmarkReminderAt,
-          bookmarkableType: bookmarkableType,
-          instanceId: _uuid.v4(),
-        ),
-      ],
-      topicTabId(topicId),
-    );
-    return copyWith(
-      activeTabId: limited.activeTabId,
-      topicTabs: limited.tabs,
-    );
+    final limited = _applyTopicTabLimit([
+      ...topicTabs,
+      BookmarkWorkspaceTopicTab(
+        topicId: topicId,
+        title: title,
+        scrollToPostNumber: scrollToPostNumber,
+        bookmarkId: bookmarkId,
+        bookmarkName: bookmarkName,
+        bookmarkReminderAt: bookmarkReminderAt,
+        bookmarkableType: bookmarkableType,
+        instanceId: _uuid.v4(),
+      ),
+    ], topicTabId(topicId));
+    return copyWith(activeTabId: limited.activeTabId, topicTabs: limited.tabs);
   }
 
   BookmarksWorkspaceState openTopicTabInBackground({
@@ -390,26 +384,20 @@ class BookmarksWorkspaceState {
       return copyWith(topicTabs: updatedTabs);
     }
 
-    final limited = _applyTopicTabLimit(
-      [
-        ...topicTabs,
-        BookmarkWorkspaceTopicTab(
-          topicId: topicId,
-          title: title,
-          scrollToPostNumber: scrollToPostNumber,
-          bookmarkId: bookmarkId,
-          bookmarkName: bookmarkName,
-          bookmarkReminderAt: bookmarkReminderAt,
-          bookmarkableType: bookmarkableType,
-          instanceId: _uuid.v4(),
-        ),
-      ],
-      activeTabId,
-    );
-    return copyWith(
-      activeTabId: limited.activeTabId,
-      topicTabs: limited.tabs,
-    );
+    final limited = _applyTopicTabLimit([
+      ...topicTabs,
+      BookmarkWorkspaceTopicTab(
+        topicId: topicId,
+        title: title,
+        scrollToPostNumber: scrollToPostNumber,
+        bookmarkId: bookmarkId,
+        bookmarkName: bookmarkName,
+        bookmarkReminderAt: bookmarkReminderAt,
+        bookmarkableType: bookmarkableType,
+        instanceId: _uuid.v4(),
+      ),
+    ], activeTabId);
+    return copyWith(activeTabId: limited.activeTabId, topicTabs: limited.tabs);
   }
 
   BookmarksWorkspaceState closeTopicTab(int topicId) {

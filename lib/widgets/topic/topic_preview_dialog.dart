@@ -287,7 +287,9 @@ class _TopicPreviewDialogState extends ConsumerState<TopicPreviewDialog> {
           final navigator = Navigator.of(context);
           navigator.pop();
           if (stack != null) {
-            container!.read(stack.notifier).push(
+            container!
+                .read(stack.notifier)
+                .push(
                   topicId: topicId,
                   initialTitle: topicSlug,
                   scrollToPostNumber: postNumber,
@@ -395,7 +397,11 @@ class _TopicPreviewDialogState extends ConsumerState<TopicPreviewDialog> {
               alignment: PlaceholderAlignment.middle,
               child: Padding(
                 padding: const EdgeInsets.only(right: 6),
-                child: Icon(Symbols.check_box_rounded, size: 20, color: Colors.green),
+                child: Icon(
+                  Symbols.check_box_rounded,
+                  size: 20,
+                  color: Colors.green,
+                ),
               ),
             ),
           ...EmojiText.buildEmojiSpans(

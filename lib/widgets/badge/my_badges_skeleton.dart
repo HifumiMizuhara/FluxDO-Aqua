@@ -27,7 +27,9 @@ class MyBadgesSkeleton extends StatelessWidget {
                     end: Alignment.bottomRight,
                     colors: [
                       colorScheme.surface,
-                      colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                      colorScheme.surfaceContainerHighest.withValues(
+                        alpha: 0.5,
+                      ),
                     ],
                   ),
                 ),

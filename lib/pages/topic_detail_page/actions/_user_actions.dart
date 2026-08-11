@@ -142,8 +142,7 @@ extension _UserActions on _TopicDetailPageState {
                     : () async {
                         setState(() => isDeleting = true);
                         try {
-                          await DiscourseService()
-                              .deleteReviewable(pending.id);
+                          await DiscourseService().deleteReviewable(pending.id);
                           if (dialogContext.mounted) {
                             Navigator.pop(dialogContext, true);
                           }
@@ -304,7 +303,7 @@ extension _UserActions on _TopicDetailPageState {
         phase: 'detail_missing',
         traceId: resolvedTraceId,
         source: source,
-        message: '编辑书签时未拿到话题详情',
+        message: 'Topic details unavailable while editing bookmark',
         topicId: widget.topicId,
       );
       return;
@@ -314,7 +313,7 @@ extension _UserActions on _TopicDetailPageState {
       phase: 'handle_bookmark_enter',
       traceId: resolvedTraceId,
       source: source,
-      message: '进入详情页编辑书签处理逻辑',
+      message: 'Entered detail-page bookmark edit flow',
       topicId: widget.topicId,
       bookmarkId: detail.bookmarkId ?? _fallbackBookmarkId,
       bookmarkName: detail.bookmarkName ?? _fallbackBookmarkName,
@@ -328,7 +327,7 @@ extension _UserActions on _TopicDetailPageState {
         phase: 'launcher_request',
         traceId: resolvedTraceId,
         source: source,
-        message: '详情页准备打开编辑书签面板',
+        message: 'Detail page is preparing to open bookmark editor panel',
         topicId: widget.topicId,
         postId: editTarget.postId,
         bookmarkId: editTarget.bookmarkId,
@@ -416,7 +415,8 @@ extension _UserActions on _TopicDetailPageState {
         phase: 'bookmark_id_missing',
         traceId: resolvedTraceId,
         source: source,
-        message: '话题已书签但未解析到可编辑的书签目标',
+        message:
+            'Topic is bookmarked but no editable bookmark target was resolved',
         topicId: widget.topicId,
         bookmarkName: detail.bookmarkName,
         initialName: _fallbackBookmarkName,
@@ -444,7 +444,8 @@ extension _UserActions on _TopicDetailPageState {
         phase: 'bookmark_created',
         traceId: resolvedTraceId,
         source: source,
-        message: '详情页已新建书签，准备打开编辑面板',
+        message:
+            'Detail page created a bookmark; preparing to open editor panel',
         topicId: widget.topicId,
         bookmarkId: newBookmarkId,
         bookmarked: true,
@@ -478,7 +479,7 @@ extension _UserActions on _TopicDetailPageState {
         phase: 'bookmark_create_dio_error',
         traceId: resolvedTraceId,
         source: source,
-        message: '详情页新建书签失败',
+        message: 'Detail page failed to create bookmark',
         topicId: widget.topicId,
         error: e,
       );
@@ -488,7 +489,7 @@ extension _UserActions on _TopicDetailPageState {
         phase: 'bookmark_create_throw',
         traceId: resolvedTraceId,
         source: source,
-        message: '详情页新建书签抛出异常',
+        message: 'Detail page bookmark creation threw an exception',
         topicId: widget.topicId,
         error: e,
         stackTrace: s,
@@ -596,7 +597,9 @@ extension _UserActions on _TopicDetailPageState {
           .read(discourseServiceProvider)
           .markTopicUnread(widget.topicId, all: all);
     } on DioException catch (e) {
-      debugPrint('[TopicDetail] 标记未读失败: ${e.response?.statusCode}');
+      debugPrint(
+        '[TopicDetail] 标记未读失败: ${e.response?.statusCode}',
+      );
       // 恢复追踪,页面还在
       if (mounted && _controller.trackEnabled) {
         _screenTrack.start(widget.topicId);
@@ -618,7 +621,9 @@ extension _UserActions on _TopicDetailPageState {
         ? detail.highestPostNumber
         : detail.postsCount;
     final container = _providerContainer;
-    container.read(topicTrackingStateProvider.notifier).markTopicUnread(
+    container
+        .read(topicTrackingStateProvider.notifier)
+        .markTopicUnread(
           widget.topicId,
           highestPostNumber: highest,
           categoryId: detail.categoryId,
@@ -818,7 +823,7 @@ extension _UserActions on _TopicDetailPageState {
         phase: 'post_bookmark_edit_request',
         traceId: traceId,
         source: 'topic_detail_post_action',
-        message: '帖子级书签准备打开编辑面板',
+        message: 'Post bookmark is preparing to open editor panel',
         topicId: widget.topicId,
         postId: post.id,
         bookmarkId: post.bookmarkId,
@@ -872,7 +877,7 @@ extension _UserActions on _TopicDetailPageState {
         phase: 'post_bookmark_created',
         traceId: traceId,
         source: 'topic_detail_post_action',
-        message: '帖子级书签已创建，准备打开编辑面板',
+        message: 'Post bookmark created; preparing to open editor panel',
         topicId: widget.topicId,
         postId: post.id,
         bookmarkId: bookmarkId,
@@ -1236,7 +1241,7 @@ extension _UserActions on _TopicDetailPageState {
       final isOwnPost = userId != null && userId == currentUser?.id;
       nestedNotifier.addNewPost(post, isOwnPost: isOwnPost);
     } catch (e) {
-      debugPrint('[TopicDetail] _handleNestedCreated 失败: $e');
+      debugPrint('[TopicDetail] _handleNestedCreated failed: $e');
     }
   }
 
@@ -1282,7 +1287,7 @@ extension _UserActions on _TopicDetailPageState {
       FrameJankMonitor.logEvent(
         'MSGBUS',
         '积压批量 ${updates.length} 条(${networkPostIds.length} 帖需刷新),'
-        '坍缩为一次整流刷新',
+            '坍缩为一次整流刷新',
       );
       // 旧积压全部作废:整流刷新拉回的就是最终态
       _deferredPostUpdates.clear();

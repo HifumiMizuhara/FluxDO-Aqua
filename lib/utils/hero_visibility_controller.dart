@@ -59,11 +59,7 @@ class HeroVisibilityController extends ChangeNotifier {
   bool _tryEnsureVisible(String tag) {
     final context = _sources[tag];
     if (context == null || !context.mounted) return false;
-    Scrollable.ensureVisible(
-      context,
-      alignment: 0.5,
-      duration: Duration.zero,
-    );
+    Scrollable.ensureVisible(context, alignment: 0.5, duration: Duration.zero);
     return true;
   }
 

@@ -179,7 +179,9 @@ class _TemplateInsertDialogState extends State<TemplateInsertDialog> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    isExpanded ? Symbols.expand_less_rounded : Symbols.expand_more_rounded,
+                    isExpanded
+                        ? Symbols.expand_less_rounded
+                        : Symbols.expand_more_rounded,
                     size: 20,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),

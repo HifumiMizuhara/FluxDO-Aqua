@@ -107,7 +107,8 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
 
     // 预填标题/内容(待审内容撤回重编辑等场景):直接落 controller,
     // 并跳过草稿恢复弹窗,避免旧草稿覆盖预填内容
-    final hasInitialPrefill = (widget.initialTitle?.isNotEmpty ?? false) ||
+    final hasInitialPrefill =
+        (widget.initialTitle?.isNotEmpty ?? false) ||
         (widget.initialContent?.isNotEmpty ?? false);
     if (hasInitialPrefill) {
       if (widget.initialTitle != null) {

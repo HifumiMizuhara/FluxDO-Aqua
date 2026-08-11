@@ -10,7 +10,9 @@ class LazyLoadScope extends StatefulWidget {
 
   /// 获取当前作用域的缓存
   static Set<String>? of(BuildContext context) {
-    return context.dependOnInheritedWidgetOfExactType<_LazyLoadScopeData>()?.cache;
+    return context
+        .dependOnInheritedWidgetOfExactType<_LazyLoadScopeData>()
+        ?.cache;
   }
 
   /// 检查 key 是否已加载（如果没有作用域则返回 false）
@@ -32,20 +34,14 @@ class _LazyLoadScopeState extends State<LazyLoadScope> {
 
   @override
   Widget build(BuildContext context) {
-    return _LazyLoadScopeData(
-      cache: _cache,
-      child: widget.child,
-    );
+    return _LazyLoadScopeData(cache: _cache, child: widget.child);
   }
 }
 
 class _LazyLoadScopeData extends InheritedWidget {
   final Set<String> cache;
 
-  const _LazyLoadScopeData({
-    required this.cache,
-    required super.child,
-  });
+  const _LazyLoadScopeData({required this.cache, required super.child});
 
   @override
   bool updateShouldNotify(_LazyLoadScopeData oldWidget) => false;

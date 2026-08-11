@@ -18,10 +18,7 @@ import '../../../services/media/playback_position_store.dart';
 /// (全屏页持有),控制器安然无恙;宿主滚回来重建时 obtain() 命中现存
 /// session 直接复用(顺带获得重进秒开)。
 class VideoPlayerSession {
-  VideoPlayerSession._({
-    required this.url,
-    required this.controller,
-  });
+  VideoPlayerSession._({required this.url, required this.controller});
 
   /// 已解析好的真实播放 URL(session 身份键)。
   final String url;

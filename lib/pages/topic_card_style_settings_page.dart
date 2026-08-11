@@ -122,14 +122,12 @@ class _TopicCardStyleSettingsPageState
                 children: [
                   RadioListTile<TopicCardAvatarLayout>(
                     title: Text(l10n.topicCardStyle_avatarLayoutInline),
-                    subtitle:
-                        Text(l10n.topicCardStyle_avatarLayoutInlineDesc),
+                    subtitle: Text(l10n.topicCardStyle_avatarLayoutInlineDesc),
                     value: TopicCardAvatarLayout.inline,
                   ),
                   RadioListTile<TopicCardAvatarLayout>(
                     title: Text(l10n.topicCardStyle_avatarLayoutColumn),
-                    subtitle:
-                        Text(l10n.topicCardStyle_avatarLayoutColumnDesc),
+                    subtitle: Text(l10n.topicCardStyle_avatarLayoutColumnDesc),
                     value: TopicCardAvatarLayout.column,
                   ),
                 ],
@@ -242,10 +240,9 @@ class _TopicCardStyleSettingsPageState
   /// 显式传 style,statsAvailableWidth 拉满让 likes/views 开关效果
   /// 在窄屏预览上也可见
   Widget _buildPreviewCard(BuildContext context, TopicCardStyle style) {
-    final cardWidth =
-        (MediaQuery.sizeOf(context).width - 32)
-            .clamp(0.0, Breakpoints.maxContentWidth - 32)
-            .toDouble();
+    final cardWidth = (MediaQuery.sizeOf(context).width - 32)
+        .clamp(0.0, Breakpoints.maxContentWidth - 32)
+        .toDouble();
     final layout = TopicCardLayout.obtain(
       identity: 'style-preview:0',
       topic: _previewTopic!,
@@ -279,8 +276,10 @@ class _TopicCardStyleSettingsPageState
         children: [
           Row(
             children: [
-              Icon(Symbols.format_size_rounded,
-                  color: theme.colorScheme.primary),
+              Icon(
+                Symbols.format_size_rounded,
+                color: theme.colorScheme.primary,
+              ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -291,7 +290,8 @@ class _TopicCardStyleSettingsPageState
                       value == 15.0
                           ? '15 (${l10n.topicCardStyle_titleFontSizeDefault})'
                           : value.toStringAsFixed(
-                              value == value.roundToDouble() ? 0 : 1),
+                              value == value.roundToDouble() ? 0 : 1,
+                            ),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -315,7 +315,8 @@ class _TopicCardStyleSettingsPageState
             max: 18,
             divisions: 10,
             label: value.toStringAsFixed(
-                value == value.roundToDouble() ? 0 : 1),
+              value == value.roundToDouble() ? 0 : 1,
+            ),
             onChanged: (v) => _update(style.copyWith(titleFontSize: v)),
           ),
         ],

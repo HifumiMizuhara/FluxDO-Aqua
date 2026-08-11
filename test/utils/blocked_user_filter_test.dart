@@ -72,10 +72,9 @@ void main() {
       expect(filtered.postStream.posts.map((post) => post.id), [1, 3]);
       // stream 是分页窗口定位依据，必须保持服务端原始序列
       expect(filtered.postStream.stream, detail.postStream.stream);
-      expect(
-        filtered.postStream.posts.last.boosts!.map((boost) => boost.id),
-        [32],
-      );
+      expect(filtered.postStream.posts.last.boosts!.map((boost) => boost.id), [
+        32,
+      ]);
     });
 
     test('filterTopicDetail 名单为空或无命中时返回原实例', () {

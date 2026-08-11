@@ -18,10 +18,8 @@ Future<String?> showTwoFactorDialog(
   return showDialog<String>(
     context: context,
     barrierDismissible: false,
-    builder: (_) => _TwoFactorDialog(
-      hint: hint,
-      onUseBackupCode: onUseBackupCode,
-    ),
+    builder: (_) =>
+        _TwoFactorDialog(hint: hint, onUseBackupCode: onUseBackupCode),
   );
 }
 
@@ -42,7 +40,9 @@ class _TwoFactorDialogState extends State<_TwoFactorDialog> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _focusNode.requestFocus());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _focusNode.requestFocus(),
+    );
   }
 
   @override
@@ -77,7 +77,11 @@ class _TwoFactorDialogState extends State<_TwoFactorDialog> {
             keyboardType: TextInputType.number,
             textAlign: TextAlign.center,
             autofillHints: const [AutofillHints.oneTimeCode],
-            style: const TextStyle(fontSize: 24, letterSpacing: 8, fontFeatures: [FontFeature.tabularFigures()]),
+            style: const TextStyle(
+              fontSize: 24,
+              letterSpacing: 8,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
             inputFormatters: [
               FilteringTextInputFormatter.digitsOnly,
               LengthLimitingTextInputFormatter(6),

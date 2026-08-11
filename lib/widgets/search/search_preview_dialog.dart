@@ -23,11 +23,7 @@ class SearchPreviewDialog extends ConsumerWidget {
   final SearchPost post;
   final VoidCallback? onOpen;
 
-  const SearchPreviewDialog({
-    super.key,
-    required this.post,
-    this.onOpen,
-  });
+  const SearchPreviewDialog({super.key, required this.post, this.onOpen});
 
   /// 显示预览弹窗
   static Future<void> show(
@@ -45,10 +41,7 @@ class SearchPreviewDialog extends ConsumerWidget {
       barrierColor: Colors.black54,
       transitionDuration: const Duration(milliseconds: 200),
       pageBuilder: (context, animation, secondaryAnimation) {
-        return SearchPreviewDialog(
-          post: post,
-          onOpen: onOpen,
-        );
+        return SearchPreviewDialog(post: post, onOpen: onOpen);
       },
       transitionBuilder: (context, animation, secondaryAnimation, child) {
         final curvedAnimation = CurvedAnimation(
@@ -57,10 +50,7 @@ class SearchPreviewDialog extends ConsumerWidget {
         );
         return ScaleTransition(
           scale: curvedAnimation,
-          child: FadeTransition(
-            opacity: animation,
-            child: child,
-          ),
+          child: FadeTransition(opacity: animation, child: child),
         );
       },
     );
@@ -142,7 +132,13 @@ class SearchPreviewDialog extends ConsumerWidget {
                           (topic != null && topic.tags.isNotEmpty)) ...[
                         const SizedBox(height: 12),
                         _buildCategoryAndTags(
-                            context, theme, category, faIcon, logoUrl, topic),
+                          context,
+                          theme,
+                          category,
+                          faIcon,
+                          logoUrl,
+                          topic,
+                        ),
                       ],
 
                       // 摘要内容
@@ -169,8 +165,7 @@ class SearchPreviewDialog extends ConsumerWidget {
     );
   }
 
-  Widget _buildTitle(
-      BuildContext context, ThemeData theme, SearchTopic topic) {
+  Widget _buildTitle(BuildContext context, ThemeData theme, SearchTopic topic) {
     return Text.rich(
       TextSpan(
         style: theme.textTheme.titleLarge?.copyWith(
@@ -371,7 +366,8 @@ class SearchPreviewDialog extends ConsumerWidget {
         style: theme.textTheme.bodyMedium?.copyWith(
           color: theme.colorScheme.onSurfaceVariant,
           height: 1.6,
-          fontSize: (theme.textTheme.bodyMedium?.fontSize ?? 14) * contentFontScale,
+          fontSize:
+              (theme.textTheme.bodyMedium?.fontSize ?? 14) * contentFontScale,
         ),
         maxLines: 8,
         overflow: TextOverflow.ellipsis,
@@ -380,7 +376,10 @@ class SearchPreviewDialog extends ConsumerWidget {
   }
 
   Widget _buildStats(
-      BuildContext context, ThemeData theme, SearchTopic? topic) {
+    BuildContext context,
+    ThemeData theme,
+    SearchTopic? topic,
+  ) {
     return Column(
       children: [
         Row(
@@ -390,7 +389,9 @@ class SearchPreviewDialog extends ConsumerWidget {
                 child: _buildStatItem(
                   context,
                   Symbols.chat_bubble_rounded,
-                  context.l10n.search_replyCount((topic.postsCount - 1).clamp(0, 999999)),
+                  context.l10n.search_replyCount(
+                    (topic.postsCount - 1).clamp(0, 999999),
+                  ),
                 ),
               ),
             if (post.likeCount > 0)
@@ -398,7 +399,9 @@ class SearchPreviewDialog extends ConsumerWidget {
                 child: _buildStatItem(
                   context,
                   Symbols.favorite_border_rounded,
-                  context.l10n.search_likeCount(NumberUtils.formatCount(post.likeCount)),
+                  context.l10n.search_likeCount(
+                    NumberUtils.formatCount(post.likeCount),
+                  ),
                 ),
               ),
           ],
@@ -411,7 +414,9 @@ class SearchPreviewDialog extends ConsumerWidget {
                 child: _buildStatItem(
                   context,
                   Symbols.visibility_rounded,
-                  context.l10n.search_viewCount(NumberUtils.formatCount(topic.views)),
+                  context.l10n.search_viewCount(
+                    NumberUtils.formatCount(topic.views),
+                  ),
                 ),
               ),
               const Expanded(child: SizedBox()),
@@ -427,11 +432,7 @@ class SearchPreviewDialog extends ConsumerWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          icon,
-          size: 16,
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
+        Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
         const SizedBox(width: 4),
         Text(
           text,

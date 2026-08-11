@@ -204,12 +204,13 @@ class TopicDetailHeader extends ConsumerWidget {
           if (detail.isAssigned) ...[
             InkWell(
               borderRadius: BorderRadius.circular(16),
-              onTap: () => unawaited(
-                showAssignSheet(context, ref, topicId: detail.id),
-              ),
+              onTap: () =>
+                  unawaited(showAssignSheet(context, ref, topicId: detail.id)),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.primaryContainer.withValues(
                     alpha: 0.5,

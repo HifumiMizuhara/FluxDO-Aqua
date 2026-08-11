@@ -164,8 +164,9 @@ class _SpotlightWidgetState extends State<_SpotlightWidget>
                       vertical: 14,
                     ),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.inverseSurface
-                          .withValues(alpha: 0.92),
+                      color: theme.colorScheme.inverseSurface.withValues(
+                        alpha: 0.92,
+                      ),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -193,10 +194,7 @@ class _SpotlightPainter extends CustomPainter {
   final Rect targetRect;
   final double borderRadius;
 
-  _SpotlightPainter({
-    required this.targetRect,
-    required this.borderRadius,
-  });
+  _SpotlightPainter({required this.targetRect, required this.borderRadius});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -213,8 +211,11 @@ class _SpotlightPainter extends CustomPainter {
       );
 
     // 差集
-    final combinedPath =
-        Path.combine(PathOperation.difference, fullPath, holePath);
+    final combinedPath = Path.combine(
+      PathOperation.difference,
+      fullPath,
+      holePath,
+    );
 
     canvas.drawPath(combinedPath, paint);
   }
@@ -229,10 +230,7 @@ class _PulsingBorder extends StatefulWidget {
   final double borderRadius;
   final Color color;
 
-  const _PulsingBorder({
-    required this.borderRadius,
-    required this.color,
-  });
+  const _PulsingBorder({required this.borderRadius, required this.color});
 
   @override
   State<_PulsingBorder> createState() => _PulsingBorderState();

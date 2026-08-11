@@ -64,16 +64,19 @@ void main() {
       );
     });
 
-    test('expands replacement selection to full emoji shortcode boundaries', () {
-      expect(
-        normalizeEmojiShortcodeSelection(
-          'a:smile:b',
-          const TextSelection(baseOffset: 2, extentOffset: 3),
-          expandSelection: true,
-        ),
-        const TextSelection(baseOffset: 1, extentOffset: 8),
-      );
-    });
+    test(
+      'expands replacement selection to full emoji shortcode boundaries',
+      () {
+        expect(
+          normalizeEmojiShortcodeSelection(
+            'a:smile:b',
+            const TextSelection(baseOffset: 2, extentOffset: 3),
+            expandSelection: true,
+          ),
+          const TextSelection(baseOffset: 1, extentOffset: 8),
+        );
+      },
+    );
 
     test('keeps plain text deletion unchanged', () {
       const formatter = EmojiShortcodeDeleteFormatter();

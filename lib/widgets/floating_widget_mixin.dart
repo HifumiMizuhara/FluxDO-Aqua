@@ -8,8 +8,8 @@ import 'package:flutter/material.dart';
 ///
 /// 子类通过覆写 [floatingOverlap]、[floatingBottomMargin]、[floatingTopMargin]
 /// 和 [initialRelativeY]、[initialRight] 来定制行为。
-mixin FloatingWidgetMixin<T extends StatefulWidget> on State<T>, TickerProviderStateMixin<T> {
-
+mixin FloatingWidgetMixin<T extends StatefulWidget>
+    on State<T>, TickerProviderStateMixin<T> {
   // ─── 子类可覆写的配置 ─────────────────────────────────────────
 
   /// 吸附时超出屏幕边缘的像素数
@@ -76,7 +76,8 @@ mixin FloatingWidgetMixin<T extends StatefulWidget> on State<T>, TickerProviderS
   void updateFloatingDependencies() {
     final newSize = MediaQuery.of(context).size;
     final newPadding = MediaQuery.of(context).padding;
-    final sizeChanged = _floatingScreenSize != Size.zero && _floatingScreenSize != newSize;
+    final sizeChanged =
+        _floatingScreenSize != Size.zero && _floatingScreenSize != newSize;
 
     _floatingScreenSize = newSize;
     _floatingPadding = newPadding;
@@ -145,7 +146,11 @@ mixin FloatingWidgetMixin<T extends StatefulWidget> on State<T>, TickerProviderS
   void _saveRelativePosition() {
     final minY = _floatingPadding.top + floatingTopMargin;
     final selfHeight = _getFloatingHeight();
-    final maxY = _floatingScreenSize.height - selfHeight - _floatingPadding.bottom - floatingBottomMargin;
+    final maxY =
+        _floatingScreenSize.height -
+        selfHeight -
+        _floatingPadding.bottom -
+        floatingBottomMargin;
     final range = maxY - minY;
     if (range > 0) {
       _floatingRelativeY = ((floatingOffset.dy - minY) / range).clamp(0.0, 1.0);
@@ -157,7 +162,11 @@ mixin FloatingWidgetMixin<T extends StatefulWidget> on State<T>, TickerProviderS
     final selfWidth = _getFloatingWidth();
     final selfHeight = _getFloatingHeight();
     final minY = _floatingPadding.top + floatingTopMargin;
-    final maxY = _floatingScreenSize.height - selfHeight - _floatingPadding.bottom - floatingBottomMargin;
+    final maxY =
+        _floatingScreenSize.height -
+        selfHeight -
+        _floatingPadding.bottom -
+        floatingBottomMargin;
     final y = minY + _floatingRelativeY * (maxY - minY);
     final x = floatingIsRight
         ? _floatingScreenSize.width - selfWidth + floatingOverlap
@@ -180,7 +189,11 @@ mixin FloatingWidgetMixin<T extends StatefulWidget> on State<T>, TickerProviderS
 
     double targetY = floatingOffset.dy;
     final double topLimit = _floatingPadding.top + floatingTopMargin;
-    final double bottomLimit = _floatingScreenSize.height - selfHeight - _floatingPadding.bottom - floatingBottomMargin;
+    final double bottomLimit =
+        _floatingScreenSize.height -
+        selfHeight -
+        _floatingPadding.bottom -
+        floatingBottomMargin;
 
     if (targetY < topLimit) targetY = topLimit;
     if (targetY > bottomLimit) targetY = bottomLimit;
@@ -190,10 +203,13 @@ mixin FloatingWidgetMixin<T extends StatefulWidget> on State<T>, TickerProviderS
 
   void _animateToEdge(Offset velocity) {
     final target = calculateFloatingTarget();
-    _floatingAnimation = Tween<Offset>(
-      begin: floatingOffset,
-      end: target,
-    ).animate(CurvedAnimation(parent: floatingAnimController, curve: Curves.easeOutBack));
+    _floatingAnimation = Tween<Offset>(begin: floatingOffset, end: target)
+        .animate(
+          CurvedAnimation(
+            parent: floatingAnimController,
+            curve: Curves.easeOutBack,
+          ),
+        );
     floatingAnimController.forward(from: 0);
   }
 

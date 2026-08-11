@@ -464,18 +464,11 @@ class _RadialMenuOverlayState extends State<RadialMenuOverlay>
             elevation: 6,
             shadowColor: theme.colorScheme.primary.withValues(alpha: 0.35),
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 18,
-                vertical: 10,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    item.icon,
-                    size: 18,
-                    color: theme.colorScheme.onPrimary,
-                  ),
+                  Icon(item.icon, size: 18, color: theme.colorScheme.onPrimary),
                   const SizedBox(width: 10),
                   Flexible(
                     child: Text(
@@ -732,8 +725,9 @@ class _RadialLongPressMenuState extends State<RadialLongPressMenu> {
             ),
         LongPressGestureRecognizer:
             GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
-              () =>
-                  LongPressGestureRecognizer(duration: widget.longPressDuration),
+              () => LongPressGestureRecognizer(
+                duration: widget.longPressDuration,
+              ),
               (instance) {
                 instance.onLongPressStart = _handleLongPressStart;
                 instance.onLongPressMoveUpdate = (d) =>

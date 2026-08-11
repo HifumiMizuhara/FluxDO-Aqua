@@ -181,53 +181,53 @@ class _TopicSearchViewState extends ConsumerState<TopicSearchView> {
           child: SearchPostPrewarmScope(
             posts: searchState.results,
             child: ListView.builder(
-            controller: _scrollController,
-            addAutomaticKeepAlives: false,
-            padding: const EdgeInsets.all(16),
-            itemCount: searchState.results.length + 1,
-            itemBuilder: (context, index) {
-              if (index == searchState.results.length) {
-                return PagedListFooter(
-                  hasMore: searchState.hasMore,
-                  isLoadingMore:
-                      searchState.isLoading && searchState.results.isNotEmpty,
-                  isLoadMoreFailed: searchState.isLoadMoreFailed,
-                  onRetry: _retryLoadMore,
-                );
-              }
+              controller: _scrollController,
+              addAutomaticKeepAlives: false,
+              padding: const EdgeInsets.all(16),
+              itemCount: searchState.results.length + 1,
+              itemBuilder: (context, index) {
+                if (index == searchState.results.length) {
+                  return PagedListFooter(
+                    hasMore: searchState.hasMore,
+                    isLoadingMore:
+                        searchState.isLoading && searchState.results.isNotEmpty,
+                    isLoadMoreFailed: searchState.isLoadMoreFailed,
+                    onRetry: _retryLoadMore,
+                  );
+                }
 
-              final post = searchState.results[index];
-              return SearchPostCard(
-                post: post,
-                onTap: () {
-                  // 优先使用话题内跳转
-                  if (widget.onJumpToPost != null) {
-                    widget.onJumpToPost!(post.postNumber);
-                  } else {
-                    // 跨话题:平行视界面板内压当前栈,全屏页照旧 push
-                    final topic = post.topic;
-                    if (topic != null) {
-                      if (EmbeddedStackScope.maybePushTopic(
-                        context,
-                        topicId: topic.id,
-                        scrollToPostNumber: post.postNumber,
-                      )) {
-                        return;
-                      }
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => TopicDetailPage(
-                            topicId: topic.id,
-                            scrollToPostNumber: post.postNumber,
+                final post = searchState.results[index];
+                return SearchPostCard(
+                  post: post,
+                  onTap: () {
+                    // 优先使用话题内跳转
+                    if (widget.onJumpToPost != null) {
+                      widget.onJumpToPost!(post.postNumber);
+                    } else {
+                      // 跨话题:平行视界面板内压当前栈,全屏页照旧 push
+                      final topic = post.topic;
+                      if (topic != null) {
+                        if (EmbeddedStackScope.maybePushTopic(
+                          context,
+                          topicId: topic.id,
+                          scrollToPostNumber: post.postNumber,
+                        )) {
+                          return;
+                        }
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => TopicDetailPage(
+                              topicId: topic.id,
+                              scrollToPostNumber: post.postNumber,
+                            ),
                           ),
-                        ),
-                      );
+                        );
+                      }
                     }
-                  }
-                },
-              );
-            },
+                  },
+                );
+              },
             ),
           ),
         ),

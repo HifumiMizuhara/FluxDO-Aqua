@@ -162,23 +162,23 @@ class ErrorUtils {
   static String getErrorDetails(Object? error, [StackTrace? stackTrace]) {
     final buffer = StringBuffer();
 
-    buffer.writeln('错误类型: ${error.runtimeType}');
-    buffer.writeln('错误信息: $error');
+    buffer.writeln('Error type: ${error.runtimeType}');
+    buffer.writeln('Error message: $error');
 
     if (error is DioException) {
       buffer.writeln('');
-      buffer.writeln('=== 请求详情 ===');
+      buffer.writeln('=== Request details ===');
       buffer.writeln('URL: ${error.requestOptions.uri}');
-      buffer.writeln('方法: ${error.requestOptions.method}');
+      buffer.writeln('Method: ${error.requestOptions.method}');
       if (error.response != null) {
-        buffer.writeln('状态码: ${error.response?.statusCode}');
-        buffer.writeln('响应: ${error.response?.data}');
+        buffer.writeln('Status code: ${error.response?.statusCode}');
+        buffer.writeln('Response: ${error.response?.data}');
       }
     }
 
     if (stackTrace != null) {
       buffer.writeln('');
-      buffer.writeln('=== 堆栈跟踪 ===');
+      buffer.writeln('=== Stack trace ===');
       buffer.writeln(stackTrace.toString());
     }
 

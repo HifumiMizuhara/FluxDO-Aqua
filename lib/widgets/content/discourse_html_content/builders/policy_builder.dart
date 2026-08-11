@@ -47,10 +47,12 @@ Widget buildPolicy({
   return _PolicyWidget(
     initialPost: post,
     bodyHtml: bodyHtml,
-    acceptLabel:
-        (acceptLabel == null || acceptLabel.isEmpty) ? '接受' : acceptLabel,
-    revokeLabel:
-        (revokeLabel == null || revokeLabel.isEmpty) ? '撤销' : revokeLabel,
+    acceptLabel: (acceptLabel == null || acceptLabel.isEmpty)
+        ? '接受'
+        : acceptLabel,
+    revokeLabel: (revokeLabel == null || revokeLabel.isEmpty)
+        ? '撤销'
+        : revokeLabel,
     htmlBuilder: htmlBuilder,
   );
 }
@@ -129,7 +131,8 @@ class _PolicyWidgetState extends State<_PolicyWidget> {
     _revoked = post.policyRevoked;
     _canAccept = post.policyCanAccept;
     _canRevoke = post.policyCanRevoke;
-    _hasStats = post.policyAcceptedByCount != null ||
+    _hasStats =
+        post.policyAcceptedByCount != null ||
         post.policyNotAcceptedByCount != null;
     _acceptedCount = post.policyAcceptedByCount ?? 0;
     _notAcceptedCount = post.policyNotAcceptedByCount ?? 0;
@@ -140,8 +143,7 @@ class _PolicyWidgetState extends State<_PolicyWidget> {
   bool get _hasAnyUsers =>
       _hasStats && (_acceptedCount > 0 || _notAcceptedCount > 0);
 
-  bool get _hasFooter =>
-      _canAccept || _canRevoke || _hasAnyUsers;
+  bool get _hasFooter => _canAccept || _canRevoke || _hasAnyUsers;
 
   Future<void> _accept() async {
     if (_isLoading) return;
@@ -243,10 +245,7 @@ class _PolicyWidgetState extends State<_PolicyWidget> {
       clipBehavior: Clip.hardEdge,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildBody(theme),
-          if (_hasFooter) _buildFooter(theme),
-        ],
+        children: [_buildBody(theme), if (_hasFooter) _buildFooter(theme)],
       ),
     );
   }
@@ -298,8 +297,7 @@ class _PolicyWidgetState extends State<_PolicyWidget> {
               ?actions,
               if (actions != null && userLists != null) const Spacer(),
               if (actions == null && userLists != null) const Spacer(),
-              if (userLists != null)
-                Flexible(child: userLists),
+              if (userLists != null) Flexible(child: userLists),
             ],
           );
         },
@@ -338,8 +336,9 @@ class _PolicyWidgetState extends State<_PolicyWidget> {
                 label: Text(widget.revokeLabel),
                 style: FilledButton.styleFrom(
                   foregroundColor: theme.colorScheme.error,
-                  backgroundColor:
-                      theme.colorScheme.errorContainer.withValues(alpha: 0.6),
+                  backgroundColor: theme.colorScheme.errorContainer.withValues(
+                    alpha: 0.6,
+                  ),
                 ),
               )
             : OutlinedButton.icon(
@@ -351,11 +350,13 @@ class _PolicyWidgetState extends State<_PolicyWidget> {
     }
     if (_isLoading) {
       children.add(const SizedBox(width: 12));
-      children.add(const SizedBox(
-        width: 14,
-        height: 14,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      ));
+      children.add(
+        const SizedBox(
+          width: 14,
+          height: 14,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
     }
 
     return Wrap(
@@ -515,10 +516,7 @@ class _PolicyWidgetState extends State<_PolicyWidget> {
                 height: 12,
                 child: CircularProgressIndicator(strokeWidth: 1.5),
               )
-            : Text(
-                '+$remaining',
-                style: theme.textTheme.labelSmall,
-              ),
+            : Text('+$remaining', style: theme.textTheme.labelSmall),
       ),
     );
   }

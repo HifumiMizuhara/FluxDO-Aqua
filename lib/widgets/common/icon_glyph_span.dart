@@ -40,7 +40,8 @@ InlineSpan iconGlyphSpan(
         height: 1.0,
         fontVariations: <FontVariation>[
           if (iconTheme.fill != null) FontVariation('FILL', iconTheme.fill!),
-          if (iconTheme.weight != null) FontVariation('wght', iconTheme.weight!),
+          if (iconTheme.weight != null)
+            FontVariation('wght', iconTheme.weight!),
           if (iconTheme.grade != null) FontVariation('GRAD', iconTheme.grade!),
           if (iconTheme.opticalSize != null)
             FontVariation('opsz', iconTheme.opticalSize!),

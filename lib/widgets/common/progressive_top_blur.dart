@@ -90,7 +90,7 @@ class _ProgressiveTopBlurState extends State<ProgressiveTopBlur> {
     super.initState();
     // ImageFilter.shader 仅 Impeller;Skia(桌面)直接留在降级路径
     if (!ui.ImageFilter.isShaderFilterSupported) {
-      _logPathOnce('Impeller 不可用,走阶梯降级');
+      _logPathOnce('Impeller unavailable; using stepped fallback');
       return;
     }
     final cached = _cachedProgram;
@@ -103,12 +103,14 @@ class _ProgressiveTopBlurState extends State<ProgressiveTopBlur> {
     )).then(
       (program) {
         _cachedProgram = program;
-        _logPathOnce('shader 变力模糊已激活');
+        _logPathOnce('Shader variable blur activated');
         if (mounted) setState(() => _program = program);
       },
       // 资产缺失(如忘了冷启动重建)→ 停留在降级路径,不红屏
       onError: (Object e, StackTrace s) {
-        _logPathOnce('shader 加载失败,走阶梯降级(改过 .frag 需冷启动重建): $e');
+        _logPathOnce(
+          'Shader load failed; using stepped fallback (cold restart required after .frag changes): $e',
+        );
       },
     );
   }
@@ -182,10 +184,7 @@ class _ProgressiveTopBlurState extends State<ProgressiveTopBlur> {
   /// 同曲线的色罩(12 点密集采样,近似平滑,兼盖层阶)
   Widget _buildSteppedFallback(Color surface) {
     const sampleCount = 12;
-    final stops = List.generate(
-      sampleCount,
-      (i) => i / (sampleCount - 1),
-    );
+    final stops = List.generate(sampleCount, (i) => i / (sampleCount - 1));
     final colors = [
       for (final s in stops)
         surface.withValues(alpha: ProgressiveTopBlur.tintAlphaAt(1.0 - s)),

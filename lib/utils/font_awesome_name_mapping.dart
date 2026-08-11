@@ -7,8 +7,12 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 /// Returns null if no icon matches.
 FaIconData? getIconFromCss(String cssClasses) {
   const Map<String, String> cssStyles = {
-    'far': 'regular', 'fas': 'solid', 'fab': 'brands',
-    'fad': 'duotone', 'fal': 'light', 'fat': 'thin',
+    'far': 'regular',
+    'fas': 'solid',
+    'fab': 'brands',
+    'fad': 'duotone',
+    'fal': 'light',
+    'fat': 'thin',
   };
 
   final separated = cssClasses.split(RegExp(r"\s+"));
@@ -278,9 +282,11 @@ const Map<String, FaIconData> faIconNameMapping = {
   'solid bugs': FontAwesomeIcons.bugs,
   'solid building': FontAwesomeIcons.solidBuilding,
   'regular building': FontAwesomeIcons.building,
-  'solid building-circle-arrow-right': FontAwesomeIcons.buildingCircleArrowRight,
+  'solid building-circle-arrow-right':
+      FontAwesomeIcons.buildingCircleArrowRight,
   'solid building-circle-check': FontAwesomeIcons.buildingCircleCheck,
-  'solid building-circle-exclamation': FontAwesomeIcons.buildingCircleExclamation,
+  'solid building-circle-exclamation':
+      FontAwesomeIcons.buildingCircleExclamation,
   'solid building-circle-xmark': FontAwesomeIcons.buildingCircleXmark,
   'solid building-columns': FontAwesomeIcons.buildingColumns,
   'solid building-flag': FontAwesomeIcons.buildingFlag,
@@ -545,7 +551,8 @@ const Map<String, FaIconData> faIconNameMapping = {
   'brands creative-commons-remix': FontAwesomeIcons.creativeCommonsRemix,
   'brands creative-commons-sa': FontAwesomeIcons.creativeCommonsSa,
   'brands creative-commons-sampling': FontAwesomeIcons.creativeCommonsSampling,
-  'brands creative-commons-sampling-plus': FontAwesomeIcons.creativeCommonsSamplingPlus,
+  'brands creative-commons-sampling-plus':
+      FontAwesomeIcons.creativeCommonsSamplingPlus,
   'brands creative-commons-share': FontAwesomeIcons.creativeCommonsShare,
   'brands creative-commons-zero': FontAwesomeIcons.creativeCommonsZero,
   'solid credit-card': FontAwesomeIcons.solidCreditCard,
@@ -619,7 +626,8 @@ const Map<String, FaIconData> faIconNameMapping = {
   'solid door-closed': FontAwesomeIcons.doorClosed,
   'solid door-open': FontAwesomeIcons.doorOpen,
   'solid dove': FontAwesomeIcons.dove,
-  'solid down-left-and-up-right-to-center': FontAwesomeIcons.downLeftAndUpRightToCenter,
+  'solid down-left-and-up-right-to-center':
+      FontAwesomeIcons.downLeftAndUpRightToCenter,
   'solid down-long': FontAwesomeIcons.downLong,
   'solid download': FontAwesomeIcons.download,
   'brands draft2digital': FontAwesomeIcons.draft2digital,
@@ -1075,12 +1083,14 @@ const Map<String, FaIconData> faIconNameMapping = {
   'solid house-fire': FontAwesomeIcons.houseFire,
   'solid house-flag': FontAwesomeIcons.houseFlag,
   'solid house-flood-water': FontAwesomeIcons.houseFloodWater,
-  'solid house-flood-water-circle-arrow-right': FontAwesomeIcons.houseFloodWaterCircleArrowRight,
+  'solid house-flood-water-circle-arrow-right':
+      FontAwesomeIcons.houseFloodWaterCircleArrowRight,
   'solid house-laptop': FontAwesomeIcons.houseLaptop,
   'solid house-lock': FontAwesomeIcons.houseLock,
   'solid house-medical': FontAwesomeIcons.houseMedical,
   'solid house-medical-circle-check': FontAwesomeIcons.houseMedicalCircleCheck,
-  'solid house-medical-circle-exclamation': FontAwesomeIcons.houseMedicalCircleExclamation,
+  'solid house-medical-circle-exclamation':
+      FontAwesomeIcons.houseMedicalCircleExclamation,
   'solid house-medical-circle-xmark': FontAwesomeIcons.houseMedicalCircleXmark,
   'solid house-medical-flag': FontAwesomeIcons.houseMedicalFlag,
   'solid house-signal': FontAwesomeIcons.houseSignal,
@@ -1226,7 +1236,8 @@ const Map<String, FaIconData> faIconNameMapping = {
   'brands magento': FontAwesomeIcons.magento,
   'solid magnet': FontAwesomeIcons.magnet,
   'solid magnifying-glass': FontAwesomeIcons.magnifyingGlass,
-  'solid magnifying-glass-arrow-right': FontAwesomeIcons.magnifyingGlassArrowRight,
+  'solid magnifying-glass-arrow-right':
+      FontAwesomeIcons.magnifyingGlassArrowRight,
   'solid magnifying-glass-chart': FontAwesomeIcons.magnifyingGlassChart,
   'solid magnifying-glass-dollar': FontAwesomeIcons.magnifyingGlassDollar,
   'solid magnifying-glass-location': FontAwesomeIcons.magnifyingGlassLocation,
@@ -1460,9 +1471,11 @@ const Map<String, FaIconData> faIconNameMapping = {
   'solid person-swimming': FontAwesomeIcons.personSwimming,
   'solid person-through-window': FontAwesomeIcons.personThroughWindow,
   'solid person-walking': FontAwesomeIcons.personWalking,
-  'solid person-walking-arrow-loop-left': FontAwesomeIcons.personWalkingArrowLoopLeft,
+  'solid person-walking-arrow-loop-left':
+      FontAwesomeIcons.personWalkingArrowLoopLeft,
   'solid person-walking-arrow-right': FontAwesomeIcons.personWalkingArrowRight,
-  'solid person-walking-dashed-line-arrow-right': FontAwesomeIcons.personWalkingDashedLineArrowRight,
+  'solid person-walking-dashed-line-arrow-right':
+      FontAwesomeIcons.personWalkingDashedLineArrowRight,
   'solid person-walking-luggage': FontAwesomeIcons.personWalkingLuggage,
   'solid person-walking-with-cane': FontAwesomeIcons.personWalkingWithCane,
   'solid peseta-sign': FontAwesomeIcons.pesetaSign,
@@ -1521,7 +1534,8 @@ const Map<String, FaIconData> faIconNameMapping = {
   'solid power-off': FontAwesomeIcons.powerOff,
   'solid prescription': FontAwesomeIcons.prescription,
   'solid prescription-bottle': FontAwesomeIcons.prescriptionBottle,
-  'solid prescription-bottle-medical': FontAwesomeIcons.prescriptionBottleMedical,
+  'solid prescription-bottle-medical':
+      FontAwesomeIcons.prescriptionBottleMedical,
   'solid print': FontAwesomeIcons.print,
   'brands product-hunt': FontAwesomeIcons.productHunt,
   'solid pump-medical': FontAwesomeIcons.pumpMedical,
@@ -2005,7 +2019,8 @@ const Map<String, FaIconData> faIconNameMapping = {
   'solid up-down': FontAwesomeIcons.upDown,
   'solid up-down-left-right': FontAwesomeIcons.upDownLeftRight,
   'solid up-long': FontAwesomeIcons.upLong,
-  'solid up-right-and-down-left-from-center': FontAwesomeIcons.upRightAndDownLeftFromCenter,
+  'solid up-right-and-down-left-from-center':
+      FontAwesomeIcons.upRightAndDownLeftFromCenter,
   'solid up-right-from-square': FontAwesomeIcons.upRightFromSquare,
   'solid upload': FontAwesomeIcons.upload,
   'brands ups': FontAwesomeIcons.ups,
@@ -2111,7 +2126,8 @@ const Map<String, FaIconData> faIconNameMapping = {
   'brands weixin': FontAwesomeIcons.weixin,
   'brands whatsapp': FontAwesomeIcons.whatsapp,
   'solid wheat-awn': FontAwesomeIcons.wheatAwn,
-  'solid wheat-awn-circle-exclamation': FontAwesomeIcons.wheatAwnCircleExclamation,
+  'solid wheat-awn-circle-exclamation':
+      FontAwesomeIcons.wheatAwnCircleExclamation,
   'solid wheelchair': FontAwesomeIcons.wheelchair,
   'solid wheelchair-move': FontAwesomeIcons.wheelchairMove,
   'solid whiskey-glass': FontAwesomeIcons.whiskeyGlass,

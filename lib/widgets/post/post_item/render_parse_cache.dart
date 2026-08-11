@@ -45,21 +45,29 @@ class RenderParseCache {
       post.cooked.hashCode,
       mentionedUsers == null
           ? 0
-          : Object.hashAll(mentionedUsers.map((u) => Object.hash(
-                u.id,
-                u.username,
-                u.statusEmoji,
-                u.statusDescription,
-              ))),
+          : Object.hashAll(
+              mentionedUsers.map(
+                (u) => Object.hash(
+                  u.id,
+                  u.username,
+                  u.statusEmoji,
+                  u.statusDescription,
+                ),
+              ),
+            ),
       linkCounts == null
           ? 0
-          : Object.hashAll(linkCounts.map((l) => Object.hash(
-                l.url,
-                l.clicks,
-                l.title,
-                l.internal,
-                l.reflection,
-              ))),
+          : Object.hashAll(
+              linkCounts.map(
+                (l) => Object.hash(
+                  l.url,
+                  l.clicks,
+                  l.title,
+                  l.internal,
+                  l.reflection,
+                ),
+              ),
+            ),
     );
   }
 
@@ -77,8 +85,9 @@ class RenderParseCache {
     // 账单,条目名带帖号与正文大小(监控关闭时 noteSpan 空操作)。
     final watch = Stopwatch()..start();
     final parsed = developer.Timeline.timeSync('ParseShortPost', () {
-      final preprocessed =
-          FluxdoRenderCallbacks.preprocessCookedForRender(post);
+      final preprocessed = FluxdoRenderCallbacks.preprocessCookedForRender(
+        post,
+      );
       final nodes = List<BlockNode>.unmodifiable(
         ParagraphParser().parse(preprocessed),
       );
@@ -156,9 +165,9 @@ class LongPostParseData {
     required this.preprocessed,
     required this.chunks,
     required this.footnotesHtml,
-  })  : _parser = ParagraphParser(),
-        _parsed = List<List<BlockNode>?>.filled(chunks.length, null),
-        _offsets = List<int?>.filled(chunks.length, null);
+  }) : _parser = ParagraphParser(),
+       _parsed = List<List<BlockNode>?>.filled(chunks.length, null),
+       _offsets = List<int?>.filled(chunks.length, null);
 
   final String preprocessed;
   final List<HtmlChunk> chunks;

@@ -515,9 +515,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
       preloadUrls.add(images[currentIndex + 1]);
     }
     for (final url in preloadUrls) {
-      unawaited(
-        BlobImageCache.precache(BlobImageCache.originalBucket, url),
-      );
+      unawaited(BlobImageCache.precache(BlobImageCache.originalBucket, url));
     }
   }
 
@@ -820,8 +818,12 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
             slideAxis: SlideAxis.both,
             slideType: SlideType.onlyImage,
             slideEndHandler: (offset, {required state, required details}) =>
-                _slideShouldPop(offset, details, state.pageSize,
-                    SlideAxis.both),
+                _slideShouldPop(
+                  offset,
+                  details,
+                  state.pageSize,
+                  SlideAxis.both,
+                ),
             slidePageBackgroundHandler: (Offset offset, Size pageSize) {
               double progress = offset.distance / (pageSize.height);
               return Colors.black.withValues(
@@ -949,8 +951,12 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
           slideAxis: SlideAxis.vertical, // 仅垂直滑动关闭，避免与左右切换图片冲突
           slideType: SlideType.onlyImage,
           slideEndHandler: (offset, {required state, required details}) =>
-              _slideShouldPop(offset, details, state.pageSize,
-                  SlideAxis.vertical),
+              _slideShouldPop(
+                offset,
+                details,
+                state.pageSize,
+                SlideAxis.vertical,
+              ),
           // 只处理背景透明度，不干预关闭逻辑，让库自己处理 pop
           slidePageBackgroundHandler: (Offset offset, Size pageSize) {
             // 使用垂直偏移量计算背景透明度（与 slideAxis: vertical 匹配）

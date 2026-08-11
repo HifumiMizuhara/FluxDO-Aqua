@@ -49,7 +49,11 @@ class NestedCollapsedBar extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Text(
                 '·',
-                style: TextStyle(color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
+                style: TextStyle(
+                  color: theme.colorScheme.onSurfaceVariant.withValues(
+                    alpha: 0.5,
+                  ),
+                ),
               ),
             ),
             Text(

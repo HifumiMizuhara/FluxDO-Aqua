@@ -39,10 +39,7 @@ void main() {
 
   testWidgets('压栈:旧顶格滑去左栏,State 不丢;退栈滑回仍不丢', (tester) async {
     addTearDown(tester.view.reset);
-    await pumpWide(
-      tester,
-      host(panes: [const _Counter(key: ValueKey('a'))]),
-    );
+    await pumpWide(tester, host(panes: [const _Counter(key: ValueKey('a'))]));
     await tester.pumpAndSettle();
 
     // 计数 +1
@@ -53,20 +50,19 @@ void main() {
     // 压栈:格 a 滑去左栏,格 b 入场
     await pumpWide(
       tester,
-      host(panes: [
-        const _Counter(key: ValueKey('a')),
-        const Text('层B', key: ValueKey('b')),
-      ]),
+      host(
+        panes: [
+          const _Counter(key: ValueKey('a')),
+          const Text('层B', key: ValueKey('b')),
+        ],
+      ),
     );
     await tester.pumpAndSettle();
     expect(find.text('层B'), findsOneWidget);
     expect(find.text('1'), findsOneWidget, reason: '格 a 滑到左栏,State 必须保留');
 
     // 退栈:格 b 出场,格 a 滑回右栏
-    await pumpWide(
-      tester,
-      host(panes: [const _Counter(key: ValueKey('a'))]),
-    );
+    await pumpWide(tester, host(panes: [const _Counter(key: ValueKey('a'))]));
     await tester.pumpAndSettle();
     expect(find.text('层B'), findsNothing);
     expect(find.text('1'), findsOneWidget, reason: '格 a 滑回右栏,State 必须保留');
@@ -76,10 +72,12 @@ void main() {
     addTearDown(tester.view.reset);
     await pumpWide(
       tester,
-      host(panes: [
-        const Text('层A', key: ValueKey('a')),
-        const Text('层B', key: ValueKey('b')),
-      ]),
+      host(
+        panes: [
+          const Text('层A', key: ValueKey('a')),
+          const Text('层B', key: ValueKey('b')),
+        ],
+      ),
     );
     await tester.pumpAndSettle();
 
@@ -168,17 +166,12 @@ void main() {
     expect(find.text('空态'), findsOneWidget);
   });
 
-  testWidgets('masterFillsWhenEmpty:栈空 master 撑满且恒无空态,压栈收窄', (
-    tester,
-  ) async {
+  testWidgets('masterFillsWhenEmpty:栈空 master 撑满且恒无空态,压栈收窄', (tester) async {
     addTearDown(tester.view.reset);
     Widget fillHost(List<Widget> panes) => MaterialApp(
       home: Scaffold(
         body: PaneFilmstrip(
-          master: const SizedBox.expand(
-            key: ValueKey('m'),
-            child: Text('资料页'),
-          ),
+          master: const SizedBox.expand(key: ValueKey('m'), child: Text('资料页')),
           panes: panes,
           emptyPane: const Text('空态'),
           masterFillsWhenEmpty: true,
@@ -226,9 +219,6 @@ class _CounterState extends State<_Counter> {
 
   @override
   Widget build(BuildContext context) {
-    return TextButton(
-      onPressed: () => setState(() => n++),
-      child: Text('$n'),
-    );
+    return TextButton(onPressed: () => setState(() => n++), child: Text('$n'));
   }
 }

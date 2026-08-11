@@ -48,8 +48,13 @@ class RelativeTimeClock extends ChangeNotifier {
   void _schedule() {
     final now = DateTime.now();
     // 下一个分钟边界 +50ms 余量(防计时器早醒落在边界前)
-    final next = DateTime(now.year, now.month, now.day, now.hour, now.minute)
-        .add(const Duration(minutes: 1, milliseconds: 50));
+    final next = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      now.hour,
+      now.minute,
+    ).add(const Duration(minutes: 1, milliseconds: 50));
     _timer = Timer(next.difference(now), () {
       _timer = null;
       if (!hasListeners) return;

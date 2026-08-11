@@ -121,7 +121,9 @@ class SearchPostCard extends ConsumerWidget {
         onLongPress: onLongPress,
       );
       if (!isMobile) {
-        card = Center(child: SizedBox(width: cardWidth, child: card));
+        card = Center(
+          child: SizedBox(width: cardWidth, child: card),
+        );
       }
       return card;
     }

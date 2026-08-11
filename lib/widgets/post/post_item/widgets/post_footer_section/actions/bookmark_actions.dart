@@ -101,17 +101,18 @@ extension _PostFooterBookmarkActions on _PostFooterSectionState {
       phase: 'post_footer_bookmark_sheet_request',
       traceId: traceId,
       source: 'post_footer_bookmark_action',
-      message: isEdit ? '帖子 footer 准备打开编辑书签面板' : '帖子 footer 准备打开新建书签编辑面板',
+      message: isEdit
+          ? 'Post footer is preparing to open bookmark editor panel'
+          : 'Post footer is preparing to open new bookmark editor panel',
       topicId: widget.topicId,
       postId: widget.post.id,
       bookmarkId: bookmarkId,
       bookmarkName: _bookmarkName ?? widget.post.bookmarkName,
       initialName: isEdit ? (_bookmarkName ?? widget.post.bookmarkName) : null,
       bookmarked: _isBookmarked,
-      hasReminder:
-          isEdit
-              ? ((_bookmarkReminderAt ?? widget.post.bookmarkReminderAt) != null)
-              : false,
+      hasReminder: isEdit
+          ? ((_bookmarkReminderAt ?? widget.post.bookmarkReminderAt) != null)
+          : false,
     );
     final result = await showBookmarkEditSheetWithCachedNames(
       context,
@@ -143,5 +144,4 @@ extension _PostFooterBookmarkActions on _PostFooterSectionState {
       });
     }
   }
-
 }

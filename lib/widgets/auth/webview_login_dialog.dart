@@ -357,9 +357,13 @@ class _WebViewLoginDialogState extends State<_WebViewLoginDialog> {
     _cookiesPrimed = true;
     try {
       await WebViewCookiePriming.instance.prime(AppConstants.baseUrl);
-      debugPrint('[WebViewLogin] 已从 jar 预灌 cookie 到登录 WebView store');
+      debugPrint(
+        '[WebViewLogin] 已从 jar 预灌 cookie 到登录 WebView store',
+      );
     } catch (e) {
-      debugPrint('[WebViewLogin] 预灌 cookie 失败 (继续, 依赖共享 store): $e');
+      debugPrint(
+        '[WebViewLogin] 预灌 cookie 失败 (继续, 依赖共享 store): $e',
+      );
     }
   }
 
@@ -402,7 +406,7 @@ document.close();
 ''',
       );
     } catch (e) {
-      debugPrint('[WebViewLogin] Windows hcaptcha bootstrap 失败: $e');
+      debugPrint('[WebViewLogin] Windows hcaptcha bootstrap failed: $e');
       _finishFailure(LoginErrorKind.unknown, '人机验证页面初始化失败');
     }
   }
@@ -435,7 +439,7 @@ document.close();
         source: 'window.__fluxdoLogin($id, $pwd, $tok, $sf);',
       );
     } catch (e) {
-      debugPrint('[WebViewLogin] evaluate __fluxdoLogin 失败: $e');
+      debugPrint('[WebViewLogin] evaluate __fluxdoLogin failed: $e');
       _finishFailure(LoginErrorKind.unknown, '登录脚本执行失败');
     }
   }
@@ -628,7 +632,7 @@ document.close();
         bootstrapOk: bootstrapped,
       );
     } catch (e) {
-      debugPrint('[WebViewLogin] syncFromWebView 失败: $e');
+      debugPrint('[WebViewLogin] syncFromWebView failed: $e');
     }
     if (mounted) {
       Navigator.of(context).pop(const WebViewLoginDialogResult.success());

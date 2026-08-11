@@ -153,8 +153,9 @@ class _EmojiStickerPanelState extends State<EmojiStickerPanel> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final safeBottom = MediaQuery.viewPaddingOf(context).bottom;
-    final tabHeight =
-        widget.compact ? floatingTabHeightCompact : floatingTabHeight;
+    final tabHeight = widget.compact
+        ? floatingTabHeightCompact
+        : floatingTabHeight;
     final totalBottomPadding = tabHeight + safeBottom;
 
     return Stack(

@@ -27,8 +27,10 @@ class CursorSwipeControl extends StatefulWidget {
     this.onPointerStart,
     this.onPointerMove,
     this.onPointerEnd,
-  }) : assert(onMove != null || onPointerStart != null,
-            '步进(onMove)与指针(onPointer*)模式二选一');
+  }) : assert(
+         onMove != null || onPointerStart != null,
+         '步进(onMove)与指针(onPointer*)模式二选一',
+       );
 
   /// 步进模式(水平):每步 [dir] = ±1,[extend] = 选择开关态。
   final void Function(int dir, {required bool extend})? onMove;
@@ -122,8 +124,10 @@ class _CursorSwipeControlState extends State<CursorSwipeControl> {
               borderRadius: BorderRadius.circular(8),
               elevation: 2,
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 7,
+                ),
                 child: Text(
                   text,
                   style: TextStyle(
@@ -206,8 +210,7 @@ class _CursorSwipeControlState extends State<CursorSwipeControl> {
       setState(() => _selecting = !_selecting);
       HapticFeedback.selectionClick();
       if (_selecting && _selectHintLeft > 0) {
-        _showHint('选择模式:滑动即选择文本',
-            autoHide: const Duration(milliseconds: 1800));
+        _showHint('选择模式:滑动即选择文本', autoHide: const Duration(milliseconds: 1800));
         _selectHintLeft--;
         _consume(_kSelectHintKey, _selectHintLeft);
       }
@@ -232,15 +235,15 @@ class _CursorSwipeControlState extends State<CursorSwipeControl> {
       gestures: {
         _EagerPanGestureRecognizer:
             GestureRecognizerFactoryWithHandlers<_EagerPanGestureRecognizer>(
-          () => _EagerPanGestureRecognizer(debugOwner: this),
-          (r) {
-            r
-              ..onDown = ((_) => _onDown())
-              ..onUpdate = _onDragUpdate
-              ..onEnd = ((_) => _onDragEnd())
-              ..onCancel = _onDragEnd;
-          },
-        ),
+              () => _EagerPanGestureRecognizer(debugOwner: this),
+              (r) {
+                r
+                  ..onDown = ((_) => _onDown())
+                  ..onUpdate = _onDragUpdate
+                  ..onEnd = ((_) => _onDragEnd())
+                  ..onCancel = _onDragEnd;
+              },
+            ),
       },
       // 不用 Tooltip:其长按触发与「按住拖动」手势冲突(按住先弹提示,
       // 拖不起来)。说明留给 Semantics(无障碍)。
@@ -266,8 +269,7 @@ class _CursorSwipeControlState extends State<CursorSwipeControl> {
               : FaIcon(
                   FontAwesomeIcons.iCursor,
                   size: 19,
-                  color:
-                      active ? scheme.primary : scheme.onSurfaceVariant,
+                  color: active ? scheme.primary : scheme.onSurfaceVariant,
                 ),
         ),
       ),
@@ -291,9 +293,7 @@ TextSelection? moveTextSelectionByGrapheme(
   final from = sel.extentOffset;
   final int to;
   if (dir < 0) {
-    to = from <= 0
-        ? 0
-        : from - text.substring(0, from).characters.last.length;
+    to = from <= 0 ? 0 : from - text.substring(0, from).characters.last.length;
   } else {
     to = from >= text.length
         ? text.length

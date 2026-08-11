@@ -26,10 +26,10 @@ class LdcRewardRequest {
 
   /// 转换为 API 请求参数
   Map<String, dynamic> toJson() => {
-        'user_id': userId,
-        'username': username,
-        'amount': amount,
-        'out_trade_no': outTradeNo,
-        if (remark != null && remark!.isNotEmpty) 'remark': remark,
-      };
+    'user_id': userId,
+    'username': username,
+    'amount': amount,
+    'out_trade_no': outTradeNo,
+    if (remark != null && remark!.isNotEmpty) 'remark': remark,
+  };
 }

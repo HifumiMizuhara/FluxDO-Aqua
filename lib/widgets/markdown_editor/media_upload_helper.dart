@@ -116,8 +116,8 @@ Future<String?> uploadMediaFileAsTag(
       uploadPath = compressed;
       uploadName = compressed.split(Platform.pathSeparator).last;
     }
-    final mime = lookupMimeType(uploadName) ??
-        (isAudio ? 'audio/mpeg' : 'video/mp4');
+    final mime =
+        lookupMimeType(uploadName) ?? (isAudio ? 'audio/mpeg' : 'video/mp4');
     final result = await DiscourseService().uploadMediaAsXz(uploadPath);
     return buildMediaTag(
       isAudio: isAudio,
@@ -130,8 +130,9 @@ Future<String?> uploadMediaFileAsTag(
       final msg = e is Exception
           ? e.toString().replaceFirst('Exception: ', '')
           : '媒体上传失败';
-      ScaffoldMessenger.maybeOf(context)
-          ?.showSnackBar(SnackBar(content: Text(msg)));
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(msg)));
     } else {
       AppErrorHandler.handleUnexpected(e, s);
     }
@@ -167,9 +168,9 @@ Future<String?> compressMediaWithDialog(
 }) async {
   final transcoder = MediaTranscoder.forCurrentPlatform();
   if (transcoder == null) {
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      const SnackBar(content: Text('当前平台不支持压缩,请压到 4MB 内再上传')),
-    );
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(const SnackBar(content: Text('当前平台不支持压缩,请压到 4MB 内再上传')));
     return null;
   }
   final tempDir = await getTemporaryDirectory();
@@ -198,8 +199,9 @@ Future<String?> compressMediaWithDialog(
   final r = result ?? await resultFuture;
   if (r.isOk) return r.path;
   if (!r.cancelled && r.error != null && context.mounted) {
-    ScaffoldMessenger.maybeOf(context)
-        ?.showSnackBar(SnackBar(content: Text(r.error!)));
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(SnackBar(content: Text(r.error!)));
   }
   return null;
 }

@@ -30,11 +30,7 @@ sealed class SettingsModel {
   /// 搜索副标题
   final String? subtitle;
 
-  const SettingsModel({
-    required this.id,
-    required this.title,
-    this.subtitle,
-  });
+  const SettingsModel({required this.id, required this.title, this.subtitle});
 
   /// 搜索匹配
   bool matchesQuery(String query) {
@@ -149,10 +145,8 @@ final class PlatformConditionalModel extends SettingsModel {
   final SettingsModel inner;
   final bool Function() condition;
 
-  PlatformConditionalModel({
-    required this.inner,
-    required this.condition,
-  }) : super(id: inner.id, title: inner.title, subtitle: inner.subtitle);
+  PlatformConditionalModel({required this.inner, required this.condition})
+    : super(id: inner.id, title: inner.title, subtitle: inner.subtitle);
 
   bool get shouldShow => condition();
 }

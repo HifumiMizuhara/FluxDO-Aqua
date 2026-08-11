@@ -25,7 +25,9 @@ class PerfSpanBox extends SingleChildRenderObjectWidget {
 
   @override
   void updateRenderObject(
-      BuildContext context, RenderPerfSpanBox renderObject) {
+    BuildContext context,
+    RenderPerfSpanBox renderObject,
+  ) {
     renderObject.label = label;
   }
 }

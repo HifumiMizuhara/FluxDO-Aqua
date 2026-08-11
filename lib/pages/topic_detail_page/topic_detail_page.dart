@@ -451,8 +451,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
 
   void _onScrollIdle() {
     if (!mounted) return;
-    final scrolling =
-        _idleFlushPosition?.isScrollingNotifier.value ?? true;
+    final scrolling = _idleFlushPosition?.isScrollingNotifier.value ?? true;
     if (scrolling) return;
     if (_deferredPostUpdates.isEmpty) return;
     // 推迟一帧回放:isScrollingNotifier 翻 false 发生在惯性最后一个 tick
@@ -522,7 +521,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
           phase: 'shortcut_triggered',
           traceId: traceId,
           source: 'topic_detail_topic_shortcut',
-          message: '详情页快捷键触发编辑书签',
+          message: 'Detail-page shortcut triggered bookmark editing',
           topicId: widget.topicId,
           selectedAction: 'bookmark',
         );
@@ -1399,7 +1398,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
         phase: 'menu_selected',
         traceId: traceId,
         source: 'topic_detail_topic_menu',
-        message: '详情页更多菜单已选中编辑书签',
+        message: 'Detail-page more menu selected bookmark editing',
         topicId: widget.topicId,
         postId: traceTarget?.postId,
         bookmarkId: traceTarget?.bookmarkId ?? detail.bookmarkId,
@@ -1598,7 +1597,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
             phase: 'menu_selected',
             traceId: bookmarkTraceId,
             source: 'topic_detail_topic_menu',
-            message: '详情页更多菜单已选中编辑书签',
+            message: 'Detail-page more menu selected bookmark editing',
             topicId: widget.topicId,
             postId: bookmarkTraceTarget?.postId,
             bookmarkId: bookmarkTraceTarget?.bookmarkId ?? detail.bookmarkId,
@@ -1880,7 +1879,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
           phase: 'gesture_triggered',
           traceId: traceId,
           source: 'topic_detail_progress_gesture',
-          message: '进度悬浮条手势触发编辑书签',
+          message: 'Progress overlay gesture triggered bookmark editing',
           topicId: widget.topicId,
         );
         unawaited(
@@ -2299,8 +2298,9 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
                 _KeepAlivePage(
                   child: Consumer(
                     builder: (context, ref, _) {
-                      final detail =
-                          ref.watch(topicDetailProvider(params)).value;
+                      final detail = ref
+                          .watch(topicDetailProvider(params))
+                          .value;
                       return AiChatPage(
                         topicId: widget.topicId,
                         detail: detail,
@@ -2477,7 +2477,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
 
     // Stack 组装
     return Stack(
-        children: [
+      children: [
         // 使用 Offstage 保持帖子列表存在但在搜索模式下隐藏，保留滚动位置
         Offstage(offstage: isSearchMode, child: content),
 
@@ -2564,7 +2564,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
               );
             },
           ),
-        ],
+      ],
     );
   }
 
@@ -2700,7 +2700,8 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
             : ErrorView(
                 error: e,
                 stackTrace: s,
-                onRetry: () => ref.invalidate(nestedTopicProvider(nestedParams)),
+                onRetry: () =>
+                    ref.invalidate(nestedTopicProvider(nestedParams)),
               ),
         data: (nestedState) => NestedPostList(
           nestedState: nestedState,
@@ -2758,9 +2759,8 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
               highlightBoostUsername: widget.highlightBoostUsername,
               isLoggedIn: isLoggedIn,
               isActivitySort: notifier.isActivityMode,
-              onAnswerSortChanged: (byActivity) => byActivity
-                  ? _handleShowByActivity()
-                  : _handleCancelFilter(),
+              onAnswerSortChanged: (byActivity) =>
+                  byActivity ? _handleShowByActivity() : _handleCancelFilter(),
               hasMoreBefore: notifier.hasMoreBefore,
               hasMoreAfter: notifier.hasMoreAfter,
               loadingPreviousListenable: notifier.loadingPreviousListenable,
@@ -2806,8 +2806,9 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
                 onJumpToPost: _scrollToPost,
               ),
               onWithdrawPendingPost: isLoggedIn ? _handleWithdrawPending : null,
-              onWithdrawAndEditPendingPost:
-                  isLoggedIn ? _handleWithdrawAndEditPending : null,
+              onWithdrawAndEditPendingPost: isLoggedIn
+                  ? _handleWithdrawAndEditPending
+                  : null,
             );
           },
         );

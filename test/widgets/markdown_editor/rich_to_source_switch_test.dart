@@ -26,35 +26,36 @@ class _HostState extends State<_Host> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(children: [
-        TextButton(
-          onPressed: () => setState(() => rich = false),
-          child: const Text('SWITCH'),
-        ),
-        Expanded(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 150),
-            child: rich
-                // 简化的"富态占位":真 RichComposer 依赖 cook 引擎,测试
-                // 环境起不来;关键变量是 focusNode 已聚焦 + controller
-                // selection 状态,由下面手工制造
-                ? const SizedBox.expand(key: ValueKey('rich'))
-                : MarkdownEditor(
-                    key: const ValueKey('md'),
-                    controller: widget.controller,
-                    focusNode: widget.focusNode,
-                    hintText: '',
-                  ),
+      body: Column(
+        children: [
+          TextButton(
+            onPressed: () => setState(() => rich = false),
+            child: const Text('SWITCH'),
           ),
-        ),
-      ]),
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 150),
+              child: rich
+                  // 简化的"富态占位":真 RichComposer 依赖 cook 引擎,测试
+                  // 环境起不来;关键变量是 focusNode 已聚焦 + controller
+                  // selection 状态,由下面手工制造
+                  ? const SizedBox.expand(key: ValueKey('rich'))
+                  : MarkdownEditor(
+                      key: const ValueKey('md'),
+                      controller: widget.controller,
+                      focusNode: widget.focusNode,
+                      hintText: '',
+                    ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
 void main() {
-  testWidgets('切换后(flush 致 selection=-1)输入与退格仍有效',
-      (tester) async {
+  testWidgets('切换后(flush 致 selection=-1)输入与退格仍有效', (tester) async {
     SharedPreferences.setMockInitialValues(const {});
     final prefs = await SharedPreferences.getInstance();
     final controller = TextEditingController();
@@ -62,22 +63,24 @@ void main() {
     addTearDown(controller.dispose);
     addTearDown(focusNode.dispose);
 
-    await tester.pumpWidget(ProviderScope(
-      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-      child: TranslationProvider(
-        child: MaterialApp(
-          locale: const Locale('zh'),
-          navigatorKey: navigatorKey,
-          localizationsDelegates: const [
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: AppLocaleUtils.supportedLocales,
-          home: _Host(controller: controller, focusNode: focusNode),
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+        child: TranslationProvider(
+          child: MaterialApp(
+            locale: const Locale('zh'),
+            navigatorKey: navigatorKey,
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: AppLocaleUtils.supportedLocales,
+            home: _Host(controller: controller, focusNode: focusNode),
+          ),
         ),
       ),
-    ));
+    );
 
     // 制造切换前状态:焦点在共享 node 上(富文本态),flush 回写文本
     // (TextEditingController.text setter → selection = collapsed(-1))
@@ -106,8 +109,7 @@ void main() {
     expect(controller.text, 'hello world', reason: '能删除');
   });
 
-  testWidgets('程序化聚焦(无 tap):平台收到的选区必须有效',
-      (tester) async {
+  testWidgets('程序化聚焦(无 tap):平台收到的选区必须有效', (tester) async {
     SharedPreferences.setMockInitialValues(const {});
     final prefs = await SharedPreferences.getInstance();
     final controller = TextEditingController();
@@ -115,22 +117,24 @@ void main() {
     addTearDown(controller.dispose);
     addTearDown(focusNode.dispose);
 
-    await tester.pumpWidget(ProviderScope(
-      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-      child: TranslationProvider(
-        child: MaterialApp(
-          locale: const Locale('zh'),
-          navigatorKey: navigatorKey,
-          localizationsDelegates: const [
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: AppLocaleUtils.supportedLocales,
-          home: _Host(controller: controller, focusNode: focusNode),
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+        child: TranslationProvider(
+          child: MaterialApp(
+            locale: const Locale('zh'),
+            navigatorKey: navigatorKey,
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: AppLocaleUtils.supportedLocales,
+            home: _Host(controller: controller, focusNode: focusNode),
+          ),
         ),
       ),
-    ));
+    );
 
     // 旧 flush 缺陷路径:text setter → selection = collapsed(-1)。
     // 真实 flushToController 已改原子赋值(选区合法),这里故意保留
@@ -154,7 +158,6 @@ void main() {
         .toList();
     expect(states, isNotEmpty, reason: '聚焦即 attach 并喂状态');
     final last = (states.last.arguments as Map).cast<String, dynamic>();
-    expect(last['selectionBase'], greaterThanOrEqualTo(0),
-        reason: '平台侧选区必须有效');
+    expect(last['selectionBase'], greaterThanOrEqualTo(0), reason: '平台侧选区必须有效');
   });
 }

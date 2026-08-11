@@ -109,7 +109,8 @@ class AiPostReviewButton extends ConsumerStatefulWidget {
     BuildContext anchorContext,
     bool isReviewing,
     VoidCallback? trigger,
-  )? builder;
+  )?
+  builder;
 
   @override
   ConsumerState<AiPostReviewButton> createState() => _AiPostReviewButtonState();

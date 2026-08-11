@@ -1225,9 +1225,7 @@ class _TrustLevelRequirementsPageState
             M3eLinearProgress(
               value: progress,
               color: color,
-              trackColor: colorScheme.secondaryContainer.withValues(
-                alpha: 0.5,
-              ),
+              trackColor: colorScheme.secondaryContainer.withValues(alpha: 0.5),
             ),
           ],
         ),

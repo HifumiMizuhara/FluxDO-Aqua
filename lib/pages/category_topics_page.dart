@@ -455,7 +455,9 @@ class _CategoryTopicsPageState extends ConsumerState<CategoryTopicsPage> {
   Future<void> _openTopic(Topic topic) async {
     // 宽屏进右栏(本页自己是平行视界宿主),窄屏全屏 push。
     if (MasterDetailLayout.canShowBothPanesFor(context)) {
-      ref.read(_paneProvider.notifier).select(
+      ref
+          .read(_paneProvider.notifier)
+          .select(
             topicId: topic.id,
             initialTitle: topic.title,
             scrollToPostNumber: topic.lastReadPostNumber,
@@ -557,10 +559,7 @@ class _CategoryTopicsPageState extends ConsumerState<CategoryTopicsPage> {
       ),
     );
 
-    return MasterDetailPaneHost(
-      stackProvider: _paneProvider,
-      master: list,
-    );
+    return MasterDetailPaneHost(stackProvider: _paneProvider, master: list);
   }
 
   Widget _buildBody(int? selectedTopicId) {
@@ -612,46 +611,46 @@ class _CategoryTopicsPageState extends ConsumerState<CategoryTopicsPage> {
     return TopicCardPrewarmScope(
       topics: visible,
       child: DesktopRefreshIndicator(
-      onRefresh: _loadTopics,
-      child: ListView.builder(
-        controller: _scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(12),
-        itemCount: visible.length + hintOffset + 1,
-        itemBuilder: (context, index) {
-          if (hintOffset > 0 && index == 0) {
-            return KeywordFilterHintBar(
-              hiddenCount: hidden,
-              hiddenByBlocked: hiddenByBlocked,
-            );
-          }
-          final topicIndex = index - hintOffset;
-          if (topicIndex >= visible.length) {
-            return PagedListFooter(
-              hasMore: _hasMore,
-              isLoadingMore: _isLoadingMore,
-              isLoadMoreFailed: _isLoadMoreFailed,
-              onRetry: () {
-                setState(() => _isLoadMoreFailed = false);
-                _loadMore();
-              },
-            );
-          }
+        onRefresh: _loadTopics,
+        child: ListView.builder(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(12),
+          itemCount: visible.length + hintOffset + 1,
+          itemBuilder: (context, index) {
+            if (hintOffset > 0 && index == 0) {
+              return KeywordFilterHintBar(
+                hiddenCount: hidden,
+                hiddenByBlocked: hiddenByBlocked,
+              );
+            }
+            final topicIndex = index - hintOffset;
+            if (topicIndex >= visible.length) {
+              return PagedListFooter(
+                hasMore: _hasMore,
+                isLoadingMore: _isLoadingMore,
+                isLoadMoreFailed: _isLoadMoreFailed,
+                onRetry: () {
+                  setState(() => _isLoadMoreFailed = false);
+                  _loadMore();
+                },
+              );
+            }
 
-          final topic = visible[topicIndex];
-          final enableLongPress = ref
-              .watch(preferencesProvider)
-              .longPressPreview;
+            final topic = visible[topicIndex];
+            final enableLongPress = ref
+                .watch(preferencesProvider)
+                .longPressPreview;
 
-          return buildTopicItem(
-            context: context,
-            topic: topic,
-            isSelected: topic.id == selectedTopicId,
-            onTap: () => _openTopic(topic),
-            enableLongPress: enableLongPress,
-          );
-        },
-      ),
+            return buildTopicItem(
+              context: context,
+              topic: topic,
+              isSelected: topic.id == selectedTopicId,
+              onTap: () => _openTopic(topic),
+              enableLongPress: enableLongPress,
+            );
+          },
+        ),
       ),
     );
   }

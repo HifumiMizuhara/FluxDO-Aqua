@@ -950,4 +950,3 @@ class _HoverBarButton extends StatelessWidget {
     );
   }
 }
-

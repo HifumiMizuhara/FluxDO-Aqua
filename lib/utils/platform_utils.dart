@@ -15,8 +15,7 @@ class PlatformUtils {
       (!kIsWeb && (Platform.isMacOS || Platform.isWindows || Platform.isLinux));
 
   /// 是否运行在移动操作系统（Android / iOS）
-  static bool get isMobile =>
-      debugDesktopOverride == null
+  static bool get isMobile => debugDesktopOverride == null
       ? (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
       : !debugDesktopOverride!;
 }

@@ -116,7 +116,9 @@ class AdaptiveScaffold extends ConsumerWidget {
                           // 状态 provider 同值会被去重），首页靠 tap 事件从
                           // 深层平行视界退回板块列表。
                           final tap = ref.read(sidebarCategoryTapProvider);
-                          ref.read(sidebarCategoryTapProvider.notifier).state = (
+                          ref
+                              .read(sidebarCategoryTapProvider.notifier)
+                              .state = (
                             categoryId: categoryId,
                             nonce: (tap?.nonce ?? 0) + 1,
                           );

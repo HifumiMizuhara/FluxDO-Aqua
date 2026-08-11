@@ -29,8 +29,9 @@ void main() {
       Paint()..color = bg,
     );
     final tile = buildSignetSignalTile(id, 1.0);
-    RenderSignetPainter(tile: tile)
-        .paint(canvas, Size(size.toDouble(), size.toDouble()));
+    RenderSignetPainter(
+      tile: tile,
+    ).paint(canvas, Size(size.toDouble(), size.toDouble()));
     final picture = recorder.endRecording();
     final image = picture.toImageSync(size, size);
     picture.dispose();
@@ -107,8 +108,11 @@ void main() {
     final normal = await paintDesat(BlendMode.srcATop);
     final degraded = await paintDesat(BlendMode.srcOver);
     for (var i = 0; i < 256 * 32 * 4; i++) {
-      expect(normal.getUint8(i), degraded.getUint8(i),
-          reason: '字节 $i 不一致——失败形态不再等价,结构安全性破坏');
+      expect(
+        normal.getUint8(i),
+        degraded.getUint8(i),
+        reason: '字节 $i 不一致——失败形态不再等价,结构安全性破坏',
+      );
     }
   });
 }

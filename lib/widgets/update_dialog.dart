@@ -58,7 +58,7 @@ class UpdateDialog extends StatelessWidget {
                 color: colorScheme.primary.withValues(alpha: 0.05),
               ),
             ),
-            
+
             Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -75,9 +75,9 @@ class UpdateDialog extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
-                           Symbols.auto_awesome_rounded, 
-                           color: colorScheme.onPrimaryContainer,
-                           size: 20,
+                          Symbols.auto_awesome_rounded,
+                          color: colorScheme.onPrimaryContainer,
+                          size: 20,
                         ),
                       ),
                       const SizedBox(width: 16),
@@ -92,23 +92,30 @@ class UpdateDialog extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 2),
-                           Row(
-                              children: [
-                                _buildVersionText(context,
-                                    updateInfo.currentVersion, false),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 6),
-                                  child: Icon(
-                                    Symbols.arrow_right_alt_rounded,
-                                    size: 16,
-                                    color: colorScheme.outline,
-                                  ),
+                          Row(
+                            children: [
+                              _buildVersionText(
+                                context,
+                                updateInfo.currentVersion,
+                                false,
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
                                 ),
-                                _buildVersionText(context,
-                                    updateInfo.remoteVersion, true),
-                              ],
-                            ),
+                                child: Icon(
+                                  Symbols.arrow_right_alt_rounded,
+                                  size: 16,
+                                  color: colorScheme.outline,
+                                ),
+                              ),
+                              _buildVersionText(
+                                context,
+                                updateInfo.remoteVersion,
+                                true,
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     ],
@@ -118,7 +125,10 @@ class UpdateDialog extends StatelessWidget {
                 // Content
                 if (updateInfo.releaseNotes.isNotEmpty)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 8,
+                    ),
                     child: Text(
                       context.l10n.update_changelog,
                       style: theme.textTheme.labelMedium?.copyWith(
@@ -127,23 +137,26 @@ class UpdateDialog extends StatelessWidget {
                       ),
                     ),
                   ),
-                
+
                 if (updateInfo.releaseNotes.isNotEmpty)
                   Container(
                     constraints: BoxConstraints(maxHeight: maxContentHeight),
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-                    child: FluxdoRenderCallbacks.generic(
-                      heroTagNamespace: 'update_notes',
-                    ).render(
-                      cookedHtml: md.markdownToHtml(updateInfo.releaseNotes),
-                      baseTextStyle: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        height: 1.5,
-                        fontSize: 14,
-                      ),
-                      selectionEnabled: false,
-                    ),
+                      child:
+                          FluxdoRenderCallbacks.generic(
+                            heroTagNamespace: 'update_notes',
+                          ).render(
+                            cookedHtml: md.markdownToHtml(
+                              updateInfo.releaseNotes,
+                            ),
+                            baseTextStyle: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              height: 1.5,
+                              fontSize: 14,
+                            ),
+                            selectionEnabled: false,
+                          ),
                     ),
                   ),
 
@@ -161,8 +174,10 @@ class UpdateDialog extends StatelessWidget {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: Text(context.l10n.update_now,
-                            style: const TextStyle(fontWeight: FontWeight.w600)),
+                        child: Text(
+                          context.l10n.update_now,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
                       ),
                       const SizedBox(height: 12),
                       Row(
@@ -173,36 +188,52 @@ class UpdateDialog extends StatelessWidget {
                               onPressed: onIgnore,
                               style: TextButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 8),
-                                foregroundColor: colorScheme.onSurfaceVariant.withValues(alpha:0.7),
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                foregroundColor: colorScheme.onSurfaceVariant
+                                    .withValues(alpha: 0.7),
                                 minimumSize: Size.zero,
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
-                              child: Text(context.l10n.update_dontRemind, style: const TextStyle(fontSize: 13)),
+                              child: Text(
+                                context.l10n.update_dontRemind,
+                                style: const TextStyle(fontSize: 13),
+                              ),
                             ),
                           if (onOpenReleasePage != null)
-                             TextButton(
+                            TextButton(
                               onPressed: onOpenReleasePage,
-                                style: TextButton.styleFrom(
+                              style: TextButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 8),
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
                                 foregroundColor: colorScheme.primary,
-                                 minimumSize: Size.zero,
+                                minimumSize: Size.zero,
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
-                              child: Text(context.l10n.common_viewDetails, style: const TextStyle(fontSize: 13)),
+                              child: Text(
+                                context.l10n.common_viewDetails,
+                                style: const TextStyle(fontSize: 13),
+                              ),
                             ),
                           const Spacer(),
                           TextButton(
                             onPressed: onCancel,
                             style: TextButton.styleFrom(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 8),
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
                               foregroundColor: colorScheme.onSurfaceVariant,
-                               minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
-                            child: Text(context.l10n.common_later, style: const TextStyle(fontSize: 13)),
+                            child: Text(
+                              context.l10n.common_later,
+                              style: const TextStyle(fontSize: 13),
+                            ),
                           ),
                         ],
                       ),
@@ -222,8 +253,10 @@ class UpdateDialog extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-         color: isNew ? colorScheme.primary.withValues(alpha: 0.1) : colorScheme.surfaceContainerHighest,
-         borderRadius: BorderRadius.circular(4),
+        color: isNew
+            ? colorScheme.primary.withValues(alpha: 0.1)
+            : colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
         'v$version',

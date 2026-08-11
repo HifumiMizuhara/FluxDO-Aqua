@@ -17,10 +17,7 @@ class BuiltInPresetsFactory {
 
   /// 生成全部内置 preset（图像 + 文本）
   static List<PromptPreset> create() {
-    return [
-      ..._imagePresets(),
-      ..._textPresets(),
-    ];
+    return [..._imagePresets(), ..._textPresets()];
   }
 
   static List<PromptPreset> _imagePresets() {
@@ -98,10 +95,7 @@ class BuiltInPresetsFactory {
         builtIn: true,
         // 给「手绘小报」也配维度
         dimensions: [palette, aspect],
-        defaultDimensionValues: const {
-          'palette': 'pastel',
-          'aspect': '16:9',
-        },
+        defaultDimensionValues: const {'palette': 'pastel', 'aspect': '16:9'},
       ),
       PromptPreset(
         id: 'builtin_image_minimal',
@@ -309,15 +303,30 @@ class BuiltInPresetsFactory {
       // 而是直接传给图像 API 的 size 参数。这里只用作 UI 选择。
       options: [
         DimensionOption(
-            value: '1:1', label: l.ai_aspectSquareLabel, promptFragment: ''),
+          value: '1:1',
+          label: l.ai_aspectSquareLabel,
+          promptFragment: '',
+        ),
         DimensionOption(
-            value: '16:9', label: l.ai_aspectWideLabel, promptFragment: ''),
+          value: '16:9',
+          label: l.ai_aspectWideLabel,
+          promptFragment: '',
+        ),
         DimensionOption(
-            value: '9:16', label: l.ai_aspectTallLabel, promptFragment: ''),
+          value: '9:16',
+          label: l.ai_aspectTallLabel,
+          promptFragment: '',
+        ),
         DimensionOption(
-            value: '4:3', label: l.ai_aspect4x3Label, promptFragment: ''),
+          value: '4:3',
+          label: l.ai_aspect4x3Label,
+          promptFragment: '',
+        ),
         DimensionOption(
-            value: '3:4', label: l.ai_aspect3x4Label, promptFragment: ''),
+          value: '3:4',
+          label: l.ai_aspect3x4Label,
+          promptFragment: '',
+        ),
       ],
     );
   }

@@ -50,8 +50,9 @@ class _MarkdownToolPanelState extends ConsumerState<MarkdownToolPanel> {
 
   /// 切换工具是否外显在工具栏
   void _togglePinned(String id) {
-    final current =
-        List<String>.of(ref.read(preferencesProvider).editorToolbarTools);
+    final current = List<String>.of(
+      ref.read(preferencesProvider).editorToolbarTools,
+    );
     if (!current.remove(id)) {
       current.add(id);
     }
@@ -74,7 +75,9 @@ class _MarkdownToolPanelState extends ConsumerState<MarkdownToolPanel> {
             children: [
               Expanded(
                 child: Text(
-                  _customizing ? s.toolPanel_customizeHint : s.toolbar_moreTools,
+                  _customizing
+                      ? s.toolPanel_customizeHint
+                      : s.toolbar_moreTools,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -84,7 +87,9 @@ class _MarkdownToolPanelState extends ConsumerState<MarkdownToolPanel> {
               ),
               TextButton(
                 onPressed: () => setState(() => _customizing = !_customizing),
-                child: Text(_customizing ? s.common_done : s.toolPanel_customize),
+                child: Text(
+                  _customizing ? s.common_done : s.toolPanel_customize,
+                ),
               ),
             ],
           ),
@@ -177,8 +182,9 @@ class _ToolCellBody extends StatelessWidget {
               decoration: BoxDecoration(
                 color: highlight
                     ? theme.colorScheme.primaryContainer
-                    : theme.colorScheme.surfaceContainerHighest
-                        .withValues(alpha: 0.6),
+                    : theme.colorScheme.surfaceContainerHighest.withValues(
+                        alpha: 0.6,
+                      ),
                 borderRadius: BorderRadius.circular(14),
               ),
               alignment: Alignment.center,

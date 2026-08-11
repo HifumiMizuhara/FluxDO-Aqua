@@ -187,9 +187,7 @@ class _NestedThreadSheetContentState
                     vertical: 8,
                   ),
                   child: _isLoadingMore
-                      ? const Center(
-                          child: LoadingSpinner(size: 20),
-                        )
+                      ? const Center(child: LoadingSpinner(size: 20))
                       : Center(
                           child: TextButton(
                             onPressed: _loadChildren,

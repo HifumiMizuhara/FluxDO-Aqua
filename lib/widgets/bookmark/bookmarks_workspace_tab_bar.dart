@@ -114,9 +114,7 @@ class _BookmarksWorkspaceTabBarState extends State<BookmarksWorkspaceTabBar> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-      ),
+      decoration: BoxDecoration(color: colorScheme.surface),
       child: SizedBox(
         height: 48,
         child: Row(

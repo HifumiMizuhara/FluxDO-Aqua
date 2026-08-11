@@ -56,9 +56,9 @@ SingleActivator _primary(
 
 /// 提交快捷键(Cmd/Ctrl+Enter,含小键盘 Enter;宿主页绑定用)
 List<SingleActivator> composerSubmitActivators() => [
-      _primary(LogicalKeyboardKey.enter),
-      _primary(LogicalKeyboardKey.numpadEnter),
-    ];
+  _primary(LogicalKeyboardKey.enter),
+  _primary(LogicalKeyboardKey.numpadEnter),
+];
 
 /// 全部撰写格式化快捷键(顺序即帮助浮层「撰写」分区展示顺序)
 List<ComposerShortcutSpec> buildComposerShortcutSpecs() {
@@ -67,15 +67,21 @@ List<ComposerShortcutSpec> buildComposerShortcutSpecs() {
       toolId: 'bold',
       label: (s) => s.toolPanel_bold,
       activator: _primary(LogicalKeyboardKey.keyB),
-      sourceAction: (t) => t.wrapSelection('**', '**',
-          placeholder: S.current.toolbar_boldPlaceholder),
+      sourceAction: (t) => t.wrapSelection(
+        '**',
+        '**',
+        placeholder: S.current.toolbar_boldPlaceholder,
+      ),
     ),
     ComposerShortcutSpec(
       toolId: 'italic',
       label: (s) => s.toolPanel_italic,
       activator: _primary(LogicalKeyboardKey.keyI),
-      sourceAction: (t) => t.wrapSelection('*', '*',
-          placeholder: S.current.toolbar_italicPlaceholder),
+      sourceAction: (t) => t.wrapSelection(
+        '*',
+        '*',
+        placeholder: S.current.toolbar_italicPlaceholder,
+      ),
     ),
     ComposerShortcutSpec(
       toolId: 'inlineCode',

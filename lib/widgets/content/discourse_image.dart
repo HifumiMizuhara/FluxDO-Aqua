@@ -149,10 +149,7 @@ class _DiscourseImageState extends State<DiscourseImage> {
 
     // Lightbox
     if (widget.enableLightbox && !_isSvg) {
-      return GestureDetector(
-        onTap: _openLightbox,
-        child: imageWidget,
-      );
+      return GestureDetector(onTap: _openLightbox, child: imageWidget);
     }
 
     return imageWidget;
@@ -284,10 +281,11 @@ class _DiscourseImageState extends State<DiscourseImage> {
       context,
       _resolvedUrl!,
       heroTag: widget.heroTag,
-      galleryImages: widget.galleryImages.isNotEmpty ? widget.galleryImages : null,
+      galleryImages: widget.galleryImages.isNotEmpty
+          ? widget.galleryImages
+          : null,
       initialIndex: widget.initialIndex,
       enableShare: true,
     );
   }
-
 }

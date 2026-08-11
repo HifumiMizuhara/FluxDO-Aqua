@@ -29,7 +29,10 @@ void main() {
     // FlutterTest 测试字体 ascent=0.75em, descent=0.25em
     // => middle = (0.75-0.25)/2 * fs = 0.25*fs(基线上方)
     // span 支配: c11=-2.75, c22=-5.5;段落默认支配: 两者同 =-3.5
-    expect((c22 - c11).abs(), greaterThan(1.0),
-        reason: '两个字号的占位盒中心应不同 => middle 用 span 样式度量');
+    expect(
+      (c22 - c11).abs(),
+      greaterThan(1.0),
+      reason: '两个字号的占位盒中心应不同 => middle 用 span 样式度量',
+    );
   });
 }

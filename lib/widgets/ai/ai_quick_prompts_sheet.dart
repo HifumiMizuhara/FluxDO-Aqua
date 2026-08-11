@@ -207,7 +207,9 @@ class _PresetTile extends ConsumerWidget {
               tooltip: preset.pinned
                   ? S.current.ai_quickPromptsUnpin
                   : S.current.ai_quickPromptsPin,
-              icon: Icon(Symbols.push_pin_rounded, fill: preset.pinned ? 1 : 0,
+              icon: Icon(
+                Symbols.push_pin_rounded,
+                fill: preset.pinned ? 1 : 0,
                 size: 18,
                 color: preset.pinned
                     ? theme.colorScheme.primary
@@ -255,7 +257,9 @@ class _PresetTile extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: Icon(Symbols.push_pin_rounded, fill: preset.pinned ? 1 : 0,
+              leading: Icon(
+                Symbols.push_pin_rounded,
+                fill: preset.pinned ? 1 : 0,
               ),
               title: Text(
                 preset.pinned

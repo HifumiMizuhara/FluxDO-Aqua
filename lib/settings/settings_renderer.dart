@@ -22,9 +22,10 @@ class SettingsRenderer extends ConsumerWidget {
       IntSliderModel m => _buildIntSlider(context, ref, theme, m),
       ActionModel m => _buildAction(context, ref, theme, m),
       CustomModel m => m.builder(context, ref),
-      PlatformConditionalModel m => m.shouldShow
-          ? SettingsRenderer(model: m.inner)
-          : const SizedBox.shrink(),
+      PlatformConditionalModel m =>
+        m.shouldShow
+            ? SettingsRenderer(model: m.inner)
+            : const SizedBox.shrink(),
     };
   }
 
@@ -185,7 +186,10 @@ class SettingsRenderer extends ConsumerWidget {
               ),
             )
           : null,
-      trailing: Icon(Symbols.chevron_right_rounded, color: theme.colorScheme.onSurfaceVariant),
+      trailing: Icon(
+        Symbols.chevron_right_rounded,
+        color: theme.colorScheme.onSurfaceVariant,
+      ),
       onTap: () => m.onTap(context, ref),
     );
   }

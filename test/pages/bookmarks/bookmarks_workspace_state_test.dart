@@ -123,10 +123,18 @@ void main() {
     final overflowed = state.openTopicTab(topicId: 11, title: 'T11');
 
     expect(overflowed.topicTabs, hasLength(10));
-    expect(
-      overflowed.topicTabs.map((tab) => tab.topicId),
-      [2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-    );
+    expect(overflowed.topicTabs.map((tab) => tab.topicId), [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+    ]);
     expect(overflowed.activeTabId, BookmarksWorkspaceState.topicTabId(11));
   });
 
@@ -137,17 +145,25 @@ void main() {
     }
     state = state.activateBookmarksTab();
 
-    final overflowed = state.openTopicTabInBackground(topicId: 11, title: 'T11');
+    final overflowed = state.openTopicTabInBackground(
+      topicId: 11,
+      title: 'T11',
+    );
 
     expect(overflowed.topicTabs, hasLength(10));
-    expect(
-      overflowed.topicTabs.map((tab) => tab.topicId),
-      [2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-    );
-    expect(
-      overflowed.activeTabId,
-      BookmarksWorkspaceState.bookmarksTabId,
-    );
+    expect(overflowed.topicTabs.map((tab) => tab.topicId), [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+    ]);
+    expect(overflowed.activeTabId, BookmarksWorkspaceState.bookmarksTabId);
   });
 
   test('打开书签话题时会保留并更新书签上下文', () {

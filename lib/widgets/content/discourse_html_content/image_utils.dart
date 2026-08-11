@@ -27,9 +27,9 @@ class GalleryInfo {
     required Map<String, int> thumbnailToIndex,
     List<String?>? filenames,
     Set<String>? spoilerImageUrls,
-  })  : _thumbnailToIndex = thumbnailToIndex,
-        filenames = filenames ?? List.filled(originalUrls.length, null),
-        _spoilerImageUrls = spoilerImageUrls ?? {};
+  }) : _thumbnailToIndex = thumbnailToIndex,
+       filenames = filenames ?? List.filled(originalUrls.length, null),
+       _spoilerImageUrls = spoilerImageUrls ?? {};
 
   /// 获取指定索引的文件名
   String? getFilename(int index) {
@@ -71,7 +71,10 @@ class GalleryInfo {
 
   /// 从外部传入的图片列表构建 GalleryInfo
   /// [spoilerImageUrls] 可选，标记哪些图片在 spoiler 内
-  static GalleryInfo fromImages(List<String> images, {Set<String>? spoilerImageUrls}) {
+  static GalleryInfo fromImages(
+    List<String> images, {
+    Set<String>? spoilerImageUrls,
+  }) {
     final Map<String, int> thumbnailToIndex = {};
 
     for (var i = 0; i < images.length; i++) {
@@ -98,25 +101,25 @@ class GalleryInfo {
     if (_thumbnailToIndex.containsKey(imageUrl)) {
       return _thumbnailToIndex[imageUrl];
     }
-    
+
     // 2. 尝试 resolveUrl 后查找（处理相对路径）
     final resolvedUrl = UrlHelper.resolveUrlWithCdn(imageUrl);
     if (_thumbnailToIndex.containsKey(resolvedUrl)) {
       return _thumbnailToIndex[resolvedUrl];
     }
-    
+
     // 3. 尝试转换为原图 URL 后查找
     final originalUrl = DiscourseImageUtils.getOriginalUrl(imageUrl);
     if (_thumbnailToIndex.containsKey(originalUrl)) {
       return _thumbnailToIndex[originalUrl];
     }
-    
+
     // 4. resolvedUrl 转换为原图后查找
     final resolvedOriginalUrl = DiscourseImageUtils.getOriginalUrl(resolvedUrl);
     if (_thumbnailToIndex.containsKey(resolvedOriginalUrl)) {
       return _thumbnailToIndex[resolvedOriginalUrl];
     }
-    
+
     return null;
   }
 
@@ -125,10 +128,11 @@ class GalleryInfo {
 
   /// 获取原图 URL 列表（用于传递给画廊查看器）
   List<String> get images => originalUrls;
-  
+
   /// 生成画廊 Hero tags
-  List<String> get heroTags => DiscourseImageUtils.generateGalleryHeroTags(originalUrls);
-  
+  List<String> get heroTags =>
+      DiscourseImageUtils.generateGalleryHeroTags(originalUrls);
+
   /// 获取指定索引的原图 URL
   String? getOriginalUrl(int index) {
     if (index >= 0 && index < originalUrls.length) {
@@ -160,8 +164,9 @@ class DiscourseImageUtils {
 
   /// `/uploads/short-url/<base62>(.ext)` 短链路径段
   /// （与 Discourse Upload.sha1_from_short_path 同口径）
-  static final RegExp _shortUrlPathRe =
-      RegExp(r'/uploads/short-url/([a-zA-Z0-9]+(?:\.[a-zA-Z0-9.]+)?)');
+  static final RegExp _shortUrlPathRe = RegExp(
+    r'/uploads/short-url/([a-zA-Z0-9]+(?:\.[a-zA-Z0-9.]+)?)',
+  );
 
   /// 检查是否是需要 lookup-urls 解析的上传短链：
   /// `upload://<base62>` 短链 scheme，或站内 `/uploads/short-url/<base62>` 路径。
@@ -235,7 +240,9 @@ class DiscourseImageUtils {
       _uploadUrlCache[shortUrl] = url;
       return url;
     } catch (e) {
-      debugPrint('[DiscourseImageUtils] Failed to resolve upload url: $shortUrl, error: $e');
+      debugPrint(
+        '[DiscourseImageUtils] Failed to resolve upload url: $shortUrl, error: $e',
+      );
       return null;
     } finally {
       _inflightResolves.remove(shortUrl);
@@ -280,7 +287,8 @@ class DiscourseImageUtils {
         final href = current.attributes['href'] as String?;
         if (href != null && href.isNotEmpty) {
           // 检查是否是 lightbox 链接（通常指向原图）
-          final classes = (current.classes as Iterable<String>?)?.toList() ?? [];
+          final classes =
+              (current.classes as Iterable<String>?)?.toList() ?? [];
           if (classes.contains('lightbox') || href.contains('/original/')) {
             return href;
           }
@@ -328,7 +336,6 @@ class DiscourseImageUtils {
         lowerUrl.contains('/original/');
   }
 
-
   /// 打开图片查看器（过滤不可见的 spoiler 图片）
   /// 根据 [revealedImageUrls] 过滤画廊，只显示非 spoiler 图片和已揭示的 spoiler 图片
   static void openViewerFiltered({
@@ -349,7 +356,9 @@ class DiscourseImageUtils {
       context: context,
       imageUrl: getOriginalUrl(imageUrl),
       heroTag: heroTag,
-      galleryImages: visibleIndices.map((i) => getOriginalUrl(allImages[i])).toList(),
+      galleryImages: visibleIndices
+          .map((i) => getOriginalUrl(allImages[i]))
+          .toList(),
       heroTags: visibleIndices.map((i) => allHeroTags[i]).toList(),
       initialIndex: visibleIndex >= 0 ? visibleIndex : 0,
       thumbnailUrl: thumbnailUrl ?? imageUrl,
@@ -404,4 +413,3 @@ class DiscourseImageUtils {
     );
   }
 }
-

@@ -67,7 +67,10 @@ class _DownloadListPageState extends ConsumerState<DownloadListPage> {
     final index = downloads.indexWhere((e) => e.id == id);
     if (index < 0) return;
     // 每项约 80px 高 + 12px 间距
-    final offset = (index * 92.0).clamp(0.0, _scrollController.position.maxScrollExtent);
+    final offset = (index * 92.0).clamp(
+      0.0,
+      _scrollController.position.maxScrollExtent,
+    );
     _scrollController.animateTo(
       offset,
       duration: const Duration(milliseconds: 300),
@@ -97,10 +100,13 @@ class _DownloadListPageState extends ConsumerState<DownloadListPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Symbols.download_rounded,
-                      size: 64,
-                      color: theme.colorScheme.onSurfaceVariant
-                          .withValues(alpha: 0.4)),
+                  Icon(
+                    Symbols.download_rounded,
+                    size: 64,
+                    color: theme.colorScheme.onSurfaceVariant.withValues(
+                      alpha: 0.4,
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     context.l10n.myBrowser_downloadEmpty,
@@ -122,7 +128,8 @@ class _DownloadListPageState extends ConsumerState<DownloadListPage> {
 
                   return Padding(
                     padding: EdgeInsets.only(
-                        bottom: index < downloads.length - 1 ? 12 : 0),
+                      bottom: index < downloads.length - 1 ? 12 : 0,
+                    ),
                     child: SwipeActionCell(
                       key: ValueKey(item.id),
                       trailingActions: [
@@ -146,8 +153,9 @@ class _DownloadListPageState extends ConsumerState<DownloadListPage> {
                         duration: const Duration(milliseconds: 800),
                         decoration: BoxDecoration(
                           color: isHighlighted
-                              ? theme.colorScheme.primary
-                                  .withValues(alpha: 0.12)
+                              ? theme.colorScheme.primary.withValues(
+                                  alpha: 0.12,
+                                )
                               : Colors.transparent,
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -218,7 +226,8 @@ class _DownloadListPageState extends ConsumerState<DownloadListPage> {
               Navigator.pop(ctx);
             },
             style: FilledButton.styleFrom(
-                backgroundColor: Theme.of(ctx).colorScheme.error),
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
             child: Text(S.current.myBrowser_clearCompleted),
           ),
         ],
@@ -259,8 +268,9 @@ class _DownloadCard extends StatelessWidget {
                 children: [
                   Text(
                     item.fileName,
-                    style: theme.textTheme.titleSmall
-                        ?.copyWith(fontWeight: FontWeight.w500),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -271,15 +281,17 @@ class _DownloadCard extends StatelessWidget {
                         Text(
                           _formatSize(item.fileSize),
                           style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant),
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
                         const SizedBox(width: 8),
                       ],
                       Text(
                         TimeUtils.formatRelativeTime(item.createdAt),
                         style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            fontSize: 11),
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontSize: 11,
+                        ),
                       ),
                       const SizedBox(width: 8),
                       Text(

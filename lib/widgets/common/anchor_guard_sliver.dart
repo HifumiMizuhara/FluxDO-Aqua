@@ -191,11 +191,13 @@ class RenderAnchorGuardSliver extends RenderSliver {
   void performLayout() {
     if (debugTraceCorrections) {
       // ignore: avoid_print
-      print('[PROBE ${constraints.growthDirection.name}] performLayout '
-          'ENTER scrollOffset=${constraints.scrollOffset} '
-          'overlap=${constraints.overlap} '
-          'remainingPaintExtent=${constraints.remainingPaintExtent} '
-          'precedingScrollExtent=${constraints.precedingScrollExtent}');
+      print(
+        '[PROBE ${constraints.growthDirection.name}] performLayout '
+        'ENTER scrollOffset=${constraints.scrollOffset} '
+        'overlap=${constraints.overlap} '
+        'remainingPaintExtent=${constraints.remainingPaintExtent} '
+        'precedingScrollExtent=${constraints.precedingScrollExtent}',
+      );
     }
     geometry = SliverGeometry.zero;
     if (!_enabled || constraints.axis != Axis.vertical) {
@@ -258,10 +260,12 @@ class RenderAnchorGuardSliver extends RenderSliver {
 
     if (debugTraceCorrections) {
       // ignore: avoid_print
-      print('[PROBE ${constraints.growthDirection.name}] _measure enter '
-          'canCompare=$canCompare streak=$_correctionStreak '
-          'pixels=${offset.pixels} basePixels=$_basePixels '
-          'anchorHash=${anchor?.hashCode.toRadixString(16)}');
+      print(
+        '[PROBE ${constraints.growthDirection.name}] _measure enter '
+        'canCompare=$canCompare streak=$_correctionStreak '
+        'pixels=${offset.pixels} basePixels=$_basePixels '
+        'anchorHash=${anchor?.hashCode.toRadixString(16)}',
+      );
     }
     // 保险丝按帧重置:跨帧连续修正是正常工况(折叠动画逐帧长高、逐帧
     // 武装),只防同一帧内的连环修正
@@ -275,8 +279,10 @@ class RenderAnchorGuardSliver extends RenderSliver {
       final delta = top - _anchorTop;
       if (debugTraceCorrections) {
         // ignore: avoid_print
-        print('[PROBE ${constraints.growthDirection.name}] top=$top '
-            'anchorTop=$_anchorTop delta=$delta');
+        print(
+          '[PROBE ${constraints.growthDirection.name}] top=$top '
+          'anchorTop=$_anchorTop delta=$delta',
+        );
       }
       if (delta.abs() > _minCorrection) {
         // 锚往下移 Δ(上方内容变高)→ pixels 需同增 Δ 把它拉回原位;

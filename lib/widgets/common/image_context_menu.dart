@@ -125,11 +125,17 @@ class ImageContextMenu {
         ),
       PopupMenuItem(
         value: 'copyImage',
-        child: _MenuItemRow(icon: Symbols.content_copy_rounded, label: S.current.image_copyImage),
+        child: _MenuItemRow(
+          icon: Symbols.content_copy_rounded,
+          label: S.current.image_copyImage,
+        ),
       ),
       PopupMenuItem(
         value: 'copyLink',
-        child: _MenuItemRow(icon: Symbols.link_rounded, label: S.current.image_copyLink),
+        child: _MenuItemRow(
+          icon: Symbols.link_rounded,
+          label: S.current.image_copyLink,
+        ),
       ),
       PopupMenuItem(
         value: 'share',
@@ -158,7 +164,10 @@ class ImageContextMenu {
         const PopupMenuDivider(),
         PopupMenuItem(
           value: 'close',
-          child: _MenuItemRow(icon: Symbols.close_rounded, label: S.current.common_close),
+          child: _MenuItemRow(
+            icon: Symbols.close_rounded,
+            label: S.current.common_close,
+          ),
         ),
       ],
     ];

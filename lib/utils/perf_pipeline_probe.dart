@@ -92,8 +92,11 @@ base class _PerfRootPipelineOwner extends PipelineOwner {
 
   static final Stopwatch _watch = Stopwatch();
 
-  void _timed(int frameNumber, void Function() flush,
-      void Function(PhaseSample slot, int us) add) {
+  void _timed(
+    int frameNumber,
+    void Function() flush,
+    void Function(PhaseSample slot, int us) add,
+  ) {
     final slot = FrameJankMonitor.phaseSlot(frameNumber);
     if (slot == null) {
       flush();
@@ -110,16 +113,19 @@ base class _PerfRootPipelineOwner extends PipelineOwner {
     }
   }
 
-  int get _frameNumber => WidgetsBinding
-      .instance.platformDispatcher.frameData.frameNumber;
+  int get _frameNumber =>
+      WidgetsBinding.instance.platformDispatcher.frameData.frameNumber;
 
   @override
   void flushLayout() =>
       _timed(_frameNumber, super.flushLayout, (s, us) => s.layoutUs += us);
 
   @override
-  void flushCompositingBits() => _timed(_frameNumber,
-      super.flushCompositingBits, (s, us) => s.compositingBitsUs += us);
+  void flushCompositingBits() => _timed(
+    _frameNumber,
+    super.flushCompositingBits,
+    (s, us) => s.compositingBitsUs += us,
+  );
 
   @override
   void flushPaint() =>
@@ -127,5 +133,8 @@ base class _PerfRootPipelineOwner extends PipelineOwner {
 
   @override
   void flushSemantics() => _timed(
-      _frameNumber, super.flushSemantics, (s, us) => s.semanticsUs += us);
+    _frameNumber,
+    super.flushSemantics,
+    (s, us) => s.semanticsUs += us,
+  );
 }

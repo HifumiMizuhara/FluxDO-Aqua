@@ -139,9 +139,7 @@ class _PerfPanelState extends State<_PerfPanel> {
   }
 
   Future<void> _copyExport() async {
-    await Clipboard.setData(
-      ClipboardData(text: FrameJankMonitor.exportText()),
-    );
+    await Clipboard.setData(ClipboardData(text: FrameJankMonitor.exportText()));
   }
 
   @override
@@ -261,10 +259,7 @@ class _PerfPanelState extends State<_PerfPanel> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _btn(
-                FrameJankMonitor.isRunning ? '暂停' : '开始',
-                _toggleMonitor,
-              ),
+              _btn(FrameJankMonitor.isRunning ? '暂停' : '开始', _toggleMonitor),
               _btn('清零', FrameJankMonitor.clear),
               if (FrameJankMonitor.cpuSampleSupported)
                 _btn(_sampling ? '采样中…' : 'CPU', _sampleCpu),

@@ -161,11 +161,7 @@ void main() {
 
     await tester.pumpWidget(
       await _wrap(
-        MarkdownEditor(
-          controller: controller,
-          focusNode: focus,
-          expands: true,
-        ),
+        MarkdownEditor(controller: controller, focusNode: focus, expands: true),
       ),
     );
     await tester.pump();

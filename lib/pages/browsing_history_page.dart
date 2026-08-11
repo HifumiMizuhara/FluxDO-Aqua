@@ -101,7 +101,9 @@ class _BrowsingHistoryPageState extends ConsumerState<BrowsingHistoryPage> {
   void _onItemTap(Topic topic) {
     // 宽屏进右栏,窄屏全屏 push——与草稿页同一套形态
     if (_canShowBothPanes) {
-      ref.read(selectedHistoryPaneProvider.notifier).select(
+      ref
+          .read(selectedHistoryPaneProvider.notifier)
+          .select(
             topicId: topic.id,
             initialTitle: topic.title,
             scrollToPostNumber: topic.lastReadPostNumber,
@@ -236,7 +238,11 @@ class _BrowsingHistoryPageState extends ConsumerState<BrowsingHistoryPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Symbols.history_rounded, size: 64, color: Colors.grey),
+                  const Icon(
+                    Symbols.history_rounded,
+                    size: 64,
+                    color: Colors.grey,
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     context.l10n.browsingHistory_empty,
@@ -250,38 +256,38 @@ class _BrowsingHistoryPageState extends ConsumerState<BrowsingHistoryPage> {
           return TopicCardPrewarmScope(
             topics: visibleTopics,
             child: ListView.builder(
-            controller: _scrollController,
-            // 底部让出 extendBody 注入的底栏高度
-            padding: EdgeInsets.fromLTRB(
-              12,
-              12,
-              12,
-              12 + MediaQuery.paddingOf(context).bottom,
-            ),
-            itemCount: visibleTopics.length + 1,
-            itemBuilder: (context, index) {
-              if (index == visibleTopics.length) {
-                final notifier = ref.watch(browsingHistoryProvider.notifier);
-                return PagedListFooter(
-                  hasMore: notifier.hasMore,
-                  isLoadingMore: notifier.isLoadingMore,
-                  isLoadMoreFailed: notifier.isLoadMoreFailed,
-                  onRetry: notifier.retryLoadMore,
-                );
-              }
+              controller: _scrollController,
+              // 底部让出 extendBody 注入的底栏高度
+              padding: EdgeInsets.fromLTRB(
+                12,
+                12,
+                12,
+                12 + MediaQuery.paddingOf(context).bottom,
+              ),
+              itemCount: visibleTopics.length + 1,
+              itemBuilder: (context, index) {
+                if (index == visibleTopics.length) {
+                  final notifier = ref.watch(browsingHistoryProvider.notifier);
+                  return PagedListFooter(
+                    hasMore: notifier.hasMore,
+                    isLoadingMore: notifier.isLoadingMore,
+                    isLoadMoreFailed: notifier.isLoadMoreFailed,
+                    onRetry: notifier.retryLoadMore,
+                  );
+                }
 
-              final topic = visibleTopics[index];
-              final enableLongPress = ref
-                  .watch(preferencesProvider)
-                  .longPressPreview;
-              return buildTopicItem(
-                context: context,
-                topic: topic,
-                isSelected: _canShowBothPanes && topic.id == selectedTopicId,
-                onTap: () => _onItemTap(topic),
-                enableLongPress: enableLongPress,
-              );
-            },
+                final topic = visibleTopics[index];
+                final enableLongPress = ref
+                    .watch(preferencesProvider)
+                    .longPressPreview;
+                return buildTopicItem(
+                  context: context,
+                  topic: topic,
+                  isSelected: _canShowBothPanes && topic.id == selectedTopicId,
+                  onTap: () => _onItemTap(topic),
+                  enableLongPress: enableLongPress,
+                );
+              },
             ),
           );
         },

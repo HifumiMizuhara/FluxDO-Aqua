@@ -10,6 +10,9 @@ class ClientIdGenerator {
   /// 熵空间：36^32 ≈ 6.3×10^49
   static String generate() {
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-    return List.generate(32, (_) => chars[_random.nextInt(chars.length)]).join();
+    return List.generate(
+      32,
+      (_) => chars[_random.nextInt(chars.length)],
+    ).join();
   }
 }

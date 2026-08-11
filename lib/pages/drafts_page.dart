@@ -101,7 +101,8 @@ class _DraftsPageState extends ConsumerState<DraftsPage> {
     final progress = raw < 0 ? 0.0 : raw;
     final current = ref.read(navScrollProgressProvider(NavEntryIds.drafts));
     final atZero = progress == 0 && current != 0;
-    final crossed = (progress >= navScrollIconThreshold) !=
+    final crossed =
+        (progress >= navScrollIconThreshold) !=
         (current >= navScrollIconThreshold);
     if (!atZero && !crossed && (progress - current).abs() < 4.0) return;
     ref.read(navScrollProgressProvider(NavEntryIds.drafts).notifier).state =
@@ -265,7 +266,9 @@ class _DraftsPageState extends ConsumerState<DraftsPage> {
       // 宽屏:右栏打开话题+自动弹草稿回复框,列表留在左边接着处理下一条
       if (_canShowBothPanes) {
         setState(() => _selectedDraftKey = draftKey);
-        ref.read(selectedDraftPaneProvider.notifier).select(
+        ref
+            .read(selectedDraftPaneProvider.notifier)
+            .select(
               topicId: topicId,
               scrollToPostNumber: replyToPostNumber,
               autoOpenReply: true,

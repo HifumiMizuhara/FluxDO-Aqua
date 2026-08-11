@@ -40,7 +40,7 @@ Future<List<EditorBlock>?> markdownToDoc(
   try {
     cooked = await DiscourseCookService().cook(raw).timeout(timeout);
   } on TimeoutException {
-    debugPrint('[RichComposer] cook 超时(${timeout.inSeconds}s),降级');
+    debugPrint('[RichComposer] cook timeout(${timeout.inSeconds}s),fallback');
     return null;
   }
   if (cooked == null) return null;
@@ -64,8 +64,9 @@ Future<List<EditorBlock>?> markdownToDocGuarded(String raw) async {
   String? cookedOrig;
   try {
     // 初次导入允许更长等待(冷启动站点数据+bundle eval),但同样有界
-    cookedOrig =
-        await cookService.cook(raw).timeout(const Duration(seconds: 10));
+    cookedOrig = await cookService
+        .cook(raw)
+        .timeout(const Duration(seconds: 10));
   } on TimeoutException {
     debugPrint('[RichComposer] 导入 cook 超时,降级源码模式');
     return null;
@@ -81,10 +82,15 @@ Future<List<EditorBlock>?> markdownToDocGuarded(String raw) async {
   if (cookedBack == null) return null;
 
   if (_normalizeCooked(cookedOrig) != _normalizeCooked(cookedBack)) {
-    debugPrint('[RichComposer] 往返门禁不通过,降级源码模式 '
-        '(raw ${raw.length} chars → back ${back.length} chars)');
+    debugPrint(
+      '[RichComposer] 往返门禁不通过,降级源码模式 '
+      '(raw ${raw.length} chars → back ${back.length} chars)',
+    );
     if (kDebugMode) {
-      _dumpFirstDiff(_normalizeCooked(cookedOrig), _normalizeCooked(cookedBack));
+      _dumpFirstDiff(
+        _normalizeCooked(cookedOrig),
+        _normalizeCooked(cookedBack),
+      );
     }
     return null;
   }
@@ -107,7 +113,9 @@ void _dumpFirstDiff(String a, String b) {
     final x = i < la.length ? la[i] : '<EOF>';
     final y = i < lb.length ? lb[i] : '<EOF>';
     if (x != y) {
-      debugPrint('[RichComposer] 门禁 diff @line $i\n  原: $x\n  回: $y');
+      debugPrint(
+        '[RichComposer] 门禁 diff @line $i\n  原: $x\n  回: $y',
+      );
       return;
     }
   }

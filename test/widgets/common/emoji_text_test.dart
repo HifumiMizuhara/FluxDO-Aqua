@@ -3,7 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fluxdo/widgets/common/emoji_text.dart';
 
 void main() {
-  testWidgets('editable emoji spans preserve source text length', (tester) async {
+  testWidgets('editable emoji spans preserve source text length', (
+    tester,
+  ) async {
     late BuildContext capturedContext;
 
     await tester.pumpWidget(

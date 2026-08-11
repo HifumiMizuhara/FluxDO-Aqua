@@ -35,16 +35,18 @@ Widget buildChatTranscript({
   final reactionsElement = element.querySelector('.chat-transcript-reactions');
   final List<_ChatReaction> reactions = [];
   if (reactionsElement != null) {
-    final reactionElements =
-        reactionsElement.querySelectorAll('.chat-transcript-reaction');
+    final reactionElements = reactionsElement.querySelectorAll(
+      '.chat-transcript-reaction',
+    );
     for (final reaction in reactionElements) {
       final emojiImg = reaction.querySelector('img.emoji');
       final emojiUrl = emojiImg?.attributes['src'];
       // 反应文本包含 emoji 和数量
       final text = reaction.text.trim();
       final countMatch = RegExp(r'(\d+)$').firstMatch(text);
-      final count =
-          countMatch != null ? int.tryParse(countMatch.group(1)!) ?? 1 : 1;
+      final count = countMatch != null
+          ? int.tryParse(countMatch.group(1)!) ?? 1
+          : 1;
       if (emojiUrl != null) {
         reactions.add(_ChatReaction(emojiUrl: emojiUrl, count: count));
       }
@@ -61,16 +63,15 @@ Widget buildChatTranscript({
   final bool isThread = detailsElement != null;
 
   return Container(
-    margin: isChained ? EdgeInsets.zero : const EdgeInsets.symmetric(vertical: 8),
+    margin: isChained
+        ? EdgeInsets.zero
+        : const EdgeInsets.symmetric(vertical: 8),
     decoration: BoxDecoration(
       color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
       border: isChained
           ? null
           : Border(
-              left: BorderSide(
-                color: theme.colorScheme.outline,
-                width: 4,
-              ),
+              left: BorderSide(color: theme.colorScheme.outline, width: 4),
             ),
       borderRadius: isChained
           ? null
@@ -167,15 +168,14 @@ Widget buildChatTranscript({
             child: Wrap(
               spacing: 6,
               runSpacing: 4,
-              children:
-                  reactions.map((r) => _buildReactionChip(theme, r)).toList(),
+              children: reactions
+                  .map((r) => _buildReactionChip(theme, r))
+                  .toList(),
             ),
           ),
 
         // 线程标识
-        if (isThread) ...[
-          _buildThreadHeader(theme, detailsElement),
-        ],
+        if (isThread) ...[_buildThreadHeader(theme, detailsElement)],
       ],
     ),
   );
@@ -219,9 +219,11 @@ Widget _buildReactionChip(ThemeData theme, _ChatReaction reaction) {
 /// 构建线程头部
 Widget _buildThreadHeader(ThemeData theme, dynamic detailsElement) {
   final summaryElement = detailsElement?.querySelector('summary');
-  final threadHeaderElement =
-      summaryElement?.querySelector('.chat-transcript-thread-header');
-  final threadTitle = threadHeaderElement
+  final threadHeaderElement = summaryElement?.querySelector(
+    '.chat-transcript-thread-header',
+  );
+  final threadTitle =
+      threadHeaderElement
           ?.querySelector('.chat-transcript-thread-header__title')
           ?.text ??
       S.current.chat_thread;

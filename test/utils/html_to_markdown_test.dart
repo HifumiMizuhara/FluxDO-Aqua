@@ -53,10 +53,7 @@ void main() {
         '</blockquote></aside>',
       );
       expect(md, contains('[quote="outer, post:2, topic:1"]'));
-      expect(
-        md,
-        contains('[quote="内层昵称, post:1, topic:1, username:inner"]'),
-      );
+      expect(md, contains('[quote="内层昵称, post:1, topic:1, username:inner"]'));
     });
   });
 

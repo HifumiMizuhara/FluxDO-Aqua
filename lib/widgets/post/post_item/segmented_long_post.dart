@@ -240,54 +240,54 @@ class NewEngineChunkSegment extends ConsumerWidget {
       '${(chunk.html.length / 1000).toStringAsFixed(1)}k',
     );
     Widget content = FluxdoRender(
-          cookedHtml: chunk.html,
-          parsedNodes: parsedNodes,
-          imageIndexOffset: imageIndexOffset,
-          footnotesHtml: footnotesHtml,
-          // 同 post 各 chunk 共享一个选区作用域 → 选区可跨 chunk。
-          selectionScopeId: post.id,
-          // chunk 文档序号 → 跨 chunk 选区按 (chunkIndex, docOrder) 逻辑序排序。
-          chunkIndex: chunkIndex,
-          // 被分块切断的单段落接缝:裁掉接缝侧外边距 → 与连续渲染无缝拼接。
-          trimTopMargin: chunk.joinsPrevious,
-          trimBottomMargin: chunk.joinsNext,
-          linkHandler: callbacks.linkHandler,
-          emojiImageBuilder: callbacks.emojiImageBuilder,
-          mentionTapHandler: callbacks.mentionTapHandler,
-          imageContentBuilder: callbacks.imageContentBuilder,
-          codeBlockHighlighter: callbacks.codeBlockHighlighter,
-          codeBlockBuilder: callbacks.codeBlockBuilder,
-          quoteAvatarBuilder: callbacks.quoteAvatarBuilder,
-          footnoteTapHandler: callbacks.footnoteTapHandler,
-          lazyVideoBuilder: callbacks.lazyVideoBuilder,
-          iframeBuilder: callbacks.iframeBuilder,
-          localDateBuilder: callbacks.localDateBuilder,
-          mathBlockBuilder: callbacks.mathBlockBuilder,
-          mathInlineBuilder: callbacks.mathInlineBuilder,
-          oneboxBuilder: callbacks.oneboxBuilder,
-          imageGridBuilder: callbacks.imageGridBuilder,
-          policyBuilder: callbacks.policyBuilder,
-          pollBuilder: callbacks.pollBuilder,
-          chatTranscriptBuilder: callbacks.chatTranscriptBuilder,
-          svgBuilder: callbacks.svgBuilder,
-          videoBuilder: callbacks.videoBuilder,
-          audioBuilder: callbacks.audioBuilder,
-          onDownloadAttachment: callbacks.onDownloadAttachment,
-          // 自研选区恒开(外层系统 SelectionArea 已拆):未登录时
-          // onQuoteRequest 为 null,toolbar 自动降级只留「复制/复制引用」。
-          selectionEnabled: true,
-          onQuoteRequest: onQuoteSelection == null
-              ? null
-              : (plainText) => onQuoteSelection!(plainText, post),
-          onCopyQuoteRequest: (plainText) =>
-              QuoteSelectionHelper.copyQuoteToClipboard(
-                selectedText: plainText,
-                post: post,
-                topicId: topicId,
-              ),
-          onCopyToast: () =>
-              ToastService.showSuccess(context.l10n.common_copiedToClipboard),
-        );
+      cookedHtml: chunk.html,
+      parsedNodes: parsedNodes,
+      imageIndexOffset: imageIndexOffset,
+      footnotesHtml: footnotesHtml,
+      // 同 post 各 chunk 共享一个选区作用域 → 选区可跨 chunk。
+      selectionScopeId: post.id,
+      // chunk 文档序号 → 跨 chunk 选区按 (chunkIndex, docOrder) 逻辑序排序。
+      chunkIndex: chunkIndex,
+      // 被分块切断的单段落接缝:裁掉接缝侧外边距 → 与连续渲染无缝拼接。
+      trimTopMargin: chunk.joinsPrevious,
+      trimBottomMargin: chunk.joinsNext,
+      linkHandler: callbacks.linkHandler,
+      emojiImageBuilder: callbacks.emojiImageBuilder,
+      mentionTapHandler: callbacks.mentionTapHandler,
+      imageContentBuilder: callbacks.imageContentBuilder,
+      codeBlockHighlighter: callbacks.codeBlockHighlighter,
+      codeBlockBuilder: callbacks.codeBlockBuilder,
+      quoteAvatarBuilder: callbacks.quoteAvatarBuilder,
+      footnoteTapHandler: callbacks.footnoteTapHandler,
+      lazyVideoBuilder: callbacks.lazyVideoBuilder,
+      iframeBuilder: callbacks.iframeBuilder,
+      localDateBuilder: callbacks.localDateBuilder,
+      mathBlockBuilder: callbacks.mathBlockBuilder,
+      mathInlineBuilder: callbacks.mathInlineBuilder,
+      oneboxBuilder: callbacks.oneboxBuilder,
+      imageGridBuilder: callbacks.imageGridBuilder,
+      policyBuilder: callbacks.policyBuilder,
+      pollBuilder: callbacks.pollBuilder,
+      chatTranscriptBuilder: callbacks.chatTranscriptBuilder,
+      svgBuilder: callbacks.svgBuilder,
+      videoBuilder: callbacks.videoBuilder,
+      audioBuilder: callbacks.audioBuilder,
+      onDownloadAttachment: callbacks.onDownloadAttachment,
+      // 自研选区恒开(外层系统 SelectionArea 已拆):未登录时
+      // onQuoteRequest 为 null,toolbar 自动降级只留「复制/复制引用」。
+      selectionEnabled: true,
+      onQuoteRequest: onQuoteSelection == null
+          ? null
+          : (plainText) => onQuoteSelection!(plainText, post),
+      onCopyQuoteRequest: (plainText) =>
+          QuoteSelectionHelper.copyQuoteToClipboard(
+            selectedText: plainText,
+            post: post,
+            topicId: topicId,
+          ),
+      onCopyToast: () =>
+          ToastService.showSuccess(context.l10n.common_copiedToClipboard),
+    );
 
     // 首 chunk 弹幕层(与 PostItem 的短帖路径同一套开关判定)
     if (chunkIndex == 0) {

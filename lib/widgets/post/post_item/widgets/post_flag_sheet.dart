@@ -248,7 +248,9 @@ class _PostFlagSheetState extends State<PostFlagSheet> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(
-                  isSelected ? Symbols.radio_button_checked_rounded : Symbols.radio_button_unchecked_rounded,
+                  isSelected
+                      ? Symbols.radio_button_checked_rounded
+                      : Symbols.radio_button_unchecked_rounded,
                   size: 20,
                   color: isSelected
                       ? theme.colorScheme.primary

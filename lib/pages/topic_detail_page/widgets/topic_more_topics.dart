@@ -328,29 +328,35 @@ class _MoreTopicTile extends StatelessWidget {
 
     final rightSpans = <InlineSpan>[];
     if (density.replyCount > 0) {
-      rightSpans.add(iconGlyphSpan(
-        context,
-        Symbols.chat_bubble_rounded,
-        size: 12,
-        color: metaColor,
-        gap: 3,
-        textStyle: rightStyle,
-      ));
-      rightSpans.add(TextSpan(
-        text: NumberUtils.formatCount(density.replyCount),
-        style: rightStyle,
-      ));
+      rightSpans.add(
+        iconGlyphSpan(
+          context,
+          Symbols.chat_bubble_rounded,
+          size: 12,
+          color: metaColor,
+          gap: 3,
+          textStyle: rightStyle,
+        ),
+      );
+      rightSpans.add(
+        TextSpan(
+          text: NumberUtils.formatCount(density.replyCount),
+          style: rightStyle,
+        ),
+      );
     }
     if (density.showTime) {
       if (rightSpans.isNotEmpty) {
         rightSpans.add(TextSpan(text: ' · ', style: rightStyle));
       }
-      rightSpans.add(TextSpan(
-        text: TimeUtils.formatRelativeTime(
-          topic.lastPostedAt ?? topic.createdAt,
+      rightSpans.add(
+        TextSpan(
+          text: TimeUtils.formatRelativeTime(
+            topic.lastPostedAt ?? topic.createdAt,
+          ),
+          style: rightStyle,
         ),
-        style: rightStyle,
-      ));
+      );
     }
 
     return Row(

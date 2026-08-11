@@ -792,9 +792,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
       children: [
         // 上下文加载提示
         if (_isLoadingContext)
-          M3eLinearProgress(
-            color: theme.colorScheme.primary,
-          ),
+          M3eLinearProgress(color: theme.colorScheme.primary),
 
         // 聊天主要内容区
         Expanded(
@@ -1239,7 +1237,9 @@ class _SessionHistorySheetState extends State<_SessionHistorySheet> {
           final isCurrent = session.id == widget.currentSessionId;
 
           return ListTile(
-            leading: Icon(Symbols.chat_bubble_rounded, fill: isCurrent ? 1 : 0,
+            leading: Icon(
+              Symbols.chat_bubble_rounded,
+              fill: isCurrent ? 1 : 0,
               size: 20,
               color: isCurrent
                   ? theme.colorScheme.primary

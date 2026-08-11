@@ -28,10 +28,7 @@ class ConstrainedContent extends StatelessWidget {
       content = Padding(padding: padding!, child: content);
     }
 
-    return Align(
-      alignment: alignment,
-      child: content,
-    );
+    return Align(alignment: alignment, child: content);
   }
 }
 
@@ -65,10 +62,7 @@ class SliverConstrainedContent extends StatelessWidget {
           bottom: (effectivePadding as EdgeInsets?)?.bottom ?? 0,
         );
 
-        return SliverPadding(
-          padding: combinedPadding,
-          sliver: sliver,
-        );
+        return SliverPadding(padding: combinedPadding, sliver: sliver);
       },
     );
   }

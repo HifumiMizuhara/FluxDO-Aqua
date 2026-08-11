@@ -163,7 +163,9 @@ class EmojiShortcodeDeleteFormatter extends TextInputFormatter {
     }
 
     final change = _findTextChange(oldValue.text, newValue.text);
-    if (change == null || !change.newRange.isCollapsed || change.oldRange.isCollapsed) {
+    if (change == null ||
+        !change.newRange.isCollapsed ||
+        change.oldRange.isCollapsed) {
       if (normalizedNewSelection == newValue.selection) {
         return newValue;
       }
@@ -188,7 +190,11 @@ class EmojiShortcodeDeleteFormatter extends TextInputFormatter {
       );
     }
 
-    final text = oldValue.text.replaceRange(expandedRange.start, expandedRange.end, '');
+    final text = oldValue.text.replaceRange(
+      expandedRange.start,
+      expandedRange.end,
+      '',
+    );
     return TextEditingValue(
       text: text,
       selection: TextSelection.collapsed(offset: expandedRange.start),
@@ -215,19 +221,20 @@ _TextChange? _findTextChange(String oldText, String newText) {
   }
 
   var prefixLength = 0;
-  final minLength = oldText.length < newText.length ? oldText.length : newText.length;
-  while (
-      prefixLength < minLength &&
+  final minLength = oldText.length < newText.length
+      ? oldText.length
+      : newText.length;
+  while (prefixLength < minLength &&
       oldText.codeUnitAt(prefixLength) == newText.codeUnitAt(prefixLength)) {
     prefixLength += 1;
   }
 
   var oldSuffixStart = oldText.length;
   var newSuffixStart = newText.length;
-  while (
-      oldSuffixStart > prefixLength &&
+  while (oldSuffixStart > prefixLength &&
       newSuffixStart > prefixLength &&
-      oldText.codeUnitAt(oldSuffixStart - 1) == newText.codeUnitAt(newSuffixStart - 1)) {
+      oldText.codeUnitAt(oldSuffixStart - 1) ==
+          newText.codeUnitAt(newSuffixStart - 1)) {
     oldSuffixStart -= 1;
     newSuffixStart -= 1;
   }
@@ -242,8 +249,5 @@ class _TextChange {
   final TextRange oldRange;
   final TextRange newRange;
 
-  const _TextChange({
-    required this.oldRange,
-    required this.newRange,
-  });
+  const _TextChange({required this.oldRange, required this.newRange});
 }

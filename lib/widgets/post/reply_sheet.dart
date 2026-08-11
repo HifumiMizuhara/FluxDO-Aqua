@@ -66,6 +66,7 @@ Future<Post?> showReplySheet({
   int? categoryId,
   Post? replyToPost,
   String? targetUsername,
+
   /// 新建私信（无预设收件人）：收件人由用户在编辑器内搜索添加
   bool composePrivateMessage = false,
   String? draftKey,
@@ -563,7 +564,9 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
       _submitted = true;
       if (!mounted) return;
       final pending = e.pendingPost;
-      if (pending != null && widget.editPost == null && widget.topicId != null) {
+      if (pending != null &&
+          widget.editPost == null &&
+          widget.topicId != null) {
         // enqueued 响应的 pending_post 只有 {id, raw, created_at},回复目标
         // 服务端 payload 存了但本人可见接口都不吐;趁 composer 还知道上下文
         // 记入注册表,「撤回并重新编辑」才能恢复"回复某楼"而非退化为直接回复话题
@@ -873,81 +876,89 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
                         child: ComposerSwitchFade(
                           child:
                               (ref.watch(
-                                  preferencesProvider.select(
-                                    (p) => p.useRichComposer,
-                                  ),
-                                ) &&
-                                !_richFallback)
-                            // 富文本的初始导入是一次性的(不监听 controller
-                            // 后续变化)——编辑原帖 raw / 草稿加载完成前挂载
-                            // 会用空 controller 建空文档,之后镜像回写覆盖
-                            // 真内容(毁帖)。内容源就绪后才挂;占位留空,
-                            // 加载视觉由草稿遮罩/RichComposer 自身统一提供
-                            // (双 spinner 叠影)。
-                            ? ((_isLoadingRaw || _isLoadingDraft)
-                                  ? const SizedBox.shrink()
-                                  : RichComposerEditor(
-                                      key: _richKey,
-                                      controller: _contentController,
-                                      focusNode: _contentFocusNode,
-                                      hintText: context.l10n.editor_hintText,
-                                      emojiPanelHeight: _emojiPanelHeight,
-                                      onEmojiPanelChanged: (show) {
-                                        setState(() => _showEmojiPanel = show);
-                                      },
-                                      mentionDataSource: (term) =>
-                                          DiscourseService().searchUsers(
-                                            term: term,
-                                            topicId: widget.topicId,
-                                            categoryId: widget.categoryId,
-                                            includeGroups:
-                                                !_isInPrivateMessageContext,
-                                          ),
-                                      onFallbackToPlain: () {
-                                        if (mounted) {
-                                          setState(() => _richFallback = true);
-                                        }
-                                      },
-                                      // 主动切源码:会话内单向(重开恢复
-                                      // 富文本并重跑导入门禁)
-                                      onSwitchToSource: () {
-                                        if (mounted) {
-                                          setState(() => _richFallback = true);
-                                        }
-                                      },
-                                    ))
-                            : MarkdownEditor(
-                                key: _editorKey,
-                                controller: _contentController,
-                                focusNode: _contentFocusNode,
-                                hintText: context.l10n.editor_hintText,
-                                expands: true,
-                                emojiPanelHeight: _emojiPanelHeight,
-                                onEmojiPanelChanged: (show) {
-                                  setState(() => _showEmojiPanel = show);
-                                },
-                                // 源码 → 富文本(仅富文本开关开着且当前
-                                // 处于主动切换态;门禁降级也允许重试 ——
-                                // 内容可能已改到可导入)
-                                onSwitchToRich: ref
-                                        .watch(preferencesProvider)
-                                        .useRichComposer
-                                    ? () {
-                                        if (mounted) {
-                                          setState(
-                                              () => _richFallback = false);
-                                        }
-                                      }
-                                    : null,
-                                mentionDataSource: (term) =>
-                                    DiscourseService().searchUsers(
-                                      term: term,
-                                      topicId: widget.topicId,
-                                      categoryId: widget.categoryId,
-                                      includeGroups:
-                                          !_isInPrivateMessageContext, // 私信不允许提及群组
+                                    preferencesProvider.select(
+                                      (p) => p.useRichComposer,
                                     ),
-                              ),
+                                  ) &&
+                                  !_richFallback)
+                              // 富文本的初始导入是一次性的(不监听 controller
+                              // 后续变化)——编辑原帖 raw / 草稿加载完成前挂载
+                              // 会用空 controller 建空文档,之后镜像回写覆盖
+                              // 真内容(毁帖)。内容源就绪后才挂;占位留空,
+                              // 加载视觉由草稿遮罩/RichComposer 自身统一提供
+                              // (双 spinner 叠影)。
+                              ? ((_isLoadingRaw || _isLoadingDraft)
+                                    ? const SizedBox.shrink()
+                                    : RichComposerEditor(
+                                        key: _richKey,
+                                        controller: _contentController,
+                                        focusNode: _contentFocusNode,
+                                        hintText: context.l10n.editor_hintText,
+                                        emojiPanelHeight: _emojiPanelHeight,
+                                        onEmojiPanelChanged: (show) {
+                                          setState(
+                                            () => _showEmojiPanel = show,
+                                          );
+                                        },
+                                        mentionDataSource: (term) =>
+                                            DiscourseService().searchUsers(
+                                              term: term,
+                                              topicId: widget.topicId,
+                                              categoryId: widget.categoryId,
+                                              includeGroups:
+                                                  !_isInPrivateMessageContext,
+                                            ),
+                                        onFallbackToPlain: () {
+                                          if (mounted) {
+                                            setState(
+                                              () => _richFallback = true,
+                                            );
+                                          }
+                                        },
+                                        // 主动切源码:会话内单向(重开恢复
+                                        // 富文本并重跑导入门禁)
+                                        onSwitchToSource: () {
+                                          if (mounted) {
+                                            setState(
+                                              () => _richFallback = true,
+                                            );
+                                          }
+                                        },
+                                      ))
+                              : MarkdownEditor(
+                                  key: _editorKey,
+                                  controller: _contentController,
+                                  focusNode: _contentFocusNode,
+                                  hintText: context.l10n.editor_hintText,
+                                  expands: true,
+                                  emojiPanelHeight: _emojiPanelHeight,
+                                  onEmojiPanelChanged: (show) {
+                                    setState(() => _showEmojiPanel = show);
+                                  },
+                                  // 源码 → 富文本(仅富文本开关开着且当前
+                                  // 处于主动切换态;门禁降级也允许重试 ——
+                                  // 内容可能已改到可导入)
+                                  onSwitchToRich:
+                                      ref
+                                          .watch(preferencesProvider)
+                                          .useRichComposer
+                                      ? () {
+                                          if (mounted) {
+                                            setState(
+                                              () => _richFallback = false,
+                                            );
+                                          }
+                                        }
+                                      : null,
+                                  mentionDataSource: (term) =>
+                                      DiscourseService().searchUsers(
+                                        term: term,
+                                        topicId: widget.topicId,
+                                        categoryId: widget.categoryId,
+                                        includeGroups:
+                                            !_isInPrivateMessageContext, // 私信不允许提及群组
+                                      ),
+                                ),
                         ),
                       ),
                     ],

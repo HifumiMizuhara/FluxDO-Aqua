@@ -50,7 +50,12 @@ class TopicBottomBar extends StatelessWidget {
     this.onShowNestedView,
   });
 
-  bool get _hasActiveFilter => isSummaryMode || isActivityMode || isAuthorOnlyMode || isTopLevelMode || isNestedMode;
+  bool get _hasActiveFilter =>
+      isSummaryMode ||
+      isActivityMode ||
+      isAuthorOnlyMode ||
+      isTopLevelMode ||
+      isNestedMode;
 
   @override
   Widget build(BuildContext context) {
@@ -60,9 +65,7 @@ class TopicBottomBar extends StatelessWidget {
     return Container(
       height: 80,
       padding: EdgeInsets.only(bottom: bottomPadding),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-      ),
+      decoration: BoxDecoration(color: theme.colorScheme.surface),
       child: Row(
         children: [
           const SizedBox(width: 8),
@@ -110,10 +113,20 @@ class TopicBottomBar extends StatelessWidget {
   }
 
   (IconData, String) _activeFilterInfo(BuildContext context) {
-    if (isSummaryMode) return (Symbols.local_fire_department_rounded, context.l10n.topicDetail_hotOnly);
-    if (isActivityMode) return (Symbols.history_rounded, context.l10n.topicDetail_sortByActivity);
-    if (isAuthorOnlyMode) return (Symbols.person_rounded, context.l10n.topicDetail_authorOnly);
-    if (isTopLevelMode) return (Symbols.account_tree_rounded, context.l10n.topicDetail_topLevelOnly);
+    if (isSummaryMode)
+      return (
+        Symbols.local_fire_department_rounded,
+        context.l10n.topicDetail_hotOnly,
+      );
+    if (isActivityMode)
+      return (Symbols.history_rounded, context.l10n.topicDetail_sortByActivity);
+    if (isAuthorOnlyMode)
+      return (Symbols.person_rounded, context.l10n.topicDetail_authorOnly);
+    if (isTopLevelMode)
+      return (
+        Symbols.account_tree_rounded,
+        context.l10n.topicDetail_topLevelOnly,
+      );
     if (isNestedMode) return (Symbols.forum_rounded, context.l10n.nested_title);
     return (Symbols.filter_list_rounded, '');
   }
@@ -146,8 +159,11 @@ class TopicBottomBar extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Symbols.history_rounded,
-                    size: 20, color: theme.colorScheme.onSurface),
+                Icon(
+                  Symbols.history_rounded,
+                  size: 20,
+                  color: theme.colorScheme.onSurface,
+                ),
                 const SizedBox(width: 12),
                 Text(context.l10n.topicDetail_sortByActivity),
               ],
@@ -159,8 +175,11 @@ class TopicBottomBar extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Symbols.local_fire_department_rounded,
-                    size: 20, color: theme.colorScheme.onSurface),
+                Icon(
+                  Symbols.local_fire_department_rounded,
+                  size: 20,
+                  color: theme.colorScheme.onSurface,
+                ),
                 const SizedBox(width: 12),
                 Text(context.l10n.topicDetail_hotOnly),
               ],
@@ -171,8 +190,11 @@ class TopicBottomBar extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Symbols.person_rounded,
-                  size: 20, color: theme.colorScheme.onSurface),
+              Icon(
+                Symbols.person_rounded,
+                size: 20,
+                color: theme.colorScheme.onSurface,
+              ),
               const SizedBox(width: 12),
               Text(context.l10n.topicDetail_authorOnly),
             ],
@@ -183,8 +205,11 @@ class TopicBottomBar extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Symbols.account_tree_rounded,
-                  size: 20, color: theme.colorScheme.onSurface),
+              Icon(
+                Symbols.account_tree_rounded,
+                size: 20,
+                color: theme.colorScheme.onSurface,
+              ),
               const SizedBox(width: 12),
               Text(context.l10n.topicDetail_topLevelOnly),
             ],
@@ -196,8 +221,11 @@ class TopicBottomBar extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Symbols.forum_rounded,
-                  size: 20, color: theme.colorScheme.onSurface),
+              Icon(
+                Symbols.forum_rounded,
+                size: 20,
+                color: theme.colorScheme.onSurface,
+              ),
               const SizedBox(width: 12),
               Text(context.l10n.nested_title),
             ],
@@ -232,7 +260,11 @@ class TopicBottomBar extends StatelessWidget {
             value: 'link',
             child: Row(
               children: [
-                Icon(Symbols.link_rounded, size: 20, color: theme.colorScheme.onSurface),
+                Icon(
+                  Symbols.link_rounded,
+                  size: 20,
+                  color: theme.colorScheme.onSurface,
+                ),
                 const SizedBox(width: 12),
                 Text(context.l10n.topicDetail_shareLink),
               ],
@@ -243,7 +275,11 @@ class TopicBottomBar extends StatelessWidget {
             value: 'image',
             child: Row(
               children: [
-                Icon(Symbols.image_rounded, size: 20, color: theme.colorScheme.onSurface),
+                Icon(
+                  Symbols.image_rounded,
+                  size: 20,
+                  color: theme.colorScheme.onSurface,
+                ),
                 const SizedBox(width: 12),
                 Text(context.l10n.topicDetail_generateShareImage),
               ],
@@ -253,7 +289,11 @@ class TopicBottomBar extends StatelessWidget {
           value: 'export',
           child: Row(
             children: [
-              Icon(Symbols.download_rounded, size: 20, color: theme.colorScheme.onSurface),
+              Icon(
+                Symbols.download_rounded,
+                size: 20,
+                color: theme.colorScheme.onSurface,
+              ),
               const SizedBox(width: 12),
               Text(context.l10n.topicDetail_exportArticle),
             ],

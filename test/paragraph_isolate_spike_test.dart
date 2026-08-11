@@ -43,8 +43,10 @@ void main() {
     }
     // 无论成败都打印结论,spike 的产出是"事实",不是绿灯
     // ignore: avoid_print
-    print('[SPIKE1] 后台 isolate 排版: '
-        '${failure == null ? "可行 metrics=$metrics" : "不可行 error=$failure"}');
+    print(
+      '[SPIKE1] 后台 isolate 排版: '
+      '${failure == null ? "可行 metrics=$metrics" : "不可行 error=$failure"}',
+    );
     expect(true, isTrue); // spike 不设断言门槛,看打印
   });
 
@@ -63,8 +65,10 @@ void main() {
       failure = e;
     }
     // ignore: avoid_print
-    print('[SPIKE2] Paragraph 跨 isolate: '
-        '${failure == null ? "可传回 height=${returned?.height}(意外!)" : "不可传 error=${failure.runtimeType}: $failure"}');
+    print(
+      '[SPIKE2] Paragraph 跨 isolate: '
+      '${failure == null ? "可传回 height=${returned?.height}(意外!)" : "不可传 error=${failure.runtimeType}: $failure"}',
+    );
     expect(true, isTrue);
   });
 
@@ -74,8 +78,10 @@ void main() {
     final paragraph = builder.build();
     paragraph.layout(const ui.ParagraphConstraints(width: 400));
     // ignore: avoid_print
-    print('[SPIKE3] root isolate 基线: height=${paragraph.height} '
-        'lines=${paragraph.computeLineMetrics().length}');
+    print(
+      '[SPIKE3] root isolate 基线: height=${paragraph.height} '
+      'lines=${paragraph.computeLineMetrics().length}',
+    );
     paragraph.dispose();
     expect(true, isTrue);
   });

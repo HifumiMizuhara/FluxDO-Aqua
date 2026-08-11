@@ -75,9 +75,15 @@ class HtmlToMarkdown {
 
     // 压缩标签间多余空白
     RegExpMatch? match;
-    while ((match = RegExp(r'<[^\s>]+[^>]*>\s{2,}<[^\s>]+[^>]*>').firstMatch(html)) != null) {
+    while ((match = RegExp(
+          r'<[^\s>]+[^>]*>\s{2,}<[^\s>]+[^>]*>',
+        ).firstMatch(html)) !=
+        null) {
       final original = match!.group(0)!;
-      html = html.replaceFirst(original, original.replaceAll(RegExp(r'>\s{2,}<'), '> <'));
+      html = html.replaceFirst(
+        original,
+        original.replaceAll(RegExp(r'>\s{2,}<'), '> <'),
+      );
     }
 
     return html;
@@ -85,7 +91,10 @@ class HtmlToMarkdown {
 
   /// 代码块占位符：转换前将 <code> 内容替换为占位符
   static String _putPlaceholders(String html, List<List<String>> placeholders) {
-    final codeRegex = RegExp(r'<code[^>]*>([\s\S]*?)<\/code>', caseSensitive: false);
+    final codeRegex = RegExp(
+      r'<code[^>]*>([\s\S]*?)<\/code>',
+      caseSensitive: false,
+    );
 
     return html.replaceAllMapped(codeRegex, (match) {
       final placeholder = 'DISCOURSE_PLACEHOLDER_${placeholders.length + 1}';
@@ -99,7 +108,10 @@ class HtmlToMarkdown {
   }
 
   /// 还原占位符
-  static String _replacePlaceholders(String markdown, List<List<String>> placeholders) {
+  static String _replacePlaceholders(
+    String markdown,
+    List<List<String>> placeholders,
+  ) {
     for (final p in placeholders) {
       markdown = markdown.replaceFirst(p[0], p[1]);
     }
@@ -264,7 +276,7 @@ class _EmphasisTag extends _Tag {
   final String decorator;
 
   _EmphasisTag(this.tagName, this.decorator)
-      : super(decorator, decorator, true);
+    : super(decorator, decorator, true);
 
   @override
   String decorate(String text) {
@@ -330,7 +342,9 @@ class _LinkTag extends _Tag {
       if (attr.containsKey('data-ref')) {
         return '#${attr['data-ref']}';
       } else {
-        final type = attr.containsKey('data-type') ? '::${attr['data-type']}' : '';
+        final type = attr.containsKey('data-type')
+            ? '::${attr['data-type']}'
+            : '';
         return '#${attr['data-slug'] ?? ''}$type';
       }
     }
@@ -345,7 +359,8 @@ class _LinkTag extends _Tag {
 
         if (base62SHA1 != null && base62SHA1.isNotEmpty) {
           href = 'upload://$base62SHA1';
-          final ext = _extensionFromUrl(img.attributes['src']) ??
+          final ext =
+              _extensionFromUrl(img.attributes['src']) ??
               _extensionFromUrl(attr['href']) ??
               _extensionFromUrl(attr['data-download-href']);
           if (ext != null) href += '.$ext';
@@ -400,7 +415,8 @@ class _ImageTag extends _Tag {
     final base62SHA1 = attr['data-base62-sha1'];
     if (base62SHA1 != null && base62SHA1.isNotEmpty) {
       src = 'upload://$base62SHA1';
-      final ext = _extensionFromUrl(attr['src'] ?? pAttr['src']) ??
+      final ext =
+          _extensionFromUrl(attr['src'] ?? pAttr['src']) ??
           _extensionFromUrl(attr['data-orig-src']);
       if (ext != null) src = '$src.$ext';
     } else {
@@ -415,7 +431,8 @@ class _ImageTag extends _Tag {
 
     // emoji
     if (cssClass.contains('emoji')) {
-      if (cssClass.contains('user-status') || cssClass.contains('mention-status')) {
+      if (cssClass.contains('user-status') ||
+          cssClass.contains('mention-status')) {
         return '';
       }
       return attr['title'] ?? pAttr['title'] ?? '';
@@ -471,7 +488,9 @@ class _AsideTag extends _BlockTag {
       return super.toMarkdown();
     }
 
-    final blockquote = element!.children.where((c) => c.name == 'blockquote').firstOrNull;
+    final blockquote = element!.children
+        .where((c) => c.name == 'blockquote')
+        .firstOrNull;
     if (blockquote == null) {
       return super.toMarkdown();
     }
@@ -489,14 +508,15 @@ class _AsideTag extends _BlockTag {
     // 的显示名是纯文本节点,跨主题引用标题里的 <a> 装的是话题标题而不是
     // 人名。有显示名时真实用户名单独放 username: 参数,服务端靠它查人。
     final displayName = element!.attributes['data-display-name'];
-    final hasDisplayName = displayName != null &&
+    final hasDisplayName =
+        displayName != null &&
         displayName.isNotEmpty &&
         displayName != username;
 
     final quotePrefix = (username != null && post != null && topic != null)
         ? (hasDisplayName
-            ? '[quote="$displayName, post:$post, topic:$topic, username:$username"]'
-            : '[quote="$username, post:$post, topic:$topic"]')
+              ? '[quote="$displayName, post:$post, topic:$topic, username:$username"]'
+              : '[quote="$username, post:$post, topic:$topic"]')
         : '[quote]';
 
     return '\n$quotePrefix\n$text\n[/quote]\n';
@@ -632,7 +652,8 @@ class _TableTag extends _BlockTag {
     if (rows.isEmpty) return text;
 
     final pipeCount = _countPipes(rows[0]);
-    isValid = isValid &&
+    isValid =
+        isValid &&
         rows.length > 1 &&
         pipeCount > 2 &&
         rows.every((r) => _countPipes(r) <= pipeCount);
@@ -719,9 +740,24 @@ Map<String, _Tag Function()> _buildTagFactories() {
 
   // Block tags
   for (final name in [
-    'address', 'article', 'dd', 'dl', 'dt', 'fieldset', 'figcaption',
-    'figure', 'footer', 'form', 'header', 'hgroup', 'hr', 'main',
-    'nav', 'p', 'pre', 'section',
+    'address',
+    'article',
+    'dd',
+    'dl',
+    'dt',
+    'fieldset',
+    'figcaption',
+    'figure',
+    'footer',
+    'form',
+    'header',
+    'hgroup',
+    'hr',
+    'main',
+    'nav',
+    'p',
+    'pre',
+    'section',
   ]) {
     map[name] = () => _BlockTag();
   }
@@ -738,15 +774,29 @@ Map<String, _Tag Function()> _buildTagFactories() {
 
   // Emphasis tags
   for (final pair in [
-    ['b', '**'], ['strong', '**'],
-    ['i', '*'], ['em', '*'],
-    ['s', '~~'], ['strike', '~~'],
+    ['b', '**'],
+    ['strong', '**'],
+    ['i', '*'],
+    ['em', '*'],
+    ['s', '~~'],
+    ['strike', '~~'],
   ]) {
     map[pair[0]] = () => _EmphasisTag(pair[0], pair[1]);
   }
 
   // Allowed tags
-  for (final name in ['ins', 'del', 'small', 'big', 'kbd', 'ruby', 'rt', 'rb', 'rp', 'mark']) {
+  for (final name in [
+    'ins',
+    'del',
+    'small',
+    'big',
+    'kbd',
+    'ruby',
+    'rt',
+    'rb',
+    'rp',
+    'mark',
+  ]) {
     map[name] = () => _AllowedTag(name);
   }
 
@@ -858,7 +908,10 @@ class _MdElement {
   }
 
   /// 递归构建子元素
-  static List<_MdElement> _buildChildren(_NodeData nodeData, _MdElement parent) {
+  static List<_MdElement> _buildChildren(
+    _NodeData nodeData,
+    _MdElement parent,
+  ) {
     final result = <_MdElement>[];
     for (final childNode in nodeData.children) {
       final childParentNames = [...parent.parentNames, parent.name];

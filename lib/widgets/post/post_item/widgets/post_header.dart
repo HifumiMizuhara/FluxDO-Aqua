@@ -139,7 +139,10 @@ class _PostAvatarState extends State<PostAvatar> {
           imageUrl: avatarUrl.isNotEmpty ? avatarUrl : null,
           radius: rect.shortestSide / 2,
           fallbackText: widget.post.username,
-          border: Border.all(color: Theme.of(ctx).colorScheme.primary, width: 2),
+          border: Border.all(
+            color: Theme.of(ctx).colorScheme.primary,
+            width: 2,
+          ),
         ),
       ),
       child: CompositedTransformTarget(link: _link, child: avatar),
@@ -434,7 +437,11 @@ class PostHeader extends StatelessWidget {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           else
-            Icon(Symbols.reply_rounded, size: 14, color: theme.colorScheme.primary),
+            Icon(
+              Symbols.reply_rounded,
+              size: 14,
+              color: theme.colorScheme.primary,
+            ),
           const SizedBox(width: 6),
           SmartAvatar(
             imageUrl: replyToUser.avatarTemplate.isNotEmpty

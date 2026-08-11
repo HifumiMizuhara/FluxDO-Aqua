@@ -391,13 +391,14 @@ class _BoostFlagSheetState extends State<BoostFlagSheet> {
   Widget _buildDescriptionText(String description, ThemeData theme) {
     // 只读描述，用新引擎 FluxdoRender 渲染；链接点击由 generic 内置
     // linkHandler(launchContentLink)处理。
-    return FluxdoRenderCallbacks.generic(heroTagNamespace: 'boost_flag_desc')
-        .render(
-          cookedHtml: description,
-          baseTextStyle: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-          selectionEnabled: false,
-        );
+    return FluxdoRenderCallbacks.generic(
+      heroTagNamespace: 'boost_flag_desc',
+    ).render(
+      cookedHtml: description,
+      baseTextStyle: theme.textTheme.bodySmall?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant,
+      ),
+      selectionEnabled: false,
+    );
   }
 }

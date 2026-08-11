@@ -814,11 +814,7 @@ class ComposerMetaBar extends StatelessWidget {
           ? theme.colorScheme.primary.withValues(alpha: 0.5)
           : null,
       children: [
-        Icon(
-          Symbols.thumbs_up_down_rounded,
-          size: 14,
-          color: color,
-        ),
+        Icon(Symbols.thumbs_up_down_rounded, size: 14, color: color),
         const SizedBox(width: 4),
         Text(
           S.current.createTopic_postVoting,

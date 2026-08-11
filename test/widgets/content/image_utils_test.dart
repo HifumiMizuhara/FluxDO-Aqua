@@ -21,19 +21,21 @@ void main() {
       expect(DiscourseImageUtils.isUploadUrl('upload://abc123.png'), isTrue);
     });
 
-    test('recognizes relative short-url paths (video/audio hand-written src)',
-        () {
-      expect(
-        DiscourseImageUtils.isUploadUrl(
-          '/uploads/short-url/lwDn83PDeB3xOUoEeZI9v77qGJa.xz',
-        ),
-        isTrue,
-      );
-      expect(
-        DiscourseImageUtils.isUploadUrl('/uploads/short-url/abc.mp3'),
-        isTrue,
-      );
-    });
+    test(
+      'recognizes relative short-url paths (video/audio hand-written src)',
+      () {
+        expect(
+          DiscourseImageUtils.isUploadUrl(
+            '/uploads/short-url/lwDn83PDeB3xOUoEeZI9v77qGJa.xz',
+          ),
+          isTrue,
+        );
+        expect(
+          DiscourseImageUtils.isUploadUrl('/uploads/short-url/abc.mp3'),
+          isTrue,
+        );
+      },
+    );
 
     test('recognizes absolute short-url on origin / CDN hosts only', () {
       expect(
@@ -64,8 +66,10 @@ void main() {
         ),
         isFalse,
       );
-      expect(DiscourseImageUtils.isUploadUrl('https://example.com/a.mp4'),
-          isFalse);
+      expect(
+        DiscourseImageUtils.isUploadUrl('https://example.com/a.mp4'),
+        isFalse,
+      );
     });
   });
 

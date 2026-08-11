@@ -37,7 +37,10 @@ void main() {
   });
 
   testWidgets('编辑面板中的书签名称候选列表可滚动查看更多选项', (tester) async {
-    final suggestions = List<String>.generate(12, (index) => 'tag-${index + 1}');
+    final suggestions = List<String>.generate(
+      12,
+      (index) => 'tag-${index + 1}',
+    );
 
     await tester.pumpWidget(
       TranslationProvider(

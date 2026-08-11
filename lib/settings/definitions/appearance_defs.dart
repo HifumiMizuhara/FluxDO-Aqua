@@ -197,8 +197,7 @@ List<SettingsGroup> buildAppearanceGroups(BuildContext context) {
                           child: _AppIconCard(
                             label: options[i].$2,
                             assetPath: options[i].$3,
-                            isSelected:
-                                iconState.currentStyle == options[i].$1,
+                            isSelected: iconState.currentStyle == options[i].$1,
                             isChanging: iconState.isChanging,
                             onTap: () async {
                               final success = await ref
@@ -453,7 +452,7 @@ class _DisplayModeSheetBodyState extends ConsumerState<_DisplayModeSheetBody> {
         }
       }
     } catch (e) {
-      debugPrint('[DisplayMode] 切换刷新率失败: $e');
+      debugPrint('[DisplayMode] Failed to change refresh rate: $e');
     }
   }
 
@@ -757,7 +756,10 @@ class _AppIconCard extends StatelessWidget {
                         Container(
                           color: Colors.black26,
                           child: const Center(
-                            child: LoadingSpinner(size: 24, color: Colors.white),
+                            child: LoadingSpinner(
+                              size: 24,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                     ],
@@ -1293,7 +1295,10 @@ class _ThemeColorSectionState extends ConsumerState<_ThemeColorSection> {
                                 setState(() => _removableColor = null);
                               },
                               iconSize: 28,
-                              icon: Icon(Symbols.delete_rounded, color: cs.primary),
+                              icon: Icon(
+                                Symbols.delete_rounded,
+                                color: cs.primary,
+                              ),
                             ),
                           ),
                       ],

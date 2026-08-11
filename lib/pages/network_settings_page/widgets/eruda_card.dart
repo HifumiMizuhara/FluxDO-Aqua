@@ -32,7 +32,9 @@ class ErudaCard extends StatelessWidget {
                     ? '已开启：页面右下角 ⚙ 可看 Console / Network / Elements'
                     : '关闭（默认）。开启后可在页面内查看网络 / 控制台 / 元素',
               ),
-              secondary: Icon(Symbols.terminal_rounded, fill: enabled ? 1 : 0,
+              secondary: Icon(
+                Symbols.terminal_rounded,
+                fill: enabled ? 1 : 0,
                 color: enabled ? theme.colorScheme.primary : null,
               ),
               value: enabled,

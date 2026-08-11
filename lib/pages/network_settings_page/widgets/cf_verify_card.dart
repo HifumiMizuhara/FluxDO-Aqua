@@ -25,9 +25,8 @@ class CfVerifyCard extends ConsumerWidget {
           title: Text(context.l10n.cfVerify_autoTitle),
           subtitle: Text(context.l10n.cfVerify_autoDesc),
           value: autoEnabled,
-          onChanged: (value) => ref
-              .read(preferencesProvider.notifier)
-              .setAutoCfChallenge(value),
+          onChanged: (value) =>
+              ref.read(preferencesProvider.notifier).setAutoCfChallenge(value),
         ),
         ListTile(
           leading: const Icon(Symbols.security_rounded),

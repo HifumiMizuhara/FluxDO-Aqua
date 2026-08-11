@@ -13,7 +13,8 @@ import '../../utils/url_helper.dart';
 /// 逐字翻译):`![alt|WxH(, N%)(其余后缀)](upload://…)`,排除行内 code
 /// 尾随反引号的近似(与 web 端同口径)。
 final _imageMarkdownRegex = RegExp(
-    r'!\[(.*?)\|(\d{1,4}x\d{1,4})(,\s*\d{1,3}%)?(.*?)\]\((upload://.*?)\)(?!(.*`))');
+  r'!\[(.*?)\|(\d{1,4}x\d{1,4})(,\s*\d{1,3}%)?(.*?)\]\((upload://.*?)\)(?!(.*`))',
+);
 
 /// 预览缩放胶囊点击 → 改 raw 的 `, N%` 后缀(对齐官方
 /// `_handleImageScaleButtonClick`:第 [ImageRun.previewImageIndex] 个
@@ -24,8 +25,7 @@ String? applyImageScaleToRaw(String raw, ImageRun image, int scale) {
   final matches = _imageMarkdownRegex.allMatches(raw).toList();
   if (index >= matches.length) return null;
   final m = matches[index];
-  final replacement =
-      '![${m[1]}|${m[2]}, $scale%${m[4]}](${m[5]})';
+  final replacement = '![${m[1]}|${m[2]}, $scale%${m[4]}](${m[5]})';
   if (raw.substring(m.start, m.end) == replacement) return null;
   return raw.replaceRange(m.start, m.end, replacement);
 }

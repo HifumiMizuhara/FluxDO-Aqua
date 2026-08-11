@@ -137,26 +137,26 @@ class _MobileTopicTapSurfaceState extends State<_MobileTopicTapSurface> {
         onPointerUp: (_) => _setPressed(false),
         onPointerCancel: (_) => _setPressed(false),
         child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        excludeFromSemantics: true,
-        onTapDown: (_) => _setPressed(true),
-        onTapCancel: () => _setPressed(false),
-        onTapUp: (_) => _setPressed(false),
-        onTap: widget.onTap == null ? null : _handleTap,
-        onLongPressStart: widget.onLongPress == null
-            ? null
-            : (_) => _setPressed(true),
-        onLongPress: widget.onLongPress == null ? null : _handleLongPress,
-        onLongPressEnd: widget.onLongPress == null
-            ? null
-            : (_) => _setPressed(false),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: _pressed ? overlayColor : Colors.transparent,
-            borderRadius: widget.borderRadius,
+          behavior: HitTestBehavior.opaque,
+          excludeFromSemantics: true,
+          onTapDown: (_) => _setPressed(true),
+          onTapCancel: () => _setPressed(false),
+          onTapUp: (_) => _setPressed(false),
+          onTap: widget.onTap == null ? null : _handleTap,
+          onLongPressStart: widget.onLongPress == null
+              ? null
+              : (_) => _setPressed(true),
+          onLongPress: widget.onLongPress == null ? null : _handleLongPress,
+          onLongPressEnd: widget.onLongPress == null
+              ? null
+              : (_) => _setPressed(false),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: _pressed ? overlayColor : Colors.transparent,
+              borderRadius: widget.borderRadius,
+            ),
+            child: widget.child,
           ),
-          child: widget.child,
-        ),
         ),
       ),
     );
@@ -264,59 +264,59 @@ class TopicCard extends ConsumerWidget {
     return PerfSpanBox(
       label: 'card#${topic.id}',
       child: Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: _clipCardIfNeeded(
-        borderRadius: cardRadius,
-        shouldClip: topWidget != null,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: isSelected
-                ? theme.colorScheme.primaryContainer.withValues(alpha: 0.4)
-                : (highlightColor ?? theme.cardTheme.color),
-            borderRadius: cardRadius,
-            border: isSelected
-                ? Border.all(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.5),
-                  )
-                : null,
-          ),
-          child: TopicCardInteractiveSurface(
-            borderRadius: cardRadius,
-            onTap: onTap,
-            onLongPress: onLongPress,
-            onMiddleClick: onMiddleClick,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // 顶部附属区域（如书签元信息色带）
-                if (topWidget != null) ...[topWidget!],
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                  child: messageStyle
-                      ? _buildMessageBody(
-                          context,
-                          isUnread: isUnread,
-                          isFullyRead: isFullyRead,
-                          metaColor: metaColor,
-                          unreadIndicator: unreadIndicator,
-                        )
-                      : _buildNormalBody(
-                          context,
-                          style: style,
-                          titleStyle: titleStyle,
-                          titleColor: titleColor,
-                          metaColor: metaColor,
-                          isUnread: isUnread,
-                          isFullyRead: isFullyRead,
-                          unreadIndicator: unreadIndicator,
-                          category: category,
-                        ),
-                ),
-              ],
+        padding: const EdgeInsets.only(bottom: 8),
+        child: _clipCardIfNeeded(
+          borderRadius: cardRadius,
+          shouldClip: topWidget != null,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? theme.colorScheme.primaryContainer.withValues(alpha: 0.4)
+                  : (highlightColor ?? theme.cardTheme.color),
+              borderRadius: cardRadius,
+              border: isSelected
+                  ? Border.all(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                    )
+                  : null,
+            ),
+            child: TopicCardInteractiveSurface(
+              borderRadius: cardRadius,
+              onTap: onTap,
+              onLongPress: onLongPress,
+              onMiddleClick: onMiddleClick,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 顶部附属区域（如书签元信息色带）
+                  if (topWidget != null) ...[topWidget!],
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                    child: messageStyle
+                        ? _buildMessageBody(
+                            context,
+                            isUnread: isUnread,
+                            isFullyRead: isFullyRead,
+                            metaColor: metaColor,
+                            unreadIndicator: unreadIndicator,
+                          )
+                        : _buildNormalBody(
+                            context,
+                            style: style,
+                            titleStyle: titleStyle,
+                            titleColor: titleColor,
+                            metaColor: metaColor,
+                            isUnread: isUnread,
+                            isFullyRead: isFullyRead,
+                            unreadIndicator: unreadIndicator,
+                            category: category,
+                          ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -407,8 +407,7 @@ class TopicCard extends ConsumerWidget {
         if (middleWidget != null) ...[const SizedBox(height: 4), middleWidget!],
         const SizedBox(height: 8),
         metadata(
-          withAvatarInline:
-              style.avatarLayout == TopicCardAvatarLayout.inline,
+          withAvatarInline: style.avatarLayout == TopicCardAvatarLayout.inline,
         ),
       ],
     );

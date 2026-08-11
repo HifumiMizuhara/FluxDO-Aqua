@@ -49,8 +49,7 @@ class _ZoomResetHarnessState extends State<_ZoomResetHarness> {
   @override
   void dispose() {
     _route?.animation?.removeStatusListener(_onStatus);
-    _route?.navigator?.userGestureInProgressNotifier
-        .removeListener(_onGesture);
+    _route?.navigator?.userGestureInProgressNotifier.removeListener(_onGesture);
     super.dispose();
   }
 
@@ -124,36 +123,40 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('预测返回手势置位即缩放归位', (tester) async {
-    final controller = ImageGestureController();
-    addTearDown(controller.dispose);
-    await pumpViewer(tester, controller);
+  testWidgets(
+    '预测返回手势置位即缩放归位',
+    (tester) async {
+      final controller = ImageGestureController();
+      addTearDown(controller.dispose);
+      await pumpViewer(tester, controller);
 
-    zoomTo(controller, 2.5);
-    expect(controller.details!.totalScale, 2.5);
+      zoomTo(controller, 2.5);
+      expect(controller.details!.totalScale, 2.5);
 
-    await binding.defaultBinaryMessenger.handlePlatformMessage(
-      'flutter/backgesture',
-      const StandardMethodCodec().encodeMethodCall(
-        MethodCall('startBackGesture', {
-          'touchOffset': <double>[0, 300],
-          'progress': 0.0,
-          'swipeEdge': 0,
-        }),
-      ),
-      (_) {},
-    );
-    await tester.pump();
-    expect(controller.details!.totalScale, 1.0);
+      await binding.defaultBinaryMessenger.handlePlatformMessage(
+        'flutter/backgesture',
+        const StandardMethodCodec().encodeMethodCall(
+          MethodCall('startBackGesture', {
+            'touchOffset': <double>[0, 300],
+            'progress': 0.0,
+            'swipeEdge': 0,
+          }),
+        ),
+        (_) {},
+      );
+      await tester.pump();
+      expect(controller.details!.totalScale, 1.0);
 
-    await binding.defaultBinaryMessenger.handlePlatformMessage(
-      'flutter/backgesture',
-      const StandardMethodCodec().encodeMethodCall(
-        const MethodCall('commitBackGesture'),
-      ),
-      (_) {},
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('open'), findsOneWidget);
-  }, variant: const TargetPlatformVariant({TargetPlatform.android}));
+      await binding.defaultBinaryMessenger.handlePlatformMessage(
+        'flutter/backgesture',
+        const StandardMethodCodec().encodeMethodCall(
+          const MethodCall('commitBackGesture'),
+        ),
+        (_) {},
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('open'), findsOneWidget);
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.android}),
+  );
 }
