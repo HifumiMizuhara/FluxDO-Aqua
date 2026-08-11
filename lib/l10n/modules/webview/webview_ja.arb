@@ -1,0 +1,71 @@
+{
+  "@@locale": "ja",
+  "myBrowser_addManually": "ブックマークを追加",
+  "myBrowser_bookmarkCount": "ブックマーク {count} 件",
+  "@myBrowser_bookmarkCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "myBrowser_bookmarks": "ブックマーク",
+  "myBrowser_clearCompleted": "完了した項目を消去",
+  "myBrowser_clearCompletedConfirm": "完了したダウンロードをすべて消去しますか？",
+  "myBrowser_clearHistory": "履歴を消去",
+  "myBrowser_clearHistoryConfirm": "閲覧履歴をすべて消去しますか？",
+  "myBrowser_confirmDelete": "このブックマークを削除しますか？",
+  "myBrowser_delete": "削除",
+  "myBrowser_deleted": "ブックマークを削除しました",
+  "myBrowser_downloadComplete": "ダウンロード完了",
+  "myBrowser_downloadEmpty": "ダウンロードはまだありません",
+  "myBrowser_downloadFailed": "ダウンロードに失敗しました",
+  "myBrowser_downloadSize": "{size} MB",
+  "@myBrowser_downloadSize": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "myBrowser_downloadStarted": "ダウンロードを開始しました",
+  "myBrowser_downloading": "ダウンロード中",
+  "myBrowser_downloads": "ダウンロード",
+  "myBrowser_downloadsDesc": "ダウンロードしたファイルを表示",
+  "myBrowser_edit": "編集",
+  "myBrowser_editTitle": "タイトルを編集",
+  "myBrowser_empty": "ブックマークしたページはまだありません",
+  "myBrowser_fileNotFound": "ファイルが見つかりません",
+  "myBrowser_history": "閲覧履歴",
+  "myBrowser_historyCleared": "閲覧履歴を消去しました",
+  "myBrowser_historyDesc": "閲覧したページを表示",
+  "myBrowser_historyEmpty": "閲覧履歴はまだありません",
+  "myBrowser_inputTitle": "タイトル (任意)",
+  "myBrowser_inputUrl": "URL を入力",
+  "myBrowser_open": "開く",
+  "myBrowser_title": "ウェブブラウズ",
+  "myBrowser_undo": "元に戻す",
+  "myBrowser_viewDownload": "表示",
+  "webviewLogin_clearSaved": "保存したパスワードを消去",
+  "webviewLogin_clearSavedContent": "保存したログイン情報を消去しますか？次回は手動で入力する必要があります。",
+  "webviewLogin_clearSavedTitle": "保存したパスワードを消去",
+  "webviewLogin_emailLoginInvalidLink": "ログインリンクが無効です",
+  "webviewLogin_emailLoginPaste": "ログインリンクを貼り付け",
+  "webviewLogin_lastLogin": "前回のログイン: @{username}",
+  "webviewLogin_loginSuccess": "ログインしました！",
+  "webviewLogin_savedPassword": "保存したパスワード",
+  "webviewLogin_title": "LINUX.DO にログイン",
+  "webview_addBookmark": "このページをブックマーク",
+  "webview_bookmarkAdded": "ブックマークしました",
+  "webview_bookmarkRemoved": "ブックマークを削除しました",
+  "webview_browser": "ブラウザ",
+  "webview_cannotOpenBrowser": "外部ブラウザを開けません",
+  "webview_go": "移動",
+  "webview_goBack": "戻る",
+  "webview_goForward": "進む",
+  "webview_inputUrl": "URL を入力または編集",
+  "webview_noAppForLink": "このリンクを開けるアプリが見つかりません",
+  "webview_openExternal": "外部ブラウザで開く",
+  "webview_openFailed": "開けませんでした: {error}",
+  "webview_removeBookmark": "ブックマークを削除"
+}
