@@ -1,0 +1,20 @@
+{
+  "@@locale": "ja",
+  "badge_bronze": "ブロンズ",
+  "badge_bronzeBadge": "ブロンズバッジ",
+  "badge_defaultName": "バッジ",
+  "badge_gold": "ゴールド",
+  "badge_goldBadge": "ゴールドバッジ",
+  "badge_grantedCount": "{count} 回付与",
+  "badge_grantedSuffix": " 個獲得",
+  "badge_granteeCount": "{count} 人",
+  "badge_grantees": "獲得者",
+  "badge_myBadges": "自分のバッジ",
+  "badge_noGrantees": "このバッジを獲得したユーザーはいません",
+  "badge_silver": "シルバー",
+  "badge_silverBadge": "シルバーバッジ",
+  "myBadges_badgeUnit": " 個",
+  "myBadges_empty": "バッジはありません",
+  "myBadges_title": "自分のバッジ",
+  "myBadges_totalEarned": "獲得数の合計"
+}

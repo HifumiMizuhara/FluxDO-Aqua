@@ -1,0 +1,19 @@
+{
+  "@@locale": "ko",
+  "chat_thread": "스레드",
+  "github_commentedOn": "님이 댓글을 남겼습니다: ",
+  "github_moreFiles": "... 외 {count}개 파일",
+  "github_viewFullCode": "전체 코드 보기",
+  "metaverse_authFailed": "인증 실패: {error}",
+  "metaverse_cdkAuthSuccess": "CDK 인증에 성공했습니다",
+  "metaverse_cdkDesc": "계정을 연결해 CDK 이용",
+  "metaverse_cdkReauthSuccess": "CDK 재인증에 성공했습니다",
+  "metaverse_cdkService": "CDK 서비스",
+  "metaverse_comingSoon": "더 많은 서비스가 곧 제공됩니다...",
+  "metaverse_ldcAuthSuccess": "LDC 인증에 성공했습니다",
+  "metaverse_ldcDesc": "계정을 연결해 포인트 이용",
+  "metaverse_ldcReauthSuccess": "LDC 재인증에 성공했습니다",
+  "metaverse_ldcService": "LDC 포인트 서비스",
+  "metaverse_myServices": "내 서비스",
+  "metaverse_title": "메타버스"
+}

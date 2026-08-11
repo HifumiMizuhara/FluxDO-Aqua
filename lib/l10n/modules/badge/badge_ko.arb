@@ -1,0 +1,20 @@
+{
+  "@@locale": "ko",
+  "badge_bronze": "브론즈",
+  "badge_bronzeBadge": "브론즈 배지",
+  "badge_defaultName": "배지",
+  "badge_gold": "골드",
+  "badge_goldBadge": "골드 배지",
+  "badge_grantedCount": "{count}회 부여",
+  "badge_grantedSuffix": "개 획득",
+  "badge_granteeCount": "{count}명",
+  "badge_grantees": "획득자",
+  "badge_myBadges": "내 배지",
+  "badge_noGrantees": "이 배지를 획득한 사용자가 없습니다",
+  "badge_silver": "실버",
+  "badge_silverBadge": "실버 배지",
+  "myBadges_badgeUnit": "개",
+  "myBadges_empty": "배지가 없습니다",
+  "myBadges_title": "내 배지",
+  "myBadges_totalEarned": "총 획득 수"
+}

@@ -1,0 +1,19 @@
+{
+  "@@locale": "ko",
+  "time_days": "{count}일",
+  "time_daysAgo": "{count}일 전",
+  "time_fullDate": "{year}.{month}.{day}",
+  "time_hours": "{count}시간",
+  "time_hoursAgo": "{count}시간 전",
+  "time_justNow": "방금 전",
+  "time_minutes": "{count}분",
+  "time_minutesAgo": "{count}분 전",
+  "time_monthsAgo": "{count}개월 전",
+  "time_seconds": "{count}초",
+  "time_shortDate": "{month}.{day}",
+  "time_today": "오늘",
+  "time_tooltipTime": "{year}.{month}.{day} {hour}:{minute}:{second}",
+  "time_weeksAgo": "{count}주 전",
+  "time_yearsAgo": "{count}년 전",
+  "time_yesterday": "어제"
+}

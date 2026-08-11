@@ -1,0 +1,24 @@
+{
+  "@@locale": "ja",
+  "review_myPending": "承認待ち",
+  "review_awaitingApproval": "承認待ちです",
+  "review_withdraw": "取り下げ",
+  "review_withdrawConfirmTitle": "承認待ちの項目を取り下げ",
+  "review_withdrawConfirmContent": "この承認待ちの項目を取り下げますか？レビューキューから削除され、元に戻せません。",
+  "review_withdrawn": "取り下げました",
+  "review_withdrawFailed": "取り下げに失敗しました: {error}",
+  "@review_withdrawFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "review_withdrawAndEdit": "取り下げて編集",
+  "review_withdrawAndEditConfirmContent": "レビューキューから項目を取り下げ、元の本文をエディタに戻します。再投稿するには改めて承認が必要です。編集を中断した場合、内容は自動では復元されません。",
+  "review_replyTargetUnknownHint": "注意: この項目の元の返信先が不明なため、再投稿するとトピックへの直接の返信になります。",
+  "review_typeNewTopic": "新規トピック",
+  "review_typeReply": "返信",
+  "review_empty": "承認待ちのコンテンツはありません",
+  "review_viewAction": "表示"
+}

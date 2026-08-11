@@ -1,0 +1,11 @@
+{
+  "@@locale": "ja",
+  "browsingHistory_empty": "閲覧履歴はありません",
+  "browsingHistory_emptySearchHint": "キーワードを入力して履歴を検索",
+  "browsingHistory_searchHint": "閲覧履歴を検索...",
+  "browsingHistory_title": "閲覧履歴",
+  "myTopics_empty": "トピックはありません",
+  "myTopics_emptySearchHint": "キーワードを入力して自分のトピックを検索",
+  "myTopics_searchHint": "自分のトピックを検索...",
+  "myTopics_title": "自分のトピック"
+}
