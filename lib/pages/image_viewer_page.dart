@@ -419,12 +419,16 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
 
   /// 按钮/程序化 pop:路由动画转 reverse 的第一帧归位缩放,
   /// 早于 HeroController 对 to 路由的测量与飞行起跳。
-  /// 手势 commit 的收尾也走 reverse —— 此时把松弛残余 snap 掉。
+  ///
+  /// 松弛会话在途(预测返回 commit)则什么都不做:真机 fling 常在
+  /// 低进度(0.1~0.3)就 commit,此刻 snap 会把剩余 70%+ 缩放一把
+  /// 打掉,正是「大图突然变小」;让 lerp 骑完退场动画(commit 后
+  /// 路由动画从当前值继续反转到 0),残余缩放随退场连续收拢,
+  /// t=0 恰为 contain = Hero 落地帧,全程无跳变点。
   void _onRouteAnimationStatus(AnimationStatus status) {
-    if (status == AnimationStatus.reverse) {
-      _endZoomRelaxation();
-      _resetZoomForExit();
-    }
+    if (status != AnimationStatus.reverse) return;
+    if (_relaxListening) return;
+    _resetZoomForExit();
   }
 
   /// 预测返回/iOS 拖拽:手势置位开启缩放松弛会话(跟手渐进归位,

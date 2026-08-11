@@ -38,11 +38,10 @@ class _ZoomRelaxHarnessState extends State<_ZoomRelaxHarness> {
   }
 
   void _onStatus(AnimationStatus status) {
-    if (status == AnimationStatus.reverse) {
-      _endRelax();
-      final scale = widget.controller.details?.totalScale ?? 1.0;
-      if (scale != 1.0) widget.controller.reset();
-    }
+    if (status != AnimationStatus.reverse) return;
+    if (_relaxListening) return;
+    final scale = widget.controller.details?.totalScale ?? 1.0;
+    if (scale != 1.0) widget.controller.reset();
   }
 
   void _onGesture() {
@@ -203,11 +202,43 @@ void main() {
     expect(controller.details!.totalScale, lessThan(midScale),
         reason: '拖更多应更收拢(单调)');
 
-    // commit:残余 snap 到 1.0(reverse 钩子),飞行前归位
+    await send('commitBackGesture');
+    await tester.pumpAndSettle();
+    expect(controller.details!.totalScale, 1.0);
+    expect(find.text('open'), findsOneWidget);
+  }, variant: const TargetPlatformVariant({TargetPlatform.android}));
+
+  testWidgets('真机姿势:低进度 fling commit,残余缩放随退场连续收拢无跳变',
+      (tester) async {
+    final controller = ImageGestureController();
+    addTearDown(controller.dispose);
+    await pumpViewer(tester, controller);
+
+    zoomTo(controller, 3.0);
+    await send('startBackGesture', gestureArgs(0.0));
+    await tester.pump();
+    // 轻甩:进度只到 0.15 就松手(真机常态)
+    await send('updateBackGestureProgress', gestureArgs(0.15));
+    await tester.pump();
+    final atRelease = controller.details!.totalScale!;
+    expect(atRelease, greaterThan(2.0), reason: '轻甩松手时缩放大部分还在');
+
     await send('commitBackGesture');
     await tester.pump();
-    expect(controller.details!.totalScale, 1.0);
+    // commit 首帧:不得 snap(旧行为在这里一把打回 1.0 = 用户抱怨的突兀)
+    final justCommitted = controller.details!.totalScale!;
+    expect(justCommitted, greaterThan(1.5),
+        reason: 'commit 首帧缩放应基本保持,由退场动画继续收拢');
+
+    // 退场中途:持续单调收拢
+    await tester.pump(const Duration(milliseconds: 100));
+    final mid = controller.details!.totalScale!;
+    expect(mid, lessThan(justCommitted));
+    expect(mid, greaterThan(1.0));
+
+    // 退场结束:精确 contain,Hero 落地帧无残余
     await tester.pumpAndSettle();
+    expect(controller.details!.totalScale, closeTo(1.0, 0.001));
     expect(find.text('open'), findsOneWidget);
   }, variant: const TargetPlatformVariant({TargetPlatform.android}));
 
