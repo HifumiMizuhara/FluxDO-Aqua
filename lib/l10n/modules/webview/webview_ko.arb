@@ -1,0 +1,71 @@
+{
+  "@@locale": "ko",
+  "myBrowser_addManually": "북마크 추가",
+  "myBrowser_bookmarkCount": "북마크 {count}개",
+  "@myBrowser_bookmarkCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "myBrowser_bookmarks": "북마크",
+  "myBrowser_clearCompleted": "완료 항목 지우기",
+  "myBrowser_clearCompletedConfirm": "완료된 다운로드를 모두 지울까요?",
+  "myBrowser_clearHistory": "기록 지우기",
+  "myBrowser_clearHistoryConfirm": "열람 기록을 모두 지울까요?",
+  "myBrowser_confirmDelete": "이 북마크를 삭제할까요?",
+  "myBrowser_delete": "삭제",
+  "myBrowser_deleted": "북마크를 삭제했습니다",
+  "myBrowser_downloadComplete": "다운로드 완료",
+  "myBrowser_downloadEmpty": "다운로드한 항목이 없습니다",
+  "myBrowser_downloadFailed": "다운로드에 실패했습니다",
+  "myBrowser_downloadSize": "{size} MB",
+  "@myBrowser_downloadSize": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "myBrowser_downloadStarted": "다운로드를 시작했습니다",
+  "myBrowser_downloading": "다운로드 중",
+  "myBrowser_downloads": "다운로드",
+  "myBrowser_downloadsDesc": "내려받은 파일 보기",
+  "myBrowser_edit": "편집",
+  "myBrowser_editTitle": "제목 편집",
+  "myBrowser_empty": "북마크한 페이지가 아직 없습니다",
+  "myBrowser_fileNotFound": "파일을 찾을 수 없습니다",
+  "myBrowser_history": "열람 기록",
+  "myBrowser_historyCleared": "열람 기록을 지웠습니다",
+  "myBrowser_historyDesc": "열어 본 페이지 보기",
+  "myBrowser_historyEmpty": "열람 기록이 아직 없습니다",
+  "myBrowser_inputTitle": "제목 (선택)",
+  "myBrowser_inputUrl": "URL 입력",
+  "myBrowser_open": "열기",
+  "myBrowser_title": "웹 브라우징",
+  "myBrowser_undo": "실행 취소",
+  "myBrowser_viewDownload": "보기",
+  "webviewLogin_clearSaved": "저장된 비밀번호 지우기",
+  "webviewLogin_clearSavedContent": "저장된 로그인 정보를 지울까요? 다음에는 직접 입력해야 합니다.",
+  "webviewLogin_clearSavedTitle": "저장된 비밀번호 지우기",
+  "webviewLogin_emailLoginInvalidLink": "로그인 링크가 올바르지 않습니다",
+  "webviewLogin_emailLoginPaste": "로그인 링크 붙여넣기",
+  "webviewLogin_lastLogin": "최근 로그인: @{username}",
+  "webviewLogin_loginSuccess": "로그인했습니다!",
+  "webviewLogin_savedPassword": "저장된 비밀번호",
+  "webviewLogin_title": "LINUX.DO 로그인",
+  "webview_addBookmark": "이 페이지 북마크",
+  "webview_bookmarkAdded": "북마크했습니다",
+  "webview_bookmarkRemoved": "북마크를 삭제했습니다",
+  "webview_browser": "브라우저",
+  "webview_cannotOpenBrowser": "외부 브라우저를 열 수 없습니다",
+  "webview_go": "이동",
+  "webview_goBack": "뒤로",
+  "webview_goForward": "앞으로",
+  "webview_inputUrl": "URL 입력 또는 수정",
+  "webview_noAppForLink": "이 링크를 열 수 있는 앱이 없습니다",
+  "webview_openExternal": "외부 브라우저로 열기",
+  "webview_openFailed": "열지 못했습니다: {error}",
+  "webview_removeBookmark": "북마크 삭제"
+}
