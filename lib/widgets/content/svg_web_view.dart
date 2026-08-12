@@ -359,10 +359,6 @@ class _SvgWebViewState extends State<SvgWebView> {
       );
     }
 
-    return _buildStaticFallback();
-  }
-
-  Widget _buildStaticFallback() {
     if (!_fallbackInitialized) {
       _fallbackInitialized = true;
       try {
@@ -370,24 +366,12 @@ class _SvgWebViewState extends State<SvgWebView> {
           SvgUtils.sanitize(widget.svgSource),
           warnF: (_) {},
         );
-      } catch (error) {
+      } catch (_) {
         _fallbackImage = null;
-        _logWarning('static_fallback_parse_failed', error: error);
       }
     }
     final image = _fallbackImage;
-    if (image == null) {
-      // Some browser-oriented animated SVGs cannot be reduced to a jovial_svg
-      // first frame. Keep the position exact with the Flutter animation path
-      // rather than showing a blank slot while scrolling.
-      if (AnimatedSvgView.hasAnimations(widget.svgSource)) {
-        return AnimatedSvgView(
-          svgSource: widget.svgSource,
-          alignment: widget.alignment,
-        );
-      }
-      return const SizedBox.expand();
-    }
+    if (image == null) return const SizedBox.expand();
     return ScalableImageWidget(si: image, fit: BoxFit.contain);
   }
 
@@ -482,19 +466,11 @@ class _SvgWebViewState extends State<SvgWebView> {
   }
 
   Widget _buildBody() {
-    // A pane host owns the native controller. During scrolling, its async JS
-    // geometry bridge is hidden and every slot paints a static Flutter first
-    // frame instead. This fallback participates in the same compositor and
-    // therefore remains exactly attached to the scrolling post.
+    // A pane host owns the native controller. During host initialization and
+    // while the pane is inactive, retain only the Flutter-sized transparent
+    // slot. A failed/absent host deliberately takes the legacy path below.
     final host = _host;
     if (host != null && !host.isFailed) {
-      if (host.showFlutterSnapshot) {
-        final image = _snapshotImage;
-        return KeyedSubtree(
-          key: const ValueKey<String>('SvgWebView.scrollSnapshot'),
-          child: image != null ? _buildSnapshot(image) : _buildStaticFallback(),
-        );
-      }
       return const SizedBox.expand();
     }
     return _buildLegacyBody();

@@ -455,19 +455,12 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
     _idleFlushPosition?.isScrollingNotifier.removeListener(_onScrollIdle);
     _idleFlushPosition = position;
     position.isScrollingNotifier.addListener(_onScrollIdle);
-    if (position.isScrollingNotifier.value) {
-      _signatureSvgHostController.beginScroll();
-    }
   }
 
   void _onScrollIdle() {
     if (!mounted) return;
     final scrolling = _idleFlushPosition?.isScrollingNotifier.value ?? true;
-    if (scrolling) {
-      _signatureSvgHostController.beginScroll();
-      return;
-    }
-    _signatureSvgHostController.endScroll();
+    if (scrolling) return;
     if (_deferredPostUpdates.isEmpty) return;
     // 推迟一帧回放:isScrollingNotifier 翻 false 发生在惯性最后一个 tick
     // 的同一帧,若同帧内直接回放,布局时 pixels 相对上一帧仍在变,

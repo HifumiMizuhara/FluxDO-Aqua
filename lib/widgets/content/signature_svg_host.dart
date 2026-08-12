@@ -291,8 +291,6 @@ class SignatureSvgHostController extends ChangeNotifier {
 
   SignatureSvgHostStatus _status = SignatureSvgHostStatus.inactive;
   int _consecutiveSyncFailures = 0;
-  bool _isScrolling = false;
-  bool _showFlutterSnapshot = false;
   VoidCallback? _layoutSyncRequester;
 
   SignatureSvgHostStatus get status => _status;
@@ -304,13 +302,6 @@ class SignatureSvgHostController extends ChangeNotifier {
   bool get hasPendingSync => registry.hasPendingChanges;
 
   int get consecutiveSyncFailures => _consecutiveSyncFailures;
-
-  bool get isScrolling => _isScrolling;
-
-  /// While true, every slot paints its Flutter first-frame fallback and the
-  /// shared WebView is kept transparent. It remains true after scrolling ends
-  /// until the final WebView geometry has been acknowledged.
-  bool get showFlutterSnapshot => _showFlutterSnapshot;
 
   void beginSession() {
     if (_status == SignatureSvgHostStatus.loading ||
@@ -325,15 +316,11 @@ class SignatureSvgHostController extends ChangeNotifier {
 
   void deactivateSession() {
     if (_status == SignatureSvgHostStatus.inactive &&
-        _consecutiveSyncFailures == 0 &&
-        !_isScrolling &&
-        !_showFlutterSnapshot) {
+        _consecutiveSyncFailures == 0) {
       return;
     }
     _status = SignatureSvgHostStatus.inactive;
     _consecutiveSyncFailures = 0;
-    _isScrolling = false;
-    _showFlutterSnapshot = false;
     registry.resetSentState();
     notifyListeners();
   }
@@ -348,34 +335,6 @@ class SignatureSvgHostController extends ChangeNotifier {
   void markFailed() {
     if (_status == SignatureSvgHostStatus.failed) return;
     _status = SignatureSvgHostStatus.failed;
-    _isScrolling = false;
-    _showFlutterSnapshot = false;
-    notifyListeners();
-  }
-
-  /// Switches all slots to Flutter-rendered first frames before their layout
-  /// begins moving. WebView geometry updates are deliberately suspended until
-  /// [endScroll] so the bridge cannot trail the Flutter viewport.
-  void beginScroll() {
-    if (_isScrolling && _showFlutterSnapshot) return;
-    _isScrolling = true;
-    _showFlutterSnapshot = true;
-    notifyListeners();
-  }
-
-  /// Keeps the Flutter snapshots visible while requesting one final geometry
-  /// synchronization. The WebView is revealed only by
-  /// [markViewportSynchronized].
-  void endScroll() {
-    if (!_isScrolling) return;
-    _isScrolling = false;
-    notifyListeners();
-    requestLayoutSync();
-  }
-
-  void markViewportSynchronized() {
-    if (_isScrolling || !_showFlutterSnapshot) return;
-    _showFlutterSnapshot = false;
     notifyListeners();
   }
 
@@ -671,7 +630,7 @@ class _SignatureSvgHostState extends State<SignatureSvgHost> {
   }
 
   void _scheduleSync() {
-    if (!mounted || !widget.active || _host.isScrolling) {
+    if (!mounted || !widget.active) {
       return;
     }
 
@@ -711,10 +670,7 @@ class _SignatureSvgHostState extends State<SignatureSvgHost> {
 
     _host.syncLayout(hostRenderBox);
     final payload = _host.buildSyncPayload();
-    if (payload.isEmpty) {
-      _revealWebViewIfSettled();
-      return;
-    }
+    if (payload.isEmpty) return;
 
     _syncInFlight = true;
     try {
@@ -732,7 +688,6 @@ class _SignatureSvgHostState extends State<SignatureSvgHost> {
       }
       _host.commitSyncPayload(payload);
       _host.recordSyncSuccess();
-      _revealWebViewIfSettled();
     } catch (error) {
       if (syncGeneration != _generation ||
           !identical(controller, _webViewController)) {
@@ -753,11 +708,6 @@ class _SignatureSvgHostState extends State<SignatureSvgHost> {
         _scheduleSync();
       }
     }
-  }
-
-  void _revealWebViewIfSettled() {
-    if (_host.isScrolling || _syncDirty || _host.hasPendingSync) return;
-    _host.markViewportSynchronized();
   }
 
   @override
@@ -846,13 +796,7 @@ class _SignatureSvgHostState extends State<SignatureSvgHost> {
 
     return IgnorePointer(
       ignoring: true,
-      child: SizedBox.expand(
-        key: _hostKey,
-        child: Opacity(
-          opacity: _host.showFlutterSnapshot ? 0 : 1,
-          child: child,
-        ),
-      ),
+      child: SizedBox.expand(key: _hostKey, child: child),
     );
   }
 }
