@@ -28,6 +28,8 @@
   "navTapAction_scrollToTop": "トップへ戻る",
   "config_seedUserTitle": "シードユーザー",
   "preferences_advanced": "詳細",
+  "preferences_experimentalNativeSvgFix": "ネイティブSVG修正（実験的）",
+  "preferences_experimentalNativeSvgFixDesc": "SVGのPainterキャッシュ、静的レイヤー、vsync駆動を使う実験的な描画経路。問題があればオフにしてください",
   "preferences_anonymousShare": "匿名共有",
   "preferences_anonymousShareDesc": "リンク共有時に個人ユーザー識別子を付けない",
   "preferences_autoFillLogin": "ログイン情報を自動入力",

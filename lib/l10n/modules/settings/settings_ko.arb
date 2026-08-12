@@ -28,6 +28,8 @@
   "navTapAction_scrollToTop": "맨 위로 이동",
   "config_seedUserTitle": "시드 사용자",
   "preferences_advanced": "고급",
+  "preferences_experimentalNativeSvgFix": "네이티브 SVG 수정 (실험적)",
+  "preferences_experimentalNativeSvgFixDesc": "Painter 캐시, 정적 레이어 및 vsync 스케줄링을 사용하는 실험적 SVG 렌더링 경로입니다. 표시 문제가 있으면 끄세요.",
   "preferences_anonymousShare": "익명 공유",
   "preferences_anonymousShareDesc": "링크를 공유할 때 개인 사용자 식별자를 포함하지 않음",
   "preferences_autoFillLogin": "로그인 자동 입력",

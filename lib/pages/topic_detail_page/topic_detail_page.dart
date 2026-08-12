@@ -45,6 +45,7 @@ import '../../services/log/bookmark_edit_trace.dart';
 import '../../services/navigation/app_route_observer.dart';
 import '../../utils/hero_visibility_controller.dart';
 import '../../widgets/content/lazy_load_scope.dart';
+import '../../widgets/content/signature_svg_host.dart';
 import '../../widgets/post/post_item_skeleton.dart';
 import '../../widgets/post/post_item/widgets/post_flag_sheet.dart';
 import '../../widgets/post/post_replies_sheet.dart';
@@ -191,6 +192,8 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
   // Controller
   late final TopicDetailController _controller;
   late final ScreenTrack _screenTrack;
+  final SignatureSvgHostController _signatureSvgHostController =
+      SignatureSvgHostController();
 
   // UI State
   final GlobalKey _headerKey = GlobalKey();
@@ -274,6 +277,10 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
   bool _routeTransitionDone = true;
   bool _isParentActive = true;
   bool _isScreenTrackRunning = false;
+  bool _appIsActive = true;
+  final ValueNotifier<bool> _signatureHostActiveNotifier = ValueNotifier<bool>(
+    true,
+  );
 
   /// 初始定位期间被抑制的 eyeline 上报楼层（定位完成后回放）
   int? _suppressedEyelinePostNumber;
@@ -298,6 +305,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _isParentActive = widget.parentActive;
+    _refreshSignatureHostActivity();
     _providerPostNumber = widget.scrollToPostNumber;
     _searchFocusNode = FocusNode(onKeyEvent: _handleSearchKeyEvent);
 
@@ -665,6 +673,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
     }
     if (oldWidget.parentActive != widget.parentActive) {
       _isParentActive = widget.parentActive;
+      _refreshSignatureHostActivity();
       _syncScreenTrackState(
         reason: _isParentActive ? 'parent_active' : 'parent_inactive',
       );
@@ -710,6 +719,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
     _route = route;
     appRouteObserver.subscribe(this, route);
     _isRouteVisible = route.isCurrent;
+    _refreshSignatureHostActivity();
     final enterAnim = route.animation;
     if (enterAnim != null && !enterAnim.isCompleted) {
       _routeTransitionDone = false;
@@ -749,6 +759,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
     _showTitleNotifier.dispose();
     _isScrolledUnderNotifier.dispose();
     _isOverlayVisibleNotifier.dispose();
+    _signatureHostActiveNotifier.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
     _pageController.dispose();
@@ -762,12 +773,22 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
     }
     // 延迟清理搜索状态，避免在 widget tree finalizing 期间修改 provider
     Future(_topicSearchNotifier.exitSearchMode);
+    _signatureSvgHostController.dispose();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final hasFocus = state == AppLifecycleState.resumed;
+    // Desktop windows enter `inactive` when another window receives focus.
+    // The topic remains visible in that state, so keep the shared signature
+    // WebView alive. Only stop it when the application is actually hidden or
+    // detached from the view hierarchy.
+    _appIsActive =
+        state != AppLifecycleState.hidden &&
+        state != AppLifecycleState.paused &&
+        state != AppLifecycleState.detached;
+    _refreshSignatureHostActivity();
     _screenTrack.setHasFocus(hasFocus);
   }
 
@@ -802,7 +823,14 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
   void _setRouteVisible(bool visible, String reason) {
     if (_isRouteVisible == visible) return;
     _isRouteVisible = visible;
+    _refreshSignatureHostActivity();
     _syncScreenTrackState(reason: reason);
+  }
+
+  void _refreshSignatureHostActivity() {
+    final active = _appIsActive && _isRouteVisible && _isParentActive;
+    if (_signatureHostActiveNotifier.value == active) return;
+    _signatureHostActiveNotifier.value = active;
   }
 
   void _syncScreenTrackState({required String reason}) {
@@ -2288,6 +2316,11 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
                   : const ClampingScrollPhysics(),
               onPageChanged: (page) {
                 _currentPageNotifier.value = page;
+                _signatureHostActiveNotifier.value =
+                    page == 0 &&
+                    _appIsActive &&
+                    _isRouteVisible &&
+                    _isParentActive;
                 // 离开 AI 页面时取消输入框焦点，防止返回时键盘意外弹出
                 if (page != 1) {
                   FocusManager.instance.primaryFocus?.unfocus();
@@ -2475,11 +2508,26 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
       content = _buildPostListContent(context, detail, notifier, isLoggedIn);
     }
 
-    // Stack 组装
-    return Stack(
+    // Stack 组装。签名 host 位于正文之后、Flutter overlay 之前；各个
+    // SvgWebView 只在这里注册尺寸槽位，不再创建自己的平台 WebView。
+    final stack = Stack(
       children: [
         // 使用 Offstage 保持帖子列表存在但在搜索模式下隐藏，保留滚动位置
         Offstage(offstage: isSearchMode, child: content),
+
+        // 每个 TopicDetailPage(含双栏/嵌套 pane)恰好一个 host。搜索模式
+        // 与页面不可见时保留槽位但销毁 native WebView。
+        ValueListenableBuilder<bool>(
+          valueListenable: _signatureHostActiveNotifier,
+          builder: (context, pageActive, _) {
+            return Positioned.fill(
+              child: SignatureSvgHost(
+                controller: _signatureSvgHostController,
+                active: pageActive && !isSearchMode,
+              ),
+            );
+          },
+        ),
 
         // 搜索视图
         if (isSearchMode)
@@ -2565,6 +2613,17 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
             },
           ),
       ],
+    );
+
+    return SignatureSvgHostScope(
+      controller: _signatureSvgHostController,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          _signatureSvgHostController.requestLayoutSync();
+          return false;
+        },
+        child: stack,
+      ),
     );
   }
 

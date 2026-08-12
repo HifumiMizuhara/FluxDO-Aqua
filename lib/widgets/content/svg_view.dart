@@ -1,11 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app_icons/app_icons.dart';
 import 'package:jovial_svg/jovial_svg.dart';
 import 'package:m3e_ui/m3e_ui.dart';
 
 import '../../services/blob_image_cache.dart';
 import '../../services/media_geometry_memo.dart';
+import '../../providers/preferences_provider.dart';
 import '../../utils/svg_utils.dart';
 import 'animated_svg_view.dart';
 import 'signature_animation_scope.dart';
@@ -50,9 +52,8 @@ class _SvgEntry {
       source = source,
       cost = source.length * 2;
 
-  _SvgEntry.static_(ScalableImage this.si, String source)
+  _SvgEntry.static_(this.si, this.source)
     : animatedSource = null,
-      source = source,
       cost = 64 << 10; // 粗估,静态图通常很小
 
   const _SvgEntry.source(String source)
@@ -67,8 +68,7 @@ class _SvgEntry {
       source = null,
       cost = 0;
 
-  bool get isError =>
-      animatedSource == null && si == null && source == null;
+  bool get isError => animatedSource == null && si == null && source == null;
 }
 
 /// utf8 解码 + 动画嗅探;顶层函数以便大文件走 compute() 不阻塞 UI isolate。
@@ -87,7 +87,7 @@ class _SvgEntry {
 /// 所有"URL 形态"的不可信内容 SVG 共用此件:帖内 `<img src="*.svg">`、
 /// 用户签名、DiscourseImage、图片查看器 fallback。内联 `<svg>` 源码
 /// 已在手,不需要下载,由 FluxdoRenderCallbacks 直接做同样的路由。
-class DiscourseSvgView extends StatefulWidget {
+class DiscourseSvgView extends ConsumerStatefulWidget {
   /// 已解析好的图片地址(upload:// 解析、CDN 重写由调用方完成)。
   final String url;
   final double? width;
@@ -116,10 +116,10 @@ class DiscourseSvgView extends StatefulWidget {
   });
 
   @override
-  State<DiscourseSvgView> createState() => _DiscourseSvgViewState();
+  ConsumerState<DiscourseSvgView> createState() => _DiscourseSvgViewState();
 }
 
-class _DiscourseSvgViewState extends State<DiscourseSvgView> {
+class _DiscourseSvgViewState extends ConsumerState<DiscourseSvgView> {
   /// 大文件门槛:utf8 解码+动画嗅探全量扫描挪 isolate。
   static const int _bigFileBytes = 256 << 10;
 
@@ -278,10 +278,18 @@ class _DiscourseSvgViewState extends State<DiscourseSvgView> {
 
     if (_si != null) {
       // 无显式尺寸时按 viewport 自然尺寸展示(对齐 DiscourseImage 原语义)
+      final experimental = ref.watch(
+        preferencesProvider.select((p) => p.experimentalNativeSvgFix),
+      );
+      final image = ScalableImageWidget(
+        si: _si!,
+        fit: widget.fit,
+        isComplex: experimental,
+      );
       return SizedBox(
         width: widget.width ?? _si!.viewport.width,
         height: widget.height ?? _si!.viewport.height,
-        child: ScalableImageWidget(si: _si!, fit: widget.fit),
+        child: experimental ? RepaintBoundary(child: image) : image,
       );
     }
 

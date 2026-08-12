@@ -28,6 +28,8 @@
   "navTapAction_scrollToTop": "回到頂部",
   "config_seedUserTitle": "種子用户",
   "preferences_advanced": "高級",
+  "preferences_experimentalNativeSvgFix": "原生 SVG 修正（實驗性）",
+  "preferences_experimentalNativeSvgFixDesc": "使用 Painter 快取、靜態圖層和 vsync 調度的實驗性 SVG 渲染路徑。如有顯示問題請關閉。",
   "preferences_anonymousShare": "匿名分享",
   "preferences_anonymousShareDesc": "分享鏈接時不附帶個人用户標識",
   "preferences_autoFillLogin": "自動填充登錄",

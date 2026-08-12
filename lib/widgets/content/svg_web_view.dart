@@ -14,6 +14,7 @@ import '../../services/webview_settings.dart';
 import '../../services/windows_webview_environment_service.dart';
 import '../../utils/svg_utils.dart';
 import 'animated_svg_view.dart';
+import 'signature_svg_host.dart';
 
 /// 用系统 WebView 绘制一个 SVG 文档。
 ///
@@ -44,7 +45,12 @@ class _SvgWebViewState extends State<SvgWebView> {
   static const _acquireDelay = Duration(milliseconds: 80);
 
   final Object _visibilityKey = Object();
+  static int _nextSlotId = 0;
+
+  final GlobalKey _layoutKey = GlobalKey();
   final _pool = SvgWebViewControllerPool.instance;
+
+  late final String _slotId = 'signature-svg-slot-${_nextSlotId++}';
 
   SvgWebViewLease? _lease;
   InAppWebViewController? _controller;
@@ -56,29 +62,29 @@ class _SvgWebViewState extends State<SvgWebView> {
   bool _loaded = false;
   int _generation = 0;
   DateTime? _webViewStartedAt;
+  SignatureSvgHostController? _host;
+  bool _hostRegistered = false;
+  bool _hostRegistrationScheduled = false;
 
   String get _snapshotKey =>
       '${widget.svgSource.length}:${widget.svgSource.hashCode}:'
       '${widget.width}:${widget.height}';
 
   Map<String, dynamic> get _logFields => {
-        'sourceLength': widget.svgSource.length,
-        'sourceHash': widget.svgSource.hashCode,
-        'width': widget.width,
-        'height': widget.height,
-        'generation': _generation,
-        'poolActive': _pool.activeCount,
-        'poolMax': SvgWebViewControllerPool.maxControllers,
-      };
+    'sourceLength': widget.svgSource.length,
+    'sourceHash': widget.svgSource.hashCode,
+    'width': widget.width,
+    'height': widget.height,
+    'generation': _generation,
+    'poolActive': _pool.activeCount,
+    'poolMax': SvgWebViewControllerPool.maxControllers,
+  };
 
   void _logDebug(String message, {Map<String, dynamic>? fields}) {
     AppLogger.debug(
       message,
       tag: 'SvgWebView',
-      fields: {
-        ..._logFields,
-        ...?fields,
-      },
+      fields: {..._logFields, ...?fields},
     );
   }
 
@@ -103,10 +109,19 @@ class _SvgWebViewState extends State<SvgWebView> {
     super.initState();
     _restoreSnapshot();
     _pool.revision.addListener(_onPoolRevision);
-    _logDebug(
-      'state_init',
-      fields: {'snapshotHit': _snapshotImage != null},
-    );
+    _logDebug('state_init', fields: {'snapshotHit': _snapshotImage != null});
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final host = SignatureSvgHostScope.maybeOf(context);
+    if (identical(host, _host)) return;
+
+    _unregisterFromHost();
+    _host = host;
+    _host?.addListener(_onHostChanged);
+    _scheduleHostRegistration();
   }
 
   @override
@@ -116,6 +131,7 @@ class _SvgWebViewState extends State<SvgWebView> {
         oldWidget.width != widget.width ||
         oldWidget.height != widget.height) {
       _logDebug('source_updated');
+      _unregisterFromHost();
       _resetForNewSource();
     }
   }
@@ -124,13 +140,13 @@ class _SvgWebViewState extends State<SvgWebView> {
   void dispose() {
     _logDebug(
       'state_dispose',
-      fields: {
-        'hadLease': _lease != null,
-        'loaded': _loaded,
-      },
+      fields: {'hadLease': _lease != null, 'loaded': _loaded},
     );
     _generation++;
     _acquireTimer?.cancel();
+    _host?.removeListener(_onHostChanged);
+    _unregisterFromHost();
+    _host = null;
     _pool.revision.removeListener(_onPoolRevision);
     _lease?.release();
     _lease = null;
@@ -138,14 +154,66 @@ class _SvgWebViewState extends State<SvgWebView> {
     super.dispose();
   }
 
+  void _onHostChanged() {
+    if (!mounted) return;
+    if (_host != null && !_host!.isFailed) {
+      _releaseLegacyLeaseForSharedHost();
+    }
+    _scheduleHostRegistration();
+    if (_host?.isFailed == true && _visible) {
+      _scheduleAcquire();
+    }
+    setState(() {});
+  }
+
+  void _releaseLegacyLeaseForSharedHost() {
+    _generation++;
+    _acquireTimer?.cancel();
+    _acquireTimer = null;
+    _controller = null;
+    _loaded = false;
+    _lease?.release();
+    _lease = null;
+  }
+
+  void _scheduleHostRegistration() {
+    if (!mounted || _host == null || _hostRegistrationScheduled) return;
+    _hostRegistrationScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _hostRegistrationScheduled = false;
+      if (mounted) _registerWithHost();
+    });
+  }
+
+  void _registerWithHost() {
+    final host = _host;
+    if (host == null) return;
+    final renderObject = _layoutKey.currentContext?.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) {
+      _scheduleHostRegistration();
+      return;
+    }
+    host.registerSlot(
+      id: _slotId,
+      source: widget.svgSource,
+      renderBox: renderObject,
+      visible: _visible,
+    );
+    _hostRegistered = true;
+  }
+
+  void _unregisterFromHost() {
+    final host = _host;
+    if (host == null || !_hostRegistered) return;
+    host.unregisterSlot(_slotId);
+    _hostRegistered = false;
+  }
+
   void _restoreSnapshot() {
     final bytes = _SvgWebViewSnapshotCache.peek(_snapshotKey);
     if (bytes != null) {
       _snapshotImage = MemoryImage(bytes);
-      _logDebug(
-        'snapshot_cache_hit',
-        fields: {'snapshotBytes': bytes.length},
-      );
+      _logDebug('snapshot_cache_hit', fields: {'snapshotBytes': bytes.length});
     }
   }
 
@@ -161,27 +229,30 @@ class _SvgWebViewState extends State<SvgWebView> {
     _lease = null;
     _restoreSnapshot();
     if (mounted) setState(() {});
-    if (_visible) _scheduleAcquire();
+    _scheduleHostRegistration();
+    if (_visible && _host == null) _scheduleAcquire();
   }
 
   void _onPoolRevision() {
-    if (!_visible || _lease != null) return;
+    if (!_visible || _lease != null || (_host != null && !_host!.isFailed)) {
+      return;
+    }
     _scheduleAcquire();
   }
 
   void _onVisibilityChanged(VisibilityInfo info) {
+    if (!mounted) return;
     final visible = info.visibleFraction >= _visibilityThreshold;
     if (_visible == visible) return;
     _visible = visible;
+    _host?.updateSlotVisibility(_slotId, visible);
     _logDebug(
       'visibility_changed',
-      fields: {
-        'visible': visible,
-        'visibleFraction': info.visibleFraction,
-      },
+      fields: {'visible': visible, 'visibleFraction': info.visibleFraction},
     );
     if (visible) {
-      _scheduleAcquire();
+      if (_host == null) _scheduleAcquire();
+      _scheduleHostRegistration();
     } else {
       _acquireTimer?.cancel();
       unawaited(_deactivate());
@@ -189,7 +260,10 @@ class _SvgWebViewState extends State<SvgWebView> {
   }
 
   void _scheduleAcquire() {
-    if (!mounted || !_visible || _lease != null) {
+    if (!mounted ||
+        !_visible ||
+        _lease != null ||
+        (_host != null && !_host!.isFailed)) {
       return;
     }
     _acquireTimer?.cancel();
@@ -198,7 +272,10 @@ class _SvgWebViewState extends State<SvgWebView> {
 
   void _tryAcquire() {
     _acquireTimer = null;
-    if (!mounted || !_visible || _lease != null) {
+    if (!mounted ||
+        !_visible ||
+        _lease != null ||
+        (_host != null && !_host!.isFailed)) {
       return;
     }
 
@@ -298,7 +375,7 @@ class _SvgWebViewState extends State<SvgWebView> {
     return ScalableImageWidget(si: image, fit: BoxFit.contain);
   }
 
-  Widget _buildBody() {
+  Widget _buildLegacyBody() {
     final image = _snapshotImage;
     if (_lease == null) {
       if (image != null) return _buildSnapshot(image);
@@ -347,9 +424,7 @@ class _SvgWebViewState extends State<SvgWebView> {
           fields: {
             'loadMs': _webViewStartedAt == null
                 ? null
-                : DateTime.now()
-                    .difference(_webViewStartedAt!)
-                    .inMilliseconds,
+                : DateTime.now().difference(_webViewStartedAt!).inMilliseconds,
           },
         );
       },
@@ -388,6 +463,17 @@ class _SvgWebViewState extends State<SvgWebView> {
         return NavigationActionPolicy.ALLOW;
       },
     );
+  }
+
+  Widget _buildBody() {
+    // A pane host owns the native controller. During host initialization and
+    // while the pane is inactive, retain only the Flutter-sized transparent
+    // slot. A failed/absent host deliberately takes the legacy path below.
+    final host = _host;
+    if (host != null && !host.isFailed) {
+      return const SizedBox.expand();
+    }
+    return _buildLegacyBody();
   }
 
   Widget _buildSnapshot(MemoryImage image) {
@@ -452,6 +538,7 @@ class _SvgWebViewState extends State<SvgWebView> {
             alignment: widget.alignment,
             heightFactor: 1,
             child: SizedBox(
+              key: _layoutKey,
               width: displayWidth,
               height: displayHeight,
               child: _buildBody(),

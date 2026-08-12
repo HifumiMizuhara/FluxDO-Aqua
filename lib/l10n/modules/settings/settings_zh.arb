@@ -45,6 +45,8 @@
   "navTapAction_scrollToTop": "回到顶部",
   "config_seedUserTitle": "种子用户",
   "preferences_advanced": "高级",
+  "preferences_experimentalNativeSvgFix": "原生 SVG 修复（实验性）",
+  "preferences_experimentalNativeSvgFixDesc": "使用 Painter 缓存、静态图层和 vsync 调度的实验性 SVG 渲染路径。出现显示问题时请关闭。",
   "preferences_anonymousShare": "匿名分享",
   "preferences_anonymousShareDesc": "分享链接时不附带个人用户标识",
   "preferences_autoFillLogin": "自动填充登录",

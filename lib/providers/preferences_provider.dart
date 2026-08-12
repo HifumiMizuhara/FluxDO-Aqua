@@ -201,6 +201,9 @@ class AppPreferences {
   /// 使用系统 WebView 绘制用户签名中的 SVG。
   final bool signatureSvgWebView;
 
+  /// SVG experimental rendering path. Off keeps the legacy renderer unchanged.
+  final bool experimentalNativeSvgFix;
+
   /// Boost 弹幕化（默认关闭）
   final bool boostDanmaku;
 
@@ -296,6 +299,7 @@ class AppPreferences {
     this.showSignatures = false,
     this.adaptiveSignatureFrameRate = true,
     this.signatureSvgWebView = false,
+    this.experimentalNativeSvgFix = false,
     this.boostDanmaku = false,
     this.showSuggestedTopics = true,
     this.defaultNestedView = false,
@@ -353,6 +357,7 @@ class AppPreferences {
     bool? showSignatures,
     bool? adaptiveSignatureFrameRate,
     bool? signatureSvgWebView,
+    bool? experimentalNativeSvgFix,
     bool? boostDanmaku,
     bool? showSuggestedTopics,
     bool? defaultNestedView,
@@ -422,6 +427,8 @@ class AppPreferences {
       adaptiveSignatureFrameRate:
           adaptiveSignatureFrameRate ?? this.adaptiveSignatureFrameRate,
       signatureSvgWebView: signatureSvgWebView ?? this.signatureSvgWebView,
+      experimentalNativeSvgFix:
+          experimentalNativeSvgFix ?? this.experimentalNativeSvgFix,
       boostDanmaku: boostDanmaku ?? this.boostDanmaku,
       showSuggestedTopics: showSuggestedTopics ?? this.showSuggestedTopics,
       defaultNestedView: defaultNestedView ?? this.defaultNestedView,
@@ -497,6 +504,8 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
   static const String _adaptiveSignatureFrameRateKey =
       'pref_adaptive_signature_frame_rate';
   static const String _signatureSvgWebViewKey = 'pref_signature_svg_webview';
+  static const String _experimentalNativeSvgFixKey =
+      'pref_experimental_native_svg_fix';
   static const String _boostDanmakuKey = 'pref_boost_danmaku';
   static const String _showSuggestedTopicsKey = 'pref_show_suggested_topics';
   static const String _defaultNestedViewKey = 'pref_default_nested_view';
@@ -577,8 +586,9 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
           showSignatures: _prefs.getBool(_showSignaturesKey) ?? false,
           adaptiveSignatureFrameRate:
               _prefs.getBool(_adaptiveSignatureFrameRateKey) ?? true,
-          signatureSvgWebView:
-              _prefs.getBool(_signatureSvgWebViewKey) ?? false,
+          signatureSvgWebView: _prefs.getBool(_signatureSvgWebViewKey) ?? false,
+          experimentalNativeSvgFix:
+              _prefs.getBool(_experimentalNativeSvgFixKey) ?? false,
           boostDanmaku: _prefs.getBool(_boostDanmakuKey) ?? false,
           showSuggestedTopics: _prefs.getBool(_showSuggestedTopicsKey) ?? true,
           defaultNestedView: _prefs.getBool(_defaultNestedViewKey) ?? false,
@@ -860,6 +870,12 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
   Future<void> setSignatureSvgWebView(bool enabled) async {
     state = state.copyWith(signatureSvgWebView: enabled);
     await _prefs.setBool(_signatureSvgWebViewKey, enabled);
+  }
+
+  Future<void> setExperimentalNativeSvgFix(bool enabled) async {
+    if (state.experimentalNativeSvgFix == enabled) return;
+    state = state.copyWith(experimentalNativeSvgFix: enabled);
+    await _prefs.setBool(_experimentalNativeSvgFixKey, enabled);
   }
 
   Future<void> setBoostDanmaku(bool enabled) async {

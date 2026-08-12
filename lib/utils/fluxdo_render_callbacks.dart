@@ -23,6 +23,7 @@ import '../pages/mermaid_viewer_page.dart';
 import '../pages/topic_detail_page/topic_detail_page.dart';
 import '../models/topic.dart' show Post, MentionedUser, LinkCount;
 import '../providers/download_provider.dart';
+import '../providers/preferences_provider.dart';
 import '../providers/selected_topic_provider.dart';
 import '../services/discourse/discourse_service.dart';
 import '../services/discourse_cache_manager.dart';
@@ -1447,28 +1448,40 @@ class FluxdoRenderCallbacks {
           return AnimatedSvgView(svgSource: resolved);
         }
 
-        final ScalableImage si;
-        try {
-          si = ScalableImage.fromSvgString(resolved, warnF: (_) {});
-        } catch (_) {
-          return const SizedBox.shrink();
-        }
-        final viewport = si.viewport;
-        if (viewport.width <= 0 || viewport.height <= 0) {
-          return const SizedBox.shrink();
-        }
-        final aspectRatio = viewport.width / viewport.height;
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final availableWidth = constraints.maxWidth.isFinite
-                ? constraints.maxWidth
-                : MediaQuery.of(context).size.width - 32;
-            final displayWidth = availableWidth;
-            final displayHeight = displayWidth / aspectRatio;
-            return SizedBox(
-              width: displayWidth,
-              height: displayHeight,
-              child: ScalableImageWidget(si: si, fit: BoxFit.contain),
+        return Consumer(
+          builder: (context, ref, _) {
+            final experimental = ref.watch(
+              preferencesProvider.select((p) => p.experimentalNativeSvgFix),
+            );
+            final ScalableImage si;
+            try {
+              si = ScalableImage.fromSvgString(resolved, warnF: (_) {});
+            } catch (_) {
+              return const SizedBox.shrink();
+            }
+            final viewport = si.viewport;
+            if (viewport.width <= 0 || viewport.height <= 0) {
+              return const SizedBox.shrink();
+            }
+            final aspectRatio = viewport.width / viewport.height;
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final availableWidth = constraints.maxWidth.isFinite
+                    ? constraints.maxWidth
+                    : MediaQuery.of(context).size.width - 32;
+                final displayWidth = availableWidth;
+                final displayHeight = displayWidth / aspectRatio;
+                final image = ScalableImageWidget(
+                  si: si,
+                  fit: BoxFit.contain,
+                  isComplex: experimental,
+                );
+                return SizedBox(
+                  width: displayWidth,
+                  height: displayHeight,
+                  child: experimental ? RepaintBoundary(child: image) : image,
+                );
+              },
             );
           },
         );

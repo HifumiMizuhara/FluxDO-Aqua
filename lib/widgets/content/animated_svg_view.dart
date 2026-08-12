@@ -11,6 +11,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:app_icons/app_icons.dart';
@@ -26,6 +27,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../services/signature_frame_scheduler.dart';
+import '../../providers/preferences_provider.dart';
 import '../../utils/svg_utils.dart';
 import 'signature_animation_scope.dart';
 
@@ -62,7 +64,7 @@ import 'signature_animation_scope.dart';
 /// （full_svg_flutter 会真实执行 `<script>`,包括拉取外链脚本,
 /// `<image href="file://">` 会读本地文件——论坛内容是不可信输入）。
 /// 剥离是懒的:只在真正挂活体时执行,贴快照的实例不付这三遍正则。
-class AnimatedSvgView extends StatefulWidget {
+class AnimatedSvgView extends ConsumerStatefulWidget {
   final String svgSource;
   final BoxFit fit;
 
@@ -93,7 +95,7 @@ class AnimatedSvgView extends StatefulWidget {
       _AnimatedSvgViewState._rootGeometryOf(svgSource);
 
   @override
-  State<AnimatedSvgView> createState() => _AnimatedSvgViewState();
+  ConsumerState<AnimatedSvgView> createState() => _AnimatedSvgViewState();
 }
 
 /// 首帧快照缓存:内存 LRU(key=会话内容 hash) + 磁盘 PNG(key=内容摘要)。
@@ -217,7 +219,8 @@ class _BumpNotifier extends ChangeNotifier {
   void bump() => notifyListeners();
 }
 
-class _AnimatedSvgViewState extends State<AnimatedSvgView> {
+class _AnimatedSvgViewState extends ConsumerState<AnimatedSvgView>
+    with SingleTickerProviderStateMixin {
   /// 全局单播放注册表:同屏最多一个实例在播。
   static _AnimatedSvgViewState? _playing;
 
@@ -253,12 +256,19 @@ class _AnimatedSvgViewState extends State<AnimatedSvgView> {
   AnimatedSvgController? _controller;
   _BumpNotifier? _waitNotifier;
   bool _adaptiveFrameRate = false;
+  bool _experimentalSvgFix = false;
+  Ticker? _experimentalTicker;
+  Duration? _lastExperimentalTick;
+  _SelfDrivenSvgPainter? _playerPainter;
+  bool _playerCacheSafe = false;
 
   // ---- 自持播放器(见"播放控制"注释) ----
   SvgDocument? _playerDoc;
   SvgTimeline? _playerTimeline;
   final _BumpNotifier _frameBump = _BumpNotifier();
   final Set<SvgNode> _hiddenByUs = <SvgNode>{};
+  final List<SvgNode> _animatedOpacityNodes = <SvgNode>[];
+  final List<SvgNode> _animatedPathNodes = <SvgNode>[];
   bool get _playerMounted => _playerDoc != null;
 
   /// 防注入后的源码;memoize,同一实例只剥一次。
@@ -268,7 +278,34 @@ class _AnimatedSvgViewState extends State<AnimatedSvgView> {
   @override
   void initState() {
     super.initState();
+    _experimentalSvgFix = ref
+        .read(preferencesProvider)
+        .experimentalNativeSvgFix;
+    ref.listenManual<bool>(
+      preferencesProvider.select((p) => p.experimentalNativeSvgFix),
+      (previous, next) {
+        if (previous == next || !mounted) return;
+        _setExperimentalSvgFix(next);
+      },
+    );
     _initSource();
+  }
+
+  void _setExperimentalSvgFix(bool enabled) {
+    if (_experimentalSvgFix == enabled) return;
+    _experimentalSvgFix = enabled;
+    _playerCacheSafe =
+        enabled &&
+        (_playerTimeline?.animations.every(_isRenderCacheSafeAnimation) ??
+            false);
+    _playerPainter?.dispose();
+    _playerPainter = null;
+    _playerCacheSafe = false;
+    if (_isPlaying) {
+      _stopPlaybackClock();
+      _startPlaybackClock();
+    }
+    if (mounted) setState(() {});
   }
 
   @override
@@ -434,9 +471,15 @@ class _AnimatedSvgViewState extends State<AnimatedSvgView> {
     _armTimer = null;
     _stopPlaybackClock();
     _playClock.reset();
+    _playerPainter?.dispose();
+    _playerPainter = null;
+    _playerCacheSafe = false;
+    _playerDoc?.dispose();
     _playerDoc = null;
     _playerTimeline = null;
     _hiddenByUs.clear();
+    _animatedOpacityNodes.clear();
+    _animatedPathNodes.clear();
     _snapshot?.dispose();
     _snapshot = null;
     _strippedSource = null;
@@ -454,6 +497,8 @@ class _AnimatedSvgViewState extends State<AnimatedSvgView> {
   void dispose() {
     if (_playing == this) _playing = null;
     _teardownSource();
+    _experimentalTicker?.dispose();
+    _experimentalTicker = null;
     super.dispose();
   }
 
@@ -611,6 +656,10 @@ class _AnimatedSvgViewState extends State<AnimatedSvgView> {
     _playTimer?.cancel();
     _stopAdaptivePlayback();
     _playClock.start();
+    if (_experimentalSvgFix) {
+      _startExperimentalVsync();
+      return;
+    }
     if (_adaptiveFrameRate) {
       _startAdaptivePlayback();
       return;
@@ -629,8 +678,40 @@ class _AnimatedSvgViewState extends State<AnimatedSvgView> {
   void _stopPlaybackClock() {
     _playTimer?.cancel();
     _playTimer = null;
+    _stopExperimentalVsync();
     _stopAdaptivePlayback();
     _playClock.stop();
+  }
+
+  /// Experimental path: sample on display vsync instead of waking a timer
+  /// independently of the frame pipeline.  Keep a conservative 30 FPS cap so
+  /// the optimization does not turn a slow SVG into a permanent 60 FPS UI
+  /// isolate workload.
+  static const Duration _experimentalFrameInterval = Duration(
+    microseconds: 33333,
+  );
+
+  void _startExperimentalVsync() {
+    _experimentalTicker?.stop();
+    _lastExperimentalTick = null;
+    _experimentalTicker ??= createTicker(_onExperimentalVsync);
+    _experimentalTicker!.start();
+  }
+
+  void _stopExperimentalVsync() {
+    _experimentalTicker?.stop();
+    _lastExperimentalTick = null;
+  }
+
+  void _onExperimentalVsync(Duration elapsed) {
+    if (!mounted || !_isPlaying || !_experimentalSvgFix) return;
+    final previous = _lastExperimentalTick;
+    if (previous != null && elapsed - previous < _experimentalFrameInterval) {
+      return;
+    }
+    _lastExperimentalTick = elapsed;
+    if (Scrollable.recommendDeferredLoadingForContext(context)) return;
+    _tickPlayer();
   }
 
   void _tickPlayer() {
@@ -642,8 +723,13 @@ class _AnimatedSvgViewState extends State<AnimatedSvgView> {
       return;
     }
     timeline.seek(_playClock.elapsed);
-    _syncHiddenLayers(doc.root);
-    _unwrapCssPathValues(doc.root); // CSS d:path("...") 帧值解包(上游缺陷)
+    if (_experimentalSvgFix) {
+      _syncAnimatedHiddenLayers();
+      _unwrapAnimatedCssPathValues();
+    } else {
+      _syncHiddenLayers(doc.root);
+      _unwrapCssPathValues(doc.root); // CSS d:path("...") 帧值解包(上游缺陷)
+    }
     _frameBump.bump(); // 直达 CustomPaint.repaint,不走 build
   }
 
@@ -667,6 +753,51 @@ class _AnimatedSvgViewState extends State<AnimatedSvgView> {
     }
   }
 
+  /// Experimental fast path: only opacity targets can change the hidden-layer
+  /// decision. The legacy implementation walks the entire DOM on every tick.
+  void _syncAnimatedHiddenLayers() {
+    for (final node in _animatedOpacityNodes) {
+      final v = node.getAttributeValue('opacity');
+      final d = v is num ? v.toDouble() : double.tryParse(v?.toString() ?? '');
+      final shouldHide = d != null && d <= 0.01;
+      final hiddenNow = _hiddenByUs.contains(node);
+      if (shouldHide && !hiddenNow) {
+        node.setAttribute('display', 'none', rawValue: 'none');
+        _hiddenByUs.add(node);
+      } else if (!shouldHide && hiddenNow) {
+        node.setAttribute('display', 'inline', rawValue: 'inline');
+        _hiddenByUs.remove(node);
+      }
+    }
+  }
+
+  /// CSS `d:path(...)` only needs to be unwrapped for animated path targets.
+  void _unwrapAnimatedCssPathValues() {
+    for (final node in _animatedPathNodes) {
+      _unwrapCssPathValue(node);
+    }
+  }
+
+  void _indexAnimatedNodes(List<SmilAnimation> animations) {
+    _animatedOpacityNodes.clear();
+    _animatedPathNodes.clear();
+    final opacitySeen = <SvgNode>{};
+    final pathSeen = <SvgNode>{};
+    for (final animation in animations) {
+      final name = animation.attributeName.trim().toLowerCase();
+      if (name == 'opacity' || name.endsWith('.opacity')) {
+        if (opacitySeen.add(animation.targetNode)) {
+          _animatedOpacityNodes.add(animation.targetNode);
+        }
+      }
+      if (name == 'd' || name.endsWith('.d')) {
+        if (pathSeen.add(animation.targetNode)) {
+          _animatedPathNodes.add(animation.targetNode);
+        }
+      }
+    }
+  }
+
   /// 启动自持播放器:复用离屏管线同款后台 parse(不剪层,播放需要全部
   /// 层随时间轴显隐),UI isolate 只挂一个 CustomPaint。
   Future<void> _mountPlayer() async {
@@ -674,9 +805,13 @@ class _AnimatedSvgViewState extends State<AnimatedSvgView> {
     final (doc, anims) = await _parseFirstFrameInBgForPlayback(
       widget.svgSource,
     );
-    if (!mounted || key != _cacheKey) return;
+    if (!mounted || key != _cacheKey) {
+      doc.dispose();
+      return;
+    }
     if (anims.isEmpty) {
       // 无可播放时间轴:保持快照态
+      doc.dispose();
       setState(() {
         _pendingPlay = false;
         _isPlaying = false;
@@ -685,6 +820,9 @@ class _AnimatedSvgViewState extends State<AnimatedSvgView> {
     }
     _playerDoc = doc;
     _playerTimeline = SvgTimeline(animations: anims, rootNode: doc.root);
+    _indexAnimatedNodes(anims);
+    _playerCacheSafe =
+        _experimentalSvgFix && anims.every(_isRenderCacheSafeAnimation);
     _playerTimeline!.seek(Duration.zero);
     _syncHiddenLayers(doc.root);
     setState(() {
@@ -789,15 +927,15 @@ class _AnimatedSvgViewState extends State<AnimatedSvgView> {
   /// 自持播放器子树:直接用包 painter 画自己驱动的 SvgDocument,
   /// 重绘由 repaint listenable 触发(不 setState、不重建 widget 树)。
   Widget _buildPlayer() {
+    final painter = _playerPainter ??= _SelfDrivenSvgPainter(
+      document: _playerDoc!,
+      repaint: _frameBump,
+      enableExperimentalOptimization: _experimentalSvgFix,
+      reuseRenderCache: _playerCacheSafe,
+    );
     return RepaintBoundary(
       child: ClipRect(
-        child: CustomPaint(
-          painter: _SelfDrivenSvgPainter(
-            document: _playerDoc!,
-            repaint: _frameBump,
-          ),
-          size: Size.infinite,
-        ),
+        child: CustomPaint(painter: painter, size: Size.infinite),
       ),
     );
   }
@@ -1038,14 +1176,18 @@ final RegExp _cssPathFnRe = RegExp(r'''^path\(\s*["']([\s\S]*)["']\s*\)$''');
 /// → 整条 path 静默不画(手写签名类 SVG 整图空白)。seek 后把
 /// 包装拆掉还原为裸 path data。
 void _unwrapCssPathValues(SvgNode node) {
+  _unwrapCssPathValue(node);
+  for (final c in node.children) {
+    _unwrapCssPathValues(c);
+  }
+}
+
+void _unwrapCssPathValue(SvgNode node) {
   final attr = node.getAttribute('d');
   final v = attr?.effectiveValue;
   if (v is String) {
     final m = _cssPathFnRe.firstMatch(v.trim());
     if (m != null) attr!.setAnimatedValue(m.group(1)!);
-  }
-  for (final c in node.children) {
-    _unwrapCssPathValues(c);
   }
 }
 
@@ -1096,22 +1238,200 @@ Future<(SvgDocument, List<SmilAnimation>)> _parseFirstFrameInBgForPlayback(
 /// repaint listenable(每 tick bump)驱动 —— 播放帧不经过 setState/
 /// build/element 更新,只走 paint。
 class _SelfDrivenSvgPainter extends CustomPainter {
-  _SelfDrivenSvgPainter({required this.document, required Listenable repaint})
-    : super(repaint: repaint);
+  _SelfDrivenSvgPainter({
+    required this.document,
+    required Listenable repaint,
+    required bool enableExperimentalOptimization,
+    required bool reuseRenderCache,
+  }) : _enableExperimentalOptimization = enableExperimentalOptimization,
+       _reuseRenderCache = reuseRenderCache,
+       _sharedNodes = _collectSharedNodes(document),
+       _delegate = AnimatedSvgPainter(
+         document: document,
+         hasAnimations: true,
+         // Keep one package painter alive. Its internal render cache is
+         // otherwise recreated on every paint in the legacy path.
+         clipToViewBox: true,
+       ),
+       _runs = enableExperimentalOptimization
+           ? _buildRuns(document)
+           : const <_SvgPaintRun>[],
+       super(repaint: repaint) {
+    if (enableExperimentalOptimization) {
+      _partitioned = _canPartition(document, _runs);
+    }
+  }
 
   final SvgDocument document;
+  final bool _enableExperimentalOptimization;
+  final bool _reuseRenderCache;
+  final List<SvgNode> _sharedNodes;
+  final AnimatedSvgPainter _delegate;
+  final List<_SvgPaintRun> _runs;
+  bool _partitioned = false;
+  Size? _pictureSize;
+
+  static List<SvgNode> _collectSharedNodes(SvgDocument document) => document
+      .root
+      .children
+      .where((node) {
+        final tag = node.tagName.toLowerCase();
+        return tag == 'defs' ||
+            tag == 'style' ||
+            tag == 'title' ||
+            tag == 'desc' ||
+            tag == 'metadata';
+      })
+      .toList(growable: false);
+
+  static List<_SvgPaintRun> _buildRuns(SvgDocument document) {
+    final runs = <_SvgPaintRun>[];
+    final visible = document.root.children.where((node) {
+      final tag = node.tagName.toLowerCase();
+      return tag != 'defs' &&
+          tag != 'style' &&
+          tag != 'title' &&
+          tag != 'desc' &&
+          tag != 'metadata';
+    });
+    for (final node in visible) {
+      final isStatic = !node.hasAnimations;
+      if (runs.isNotEmpty && runs.last.isStatic == isStatic) {
+        runs.last.children.add(node);
+      } else {
+        runs.add(_SvgPaintRun(isStatic: isStatic, children: [node]));
+      }
+    }
+    return runs;
+  }
+
+  static bool _canPartition(SvgDocument document, List<_SvgPaintRun> runs) {
+    if (runs.isEmpty ||
+        !runs.any((run) => run.isStatic) ||
+        !runs.any((run) => !run.isStatic) ||
+        runs.where((run) => !run.isStatic).length > 4) {
+      return false;
+    }
+    // These features can make isolated top-level rendering observably
+    // different because they depend on sibling order or shared references.
+    return !_containsAnyTag(document.root, const {
+      'use',
+      'foreignobject',
+      'filter',
+      'mask',
+      'clippath',
+    });
+  }
+
+  static bool _containsAnyTag(SvgNode node, Set<String> tags) {
+    if (tags.contains(node.tagName.toLowerCase())) return true;
+    for (final child in node.children) {
+      if (_containsAnyTag(child, tags)) return true;
+    }
+    return false;
+  }
+
+  void _replaceRootChildren(List<SvgNode> children) {
+    document.root.children
+      ..clear()
+      ..addAll([..._sharedNodes, ...children]);
+  }
+
+  void _recordStaticPictures(ui.Size size) {
+    for (final run in _runs) {
+      if (!run.isStatic) continue;
+      final recorder = ui.PictureRecorder();
+      final recordingCanvas = ui.Canvas(recorder);
+      _replaceRootChildren(run.children);
+      _delegate.paint(recordingCanvas, size);
+      run.picture = recorder.endRecording();
+    }
+    _pictureSize = size;
+  }
+
+  AnimatedSvgPainter _newFrameDelegate() => AnimatedSvgPainter(
+    document: document,
+    hasAnimations: true,
+    clipToViewBox: true,
+  );
+
+  void _paintDelegate(ui.Canvas canvas, ui.Size size) {
+    (_reuseRenderCache ? _delegate : _newFrameDelegate()).paint(canvas, size);
+  }
 
   @override
   void paint(ui.Canvas canvas, ui.Size size) {
-    AnimatedSvgPainter(
-      document: document,
-      hasAnimations: true,
-      animationTime: 0.0,
-      clipToViewBox: true,
-    ).paint(canvas, size);
+    if (!_enableExperimentalOptimization || !_partitioned) {
+      _paintDelegate(canvas, size);
+      return;
+    }
+
+    final originalChildren = List<SvgNode>.from(document.root.children);
+    try {
+      if (_pictureSize != size) {
+        for (final run in _runs) {
+          run.picture?.dispose();
+          run.picture = null;
+        }
+        _recordStaticPictures(size);
+      }
+      for (final run in _runs) {
+        if (run.isStatic) {
+          final picture = run.picture;
+          if (picture != null) canvas.drawPicture(picture);
+          continue;
+        }
+        _replaceRootChildren(run.children);
+        _paintDelegate(canvas, size);
+      }
+    } finally {
+      document.root.children
+        ..clear()
+        ..addAll(originalChildren);
+    }
   }
 
   @override
   bool shouldRepaint(_SelfDrivenSvgPainter oldDelegate) =>
-      !identical(oldDelegate.document, document);
+      !identical(oldDelegate.document, document) ||
+      oldDelegate._enableExperimentalOptimization !=
+          _enableExperimentalOptimization ||
+      oldDelegate._reuseRenderCache != _reuseRenderCache;
+
+  void dispose() {
+    for (final run in _runs) {
+      run.picture?.dispose();
+      run.picture = null;
+    }
+    _pictureSize = null;
+  }
+}
+
+class _SvgPaintRun {
+  _SvgPaintRun({required this.isStatic, required this.children});
+
+  final bool isStatic;
+  final List<SvgNode> children;
+  ui.Picture? picture;
+}
+
+bool _isRenderCacheSafeAnimation(SmilAnimation animation) {
+  final name = animation.attributeName.trim().toLowerCase();
+  final normalized = name.startsWith('style.') ? name.substring(6) : name;
+  return const {
+    'opacity',
+    'transform',
+    'd',
+    'x',
+    'y',
+    'cx',
+    'cy',
+    'r',
+    'rx',
+    'ry',
+    'width',
+    'height',
+    'display',
+    'visibility',
+  }.contains(normalized);
 }

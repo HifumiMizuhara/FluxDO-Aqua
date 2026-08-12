@@ -28,6 +28,8 @@
   "navTapAction_scrollToTop": "Scroll to top",
   "config_seedUserTitle": "Seed user",
   "preferences_advanced": "Advanced",
+  "preferences_experimentalNativeSvgFix": "Native SVG fix (experimental)",
+  "preferences_experimentalNativeSvgFixDesc": "Use experimental SVG rendering with painter caches, static layers, and vsync scheduling. Turn it off if rendering breaks.",
   "preferences_anonymousShare": "Anonymous share",
   "preferences_anonymousShareDesc": "Share links without personal user identifier",
   "preferences_autoFillLogin": "Auto-fill login",

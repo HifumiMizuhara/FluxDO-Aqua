@@ -79,6 +79,28 @@ class SvgUtils {
     return result;
   }
 
+  /// Prepares an animated SVG for the shared browser-image renderer.
+  ///
+  /// The SVG is loaded as a `blob:` image, so the parent document never
+  /// parses it as HTML. This extra pass also removes network/file references
+  /// from the SVG itself while preserving local fragment references and data
+  /// URLs used by self-contained signatures. CSS and SMIL are intentionally
+  /// left intact.
+  static String sanitizeForSecureWebView(String svg) {
+    var result = stripActiveContent(svg);
+    result = result.replaceAll(_externalImportPattern, '');
+    result = result.replaceAllMapped(_externalHrefPattern, (match) {
+      final prefix = match.group(1)!;
+      final quote = match.group(2)!;
+      return '$prefix$quote$quote';
+    });
+    result = result.replaceAllMapped(_externalCssUrlPattern, (match) {
+      final quote = match.group(1) ?? '';
+      return 'url(${quote}about:blank$quote)';
+    });
+    return result;
+  }
+
   static final RegExp _scriptPattern = RegExp(
     r'<script\b[^>]*>.*?</script>|<script\b[^>]*/>',
     caseSensitive: false,
@@ -93,6 +115,21 @@ class SvgUtils {
   static final RegExp _dangerousHrefPattern = RegExp(
     '''\\s(?:xlink:)?href\\s*=\\s*("\\s*(?:file|javascript)\\s*:[^"]*"'''
     """|'\\s*(?:file|javascript)\\s*:[^']*')""",
+    caseSensitive: false,
+  );
+
+  static final RegExp _externalImportPattern = RegExp(
+    r'''@import\s+(?:url\(\s*)?["']?(?!(?:data:|#|about:blank))[^;\n]+;?''',
+    caseSensitive: false,
+  );
+
+  static final RegExp _externalHrefPattern = RegExp(
+    '''(\\s(?:xlink:)?href\\s*=\\s*)(["'])(?!(?:data:|#|blob:|about:blank))[^"']*\\2''',
+    caseSensitive: false,
+  );
+
+  static final RegExp _externalCssUrlPattern = RegExp(
+    r'''url\(\s*(["']?)(?!(?:data:|#|blob:|about:blank))(?:(?:https?:|file:|//|javascript:)[^)]*)\1\s*\)''',
     caseSensitive: false,
   );
 

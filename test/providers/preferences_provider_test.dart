@@ -34,6 +34,28 @@ void main() {
     expect(reloaded.read(preferencesProvider).exitOnSingleBack, isTrue);
   });
 
+  test('実験的SVG修正はデフォルト無効で切り替えを永続化できる', () async {
+    final container = await _createContainer();
+    addTearDown(container.dispose);
+
+    expect(
+      container.read(preferencesProvider).experimentalNativeSvgFix,
+      isFalse,
+    );
+
+    await container
+        .read(preferencesProvider.notifier)
+        .setExperimentalNativeSvgFix(true);
+
+    final prefs = container.read(sharedPreferencesProvider);
+    final reloaded = ProviderContainer(
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+    );
+    addTearDown(reloaded.dispose);
+
+    expect(reloaded.read(preferencesProvider).experimentalNativeSvgFix, isTrue);
+  });
+
   test('书签默认打开方式默认值为 defaultRoute', () async {
     final container = await _createContainer();
     addTearDown(container.dispose);
