@@ -1,27 +1,20 @@
-import 'dart:async';
-
 import 'package:flutter/scheduler.dart';
 
 import '../utils/scroll_busy_signal.dart';
 
 /// 小尾巴动画共享自适应帧调度器。
 ///
-/// 调度器只决定“多久采样一次动画”，时间轴仍按真实经过时间推进，因此降帧
-/// 不会让动画变慢。全部签名共用一个单次 Timer；当前实现虽然只允许一个
-/// SVG 同时播放，但共享设计可以避免以后放宽并发时产生多个独立定时器。
+/// 所有签名共享一个与 Flutter 显示帧对齐的 [Ticker]。Ticker 本身只负责
+/// 提供屏幕帧边界，真正的 SVG 采样仍按 15/8/4fps 节流；因此不会把低帧率
+/// 动画重新拉回 60/120fps，也不会像独立 Timer 那样在一帧中途唤醒 UI
+/// isolate，与当前 build/raster 抢占执行时间。
 ///
-/// 每次派发会推进**所有**订阅者一帧（而非轮转），这样放宽并发后每个 SVG
-/// 拿到的仍然是 [effectiveFps]，不会被订阅数摊薄；总成本随订阅数线性上升，
-/// 由负载学习降档兜底。
+/// 时间轴由调用方按真实经过时间推进，降档只减少采样次数，不会让动画变慢。
 class SignatureFrameScheduler {
   SignatureFrameScheduler._();
 
   static final instance = SignatureFrameScheduler._();
 
-  /// 帧率档位。顶档必须 ≤ AnimatedSvgView 关闭自适应时的固定帧率
-  /// (`_playbackFps = 15`)，否则打开这个以「降低帧率减少卡顿」为名、
-  /// 且默认开启的开关，反而会比关掉它更费 —— 每 tick 是两趟 SVG 全树
-  /// 遍历加一次重绘，帧率上浮的成本相当可观。
   static const _fpsTiers = <int>[15, 8, 4];
   static const _pressureThreshold = 2;
   static const _healthyThreshold = 120;
@@ -29,19 +22,18 @@ class SignatureFrameScheduler {
   final Map<Object, void Function(int nowMicros)> _subscribers = {};
   final Stopwatch _clock = Stopwatch()..start();
 
-  Timer? _timer;
+  Ticker? _ticker;
   bool _dispatching = false;
   bool _timingsAttached = false;
   int _tierIndex = 0;
   int _pressureStreak = 0;
   int _wakeLagStreak = 0;
   int _healthyStreak = 0;
-  int _scheduledAtMicros = 0;
-  int _scheduledDelayMicros = 0;
+  int _lastDispatchTickerMicros = -1;
 
   int get targetFps => _fpsTiers[_tierIndex];
 
-  /// 滚动时固定使用最低档；滚动结束后恢复到负载学习得到的档位。
+  /// 滚动时固定最低档；滚动结束后恢复到负载学习得到的档位。
   int get effectiveFps => ScrollBusySignal.isBusy ? _fpsTiers.last : targetFps;
 
   int get debugSubscriberCount => _subscribers.length;
@@ -52,17 +44,15 @@ class SignatureFrameScheduler {
   }) {
     _subscribers[owner] = onFrame;
     _attachTimings();
-    _scheduleNext();
+    _ensureTickerRunning();
   }
 
   void unsubscribe(Object owner) {
     if (_subscribers.remove(owner) == null) return;
     if (_subscribers.isEmpty) {
-      _timer?.cancel();
-      _timer = null;
+      _ticker?.stop();
+      _lastDispatchTickerMicros = -1;
       _detachTimings();
-    } else if (!_dispatching) {
-      _scheduleNext();
     }
   }
 
@@ -78,41 +68,45 @@ class SignatureFrameScheduler {
     SchedulerBinding.instance.removeTimingsCallback(_onFrameTimings);
   }
 
-  Duration get _interval => Duration(
-    microseconds: (Duration.microsecondsPerSecond / effectiveFps).ceil(),
-  );
+  int get _intervalMicros =>
+      (Duration.microsecondsPerSecond / effectiveFps).ceil();
 
-  void _scheduleNext() {
-    if (_dispatching || _subscribers.isEmpty) return;
-    _timer?.cancel();
-    final delay = _interval;
-    _scheduledAtMicros = _clock.elapsedMicroseconds;
-    _scheduledDelayMicros = delay.inMicroseconds;
-    _timer = Timer(delay, _dispatch);
+  void _ensureTickerRunning() {
+    if (_subscribers.isEmpty) return;
+    _ticker ??= Ticker(
+      _onTickerFrame,
+      debugLabel: 'signature-svg-frame-scheduler',
+    );
+    if (!_ticker!.isActive) {
+      _lastDispatchTickerMicros = -1;
+      _ticker!.start();
+    }
   }
 
-  void _dispatch() {
-    _timer = null;
-    if (_subscribers.isEmpty) return;
+  void _onTickerFrame(Duration elapsed) {
+    if (_subscribers.isEmpty) {
+      _ticker?.stop();
+      _lastDispatchTickerMicros = -1;
+      return;
+    }
 
-    final wakeMicros = _clock.elapsedMicroseconds;
-    final wakeLagMicros =
-        wakeMicros - _scheduledAtMicros - _scheduledDelayMicros;
+    final elapsedMicros = elapsed.inMicroseconds;
+    final last = _lastDispatchTickerMicros;
+    if (last >= 0 && elapsedMicros - last < _intervalMicros) return;
+    _lastDispatchTickerMicros = elapsedMicros;
+
     final dispatchWatch = Stopwatch()..start();
     _dispatching = true;
     try {
-      // 复制一份再遍历:回调里可能触发 unsubscribe(如订阅者已 unmount)。
+      final nowMicros = _clock.elapsedMicroseconds;
+      // 回调中 unsubscribe しても遍历を壊さない。
       for (final onFrame in _subscribers.values.toList(growable: false)) {
-        onFrame(wakeMicros);
+        onFrame(nowMicros);
       }
     } finally {
       dispatchWatch.stop();
       _dispatching = false;
-      _recordLoad(
-        workMicros: dispatchWatch.elapsedMicroseconds,
-        wakeLagMicros: wakeLagMicros,
-      );
-      _scheduleNext();
+      _recordLoad(workMicros: dispatchWatch.elapsedMicroseconds);
     }
   }
 
@@ -126,11 +120,11 @@ class SignatureFrameScheduler {
     }
   }
 
-  /// [wakeLagMicros] 只有调度器自身的派发样本才携带(UI 帧样本传 null)。
+  /// [wakeLagMicros] は既存の deterministic test/debug 注入用に保持する。
+  /// 実運用の Ticker 経路では表示フレーム境界への量子化を wake lag と誤認
+  /// しないよう、この値を生成しない。負荷学習は dispatch 実時間と Flutter
+  /// の build+raster timings を使用する。
   void _recordLoad({required int workMicros, int? wakeLagMicros}) {
-    // 唤醒延迟走独立 streak:派发样本最高 15Hz,UI 帧样本 60-120Hz,
-    // 若共用一条 streak,两个派发样本之间必然夹着几十个 UI 帧样本,
-    // 任何一个健康帧都会清零连击,唤醒延迟信号永远凑不齐阈值(死通路)。
     if (wakeLagMicros != null) {
       if (wakeLagMicros >= 8000) {
         _healthyStreak = 0;
@@ -175,21 +169,22 @@ class SignatureFrameScheduler {
     }
   }
 
+  /// 档位改变后从下一个显示帧重新开始采样，避免保留旧档位的相位。
   void _reschedule() {
-    if (_dispatching || _subscribers.isEmpty) return;
-    _scheduleNext();
+    _lastDispatchTickerMicros = -1;
+    if (!_dispatching) _ensureTickerRunning();
   }
 
   /// 单元测试使用：喂入确定性负载样本。
-  /// [wakeLagMicros] 非 null 表示派发样本,null 表示 UI 帧样本。
   void debugRecordLoad({required int workMicros, int? wakeLagMicros}) {
     _recordLoad(workMicros: workMicros, wakeLagMicros: wakeLagMicros);
   }
 
   /// 单元测试使用：清理单例状态。
   void debugReset() {
-    _timer?.cancel();
-    _timer = null;
+    _ticker?.stop();
+    _ticker?.dispose();
+    _ticker = null;
     _subscribers.clear();
     _dispatching = false;
     _detachTimings();
@@ -197,7 +192,6 @@ class SignatureFrameScheduler {
     _pressureStreak = 0;
     _wakeLagStreak = 0;
     _healthyStreak = 0;
-    _scheduledAtMicros = 0;
-    _scheduledDelayMicros = 0;
+    _lastDispatchTickerMicros = -1;
   }
 }
