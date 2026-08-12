@@ -1,0 +1,124 @@
+name: Native SVG Release APK
+
+on:
+  push:
+    branches:
+      - perf/native-svg-signature-pipeline
+    paths:
+      - .github/workflows/native-svg-release-apk.yaml
+
+env:
+  ANDROID_NDK_VERSION: '27.3.13750724'
+
+jobs:
+  build-arm64-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf \
+            /usr/share/dotnet \
+            /usr/local/lib/android/sdk/ndk \
+            /opt/ghc \
+            /usr/local/.ghcup \
+            /opt/hostedtoolcache/CodeQL \
+            /usr/share/swift \
+            /usr/local/share/powershell \
+            /usr/local/share/chromium
+          sudo docker image prune --all --force > /dev/null 2>&1 || true
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Restore required submodules
+        run: |
+          git submodule update --init --depth=1 core/doh_proxy
+          rm -rf packages/fluxdo_render
+          git clone --depth 1 https://github.com/Lingyan000/fluxdo_render.git packages/fluxdo_render
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.0'
+          cache: true
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core/doh_proxy
+          key: native-svg-android-arm64
+
+      - name: Setup Android build environment
+        run: |
+          rustup target add aarch64-linux-android
+          cargo install cargo-ndk
+          sudo apt-get update
+          sudo apt-get install -y cmake
+
+      - name: Setup Android NDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'ndk;${{ env.ANDROID_NDK_VERSION }}'
+
+      - name: Configure Android NDK path
+        run: |
+          ndk_path="${ANDROID_HOME}/ndk/${ANDROID_NDK_VERSION}"
+          test -d "${ndk_path}"
+          echo "ANDROID_NDK_HOME=${ndk_path}" >> "${GITHUB_ENV}"
+          echo "ANDROID_NDK_ROOT=${ndk_path}" >> "${GITHUB_ENV}"
+
+      - name: Setup Android signing and Firebase config
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_PROPERTIES: ${{ secrets.ANDROID_KEY_PROPERTIES }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ] && [ -n "$ANDROID_KEY_PROPERTIES" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
+            printf '%s\n' "$ANDROID_KEY_PROPERTIES" > android/key.properties
+          else
+            echo "Release signing secrets unavailable; Gradle will fall back to debug signing."
+          fi
+          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
+            echo "GOOGLE_SERVICES_JSON is required for Android build" >&2
+            exit 1
+          fi
+          echo "$GOOGLE_SERVICES_JSON" | base64 -d > android/app/google-services.json
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Build arm64 release APK
+        run: |
+          dart tool/flutterw.dart build apk \
+            --release \
+            --target-platform android-arm64 \
+            --dart-define=cronetHttpNoPlay=true \
+            --split-debug-info=build/symbols
+          unzip -l build/app/outputs/flutter-apk/app-release.apk | grep 'lib/arm64-v8a/libdoh_proxy.so'
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk dist/fluxdo-native-svg-arm64-release.apk
+          sha256sum dist/fluxdo-native-svg-arm64-release.apk | tee dist/fluxdo-native-svg-arm64-release.apk.sha256
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: fluxdo-native-svg-arm64-release
+          path: |
+            dist/fluxdo-native-svg-arm64-release.apk
+            dist/fluxdo-native-svg-arm64-release.apk.sha256
+          retention-days: 14
+          if-no-files-found: error
