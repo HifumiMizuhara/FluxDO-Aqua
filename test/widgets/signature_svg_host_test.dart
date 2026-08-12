@@ -123,6 +123,38 @@ void main() {
     expect(controller.status, SignatureSvgHostStatus.loading);
   });
 
+  test('スクロール終了後も最終座標同期までFlutterスナップショットを維持する', () {
+    final controller = SignatureSvgHostController();
+    addTearDown(controller.dispose);
+
+    expect(controller.isScrolling, isFalse);
+    expect(controller.showFlutterSnapshot, isFalse);
+
+    controller.beginScroll();
+    expect(controller.isScrolling, isTrue);
+    expect(controller.showFlutterSnapshot, isTrue);
+
+    controller.endScroll();
+    expect(controller.isScrolling, isFalse);
+    expect(controller.showFlutterSnapshot, isTrue);
+
+    controller.markViewportSynchronized();
+    expect(controller.showFlutterSnapshot, isFalse);
+  });
+
+  test('新しいスクロール中は古い同期完了でWebViewへ戻さない', () {
+    final controller = SignatureSvgHostController();
+    addTearDown(controller.dispose);
+
+    controller.beginScroll();
+    controller.endScroll();
+    controller.beginScroll();
+    controller.markViewportSynchronized();
+
+    expect(controller.isScrolling, isTrue);
+    expect(controller.showFlutterSnapshot, isTrue);
+  });
+
   testWidgets('SvgWebViewは従来どおりのアスペクト比のFlutter枠を確保する', (tester) async {
     final oldVisibilityInterval =
         VisibilityDetectorController.instance.updateInterval;
@@ -141,7 +173,10 @@ void main() {
           child: const SizedBox(
             width: 240,
             child: SvgWebView(
-              svgSource: '<svg viewBox="0 0 100 50" />',
+              svgSource: '''<svg xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 100 50">
+                <rect width="100" height="50" fill="red" />
+              </svg>''',
               width: 200,
             ),
           ),
@@ -155,6 +190,20 @@ void main() {
           widget is SizedBox && widget.width == 200 && widget.height == 100,
     );
     expect(frame, findsOneWidget);
+    const snapshotKey = ValueKey<String>('SvgWebView.scrollSnapshot');
+    expect(find.byKey(snapshotKey), findsNothing);
+
+    controller.beginScroll();
+    await tester.pump();
+    expect(find.byKey(snapshotKey), findsOneWidget);
+
+    controller.endScroll();
+    await tester.pump();
+    expect(find.byKey(snapshotKey), findsOneWidget);
+
+    controller.markViewportSynchronized();
+    await tester.pump();
+    expect(find.byKey(snapshotKey), findsNothing);
   });
 
   test('secure WebView用サニタイズはactive contentと外部参照を落としdata URLを残す', () {
