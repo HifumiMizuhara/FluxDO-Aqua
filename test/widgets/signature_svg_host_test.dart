@@ -99,6 +99,9 @@ void main() {
     expect(signatureSvgHostDocument, contains('img-src blob: data:'));
     expect(signatureSvgHostDocument, contains('Blob'));
     expect(signatureSvgHostDocument, contains('createObjectURL'));
+    expect(signatureSvgHostDocument, contains('translate3d'));
+    expect(signatureSvgHostDocument, contains('__fluxdoSetSignatureScroll'));
+    expect(signatureSvgHostDocument, contains('appliedScrollRevision'));
     expect(signatureSvgHostDocument, isNot(contains('innerHTML')));
     expect(signatureSvgHostDocument, isNot(contains(source)));
   });
@@ -121,6 +124,30 @@ void main() {
     expect(controller.status, SignatureSvgHostStatus.inactive);
     controller.beginSession();
     expect(controller.status, SignatureSvgHostStatus.loading);
+  });
+
+  test('スクロールはスロット矩形を内容座標へ固定しルート移動量だけ更新する', () {
+    final controller = SignatureSvgHostController();
+    addTearDown(controller.dispose);
+    var requests = 0;
+    void request() => requests++;
+    controller.attachScrollSyncRequester(request);
+    addTearDown(() => controller.detachScrollSyncRequester(request));
+
+    controller.updateScrollOffset(120);
+    expect(controller.scrollOffset, 120);
+    expect(controller.scrollTranslationY, -120);
+    expect(controller.scrollRevision, 1);
+    expect(requests, 1);
+
+    final contentRect = controller.contentRectForViewportRect(
+      const Rect.fromLTWH(10, 30, 100, 50),
+    );
+    expect(contentRect, const Rect.fromLTWH(10, 150, 100, 50));
+
+    controller.updateScrollOffset(120);
+    expect(controller.scrollRevision, 1);
+    expect(requests, 1);
   });
 
   testWidgets('SvgWebViewは従来どおりのアスペクト比のFlutter枠を確保する', (tester) async {

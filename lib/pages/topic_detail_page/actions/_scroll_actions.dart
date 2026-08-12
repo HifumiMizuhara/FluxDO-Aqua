@@ -5,6 +5,12 @@ part of '../topic_detail_page.dart';
 /// 滚动和导航相关方法
 extension _ScrollActions on _TopicDetailPageState {
   void _onScroll() {
+    final scrollController = _controller.scrollController;
+    if (scrollController.hasClients) {
+      _signatureSvgHostController.updateScrollOffset(
+        scrollController.position.pixels,
+      );
+    }
     if (_isRefreshing) return;
 
     _scheduleCheckTitleVisibility();

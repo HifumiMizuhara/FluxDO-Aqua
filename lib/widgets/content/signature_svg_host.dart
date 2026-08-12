@@ -292,6 +292,9 @@ class SignatureSvgHostController extends ChangeNotifier {
   SignatureSvgHostStatus _status = SignatureSvgHostStatus.inactive;
   int _consecutiveSyncFailures = 0;
   VoidCallback? _layoutSyncRequester;
+  VoidCallback? _scrollSyncRequester;
+  double _scrollOffset = 0;
+  int _scrollRevision = 0;
 
   SignatureSvgHostStatus get status => _status;
 
@@ -302,6 +305,14 @@ class SignatureSvgHostController extends ChangeNotifier {
   bool get hasPendingSync => registry.hasPendingChanges;
 
   int get consecutiveSyncFailures => _consecutiveSyncFailures;
+
+  double get scrollOffset => _scrollOffset;
+
+  /// Translation applied to the single DOM root. Individual slot rectangles
+  /// are stored in stable scroll-content coordinates.
+  double get scrollTranslationY => -_scrollOffset;
+
+  int get scrollRevision => _scrollRevision;
 
   void beginSession() {
     if (_status == SignatureSvgHostStatus.loading ||
@@ -353,13 +364,38 @@ class SignatureSvgHostController extends ChangeNotifier {
     _layoutSyncRequester = requester;
   }
 
+  void attachScrollSyncRequester(VoidCallback requester) {
+    _scrollSyncRequester = requester;
+  }
+
   void detachLayoutSyncRequester(VoidCallback requester) {
     if (identical(_layoutSyncRequester, requester)) {
       _layoutSyncRequester = null;
     }
   }
 
+  void detachScrollSyncRequester(VoidCallback requester) {
+    if (identical(_scrollSyncRequester, requester)) {
+      _scrollSyncRequester = null;
+    }
+  }
+
   void requestLayoutSync() => _layoutSyncRequester?.call();
+
+  /// Called directly by ScrollPosition. This intentionally does not notify
+  /// listeners: rebuilding every SvgWebView during a fling would defeat the
+  /// shared-host optimization. Only the host bridge receives the scalar.
+  void updateScrollOffset(double offset) {
+    if (!offset.isFinite || (_scrollOffset - offset).abs() < 0.001) return;
+    _scrollOffset = offset;
+    _scrollRevision++;
+    _scrollSyncRequester?.call();
+  }
+
+  @visibleForTesting
+  Rect contentRectForViewportRect(Rect viewportRect) {
+    return viewportRect.shift(Offset(0, -scrollTranslationY));
+  }
 
   void registerSlot({
     required String id,
@@ -413,7 +449,11 @@ class SignatureSvgHostController extends ChangeNotifier {
     requestLayoutSync();
   }
 
-  /// Converts every mounted slot into host-local coordinates in one pass.
+  /// Converts every mounted slot into stable scroll-content coordinates.
+  ///
+  /// `viewportY = contentY + scrollTranslationY`, therefore the stored Y is
+  /// `viewportY - scrollTranslationY`. During ordinary scrolling these values
+  /// stay unchanged and only the shared root transform needs updating.
   void syncLayout(RenderBox hostBox) {
     if (!hostBox.attached) return;
     final hostOrigin = hostBox.localToGlobal(Offset.zero);
@@ -423,14 +463,15 @@ class SignatureSvgHostController extends ChangeNotifier {
       final origin = box.localToGlobal(Offset.zero);
       final snapshot = registry.snapshotFor(entry.key);
       if (snapshot == null) continue;
+      final viewportRect = Rect.fromLTWH(
+        origin.dx - hostOrigin.dx,
+        origin.dy - hostOrigin.dy,
+        box.size.width,
+        box.size.height,
+      );
       registry.updateGeometry(
         id: entry.key,
-        rect: Rect.fromLTWH(
-          origin.dx - hostOrigin.dx,
-          origin.dy - hostOrigin.dy,
-          box.size.width,
-          box.size.height,
-        ),
+        rect: contentRectForViewportRect(viewportRect),
         visible: snapshot.visible,
       );
     }
@@ -492,6 +533,8 @@ class _SignatureSvgHostState extends State<SignatureSvgHost> {
   bool _syncScheduled = false;
   bool _syncInFlight = false;
   bool _syncDirty = false;
+  bool _scrollSyncInFlight = false;
+  bool _scrollSyncDirty = false;
   int _generation = 0;
 
   SignatureSvgHostController get _host => widget.controller;
@@ -501,6 +544,7 @@ class _SignatureSvgHostState extends State<SignatureSvgHost> {
     super.initState();
     _host.addListener(_onHostChanged);
     _host.attachLayoutSyncRequester(_scheduleSync);
+    _host.attachScrollSyncRequester(_scheduleScrollSync);
     if (widget.active && _host.hasSlots) _startSession();
   }
 
@@ -510,9 +554,11 @@ class _SignatureSvgHostState extends State<SignatureSvgHost> {
     if (!identical(oldWidget.controller, widget.controller)) {
       oldWidget.controller.removeListener(_onHostChanged);
       oldWidget.controller.detachLayoutSyncRequester(_scheduleSync);
+      oldWidget.controller.detachScrollSyncRequester(_scheduleScrollSync);
       _disposeWebView();
       _host.addListener(_onHostChanged);
       _host.attachLayoutSyncRequester(_scheduleSync);
+      _host.attachScrollSyncRequester(_scheduleScrollSync);
     }
     if (oldWidget.active != widget.active) {
       if (widget.active) {
@@ -527,6 +573,7 @@ class _SignatureSvgHostState extends State<SignatureSvgHost> {
   void dispose() {
     _host.removeListener(_onHostChanged);
     _host.detachLayoutSyncRequester(_scheduleSync);
+    _host.detachScrollSyncRequester(_scheduleScrollSync);
     _stopSession();
     super.dispose();
   }
@@ -606,6 +653,7 @@ class _SignatureSvgHostState extends State<SignatureSvgHost> {
     _prepareTimer?.cancel();
     _prepareTimer = null;
     _syncDirty = false;
+    _scrollSyncDirty = false;
     _webViewController = null;
     final lease = _lease;
     _lease = null;
@@ -651,6 +699,60 @@ class _SignatureSvgHostState extends State<SignatureSvgHost> {
     });
   }
 
+  /// Latest-value-only scroll bridge. Unlike slot synchronization this does
+  /// not wait for layout or marshal every rectangle; one scalar moves the
+  /// compositor-backed DOM root on every supported platform.
+  void _scheduleScrollSync() {
+    if (!mounted || !widget.active) return;
+    _scrollSyncDirty = true;
+    if (_host.status != SignatureSvgHostStatus.ready ||
+        _webViewController == null ||
+        _scrollSyncInFlight) {
+      return;
+    }
+    unawaited(_flushScrollSync());
+  }
+
+  Future<void> _flushScrollSync() async {
+    if (_scrollSyncInFlight ||
+        !mounted ||
+        !widget.active ||
+        _host.status != SignatureSvgHostStatus.ready) {
+      return;
+    }
+    final controller = _webViewController;
+    if (controller == null) return;
+    final syncGeneration = _generation;
+    final revision = _host.scrollRevision;
+    final translation = _host.scrollTranslationY;
+    _scrollSyncDirty = false;
+    _scrollSyncInFlight = true;
+    try {
+      await controller.evaluateJavascript(
+        source:
+            'window.__fluxdoSetSignatureScroll('
+            '${translation.toString()}, $revision);',
+      );
+    } catch (error) {
+      if (syncGeneration == _generation &&
+          identical(controller, _webViewController)) {
+        AppLogger.debug(
+          'signature_svg_scroll_sync_failed',
+          tag: 'SignatureSvgHost',
+          fields: {'error': error.toString()},
+        );
+      }
+    } finally {
+      _scrollSyncInFlight = false;
+      if (mounted &&
+          syncGeneration == _generation &&
+          identical(controller, _webViewController) &&
+          (_scrollSyncDirty || revision != _host.scrollRevision)) {
+        _scheduleScrollSync();
+      }
+    }
+  }
+
   Future<void> _flushSync() async {
     if (_syncInFlight ||
         !mounted ||
@@ -676,7 +778,13 @@ class _SignatureSvgHostState extends State<SignatureSvgHost> {
     try {
       final result = await controller.callAsyncJavaScript(
         functionBody: 'return window.__fluxdoSyncSignatureSlots(payload);',
-        arguments: <String, dynamic>{'payload': payload.toJson()},
+        arguments: <String, dynamic>{
+          'payload': <String, dynamic>{
+            ...payload.toJson(),
+            'translationY': _host.scrollTranslationY,
+            'scrollRevision': _host.scrollRevision,
+          },
+        },
       );
       if (!mounted ||
           syncGeneration != _generation ||
@@ -688,6 +796,7 @@ class _SignatureSvgHostState extends State<SignatureSvgHost> {
       }
       _host.commitSyncPayload(payload);
       _host.recordSyncSuccess();
+      if (syncGeneration == _generation) _scheduleScrollSync();
     } catch (error) {
       if (syncGeneration != _generation ||
           !identical(controller, _webViewController)) {
@@ -770,6 +879,7 @@ class _SignatureSvgHostState extends State<SignatureSvgHost> {
               _prepareTimer = null;
               _host.markReady();
               _scheduleSync();
+              _scheduleScrollSync();
             },
             onReceivedError: (_, request, error) {
               if (webViewGeneration == _generation &&
@@ -811,8 +921,8 @@ const String signatureSvgHostDocument = '''<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src blob: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; object-src 'none'; frame-src 'none'; connect-src 'none'; font-src 'none';">
 <style>
-html, body, #root { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; background: transparent; }
-#root { position: relative; pointer-events: none; }
+html, body { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; background: transparent; }
+#root { position: relative; width: 100%; height: 100%; overflow: visible; pointer-events: none; transform: translate3d(0, 0, 0); will-change: transform; }
 .signature-svg-slot { position: absolute; display: block; margin: 0; padding: 0; border: 0; pointer-events: none; transform-origin: 0 0; }
 </style>
 </head>
@@ -823,6 +933,25 @@ html, body, #root { width: 100%; height: 100%; margin: 0; padding: 0; overflow: 
   const root = document.getElementById('root');
   const slots = new Map();
   const blobs = new Map();
+  let appliedScrollRevision = -1;
+
+  function queueScrollTransform(translationY, revision) {
+    const nextY = Number(translationY);
+    const nextRevision = Number(revision);
+    if (!Number.isFinite(nextY) || !Number.isFinite(nextRevision)) return;
+    if (nextRevision < appliedScrollRevision) return;
+    root.style.transform = 'translate3d(0, ' + String(nextY) + 'px, 0)';
+    appliedScrollRevision = nextRevision;
+  }
+
+  function applyScrollTransformNow(translationY, revision) {
+    queueScrollTransform(translationY, revision);
+  }
+
+  window.__fluxdoSetSignatureScroll = function (translationY, revision) {
+    queueScrollTransform(translationY, revision);
+    return revision;
+  };
 
   function retainBlob(source) {
     let entry = blobs.get(source);
@@ -877,6 +1006,7 @@ html, body, #root { width: 100%; height: 100%; margin: 0; padding: 0; overflow: 
   }
 
   window.__fluxdoSyncSignatureSlots = async function (payload) {
+    applyScrollTransformNow(payload && payload.translationY, payload && payload.scrollRevision);
     const upserts = Array.isArray(payload && payload.upserts) ? payload.upserts : [];
     const rects = Array.isArray(payload && payload.rects) ? payload.rects : [];
     const removed = Array.isArray(payload && payload.removed) ? payload.removed : [];

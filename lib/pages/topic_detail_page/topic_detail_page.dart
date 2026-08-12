@@ -455,6 +455,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
     _idleFlushPosition?.isScrollingNotifier.removeListener(_onScrollIdle);
     _idleFlushPosition = position;
     position.isScrollingNotifier.addListener(_onScrollIdle);
+    _signatureSvgHostController.updateScrollOffset(position.pixels);
   }
 
   void _onScrollIdle() {
@@ -2619,7 +2620,12 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
       controller: _signatureSvgHostController,
       child: NotificationListener<ScrollNotification>(
         onNotification: (notification) {
-          _signatureSvgHostController.requestLayoutSync();
+          // Ordinary scrolling is handled by one scalar root transform.
+          // Re-measure slots only after scrolling settles, so sliver anchor
+          // corrections and dynamic layout changes cannot accumulate drift.
+          if (notification is ScrollEndNotification) {
+            _signatureSvgHostController.requestLayoutSync();
+          }
           return false;
         },
         child: stack,
