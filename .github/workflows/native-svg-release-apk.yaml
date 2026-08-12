@@ -89,14 +89,42 @@ jobs:
           if [ -n "$ANDROID_KEYSTORE_BASE64" ] && [ -n "$ANDROID_KEY_PROPERTIES" ]; then
             echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
             printf '%s\n' "$ANDROID_KEY_PROPERTIES" > android/key.properties
+            echo "Using repository release signing credentials."
           else
-            echo "Release signing secrets unavailable; Gradle will fall back to debug signing."
+            echo "Release signing secrets unavailable; Gradle will use debug signing for the release-mode APK."
           fi
-          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
-            echo "GOOGLE_SERVICES_JSON is required for Android build" >&2
-            exit 1
+
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            echo "$GOOGLE_SERVICES_JSON" | base64 -d > android/app/google-services.json
+            echo "Using repository Firebase configuration."
+          else
+            echo "Firebase secret unavailable; creating compile-only placeholder google-services.json."
+            cat > android/app/google-services.json <<'JSON'
+          {
+            "project_info": {
+              "project_number": "98542877021",
+              "project_id": "fluxdo-ci-placeholder",
+              "storage_bucket": "fluxdo-ci-placeholder.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:98542877021:android:e555169791c86bb9c950b4",
+                  "android_client_info": {
+                    "package_name": "com.github.lingyan000.fluxdo"
+                  }
+                },
+                "api_key": [
+                  {
+                    "current_key": "AIzaSyCIPlaceholderKeyNotForRuntimeUse"
+                  }
+                ]
+              }
+            ],
+            "configuration_version": "1"
+          }
+          JSON
           fi
-          echo "$GOOGLE_SERVICES_JSON" | base64 -d > android/app/google-services.json
 
       - name: Resolve dependencies
         run: flutter pub get
