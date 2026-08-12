@@ -16,7 +16,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: recursive
+          submodules: false
+      # Superproject が指す fluxdo_render commit は upstream から消えているため、
+      # static check では現行 upstream を配置して workspace 解決だけ行う。
+      - name: Restore fluxdo_render workspace package
+        run: |
+          rm -rf packages/fluxdo_render
+          git clone --depth 1 https://github.com/Lingyan000/fluxdo_render.git packages/fluxdo_render
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.44.0'
