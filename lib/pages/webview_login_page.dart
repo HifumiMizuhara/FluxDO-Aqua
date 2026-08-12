@@ -874,7 +874,7 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
       });
     } on TimeoutException {
       debugPrint(
-        'event': 'login_bootstrap_timeout',
+        '[WebViewLogin] login bootstrap timeout',
       );
       LogWriter.instance.write({
         'timestamp': DateTime.now().toIso8601String(),

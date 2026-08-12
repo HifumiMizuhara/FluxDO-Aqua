@@ -257,7 +257,7 @@ class QrLoginService {
       _log(
         'warning',
         'qr_login_apply_failed',
-        '/u/$name.json',
+        '扫码登录应用失败',
         {'error': e.toString()},
       );
       throw QrLoginException(QrLoginError.applyFailed, '登录失败: $e');

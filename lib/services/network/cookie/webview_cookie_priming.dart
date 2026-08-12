@@ -220,7 +220,7 @@ class WebViewCookiePriming {
           skippedRaceRemoved++;
           attempted--;
           debugPrint(
-            '($observedPostCount):',
+            '[Priming] ${writeCookie.name}: 写入前检测到竞态删除，跳过本次写入',
           );
           continue;
         }

@@ -67,10 +67,6 @@ class LocalNotificationService {
 
   /// 通知点击回调
   void _onNotificationTapped(NotificationResponse response) {
-    debugPrint(
-      '[LocalNotification] 跳转到${isMessage ? "私信" : "话题"}: $topicId, 帖子: $postNumber',
-    );
-
     final payload = response.payload;
     if (payload == null || payload.isEmpty) return;
 

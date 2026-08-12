@@ -243,7 +243,7 @@ class BoundarySyncService {
             // 宁可多发到子域名，不能因为 host-only 导致子域名拿不到关键 cookie
             domain = '.$host';
             debugPrint(
-              '[BoundarySync] ${wc.name}: domain=null, 继承 jar 已有 domain=${existing.domain}',
+              '[BoundarySync] ${wc.name}: domain=null, jar 中没有可继承的 domain',
             );
           }
         }

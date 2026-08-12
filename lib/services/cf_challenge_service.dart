@@ -1023,7 +1023,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
       // 关键：对比初始快照，过滤掉未被清除干净的旧值
       if (!_isFreshClearance(cookieValue)) {
         debugPrint(
-          '[CfChallenge] cf_clearance 已同步到 CookieJar (${synced.length} chars)',
+          '[CfChallenge] cf_clearance 仍是旧值 (${cookieValue.length} chars)',
         );
         return;
       }
@@ -1036,7 +1036,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
       );
       if (html != null && CfChallengeService.hasActiveCfChallenge(html)) {
         debugPrint(
-          '[CfChallenge] cf_clearance 已同步到 CookieJar (${synced.length} chars)',
+          '[CfChallenge] cf_clearance 已同步但页面仍在验证 (${cookieValue.length} chars)',
         );
         return;
       }

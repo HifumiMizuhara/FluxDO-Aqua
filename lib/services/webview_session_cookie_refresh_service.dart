@@ -373,7 +373,7 @@ class WebViewSessionCookieRefreshService {
       final c = webView.webViewController;
       if (c == null) {
         debugPrint(
-          '[WebViewSessionSync] WebView 错误: url=${request.url}, ${error.description}',
+          '[WebViewSessionSync] WebView controller unavailable after run()',
         );
         return const SessionBootstrapResult.failure(phase: 'controller');
       }
@@ -395,7 +395,7 @@ class WebViewSessionCookieRefreshService {
         await loadCompleter.future.timeout(const Duration(seconds: 8));
       } on TimeoutException {
         debugPrint(
-          '[WebViewSessionSync] WebView 错误: url=${request.url}, ${error.description}',
+          '[WebViewSessionSync] WebView load timeout',
         );
       }
 
@@ -501,7 +501,7 @@ class WebViewSessionCookieRefreshService {
       LogWriter.instance.write(entry);
     } catch (e) {
       debugPrint(
-        'message': 'WebView session bootstrap 后的主域 cookie 摘要',
+        '[WebViewSessionSync] cookie summary failed: $e',
       );
     }
   }
@@ -635,7 +635,7 @@ class WebViewSessionCookieRefreshService {
       return const SessionBootstrapResult.failure(phase: 'timeout');
     } catch (e) {
       debugPrint(
-        'message': 'WebView session bootstrap 执行结果',
+        '[WebViewSessionSync] bootstrap execution failed: $e',
       );
       return const SessionBootstrapResult.failure(phase: 'controller_error');
     } finally {

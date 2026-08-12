@@ -1037,7 +1037,8 @@ class DohProxyService {
       await Future<void>.delayed(interval);
     }
     NetworkLogger.log(
-      'username': username ?? '',
+      '[DOH] FFI stop timeout',
+      level: 'warning',
     );
   }
 

@@ -876,7 +876,7 @@ class PreloadedDataService {
         })
         .catchError((e) {
           debugPrint(
-            '[PreloadedData] topic_list 解析成功 (async), topics=$topicsCount',
+            '[PreloadedData] topic_list JSON 异步解析失败: $e',
           );
           _topicListResponseCompleter?.complete(null);
         });
@@ -888,13 +888,13 @@ class PreloadedDataService {
         .then((result) {
           _cachedTopicListResponse = result;
           debugPrint(
-            '[PreloadedData] topic_list 解析成功 (async), topics=$topicsCount',
+            '[PreloadedData] topic_list 解析成功 (async), topics=${result.topics.length}',
           );
           _topicListResponseCompleter?.complete(result);
         })
         .catchError((e) {
           debugPrint(
-            '[PreloadedData] topic_list 解析成功 (async), topics=$topicsCount',
+            '[PreloadedData] topic_list response 异步解析失败: $e',
           );
           _topicListResponseCompleter?.complete(null);
         });
@@ -926,7 +926,7 @@ class PreloadedDataService {
       completer.complete(decoded);
     } catch (e) {
       debugPrint(
-        '[PreloadedData] topicTrackingStates 异步解析成功: ${decoded?.length ?? 0} items',
+        '[PreloadedData] topicTrackingStates 异步解析失败: $e',
       );
       completer.complete(null);
     } finally {
