@@ -25,7 +25,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: recursive
+          submodules: false
+
+      - name: Checkout available submodules
+        run: |
+          git submodule update --init --depth=1 core/doh_proxy
+          git clone --depth=1 https://github.com/Lingyan000/fluxdo_render.git packages/fluxdo_render
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -63,7 +68,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: recursive
+          submodules: false
+
+      - name: Checkout available submodules
+        run: |
+          git submodule update --init --depth=1 core/doh_proxy
+          git clone --depth=1 https://github.com/Lingyan000/fluxdo_render.git packages/fluxdo_render
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -124,7 +134,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: recursive
+          submodules: false
+
+      - name: Checkout available submodules
+        shell: pwsh
+        run: |
+          git submodule update --init --depth=1 core/doh_proxy
+          git clone --depth=1 https://github.com/Lingyan000/fluxdo_render.git packages/fluxdo_render
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
