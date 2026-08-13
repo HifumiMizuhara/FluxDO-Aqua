@@ -44,6 +44,21 @@ List<SettingsGroup> buildAquaLabGroups(BuildContext context) {
       ],
     ),
     SettingsGroup(
+      title: l10n.aquaLab_stability,
+      icon: Symbols.health_and_safety_rounded,
+      items: [
+        SwitchModel(
+          id: 'crashMitigation',
+          title: l10n.preferences_crashMitigation,
+          subtitle: l10n.preferences_crashMitigationDesc,
+          icon: Symbols.memory_rounded,
+          getValue: (ref) => ref.watch(preferencesProvider).crashMitigation,
+          onChanged: (ref, value) =>
+              ref.read(preferencesProvider.notifier).setCrashMitigation(value),
+        ),
+      ],
+    ),
+    SettingsGroup(
       title: l10n.aquaLab_privateMessages,
       icon: Symbols.forum_rounded,
       items: [

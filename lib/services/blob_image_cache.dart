@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'dio_http_client.dart';
+import 'crash_mitigation_service.dart';
 
 /// 图片的内容寻址文件缓存(Telegram ImageLoader 形态)。
 ///
@@ -187,6 +188,7 @@ class BlobImageCache {
       channel: _channelOf(bucket),
       priority: priority,
       onProgress: onProgress,
+      maxBytes: CrashMitigationService.imageDownloadLimit(bucket),
     );
     if (bytes.isEmpty) {
       throw HttpException(
@@ -229,6 +231,10 @@ class BlobImageCache {
   /// 节流 touch:更新 mtime 供 [sweep] 判活。fire-and-forget,失败无害
   /// (最坏情况 = 常用文件被当旧文件删掉,下次重新下载)。
   static void _touch(File file) {
+    if (CrashMitigationService.enabled &&
+        _touched.length >= CrashMitigationService.maxTouchedImagePaths) {
+      _touched.clear();
+    }
     if (!_touched.add(file.path)) return;
     unawaited(file.setLastModified(DateTime.now()).catchError((Object _) {}));
   }

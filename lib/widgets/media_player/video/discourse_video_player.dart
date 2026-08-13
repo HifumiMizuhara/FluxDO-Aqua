@@ -177,9 +177,7 @@ class _DiscourseVideoPlayerState extends State<DiscourseVideoPlayer>
     }
 
     try {
-      await session.controller.initialize().timeout(
-        const Duration(seconds: 15),
-      );
+      await session.initialize().timeout(const Duration(seconds: 15));
       await session.controller.setLooping(widget.loop);
       // 位置记忆:初始化完成即静默 seek,封面帧直接停在续播点;
       // 「已从 xx:xx 继续播放」提示留给用户首次点播放时(控制层)

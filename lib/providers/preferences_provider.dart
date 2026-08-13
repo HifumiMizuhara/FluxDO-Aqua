@@ -9,6 +9,7 @@ import '../models/topic_card_style.dart';
 import '../navigation/nav_action_bus.dart';
 import '../services/network/request_scheduler_config.dart';
 import '../services/cf_challenge_service.dart';
+import '../services/crash_mitigation_service.dart';
 import '../utils/blocked_user_filter.dart';
 import '../widgets/topic/topic_card_layout.dart';
 import 'theme_provider.dart';
@@ -128,6 +129,9 @@ class AppPreferences {
 
   /// 崩溃日志上报（仅 Android）
   final bool crashlytics;
+
+  /// Android 上收紧媒体内存预算和资源释放时序的实验性保护措施。
+  final bool crashMitigation;
 
   /// 竖屏锁定
   final bool portraitLock;
@@ -281,6 +285,7 @@ class AppPreferences {
     this.topicFilterWholeWord = false,
     this.blockedUsernames = const [],
     required this.crashlytics,
+    this.crashMitigation = false,
     required this.portraitLock,
     required this.fullscreenSwipeBack,
     required this.exitOnSingleBack,
@@ -340,6 +345,7 @@ class AppPreferences {
     bool? topicFilterWholeWord,
     List<String>? blockedUsernames,
     bool? crashlytics,
+    bool? crashMitigation,
     bool? portraitLock,
     bool? fullscreenSwipeBack,
     bool? exitOnSingleBack,
@@ -400,6 +406,7 @@ class AppPreferences {
       topicFilterWholeWord: topicFilterWholeWord ?? this.topicFilterWholeWord,
       blockedUsernames: blockedUsernames ?? this.blockedUsernames,
       crashlytics: crashlytics ?? this.crashlytics,
+      crashMitigation: crashMitigation ?? this.crashMitigation,
       portraitLock: portraitLock ?? this.portraitLock,
       fullscreenSwipeBack: fullscreenSwipeBack ?? this.fullscreenSwipeBack,
       exitOnSingleBack: exitOnSingleBack ?? this.exitOnSingleBack,
@@ -487,6 +494,7 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
   static const String _topicFilterWholeWordKey = 'pref_topic_filter_whole_word';
   static const String _blockedUsernamesKey = 'pref_blocked_usernames';
   static const String _crashlyticsKey = 'pref_crashlytics';
+  static const String _crashMitigationKey = 'pref_crash_mitigation';
   static const String _portraitLockKey = 'pref_portrait_lock';
   static const String _fullscreenSwipeBackKey = 'pref_fullscreen_swipe_back';
   static const String _exitOnSingleBackKey = 'pref_exit_on_single_back';
@@ -571,6 +579,7 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
           blockedUsernames:
               _prefs.getStringList(_blockedUsernamesKey) ?? const [],
           crashlytics: _prefs.getBool(_crashlyticsKey) ?? true,
+          crashMitigation: _prefs.getBool(_crashMitigationKey) ?? false,
           portraitLock: _prefs.getBool(_portraitLockKey) ?? false,
           fullscreenSwipeBack: _prefs.getBool(_fullscreenSwipeBackKey) ?? false,
           exitOnSingleBack: _prefs.getBool(_exitOnSingleBackKey) ?? false,
@@ -655,6 +664,7 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
     isPortraitLocked = state.portraitLock;
     TopicCardStyleScope.current = state.topicCardStyle;
     CfChallengeService().autoVerifyEnabled = state.autoCfChallenge;
+    CrashMitigationService.configure(state.crashMitigation);
     _syncSchedulerConfig();
   }
 
@@ -747,6 +757,13 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
         'enabled': enabled,
       });
     }
+  }
+
+  Future<void> setCrashMitigation(bool enabled) async {
+    if (state.crashMitigation == enabled) return;
+    state = state.copyWith(crashMitigation: enabled);
+    CrashMitigationService.configure(enabled);
+    await _prefs.setBool(_crashMitigationKey, enabled);
   }
 
   Future<void> setPortraitLock(bool enabled) async {

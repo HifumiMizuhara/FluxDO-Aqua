@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show HttpException;
 import 'dart:typed_data';
 import 'package:dio/dio.dart' as dio;
 import 'package:http/http.dart' as http;
@@ -204,6 +205,7 @@ class DioHttpClient extends http.BaseClient {
     DownloadChannel channel = DownloadChannel.content,
     DownloadPriority priority = DownloadPriority.normal,
     void Function(int received, int? total)? onProgress,
+    int? maxBytes,
   }) async {
     final semaphore = _semaphoreOf(channel);
     await semaphore.acquire(url.toString(), priority);
@@ -233,11 +235,25 @@ class DioHttpClient extends http.BaseClient {
       final total = (contentLength != null && contentLength > 0)
           ? contentLength
           : null;
+      if (maxBytes != null &&
+          contentLength != null &&
+          contentLength > maxBytes) {
+        throw HttpException(
+          'Image exceeds $maxBytes byte limit for $url',
+          uri: url,
+        );
+      }
 
       final builder = BytesBuilder(copy: false);
       final body = response.data;
       if (body != null) {
         await for (final chunk in body.stream) {
+          if (maxBytes != null && builder.length + chunk.length > maxBytes) {
+            throw HttpException(
+              'Image exceeds $maxBytes byte limit for $url',
+              uri: url,
+            );
+          }
           builder.add(chunk);
           onProgress?.call(builder.length, total);
         }

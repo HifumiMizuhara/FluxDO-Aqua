@@ -5,6 +5,7 @@ import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../../services/media/playback_position_store.dart';
+import '../../../services/crash_mitigation_service.dart';
 
 /// 视频控制器的唯一 owner。inline 播放器与全屏页都只是「租户」:
 /// retain()/release() 引用计数,归零才 dispose。
@@ -52,9 +53,12 @@ class VideoPlayerSession {
 
   Timer? _positionSaveTimer;
   bool _wakelockOn = false;
+  Future<void>? _initialization;
 
   /// 初始化完成(拿到 duration/尺寸)后为 true。
   bool get isInitialized => controller.value.isInitialized;
+
+  Future<void> initialize() => _initialization ??= controller.initialize();
 
   void _start() {
     controller.addListener(_onControllerTick);
@@ -98,6 +102,9 @@ class VideoPlayerSession {
     assert(_refCount > 0);
     if (--_refCount > 0) return;
     _disposed = true;
+    // Do not let a newly mounted list item retain this session while its
+    // native initialization is draining. A new owner receives a fresh one.
+    VideoSessionRegistry._removeIfCurrent(url, this);
     _positionSaveTimer?.cancel();
     _savePosition();
     // flush 内部有 dirty 短路:没有未落盘变更时是纯空操作,不会让
@@ -106,10 +113,23 @@ class VideoPlayerSession {
     if (_wakelockOn) {
       unawaited(WakelockPlus.disable());
     }
-    controller.removeListener(_onControllerTick);
-    fullscreenNotifier.dispose();
-    unawaited(controller.dispose());
-    VideoSessionRegistry._sessions.remove(url);
+    void disposeNativeResources() {
+      controller.removeListener(_onControllerTick);
+      fullscreenNotifier.dispose();
+      unawaited(controller.dispose());
+    }
+
+    if (CrashMitigationService.enabled && _initialization != null) {
+      // ExoPlayer may still be allocating a Surface while a list item leaves
+      // the tree. Dispose after that operation settles to avoid a native race.
+      unawaited(
+        _initialization!
+            .catchError((Object _) {})
+            .whenComplete(disposeNativeResources),
+      );
+    } else {
+      disposeNativeResources();
+    }
   }
 }
 
@@ -139,6 +159,10 @@ class VideoSessionRegistry {
     session._start();
     _sessions[url] = session;
     return session;
+  }
+
+  static void _removeIfCurrent(String url, VideoPlayerSession session) {
+    if (_sessions[url] == session) _sessions.remove(url);
   }
 }
 

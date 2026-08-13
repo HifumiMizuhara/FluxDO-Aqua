@@ -43,6 +43,7 @@ void main() {
     );
 
     expect(_visibleIds(aquaGroups), contains('experimentalNativeSvgFix'));
+    expect(_visibleIds(aquaGroups), contains('crashMitigation'));
     expect(
       _visibleIds(aquaGroups),
       contains('experimentalPrivateMessageCategories'),
