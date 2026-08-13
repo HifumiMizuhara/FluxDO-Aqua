@@ -2,10 +2,12 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/s.dart';
+import '../../models/signature_svg_webview_mode.dart';
 import '../../pages/topic_detail_page/widgets/progress_gesture_action_meta.dart';
 import '../../pages/topic_detail_page/widgets/progress_gesture_menu_settings_page.dart';
 import '../../providers/preferences_provider.dart';
@@ -129,16 +131,12 @@ List<SettingsGroup> buildReadingGroups(BuildContext context) {
                 .setAdaptiveSignatureFrameRate(v),
           ),
         if (PreloadedDataService().signaturesEnabled)
-          SwitchModel(
+          CustomModel(
             id: 'signatureSvgWebView',
             title: l10n.reading_signatureSvgWebView,
             subtitle: l10n.reading_signatureSvgWebViewDesc,
-            icon: Symbols.language_rounded,
-            getValue: (ref) =>
-                ref.watch(preferencesProvider).signatureSvgWebView,
-            onChanged: (ref, v) => ref
-                .read(preferencesProvider.notifier)
-                .setSignatureSvgWebView(v),
+            builder: (context, ref) =>
+                const _SignatureSvgWebViewSettings(),
           ),
         CustomModel(
           id: 'bookmarksOpenMode',
@@ -587,4 +585,179 @@ void _showGestureActionPicker(
   ).then((selected) {
     if (selected != null) onPicked(selected);
   });
+}
+
+class _SignatureSvgWebViewSettings extends ConsumerStatefulWidget {
+  const _SignatureSvgWebViewSettings();
+
+  @override
+  ConsumerState<_SignatureSvgWebViewSettings> createState() =>
+      _SignatureSvgWebViewSettingsState();
+}
+
+class _SignatureSvgWebViewSettingsState
+    extends ConsumerState<_SignatureSvgWebViewSettings> {
+  late final TextEditingController _poolSizeController;
+  late final FocusNode _poolSizeFocusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    final poolSize = ref.read(preferencesProvider).signatureSvgWebViewPoolSize;
+    _poolSizeController = TextEditingController(text: '$poolSize');
+    _poolSizeFocusNode = FocusNode()..addListener(_handlePoolSizeFocus);
+  }
+
+  @override
+  void dispose() {
+    _poolSizeFocusNode.removeListener(_handlePoolSizeFocus);
+    _poolSizeFocusNode.dispose();
+    _poolSizeController.dispose();
+    super.dispose();
+  }
+
+  void _handlePoolSizeFocus() {
+    if (!_poolSizeFocusNode.hasFocus) _normalizePoolSizeText();
+  }
+
+  void _normalizePoolSizeText() {
+    final saved = ref.read(preferencesProvider).signatureSvgWebViewPoolSize;
+    final parsed = int.tryParse(_poolSizeController.text);
+    final normalized = parsed == null
+        ? saved
+        : clampSignatureSvgWebViewPoolSize(parsed);
+    if (normalized != saved) {
+      ref
+          .read(preferencesProvider.notifier)
+          .setSignatureSvgWebViewPoolSize(normalized);
+    }
+    final text = '$normalized';
+    if (_poolSizeController.text != text) {
+      _poolSizeController.value = TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(offset: text.length),
+      );
+    }
+  }
+
+  String _modeLabel(
+    BuildContext context,
+    SignatureSvgWebViewMode mode,
+  ) {
+    final l10n = context.l10n;
+    return switch (mode) {
+      SignatureSvgWebViewMode.native =>
+        l10n.reading_signatureSvgRendererNative,
+      SignatureSvgWebViewMode.singleWebView =>
+        l10n.reading_signatureSvgRendererSingle,
+      SignatureSvgWebViewMode.webViewPool =>
+        l10n.reading_signatureSvgRendererPool,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final preferences = ref.watch(preferencesProvider);
+    final mode = preferences.signatureSvgWebViewMode;
+    final poolSize = preferences.signatureSvgWebViewPoolSize;
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+
+    if (!_poolSizeFocusNode.hasFocus &&
+        _poolSizeController.text != '$poolSize') {
+      _poolSizeController.text = '$poolSize';
+    }
+
+    return Column(
+      children: [
+        ListTile(
+          leading: Icon(
+            Symbols.language_rounded,
+            color: mode.usesWebView
+                ? theme.colorScheme.primary
+                : theme.colorScheme.onSurfaceVariant,
+          ),
+          title: Text(l10n.reading_signatureSvgWebView),
+          subtitle: Text(l10n.reading_signatureSvgWebViewDesc),
+          trailing: DropdownButtonHideUnderline(
+            child: DropdownButton<SignatureSvgWebViewMode>(
+              value: mode,
+              isDense: true,
+              items: [
+                for (final value in SignatureSvgWebViewMode.values)
+                  DropdownMenuItem(
+                    value: value,
+                    child: Text(_modeLabel(context, value)),
+                  ),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                HapticFeedback.selectionClick();
+                ref
+                    .read(preferencesProvider.notifier)
+                    .setSignatureSvgWebViewMode(value);
+              },
+            ),
+          ),
+        ),
+        if (mode == SignatureSvgWebViewMode.webViewPool) ...[
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            child: Row(
+              children: [
+                Icon(
+                  Symbols.memory_rounded,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(l10n.reading_signatureSvgWebViewPoolSize),
+                      const SizedBox(height: 2),
+                      Text(
+                        l10n.reading_signatureSvgWebViewPoolSizeDesc,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                SizedBox(
+                  width: 64,
+                  child: TextField(
+                    controller: _poolSizeController,
+                    focusNode: _poolSizeFocusNode,
+                    keyboardType: TextInputType.number,
+                    textInputAction: TextInputAction.done,
+                    textAlign: TextAlign.center,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[1-3]')),
+                      LengthLimitingTextInputFormatter(1),
+                    ],
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (text) {
+                      final value = int.tryParse(text);
+                      if (value == null) return;
+                      ref
+                          .read(preferencesProvider.notifier)
+                          .setSignatureSvgWebViewPoolSize(value);
+                    },
+                    onSubmitted: (_) => _normalizePoolSizeText(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
 }

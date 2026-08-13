@@ -106,9 +106,14 @@ class _PostSignatureBlockState extends ConsumerState<PostSignatureBlock> {
         (preferences) => preferences.adaptiveSignatureFrameRate,
       ),
     );
-    final useWebView = ref.watch(
+    final webViewMode = ref.watch(
       preferencesProvider.select(
-        (preferences) => preferences.signatureSvgWebView,
+        (preferences) => preferences.signatureSvgWebViewMode,
+      ),
+    );
+    final webViewPoolSize = ref.watch(
+      preferencesProvider.select(
+        (preferences) => preferences.signatureSvgWebViewPoolSize,
       ),
     );
 
@@ -169,7 +174,8 @@ class _PostSignatureBlockState extends ConsumerState<PostSignatureBlock> {
         ),
         child: SignatureAnimationScope(
           adaptiveFrameRate: adaptiveFrameRate,
-          useWebView: useWebView,
+          webViewMode: webViewMode,
+          webViewPoolSize: webViewPoolSize,
           child: content,
         ),
       ),

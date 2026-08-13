@@ -256,6 +256,8 @@ class _DiscourseSvgViewState extends State<DiscourseSvgView> {
         width: widget.width,
         height: widget.height,
         alignment: widget.alignment,
+        mode: SignatureAnimationScope.webViewModeOf(context),
+        poolSize: SignatureAnimationScope.webViewPoolSizeOf(context),
       );
     }
 

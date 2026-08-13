@@ -8,6 +8,7 @@ import 'package:jovial_svg/jovial_svg.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../constants.dart';
+import '../../models/signature_svg_webview_mode.dart';
 import '../../services/app_logger.dart';
 import '../../services/svg_webview_controller_pool.dart';
 import '../../services/webview_settings.dart';
@@ -19,13 +20,15 @@ import 'animated_svg_view.dart';
 ///
 /// 该组件只由签名 SVG 的显式设置开关接入，不改变正文和查看器的默认
 /// SVG 管线。WebView 保留浏览器的 CSS / SMIL 动画行为，
-/// 但使用了平台视图，因此只在可见区域取得受限的活体槽位；离开视口后
-/// 保存一张有界的快照，并在再次可见时恢复 WebView。
+/// Single 模式为每个签名保留独立平台视图；Pool 模式只让可见签名取得
+/// 受限的活体槽位，离开视口后保存有界快照并释放槽位。
 class SvgWebView extends StatefulWidget {
   final String svgSource;
   final double? width;
   final double? height;
   final Alignment alignment;
+  final SignatureSvgWebViewMode mode;
+  final int poolSize;
 
   const SvgWebView({
     super.key,
@@ -33,6 +36,8 @@ class SvgWebView extends StatefulWidget {
     this.width,
     this.height,
     this.alignment = Alignment.centerLeft,
+    required this.mode,
+    required this.poolSize,
   });
 
   @override
@@ -57,6 +62,8 @@ class _SvgWebViewState extends State<SvgWebView> {
   int _generation = 0;
   DateTime? _webViewStartedAt;
 
+  bool get _usesPool => widget.mode == SignatureSvgWebViewMode.webViewPool;
+
   String get _snapshotKey =>
       '${widget.svgSource.length}:${widget.svgSource.hashCode}:'
       '${widget.width}:${widget.height}';
@@ -66,9 +73,10 @@ class _SvgWebViewState extends State<SvgWebView> {
         'sourceHash': widget.svgSource.hashCode,
         'width': widget.width,
         'height': widget.height,
+        'mode': widget.mode.name,
         'generation': _generation,
         'poolActive': _pool.activeCount,
-        'poolMax': SvgWebViewControllerPool.maxControllers,
+        'poolMax': _pool.maxControllers,
       };
 
   void _logDebug(String message, {Map<String, dynamic>? fields}) {
@@ -103,6 +111,7 @@ class _SvgWebViewState extends State<SvgWebView> {
     super.initState();
     _restoreSnapshot();
     _pool.revision.addListener(_onPoolRevision);
+    if (_usesPool) _pool.configure(widget.poolSize);
     _logDebug(
       'state_init',
       fields: {'snapshotHit': _snapshotImage != null},
@@ -117,6 +126,18 @@ class _SvgWebViewState extends State<SvgWebView> {
         oldWidget.height != widget.height) {
       _logDebug('source_updated');
       _resetForNewSource();
+    } else if (oldWidget.mode != widget.mode) {
+      _logDebug(
+        'renderer_mode_updated',
+        fields: {
+          'oldMode': oldWidget.mode.name,
+          'newMode': widget.mode.name,
+        },
+      );
+      _resetForRendererChange();
+    } else if (_usesPool && oldWidget.poolSize != widget.poolSize) {
+      _pool.configure(widget.poolSize);
+      if (_visible && _lease == null) _scheduleAcquire();
     }
   }
 
@@ -161,11 +182,28 @@ class _SvgWebViewState extends State<SvgWebView> {
     _lease = null;
     _restoreSnapshot();
     if (mounted) setState(() {});
-    if (_visible) _scheduleAcquire();
+    if (_usesPool) {
+      _pool.configure(widget.poolSize);
+      if (_visible) _scheduleAcquire();
+    }
+  }
+
+  void _resetForRendererChange() {
+    _generation++;
+    _acquireTimer?.cancel();
+    _controller = null;
+    _loaded = false;
+    _lease?.release();
+    _lease = null;
+    if (_usesPool) {
+      _pool.configure(widget.poolSize);
+      if (_visible) _scheduleAcquire();
+    }
+    if (mounted) setState(() {});
   }
 
   void _onPoolRevision() {
-    if (!_visible || _lease != null) return;
+    if (!_usesPool || !_visible || _lease != null) return;
     _scheduleAcquire();
   }
 
@@ -180,6 +218,7 @@ class _SvgWebViewState extends State<SvgWebView> {
         'visibleFraction': info.visibleFraction,
       },
     );
+    if (!_usesPool) return;
     if (visible) {
       _scheduleAcquire();
     } else {
@@ -189,7 +228,7 @@ class _SvgWebViewState extends State<SvgWebView> {
   }
 
   void _scheduleAcquire() {
-    if (!mounted || !_visible || _lease != null) {
+    if (!mounted || !_usesPool || !_visible || _lease != null) {
       return;
     }
     _acquireTimer?.cancel();
@@ -198,7 +237,7 @@ class _SvgWebViewState extends State<SvgWebView> {
 
   void _tryAcquire() {
     _acquireTimer = null;
-    if (!mounted || !_visible || _lease != null) {
+    if (!mounted || !_usesPool || !_visible || _lease != null) {
       return;
     }
 
@@ -210,7 +249,7 @@ class _SvgWebViewState extends State<SvgWebView> {
       return;
     }
 
-    final lease = _pool.tryAcquire();
+    final lease = _pool.tryAcquire(maxControllers: widget.poolSize);
     if (lease == null) {
       _logDebug('slot_unavailable');
       return;
@@ -226,6 +265,7 @@ class _SvgWebViewState extends State<SvgWebView> {
   }
 
   Future<void> _deactivate() async {
+    if (!_usesPool) return;
     final lease = _lease;
     if (lease == null) return;
 
@@ -300,7 +340,7 @@ class _SvgWebViewState extends State<SvgWebView> {
 
   Widget _buildBody() {
     final image = _snapshotImage;
-    if (_lease == null) {
+    if (_usesPool && _lease == null) {
       if (image != null) return _buildSnapshot(image);
       return _buildFallback();
     }
@@ -309,6 +349,7 @@ class _SvgWebViewState extends State<SvgWebView> {
         !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
     final safeSource = SvgUtils.stripActiveContent(widget.svgSource);
     return InAppWebView(
+      key: ValueKey('${widget.mode.name}:$_generation:$_snapshotKey'),
       webViewEnvironment: windowsWebView
           ? WindowsWebViewEnvironmentService.instance.environment
           : null,

@@ -1440,7 +1440,11 @@ class FluxdoRenderCallbacks {
         );
 
         if (SignatureAnimationScope.useWebViewOf(context)) {
-          return SvgWebView(svgSource: resolved);
+          return SvgWebView(
+            svgSource: resolved,
+            mode: SignatureAnimationScope.webViewModeOf(context),
+            poolSize: SignatureAnimationScope.webViewPoolSizeOf(context),
+          );
         }
 
         if (AnimatedSvgView.hasAnimations(resolved)) {

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../models/signature_svg_webview_mode.dart';
 import 'app_logger.dart';
 
 /// A lease for one live SVG WebView.
@@ -33,18 +34,30 @@ class SvgWebViewControllerPool {
 
   static final instance = SvgWebViewControllerPool._();
 
-  /// Windows WebView2 keeps renderer/GPU resources longer during teardown, so
-  /// keep its live controller budget lower than mobile/Apple WebViews.
-  static int get maxControllers =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.windows ? 2 : 3;
-
   static const _nativeTeardownCooldown = Duration(milliseconds: 750);
 
   final ValueNotifier<int> revision = ValueNotifier<int>(0);
   final Set<SvgWebViewLease> _leases = <SvgWebViewLease>{};
+  int _maxControllers = kSignatureSvgWebViewPoolDefaultSize;
 
-  SvgWebViewLease? tryAcquire() {
-    if (_leases.length >= maxControllers) return null;
+  void configure(int maxControllers) {
+    final next = clampSignatureSvgWebViewPoolSize(maxControllers);
+    if (_maxControllers == next) return;
+    _maxControllers = next;
+    revision.value++;
+    AppLogger.debug(
+      'pool_reconfigured',
+      tag: 'SvgWebViewPool',
+      fields: {
+        'active': _leases.length,
+        'max': _maxControllers,
+      },
+    );
+  }
+
+  SvgWebViewLease? tryAcquire({required int maxControllers}) {
+    configure(maxControllers);
+    if (_leases.length >= _maxControllers) return null;
 
     final lease = SvgWebViewLease._(this);
     _leases.add(lease);
@@ -54,7 +67,7 @@ class SvgWebViewControllerPool {
       tag: 'SvgWebViewPool',
       fields: {
         'active': _leases.length,
-        'max': maxControllers,
+        'max': _maxControllers,
       },
     );
     return lease;
@@ -79,11 +92,13 @@ class SvgWebViewControllerPool {
         tag: 'SvgWebViewPool',
         fields: {
           'active': _leases.length,
-          'max': maxControllers,
+          'max': _maxControllers,
         },
       );
     });
   }
 
   int get activeCount => _leases.length;
+
+  int get maxControllers => _maxControllers;
 }
