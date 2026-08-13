@@ -8,6 +8,7 @@
   "privateMessages_archive": "보관함",
   "privateMessages_empty": "메시지가 없습니다",
   "privateMessages_groupChat": "그룹 채팅",
+  "privateMessages_system": "시스템",
   "privateMessages_showMore": "더 보기",
   "privateMessages_collapse": "접기",
   "profileStats_addItems": "탭하여 통계 항목 추가",

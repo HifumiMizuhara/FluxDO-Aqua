@@ -8,6 +8,7 @@
   "privateMessages_archive": "アーカイブ",
   "privateMessages_empty": "メッセージはありません",
   "privateMessages_groupChat": "グループチャット",
+  "privateMessages_system": "システム",
   "privateMessages_showMore": "もっと見る",
   "privateMessages_collapse": "折りたたむ",
   "profileStats_addItems": "タップして統計項目を追加",

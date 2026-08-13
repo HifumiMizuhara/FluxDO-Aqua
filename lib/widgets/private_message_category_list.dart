@@ -139,7 +139,9 @@ class _PrivateMessageCategoryListState
     final theme = Theme.of(context);
     final label = category.isGroupChat
         ? context.l10n.privateMessages_groupChat
-        : category.peer?.username ?? 'DM #${category.topics.first.id}';
+        : category.isSystemMessage
+        ? context.l10n.privateMessages_system
+        : category.peer?.username ?? context.l10n.privateMessages_system;
 
     return InkWell(
       onTap: () {
@@ -158,6 +160,10 @@ class _PrivateMessageCategoryListState
             Icon(
               category.isGroupChat
                   ? Symbols.groups_rounded
+                  : category.isSystemMessage
+                  ? Symbols.info_rounded
+                  : category.peer == null
+                  ? Symbols.info_rounded
                   : Symbols.person_rounded,
               size: 20,
               color: theme.colorScheme.primary,

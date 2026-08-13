@@ -10,6 +10,9 @@ import '../utils/pagination_helper.dart';
 import 'bookmark_sync_controller.dart';
 import 'bookmarks_repository.dart';
 import 'core_providers.dart';
+import 'private_message_category_cache.dart';
+import 'preferences_provider.dart';
+import 'theme_provider.dart';
 
 final bookmarksPageLoaderProvider = Provider<BookmarkPageLoader>((ref) {
   final service = ref.read(discourseServiceProvider);
@@ -403,8 +406,20 @@ abstract class PrivateMessagesNotifier extends AsyncNotifier<List<Topic>>
     with PagedAsyncNotifierMixin<Topic> {
   Future<TopicListResponse> fetch(int page);
 
+  String get categoryCacheFilter;
+
+  bool get _isCategoryMode =>
+      ref.read(preferencesProvider).experimentalPrivateMessageCategories;
+
   @override
   Future<List<Topic>> build() async {
+    final categoryMode = ref.watch(
+      preferencesProvider.select(
+        (preferences) => preferences.experimentalPrivateMessageCategories,
+      ),
+    );
+    if (categoryMode) return _buildCategorized();
+
     resetPagingState();
     final response = await fetch(0);
 
@@ -415,6 +430,18 @@ abstract class PrivateMessagesNotifier extends AsyncNotifier<List<Topic>>
   }
 
   Future<void> refresh() async {
+    if (_isCategoryMode) {
+      final username = await ref.read(currentUsernameProvider.future);
+      if (username == null) return;
+      try {
+        final topics = await _syncCategorized(username);
+        if (ref.mounted) state = AsyncValue.data(topics);
+      } catch (_) {
+        // Keep the current categorized snapshot visible when refresh fails.
+      }
+      return;
+    }
+
     await runPagedRefresh(() async {
       final response = await fetch(0);
 
@@ -429,6 +456,8 @@ abstract class PrivateMessagesNotifier extends AsyncNotifier<List<Topic>>
   }
 
   Future<void> loadMore() async {
+    if (_isCategoryMode) return;
+
     await runPagedLoadMore((currentList, nextPage) async {
       final response = await fetch(nextPage);
 
@@ -449,11 +478,81 @@ abstract class PrivateMessagesNotifier extends AsyncNotifier<List<Topic>>
   }
 
   Future<void> retryLoadMore() {
+    if (_isCategoryMode) return refresh();
     return retryPagedLoadMore(loadMore);
+  }
+
+  Future<List<Topic>> _buildCategorized() async {
+    resetPagingState(hasMore: false);
+    final username = await ref.read(currentUsernameProvider.future);
+    if (username == null) return _fetchAllCategorizedTopics();
+
+    final cache = PrivateMessageCategoryCache(
+      ref.read(sharedPreferencesProvider),
+    );
+    final cached = cache.read(username: username, filter: categoryCacheFilter);
+    if (cached != null) {
+      // Keep the visible category structure stable while the complete
+      // snapshot is refreshed in the background.
+      unawaited(_refreshCategorizedInBackground(username));
+      return cached;
+    }
+
+    return _syncCategorized(username);
+  }
+
+  Future<void> _refreshCategorizedInBackground(String username) async {
+    try {
+      final topics = await _syncCategorized(username);
+      if (ref.mounted) state = AsyncValue.data(topics);
+    } catch (_) {
+      // A usable cached snapshot should remain visible when refresh fails.
+    }
+  }
+
+  Future<List<Topic>> _syncCategorized(String username) async {
+    final topics = await _fetchAllCategorizedTopics();
+    try {
+      await PrivateMessageCategoryCache(
+        ref.read(sharedPreferencesProvider),
+      ).write(username: username, filter: categoryCacheFilter, topics: topics);
+    } catch (_) {
+      // Local caching is an optimization; a successful network result still
+      // belongs in the current state when persistence is unavailable.
+    }
+    resetPagingState(hasMore: false);
+    return topics;
+  }
+
+  Future<List<Topic>> _fetchAllCategorizedTopics() async {
+    final topicsById = <int, Topic>{};
+    var page = 0;
+    String? previousMoreUrl;
+
+    while (true) {
+      final response = await fetch(page);
+      for (final topic in response.topics) {
+        topicsById[topic.id] = topic;
+      }
+
+      final moreUrl = response.moreTopicsUrl;
+      if (response.topics.isEmpty ||
+          moreUrl == null ||
+          moreUrl == previousMoreUrl) {
+        break;
+      }
+      previousMoreUrl = moreUrl;
+      page++;
+    }
+
+    return List.unmodifiable(topicsById.values);
   }
 }
 
 class _PmInboxNotifier extends PrivateMessagesNotifier {
+  @override
+  String get categoryCacheFilter => 'inbox';
+
   @override
   Future<TopicListResponse> fetch(int page) =>
       ref.read(discourseServiceProvider).getPrivateMessages(page: page);
@@ -461,11 +560,17 @@ class _PmInboxNotifier extends PrivateMessagesNotifier {
 
 class _PmSentNotifier extends PrivateMessagesNotifier {
   @override
+  String get categoryCacheFilter => 'sent';
+
+  @override
   Future<TopicListResponse> fetch(int page) =>
       ref.read(discourseServiceProvider).getPrivateMessagesSent(page: page);
 }
 
 class _PmArchiveNotifier extends PrivateMessagesNotifier {
+  @override
+  String get categoryCacheFilter => 'archive';
+
   @override
   Future<TopicListResponse> fetch(int page) =>
       ref.read(discourseServiceProvider).getPrivateMessagesArchive(page: page);

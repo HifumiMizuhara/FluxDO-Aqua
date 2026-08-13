@@ -286,6 +286,9 @@ class _PrivateMessageTabViewState extends ConsumerState<_PrivateMessageTabView>
   }
 
   void _onScroll() {
+    if (ref.read(preferencesProvider).experimentalPrivateMessageCategories) {
+      return;
+    }
     final distance =
         _scrollController.position.maxScrollExtent -
         _scrollController.position.pixels;
@@ -403,7 +406,7 @@ class _PrivateMessageTabViewState extends ConsumerState<_PrivateMessageTabView>
                     selectedTopicId: selectedTopicId,
                     enableLongPress: enableLongPress,
                     onTopicTap: _onItemTap,
-                    footer: _buildPaginationFooter(notifier),
+                    footer: const SizedBox.shrink(),
                   )
                 : ListView.builder(
                     controller: _scrollController,

@@ -1,14 +1,17 @@
 import 'topic.dart';
 
-/// Category key used for all multi-recipient private messages.
+/// Category key used for all group private messages.
 const privateMessageGroupCategoryKey = 'group-chat';
+
+/// Category key used for system-generated private messages.
+const privateMessageSystemCategoryKey = 'system';
 
 /// A display category for the private-message topic list.
 ///
 /// The grouping model deliberately depends only on [Topic] data, so it can be
-/// tested without building the private-message page. A topic whose recipient
-/// data is incomplete gets a topic-specific fallback key and can never merge
-/// with another unknown topic.
+/// tested without building the private-message page. An unresolved participant
+/// is treated as a system recipient, while a normal one-to-one topic with a
+/// resolved participant is grouped by that user's ID.
 class PrivateMessageCategory {
   final String key;
   final TopicUser? peer;
@@ -21,6 +24,8 @@ class PrivateMessageCategory {
   });
 
   bool get isGroupChat => key == privateMessageGroupCategoryKey;
+
+  bool get isSystemMessage => key == privateMessageSystemCategoryKey;
 
   DateTime? get latestMessageAt {
     for (final topic in topics) {
@@ -36,7 +41,9 @@ class PrivateMessageCategory {
 /// Discourse's `participants` summary excludes the current user. One
 /// participant is therefore a one-to-one message; two or more participants,
 /// or a participant group, is a group message. Missing participant details
-/// are kept at topic granularity to avoid accidental cross-user merges.
+/// are kept at topic granularity to avoid accidental cross-user merges,
+/// except for the server's system-message shape, which has no human
+/// participant and belongs to the system category.
 List<PrivateMessageCategory> groupPrivateMessages(Iterable<Topic> topics) {
   final grouped = <String, List<Topic>>{};
   final peers = <String, TopicUser?>{};
@@ -44,19 +51,23 @@ List<PrivateMessageCategory> groupPrivateMessages(Iterable<Topic> topics) {
   for (final topic in topics) {
     final participants = topic.participants;
     final isGroup = topic.hasParticipantGroups || participants.length >= 2;
+    final isSystem = _isSystemTopic(topic);
 
     late final String key;
     TopicUser? peer;
-    if (isGroup) {
+    if (isSystem) {
+      key = privateMessageSystemCategoryKey;
+    } else if (isGroup) {
       key = privateMessageGroupCategoryKey;
     } else if (participants.length == 1 && participants.single.user != null) {
       final participant = participants.single.user!;
       peer = participant;
       key = 'user:${participant.id}';
     } else {
-      // Do not use an empty/unknown participant key: two incomplete topics
-      // must remain separate until the server provides participant data.
-      key = 'topic:${topic.id}';
+      // There is no safe human recipient to display. Do not create a
+      // topic-specific fallback such as "DM #...": these are system-style
+      // entries from the user's perspective and must be consolidated.
+      key = privateMessageSystemCategoryKey;
     }
 
     grouped.putIfAbsent(key, () => <Topic>[]).add(topic);
@@ -82,4 +93,28 @@ List<PrivateMessageCategory> groupPrivateMessages(Iterable<Topic> topics) {
     return bDate.compareTo(aDate);
   });
   return categories;
+}
+
+bool _isSystemParticipant(TopicPoster participant) {
+  final username = participant.user?.username.trim().toLowerCase();
+  // The system user is not always included in the response's top-level
+  // `users` array. In that shape the participant has a valid-looking ID but
+  // no resolved TopicUser, which used to make the topic look like a group
+  // chat when another participant was present.
+  return participant.user == null ||
+      participant.userId <= 0 ||
+      username == 'system';
+}
+
+bool _isSystemTopic(Topic topic) {
+  if (topic.isSystemMessage) return true;
+
+  // A group recipient is authoritative. Do not infer a system topic from
+  // missing user hydration in a group-recipient response.
+  if (topic.hasParticipantGroups) return false;
+
+  final participants = topic.participants;
+  return participants.isEmpty ||
+      participants.any(_isSystemParticipant) ||
+      topic.lastPosterUsername?.trim().toLowerCase() == 'system';
 }
