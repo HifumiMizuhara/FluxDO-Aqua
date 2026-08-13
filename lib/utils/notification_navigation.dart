@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app_icons/app_icons.dart';
@@ -9,6 +11,7 @@ import '../pages/chat/channel/chat_channel_page.dart';
 import '../pages/topic_detail_page/topic_detail_page.dart';
 import '../pages/user_profile_page.dart';
 import '../services/local_notification_service.dart';
+import '../services/crash_mitigation_service.dart';
 import '../utils/dialog_utils.dart';
 import '../widgets/common/page_dialog.dart';
 import '../widgets/layout/master_detail_layout.dart';
@@ -136,6 +139,7 @@ void handleNotificationTap(
   WidgetRef ref,
   DiscourseNotification notification, {
   List<DiscourseNotification>? siblings,
+  Future<void> Function()? beforeNavigate,
 }) {
   final container = ProviderScope.containerOf(context, listen: false);
   _markNotificationRead(container, notification);
@@ -148,7 +152,27 @@ void handleNotificationTap(
   if (page == null) return;
 
   if (!MasterDetailLayout.canShowBothPanesFor(context)) {
-    _rootNavigator(context)?.push(MaterialPageRoute(builder: (_) => page));
+    final navigator = _rootNavigator(context);
+    void pushPage() {
+      if (CrashMitigationService.enabled) {
+        CrashMitigationService.trimImageMemory();
+      }
+      navigator?.push(MaterialPageRoute(builder: (_) => page));
+    }
+
+    final prepare = beforeNavigate;
+    if (prepare == null) {
+      pushPage();
+    } else {
+      unawaited(() async {
+        try {
+          await prepare();
+        } catch (error, stack) {
+          debugPrint('Failed to close notification surface: $error\n$stack');
+        }
+        pushPage();
+      }());
+    }
     return;
   }
 

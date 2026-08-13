@@ -7,6 +7,7 @@ import '../l10n/s.dart';
 import '../utils/scroll_busy_signal.dart';
 import 'avif_fast_bridge.dart';
 import 'blob_image_cache.dart';
+import 'crash_mitigation_service.dart';
 
 /// 限制并发 AVIF 解码数(thumbnail batch 场景)。
 ///
@@ -207,7 +208,9 @@ class AvifImageProvider extends ImageProvider<AvifImageProvider> {
       codecFactory: () => _createCodec(key),
       scale: key.scale,
       singleFrame: key.singleFrame,
-      maxDimension: key.maxDimension,
+      maxDimension: CrashMitigationService.effectiveMaxDimension(
+        key.maxDimension,
+      ),
       onError: () {
         scheduleMicrotask(() {
           PaintingBinding.instance.imageCache.evict(key);
@@ -225,10 +228,13 @@ class AvifImageProvider extends ImageProvider<AvifImageProvider> {
   /// (理论上只有 web)才落官方 `MultiFrameAvifCodec`。
   static Future<fa.AvifCodec> _createCodec(AvifImageProvider key) async {
     final bytes = await BlobImageCache.fetch(key.bucket, key.url);
+    final maxDimension = CrashMitigationService.effectiveMaxDimension(
+      key.maxDimension,
+    );
     if (!_avifPlatformCodecUnavailable && !_looksAnimatedAvif(bytes)) {
       final platformCodec = await _tryPlatformAvifCodec(
         bytes,
-        maxDim: key.maxDimension,
+        maxDim: maxDimension,
       );
       if (platformCodec != null) {
         return _PlatformAvifCodec(platformCodec);
@@ -240,7 +246,7 @@ class AvifImageProvider extends ImageProvider<AvifImageProvider> {
     if (AvifFastBridge.available) {
       final codec = _FastAvifCodec(
         key: '${_avifCodecKeySeq++}',
-        maxDim: key.maxDimension,
+        maxDim: maxDimension,
       );
       await codec.init(bytes);
       return codec;
@@ -268,6 +274,7 @@ class AvifImageProvider extends ImageProvider<AvifImageProvider> {
     Uint8List bytes, {
     int? maxDim,
   }) async {
+    maxDim = CrashMitigationService.effectiveMaxDimension(maxDim);
     if (!_avifPlatformCodecUnavailable) {
       final platformCodec = await _tryPlatformAvifCodec(bytes, maxDim: maxDim);
       if (platformCodec != null) {

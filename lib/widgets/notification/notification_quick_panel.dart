@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +10,7 @@ import '../../providers/shortcut_provider.dart';
 import '../../providers/preferences_provider.dart';
 import '../../pages/notifications_page.dart';
 import '../../services/dynamic_content_suspension_service.dart';
+import '../../services/crash_mitigation_service.dart';
 import '../../utils/blur_config.dart';
 import '../../utils/dialog_utils.dart';
 import '../../utils/responsive.dart';
@@ -101,6 +104,24 @@ class NotificationQuickPanel {
       return;
     }
     _visible.value = false;
+  }
+
+  /// Closes the mobile sheet completely before a notification target is
+  /// pushed. Keeping the sheet underneath the target retains its list and all
+  /// notification avatars during the most memory-intensive transition.
+  static Future<void> dismissAndWait() async {
+    final future = _mobileFuture;
+    dismiss();
+    if (future == null) return;
+    try {
+      await future;
+    } catch (_) {
+      // The route is still safe to discard when its transition reports an
+      // error; navigation should not be blocked by the cleanup path.
+    }
+    if (CrashMitigationService.enabled) {
+      CrashMitigationService.trimImageMemory(includeLiveImages: true);
+    }
   }
 }
 
@@ -711,19 +732,21 @@ class _NotificationBodyState extends ConsumerState<_NotificationBody> {
                 notification: notification,
                 systemAvatarTemplate: systemAvatarTemplate,
                 onTap: () {
-                  // 先派发跳转再处理面板:跳转在本帧同步读取
-                  // context/provider。siblings = 当前可见列表,大屏弹窗
-                  // 内可上一条/下一条快速切换。
+                  final isWide = MasterDetailLayout.canShowBothPanesFor(
+                    context,
+                  );
+                  // 窄屏先等 sheet 完全退出，再推送详情页，避免面板的
+                  // 通知列表和头像与详情页在同一时刻驻留。
                   handleNotificationTap(
                     context,
                     ref,
                     notification,
                     siblings: visibleNotifications,
+                    beforeNavigate: isWide
+                        ? null
+                        : NotificationQuickPanel.dismissAndWait,
                   );
-                  // 大屏(弹窗落点,自带通知列表侧栏)关面板;窄屏推的
-                  // 是全屏详情路由,sheet 留在栈里垫底——返回即回到
-                  // 面板继续看下一条,不用重新拉开。
-                  if (MasterDetailLayout.canShowBothPanesFor(context)) {
+                  if (isWide) {
                     NotificationQuickPanel.dismiss();
                   }
                 },

@@ -7,6 +7,7 @@ import 'package:flutter/widgets.dart';
 import 'frame_jank_monitor.dart';
 import 'frame_scheduler_probe.dart';
 import 'perf_pipeline_probe.dart';
+import '../services/crash_mitigation_service.dart';
 
 /// 全局图片解码并发闸门:限制同一时刻在引擎里跑的图片解码任务数。
 ///
@@ -276,9 +277,16 @@ class _SizeCapture {
   int effectiveMaxEdge = 1 << 30;
 
   ui.TargetImageSize capture(int intrinsicWidth, int intrinsicHeight) {
-    final target = _inner == null
+    final requested = _inner == null
         ? const ui.TargetImageSize()
         : _inner(intrinsicWidth, intrinsicHeight);
+    final target = CrashMitigationService.enabled
+        ? CrashMitigationService.clampTargetSize(
+            intrinsicWidth,
+            intrinsicHeight,
+            requested,
+          )
+        : requested;
     final w = target.width;
     final h = target.height;
     if (w == null && h == null) {
