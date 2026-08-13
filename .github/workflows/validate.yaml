@@ -1,0 +1,221 @@
+name: Validate
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: '3.44.0'
+  ANDROID_NDK_VERSION: '27.3.13750724'
+
+jobs:
+  static-checks:
+    name: Static checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Checkout available submodules
+        run: |
+          git submodule update --init --depth=1 core/doh_proxy
+          git clone --depth=1 https://github.com/Lingyan000/fluxdo_render.git packages/fluxdo_render
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Prepare workspace
+        run: dart tool/project_prep.dart test
+
+      - name: Format changed SVG signature files
+        run: |
+          dart format \
+            lib/models/signature_svg_webview_mode.dart \
+            lib/providers/preferences_provider.dart \
+            lib/services/svg_webview_controller_pool.dart \
+            lib/settings/definitions/reading_defs.dart \
+            lib/utils/fluxdo_render_callbacks.dart \
+            lib/widgets/content/signature_animation_scope.dart \
+            lib/widgets/content/svg_view.dart \
+            lib/widgets/content/svg_web_view.dart \
+            lib/widgets/post/post_signature_block.dart \
+            test/providers/preferences_provider_test.dart
+
+      - name: Analyze changed SVG signature files
+        run: |
+          dart tool/flutterw.dart analyze --no-fatal-infos --no-fatal-warnings \
+            lib/models/signature_svg_webview_mode.dart \
+            lib/providers/preferences_provider.dart \
+            lib/services/svg_webview_controller_pool.dart \
+            lib/settings/definitions/reading_defs.dart \
+            lib/utils/fluxdo_render_callbacks.dart \
+            lib/widgets/content/signature_animation_scope.dart \
+            lib/widgets/content/svg_view.dart \
+            lib/widgets/content/svg_web_view.dart \
+            lib/widgets/post/post_signature_block.dart \
+            test/providers/preferences_provider_test.dart
+
+      - name: Test SVG signature preferences
+        run: dart tool/flutterw.dart test test/providers/preferences_provider_test.dart
+
+  android:
+    name: Build Android (arm64)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf \
+            /usr/share/dotnet \
+            /usr/local/lib/android/sdk/ndk \
+            /opt/ghc \
+            /usr/local/.ghcup \
+            /opt/hostedtoolcache/CodeQL \
+            /usr/share/swift
+          sudo docker image prune --all --force > /dev/null 2>&1 || true
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Checkout available submodules
+        run: |
+          git submodule update --init --depth=1 core/doh_proxy
+          git clone --depth=1 https://github.com/Lingyan000/fluxdo_render.git packages/fluxdo_render
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core/doh_proxy
+          key: android-arm64
+
+      - name: Setup Android build environment
+        run: |
+          rustup target add aarch64-linux-android
+          cargo install cargo-ndk
+          sudo apt-get update
+          sudo apt-get install -y cmake
+
+      - name: Setup Android NDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: ndk;${{ env.ANDROID_NDK_VERSION }}
+
+      - name: Configure Android NDK path
+        run: |
+          ndk_path="${ANDROID_HOME}/ndk/${ANDROID_NDK_VERSION}"
+          test -d "${ndk_path}"
+          echo "ANDROID_NDK_HOME=${ndk_path}" >> "${GITHUB_ENV}"
+          echo "ANDROID_NDK_ROOT=${ndk_path}" >> "${GITHUB_ENV}"
+
+      - name: Setup Android services and signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_PROPERTIES: ${{ secrets.ANDROID_KEY_PROPERTIES }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "${ANDROID_KEYSTORE_BASE64}" ] && [ -n "${ANDROID_KEY_PROPERTIES}" ]; then
+            echo "${ANDROID_KEYSTORE_BASE64}" | base64 -d > android/app/upload-keystore.jks
+            echo "${ANDROID_KEY_PROPERTIES}" > android/key.properties
+          fi
+
+          if [ -n "${GOOGLE_SERVICES_JSON}" ]; then
+            echo "${GOOGLE_SERVICES_JSON}" | base64 -d > android/app/google-services.json
+          else
+            cp .github/ci/google-services.json android/app/google-services.json
+          fi
+
+      - name: Build Android
+        run: >-
+          dart tool/flutterw.dart build apk --release
+          --target-platform android-arm64
+          --dart-define=cronetHttpNoPlay=true
+
+      - name: Upload Android artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fluxdo-android-arm64
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+
+  windows:
+    name: Build Windows
+    runs-on: windows-2022
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Checkout available submodules
+        shell: pwsh
+        run: |
+          git submodule update --init --depth=1 core/doh_proxy
+          git clone --depth=1 https://github.com/Lingyan000/fluxdo_render.git packages/fluxdo_render
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core/doh_proxy
+          key: windows-x86_64
+
+      - name: Setup NuGet
+        uses: nuget/setup-nuget@v2
+
+      - name: Setup NASM
+        uses: ilammy/setup-nasm@v1
+
+      - name: Build Windows
+        shell: pwsh
+        run: |
+          dart tool/flutterw.dart build windows --release
+          $releaseDir = "build\windows\x64\runner\Release"
+          if (-not (Test-Path "$releaseDir\native\doh_proxy.dll")) { throw "Missing doh_proxy.dll" }
+          if (-not (Test-Path "$releaseDir\native\doh_proxy_bin.exe")) { throw "Missing doh_proxy_bin.exe" }
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Compress-Archive -Path "$releaseDir\*" -DestinationPath "dist\fluxdo-windows-x86_64.zip" -Force
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fluxdo-windows-x86_64
+          path: dist/fluxdo-windows-x86_64.zip
+          if-no-files-found: error

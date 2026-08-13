@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 // ignore: depend_on_referenced_packages
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../models/signature_svg_webview_mode.dart';
 import '../models/topic_card_style.dart';
 import '../navigation/nav_action_bus.dart';
 import '../services/network/request_scheduler_config.dart';
@@ -198,8 +199,14 @@ class AppPreferences {
   /// 小尾巴动画 SVG 自适应帧率
   final bool adaptiveSignatureFrameRate;
 
-  /// 使用系统 WebView 绘制用户签名中的 SVG。
-  final bool signatureSvgWebView;
+  /// 用户签名中的 SVG 渲染模式。
+  final SignatureSvgWebViewMode signatureSvgWebViewMode;
+
+  /// WebView Pool 模式下允许同时存活的 WebView 数量。
+  final int signatureSvgWebViewPoolSize;
+
+  /// 兼容旧调用点；新代码应读取 [signatureSvgWebViewMode]。
+  bool get signatureSvgWebView => signatureSvgWebViewMode.usesWebView;
 
   /// Boost 弹幕化（默认关闭）
   final bool boostDanmaku;
@@ -295,7 +302,8 @@ class AppPreferences {
     required this.dialogBlur,
     this.showSignatures = false,
     this.adaptiveSignatureFrameRate = true,
-    this.signatureSvgWebView = false,
+    this.signatureSvgWebViewMode = SignatureSvgWebViewMode.native,
+    this.signatureSvgWebViewPoolSize = kSignatureSvgWebViewPoolDefaultSize,
     this.boostDanmaku = false,
     this.showSuggestedTopics = true,
     this.defaultNestedView = false,
@@ -352,7 +360,8 @@ class AppPreferences {
     bool? dialogBlur,
     bool? showSignatures,
     bool? adaptiveSignatureFrameRate,
-    bool? signatureSvgWebView,
+    SignatureSvgWebViewMode? signatureSvgWebViewMode,
+    int? signatureSvgWebViewPoolSize,
     bool? boostDanmaku,
     bool? showSuggestedTopics,
     bool? defaultNestedView,
@@ -421,7 +430,11 @@ class AppPreferences {
       showSignatures: showSignatures ?? this.showSignatures,
       adaptiveSignatureFrameRate:
           adaptiveSignatureFrameRate ?? this.adaptiveSignatureFrameRate,
-      signatureSvgWebView: signatureSvgWebView ?? this.signatureSvgWebView,
+      signatureSvgWebViewMode:
+          signatureSvgWebViewMode ?? this.signatureSvgWebViewMode,
+      signatureSvgWebViewPoolSize: signatureSvgWebViewPoolSize == null
+          ? this.signatureSvgWebViewPoolSize
+          : clampSignatureSvgWebViewPoolSize(signatureSvgWebViewPoolSize),
       boostDanmaku: boostDanmaku ?? this.boostDanmaku,
       showSuggestedTopics: showSuggestedTopics ?? this.showSuggestedTopics,
       defaultNestedView: defaultNestedView ?? this.defaultNestedView,
@@ -497,6 +510,10 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
   static const String _adaptiveSignatureFrameRateKey =
       'pref_adaptive_signature_frame_rate';
   static const String _signatureSvgWebViewKey = 'pref_signature_svg_webview';
+  static const String _signatureSvgWebViewModeKey =
+      'pref_signature_svg_webview_mode';
+  static const String _signatureSvgWebViewPoolSizeKey =
+      'pref_signature_svg_webview_pool_size';
   static const String _boostDanmakuKey = 'pref_boost_danmaku';
   static const String _showSuggestedTopicsKey = 'pref_show_suggested_topics';
   static const String _defaultNestedViewKey = 'pref_default_nested_view';
@@ -577,8 +594,15 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
           showSignatures: _prefs.getBool(_showSignaturesKey) ?? false,
           adaptiveSignatureFrameRate:
               _prefs.getBool(_adaptiveSignatureFrameRateKey) ?? true,
-          signatureSvgWebView:
-              _prefs.getBool(_signatureSvgWebViewKey) ?? false,
+          signatureSvgWebViewMode: SignatureSvgWebViewMode.fromString(
+            _prefs.getString(_signatureSvgWebViewModeKey),
+            legacyWebViewEnabled:
+                _prefs.getBool(_signatureSvgWebViewKey) ?? false,
+          ),
+          signatureSvgWebViewPoolSize: clampSignatureSvgWebViewPoolSize(
+            _prefs.getInt(_signatureSvgWebViewPoolSizeKey) ??
+                kSignatureSvgWebViewPoolDefaultSize,
+          ),
           boostDanmaku: _prefs.getBool(_boostDanmakuKey) ?? false,
           showSuggestedTopics: _prefs.getBool(_showSuggestedTopicsKey) ?? true,
           defaultNestedView: _prefs.getBool(_defaultNestedViewKey) ?? false,
@@ -857,9 +881,22 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
     await _prefs.setBool(_adaptiveSignatureFrameRateKey, enabled);
   }
 
-  Future<void> setSignatureSvgWebView(bool enabled) async {
-    state = state.copyWith(signatureSvgWebView: enabled);
-    await _prefs.setBool(_signatureSvgWebViewKey, enabled);
+  Future<void> setSignatureSvgWebViewMode(
+    SignatureSvgWebViewMode mode,
+  ) async {
+    if (state.signatureSvgWebViewMode == mode) return;
+    state = state.copyWith(signatureSvgWebViewMode: mode);
+    await Future.wait([
+      _prefs.setString(_signatureSvgWebViewModeKey, mode.name),
+      _prefs.setBool(_signatureSvgWebViewKey, mode.usesWebView),
+    ]);
+  }
+
+  Future<void> setSignatureSvgWebViewPoolSize(int value) async {
+    final size = clampSignatureSvgWebViewPoolSize(value);
+    if (state.signatureSvgWebViewPoolSize == size) return;
+    state = state.copyWith(signatureSvgWebViewPoolSize: size);
+    await _prefs.setInt(_signatureSvgWebViewPoolSizeKey, size);
   }
 
   Future<void> setBoostDanmaku(bool enabled) async {
