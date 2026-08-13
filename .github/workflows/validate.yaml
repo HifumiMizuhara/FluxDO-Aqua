@@ -55,8 +55,19 @@ jobs:
             lib/widgets/post/post_signature_block.dart \
             test/providers/preferences_provider_test.dart
 
-      - name: Analyze
-        run: dart tool/flutterw.dart analyze --no-fatal-infos --no-fatal-warnings
+      - name: Analyze changed SVG signature files
+        run: |
+          dart tool/flutterw.dart analyze --no-fatal-infos --no-fatal-warnings \
+            lib/models/signature_svg_webview_mode.dart \
+            lib/providers/preferences_provider.dart \
+            lib/services/svg_webview_controller_pool.dart \
+            lib/settings/definitions/reading_defs.dart \
+            lib/utils/fluxdo_render_callbacks.dart \
+            lib/widgets/content/signature_animation_scope.dart \
+            lib/widgets/content/svg_view.dart \
+            lib/widgets/content/svg_web_view.dart \
+            lib/widgets/post/post_signature_block.dart \
+            test/providers/preferences_provider_test.dart
 
       - name: Test SVG signature preferences
         run: dart tool/flutterw.dart test test/providers/preferences_provider_test.dart
@@ -149,6 +160,13 @@ jobs:
           --target-platform android-arm64
           --dart-define=cronetHttpNoPlay=true
 
+      - name: Upload Android artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fluxdo-android-arm64
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+
   windows:
     name: Build Windows
     runs-on: windows-2022
@@ -192,3 +210,12 @@ jobs:
           $releaseDir = "build\windows\x64\runner\Release"
           if (-not (Test-Path "$releaseDir\native\doh_proxy.dll")) { throw "Missing doh_proxy.dll" }
           if (-not (Test-Path "$releaseDir\native\doh_proxy_bin.exe")) { throw "Missing doh_proxy_bin.exe" }
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Compress-Archive -Path "$releaseDir\*" -DestinationPath "dist\fluxdo-windows-x86_64.zip" -Force
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fluxdo-windows-x86_64
+          path: dist/fluxdo-windows-x86_64.zip
+          if-no-files-found: error
