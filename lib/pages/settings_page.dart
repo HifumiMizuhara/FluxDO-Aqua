@@ -15,6 +15,7 @@ import '../widgets/esc_fallback_observer.dart';
 import '../widgets/layout/master_detail_layout.dart';
 import 'about_page.dart';
 import 'appearance_page.dart';
+import 'aqua_lab_settings_page.dart';
 import 'bottom_nav_settings_page.dart';
 import 'data_management_page.dart';
 import 'network_settings_page/network_settings_page.dart';
@@ -368,6 +369,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               iconColor: Colors.deepPurple,
               title: l10n.settings_preferences,
               onTap: () => _openSettingsPage((_) => const PreferencesPage()),
+            ),
+            _buildOptionTile(
+              icon: Symbols.science_rounded,
+              iconColor: Colors.cyan,
+              title: l10n.settings_aquaLab,
+              onTap: () =>
+                  _openSettingsPage((_) => const AquaLabSettingsPage()),
             ),
             _buildOptionTile(
               icon: Symbols.view_day_rounded,

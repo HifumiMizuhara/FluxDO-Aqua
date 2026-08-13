@@ -16,6 +16,7 @@ import '../widgets/layout/pane_projection_back_scope.dart';
 import '../widgets/topic/topic_card_prewarmer.dart';
 import '../widgets/topic/topic_item_builder.dart';
 import '../widgets/topic/topic_list_skeleton.dart';
+import '../widgets/private_message_category_list.dart';
 import '../widgets/post/reply_sheet.dart';
 import '../widgets/common/error_view.dart';
 import '../widgets/desktop_refresh_indicator.dart';
@@ -388,42 +389,46 @@ class _PrivateMessageTabViewState extends ConsumerState<_PrivateMessageTabView>
             );
           }
 
+          final preferences = ref.watch(preferencesProvider);
+          final enableLongPress = preferences.longPressPreview;
+          final selectedTopicId = ref.watch(selectedMessageProvider).topicId;
+
           return TopicCardPrewarmScope(
             topics: topics,
             messageStyle: true,
-            child: ListView.builder(
-              controller: _scrollController,
-              // 底部让出 extendBody 注入的底栏高度
-              padding: EdgeInsets.fromLTRB(
-                12,
-                12,
-                12,
-                12 + MediaQuery.paddingOf(context).bottom,
-              ),
-              itemCount: topics.length + 1,
-              itemBuilder: (context, index) {
-                if (index == topics.length) {
-                  return _buildPaginationFooter(notifier);
-                }
-
-                final topic = topics[index];
-                final enableLongPress = ref
-                    .watch(preferencesProvider)
-                    .longPressPreview;
-                final selectedTopicId = ref
-                    .watch(selectedMessageProvider)
-                    .topicId;
-                return buildTopicItem(
-                  context: context,
-                  topic: topic,
-                  isSelected: selectedTopicId == topic.id,
-                  onTap: () => _onItemTap(topic),
-                  enableLongPress: enableLongPress,
-                  // 私信语义同邮件:发件人优先的 Gmail 式布局
-                  messageStyle: true,
-                );
-              },
-            ),
+            child: preferences.experimentalPrivateMessageCategories
+                ? PrivateMessageCategoryList(
+                    topics: topics,
+                    controller: _scrollController,
+                    selectedTopicId: selectedTopicId,
+                    enableLongPress: enableLongPress,
+                    onTopicTap: _onItemTap,
+                    footer: _buildPaginationFooter(notifier),
+                  )
+                : ListView.builder(
+                    controller: _scrollController,
+                    padding: EdgeInsets.fromLTRB(
+                      12,
+                      12,
+                      12,
+                      12 + MediaQuery.paddingOf(context).bottom,
+                    ),
+                    itemCount: topics.length + 1,
+                    itemBuilder: (context, index) {
+                      if (index == topics.length) {
+                        return _buildPaginationFooter(notifier);
+                      }
+                      final topic = topics[index];
+                      return buildTopicItem(
+                        context: context,
+                        topic: topic,
+                        isSelected: selectedTopicId == topic.id,
+                        onTap: () => _onItemTap(topic),
+                        enableLongPress: enableLongPress,
+                        messageStyle: true,
+                      );
+                    },
+                  ),
           );
         },
         loading: () => const TopicListSkeleton(messageStyle: true),

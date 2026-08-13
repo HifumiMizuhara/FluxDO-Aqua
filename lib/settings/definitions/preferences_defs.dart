@@ -269,17 +269,6 @@ List<SettingsGroup> buildPreferencesGroups(BuildContext context) {
       title: l10n.preferences_advanced,
       icon: Symbols.bug_report_rounded,
       items: [
-        SwitchModel(
-          id: 'experimentalNativeSvgFix',
-          title: l10n.preferences_experimentalNativeSvgFix,
-          subtitle: l10n.preferences_experimentalNativeSvgFixDesc,
-          icon: Symbols.speed_rounded,
-          getValue: (ref) =>
-              ref.watch(preferencesProvider).experimentalNativeSvgFix,
-          onChanged: (ref, v) => ref
-              .read(preferencesProvider.notifier)
-              .setExperimentalNativeSvgFix(v),
-        ),
         PlatformConditionalModel(
           inner: SwitchModel(
             id: 'crashlytics',

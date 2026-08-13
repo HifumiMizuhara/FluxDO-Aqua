@@ -3,6 +3,7 @@ import 'package:app_icons/app_icons.dart';
 
 import '../../l10n/s.dart';
 import '../../pages/appearance_page.dart';
+import '../../pages/aqua_lab_settings_page.dart';
 import '../../pages/bottom_nav_settings_page.dart';
 import '../../pages/data_management_page.dart';
 import '../../pages/network_settings_page/network_settings_page.dart';
@@ -11,6 +12,7 @@ import '../../pages/reading_settings_page.dart';
 import '../../pages/shortcut_settings_page.dart';
 import '../../utils/platform_utils.dart';
 import '../definitions/appearance_defs.dart';
+import '../definitions/aqua_lab_defs.dart';
 import '../definitions/bottom_nav_defs.dart';
 import '../definitions/data_management_defs.dart';
 import '../definitions/network_defs.dart';
@@ -68,6 +70,14 @@ List<SettingsSearchResult> buildSearchIndex(BuildContext context) {
   }
 
   return [
+    ...fromGroups(
+      buildAquaLabGroups(context),
+      categoryName: l10n.settings_aquaLab,
+      categoryIcon: Symbols.science_rounded,
+      categoryColor: Colors.cyan,
+      pageBuilder: ({highlightId}) =>
+          AquaLabSettingsPage(highlightId: highlightId),
+    ),
     ...fromGroups(
       buildReadingGroups(context),
       categoryName: l10n.settings_reading,

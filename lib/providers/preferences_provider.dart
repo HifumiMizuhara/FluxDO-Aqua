@@ -204,6 +204,9 @@ class AppPreferences {
   /// SVG experimental rendering path. Off keeps the legacy renderer unchanged.
   final bool experimentalNativeSvgFix;
 
+  /// Experimental grouping of private-message topics by recipient.
+  final bool experimentalPrivateMessageCategories;
+
   /// Boost 弹幕化（默认关闭）
   final bool boostDanmaku;
 
@@ -300,6 +303,7 @@ class AppPreferences {
     this.adaptiveSignatureFrameRate = true,
     this.signatureSvgWebView = false,
     this.experimentalNativeSvgFix = false,
+    this.experimentalPrivateMessageCategories = false,
     this.boostDanmaku = false,
     this.showSuggestedTopics = true,
     this.defaultNestedView = false,
@@ -358,6 +362,7 @@ class AppPreferences {
     bool? adaptiveSignatureFrameRate,
     bool? signatureSvgWebView,
     bool? experimentalNativeSvgFix,
+    bool? experimentalPrivateMessageCategories,
     bool? boostDanmaku,
     bool? showSuggestedTopics,
     bool? defaultNestedView,
@@ -429,6 +434,9 @@ class AppPreferences {
       signatureSvgWebView: signatureSvgWebView ?? this.signatureSvgWebView,
       experimentalNativeSvgFix:
           experimentalNativeSvgFix ?? this.experimentalNativeSvgFix,
+      experimentalPrivateMessageCategories:
+          experimentalPrivateMessageCategories ??
+          this.experimentalPrivateMessageCategories,
       boostDanmaku: boostDanmaku ?? this.boostDanmaku,
       showSuggestedTopics: showSuggestedTopics ?? this.showSuggestedTopics,
       defaultNestedView: defaultNestedView ?? this.defaultNestedView,
@@ -506,6 +514,8 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
   static const String _signatureSvgWebViewKey = 'pref_signature_svg_webview';
   static const String _experimentalNativeSvgFixKey =
       'pref_experimental_native_svg_fix';
+  static const String _experimentalPrivateMessageCategoriesKey =
+      'pref_experimental_private_message_categories';
   static const String _boostDanmakuKey = 'pref_boost_danmaku';
   static const String _showSuggestedTopicsKey = 'pref_show_suggested_topics';
   static const String _defaultNestedViewKey = 'pref_default_nested_view';
@@ -589,6 +599,8 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
           signatureSvgWebView: _prefs.getBool(_signatureSvgWebViewKey) ?? false,
           experimentalNativeSvgFix:
               _prefs.getBool(_experimentalNativeSvgFixKey) ?? false,
+          experimentalPrivateMessageCategories:
+              _prefs.getBool(_experimentalPrivateMessageCategoriesKey) ?? false,
           boostDanmaku: _prefs.getBool(_boostDanmakuKey) ?? false,
           showSuggestedTopics: _prefs.getBool(_showSuggestedTopicsKey) ?? true,
           defaultNestedView: _prefs.getBool(_defaultNestedViewKey) ?? false,
@@ -876,6 +888,12 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
     if (state.experimentalNativeSvgFix == enabled) return;
     state = state.copyWith(experimentalNativeSvgFix: enabled);
     await _prefs.setBool(_experimentalNativeSvgFixKey, enabled);
+  }
+
+  Future<void> setExperimentalPrivateMessageCategories(bool enabled) async {
+    if (state.experimentalPrivateMessageCategories == enabled) return;
+    state = state.copyWith(experimentalPrivateMessageCategories: enabled);
+    await _prefs.setBool(_experimentalPrivateMessageCategoriesKey, enabled);
   }
 
   Future<void> setBoostDanmaku(bool enabled) async {

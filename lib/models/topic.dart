@@ -317,6 +317,15 @@ class Topic {
   final List<Tag> tags;
   final List<TopicPoster> posters;
 
+  /// Private-message recipients/participants supplied by Discourse's
+  /// `participants` summary. Unlike [posters], this identifies the other
+  /// people in a private-message conversation.
+  final List<TopicPoster> participants;
+
+  /// A private message addressed to a Discourse group has no single user
+  /// recipient, but is still a group conversation.
+  final bool hasParticipantGroups;
+
   // 已读状态相关
   final bool unseen; // 新话题（从未见过）
   final int unread; // 未读帖子数
@@ -363,6 +372,8 @@ class Topic {
     this.archived = false,
     this.tags = const <Tag>[],
     this.posters = const [],
+    this.participants = const [],
+    this.hasParticipantGroups = false,
     this.unseen = false,
     this.unread = 0,
     this.newPosts = 0,
@@ -406,6 +417,8 @@ class Topic {
       archived: archived,
       tags: tags,
       posters: posters,
+      participants: participants,
+      hasParticipantGroups: hasParticipantGroups,
       unseen: unseen ?? this.unseen,
       unread: unread ?? this.unread,
       newPosts: newPosts ?? this.newPosts,
@@ -461,6 +474,18 @@ class Topic {
               )
               .toList() ??
           const [],
+      participants:
+          (json['participants'] as List<dynamic>?)
+              ?.map(
+                (e) => TopicPoster.fromJson(
+                  e as Map<String, dynamic>,
+                  userMap ?? {},
+                ),
+              )
+              .toList() ??
+          const [],
+      hasParticipantGroups:
+          (json['participant_groups'] as List<dynamic>?)?.isNotEmpty ?? false,
       unseen: json['unseen'] as bool? ?? false,
       unread: json['unread_posts'] as int? ?? 0,
       newPosts: json['new_posts'] as int? ?? 0,

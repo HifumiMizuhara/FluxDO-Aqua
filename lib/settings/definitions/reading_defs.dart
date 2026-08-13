@@ -128,18 +128,6 @@ List<SettingsGroup> buildReadingGroups(BuildContext context) {
                 .read(preferencesProvider.notifier)
                 .setAdaptiveSignatureFrameRate(v),
           ),
-        if (PreloadedDataService().signaturesEnabled)
-          SwitchModel(
-            id: 'signatureSvgWebView',
-            title: l10n.reading_signatureSvgWebView,
-            subtitle: l10n.reading_signatureSvgWebViewDesc,
-            icon: Symbols.language_rounded,
-            getValue: (ref) =>
-                ref.watch(preferencesProvider).signatureSvgWebView,
-            onChanged: (ref, v) => ref
-                .read(preferencesProvider.notifier)
-                .setSignatureSvgWebView(v),
-          ),
         CustomModel(
           id: 'bookmarksOpenMode',
           title: l10n.reading_bookmarksOpenMode,
