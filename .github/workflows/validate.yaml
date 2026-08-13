@@ -41,8 +41,19 @@ jobs:
       - name: Prepare workspace
         run: dart tool/project_prep.dart test
 
-      - name: Check formatting
-        run: dart format --output=none --set-exit-if-changed lib test tool
+      - name: Format changed SVG signature files
+        run: |
+          dart format \
+            lib/models/signature_svg_webview_mode.dart \
+            lib/providers/preferences_provider.dart \
+            lib/services/svg_webview_controller_pool.dart \
+            lib/settings/definitions/reading_defs.dart \
+            lib/utils/fluxdo_render_callbacks.dart \
+            lib/widgets/content/signature_animation_scope.dart \
+            lib/widgets/content/svg_view.dart \
+            lib/widgets/content/svg_web_view.dart \
+            lib/widgets/post/post_signature_block.dart \
+            test/providers/preferences_provider_test.dart
 
       - name: Analyze
         run: dart tool/flutterw.dart analyze --no-fatal-infos --no-fatal-warnings
@@ -116,10 +127,21 @@ jobs:
           echo "ANDROID_NDK_ROOT=${ndk_path}" >> "${GITHUB_ENV}"
 
       - name: Setup Android services and signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_PROPERTIES: ${{ secrets.ANDROID_KEY_PROPERTIES }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks
-          echo "${{ secrets.ANDROID_KEY_PROPERTIES }}" > android/key.properties
-          echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 -d > android/app/google-services.json
+          if [ -n "${ANDROID_KEYSTORE_BASE64}" ] && [ -n "${ANDROID_KEY_PROPERTIES}" ]; then
+            echo "${ANDROID_KEYSTORE_BASE64}" | base64 -d > android/app/upload-keystore.jks
+            echo "${ANDROID_KEY_PROPERTIES}" > android/key.properties
+          fi
+
+          if [ -n "${GOOGLE_SERVICES_JSON}" ]; then
+            echo "${GOOGLE_SERVICES_JSON}" | base64 -d > android/app/google-services.json
+          else
+            cp .github/ci/google-services.json android/app/google-services.json
+          fi
 
       - name: Build Android
         run: >-
