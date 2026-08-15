@@ -14,6 +14,7 @@ import 'network/cookie/cookie_jar_service.dart';
 import 'local_notification_service.dart'; // 用于获取全局 navigatorKey
 import 'cf_challenge_logger.dart';
 import 'cf_clearance_refresh_service.dart';
+import 'crash_mitigation_service.dart';
 import 'embedded_browser_controller_pool.dart';
 import 'toast_service.dart';
 import 'webview_settings.dart';
@@ -26,6 +27,55 @@ import '../widgets/draggable_floating_pill.dart';
 CookieManager get _cfCookieManager =>
     WindowsWebViewEnvironmentService.instance.cookieManager;
 
+enum CfAquaHandoffPhase {
+  idle,
+  backgroundVerifying,
+  handoffDraining,
+  foregroundCreating,
+  foregroundVerifying,
+  settling,
+}
+
+extension on CfAquaHandoffPhase {
+  String get label => name;
+}
+
+/// Pure state/ordering guard for the Android Aqua CF handoff.
+class CfAquaHandoffStateMachine {
+  CfAquaHandoffPhase _phase = CfAquaHandoffPhase.idle;
+  int _generation = 0;
+
+  CfAquaHandoffPhase get phase => _phase;
+  int get generation => _generation;
+
+  bool transition(CfAquaHandoffPhase next) {
+    if (!_allowed.contains('$phase->$next')) return false;
+    _phase = next;
+    _generation++;
+    return true;
+  }
+
+  void reset() {
+    if (_phase != CfAquaHandoffPhase.idle) {
+      _phase = CfAquaHandoffPhase.idle;
+      _generation++;
+    }
+  }
+
+  static const _allowed = {
+    'CfAquaHandoffPhase.idle->CfAquaHandoffPhase.backgroundVerifying',
+    'CfAquaHandoffPhase.idle->CfAquaHandoffPhase.foregroundCreating',
+    'CfAquaHandoffPhase.backgroundVerifying->CfAquaHandoffPhase.handoffDraining',
+    'CfAquaHandoffPhase.backgroundVerifying->CfAquaHandoffPhase.settling',
+    'CfAquaHandoffPhase.handoffDraining->CfAquaHandoffPhase.foregroundCreating',
+    'CfAquaHandoffPhase.handoffDraining->CfAquaHandoffPhase.settling',
+    'CfAquaHandoffPhase.foregroundCreating->CfAquaHandoffPhase.foregroundVerifying',
+    'CfAquaHandoffPhase.foregroundCreating->CfAquaHandoffPhase.settling',
+    'CfAquaHandoffPhase.foregroundVerifying->CfAquaHandoffPhase.settling',
+    'CfAquaHandoffPhase.settling->CfAquaHandoffPhase.idle',
+  };
+}
+
 /// CF 验证服务
 /// 处理 Cloudflare Turnstile 验证（仅手动模式）
 class CfChallengeService {
@@ -36,6 +86,10 @@ class CfChallengeService {
   bool _isVerifying = false;
   bool? _completedVerificationResult;
   Completer<void>? _manualTeardownCompleter;
+  final _aquaStateMachine = CfAquaHandoffStateMachine();
+  DateTime? _aquaPhaseStartedAt;
+  Future<void>? _aquaHandoffFuture;
+  bool _aquaLeaseHeldForSession = false;
 
   /// CF 验证是否正在进行中（用于外部判断是否应忽略路由变化）
   bool get isVerifying => _isVerifying;
@@ -94,6 +148,95 @@ class CfChallengeService {
     }
   }
 
+  bool get _aquaMode => io.Platform.isAndroid && CrashMitigationService.enabled;
+
+  void _setAquaPhase(CfAquaHandoffPhase phase, {String? event}) {
+    if (!_aquaMode) return;
+    final now = DateTime.now();
+    final previousStartedAt = _aquaPhaseStartedAt;
+    final elapsed = previousStartedAt == null
+        ? Duration.zero
+        : now.difference(previousStartedAt);
+    if (!_aquaStateMachine.transition(phase)) return;
+    _aquaPhaseStartedAt = now;
+    CfChallengeLogger.logAquaPhase(
+      event: event ?? 'phase_changed',
+      phase: phase.label,
+      generation: _aquaStateMachine.generation,
+      elapsed: elapsed,
+    );
+  }
+
+  void _resetAquaPhase({String event = 'phase_reset'}) {
+    if (!_aquaMode) return;
+    _aquaStateMachine.reset();
+    _aquaPhaseStartedAt = DateTime.now();
+    CfChallengeLogger.logAquaPhase(
+      event: event,
+      phase: _aquaStateMachine.phase.label,
+      generation: _aquaStateMachine.generation,
+      elapsed: Duration.zero,
+    );
+  }
+
+  Future<void> _requestAquaHandoff(
+    GlobalKey<_CfChallengePageState> pageKey,
+  ) async {
+    if (!_aquaMode) return;
+    if (_aquaStateMachine.phase == CfAquaHandoffPhase.idle) {
+      _setAquaPhase(
+        CfAquaHandoffPhase.backgroundVerifying,
+        event: 'background_started',
+      );
+      if (!_aquaLeaseHeldForSession) {
+        await CfClearanceRefreshService().acquireAquaChallengeLease();
+        _aquaLeaseHeldForSession = true;
+      }
+    }
+    if (_aquaStateMachine.phase != CfAquaHandoffPhase.backgroundVerifying) {
+      return;
+    }
+    final active = _aquaHandoffFuture;
+    if (active != null) return active;
+
+    late final Future<void> handoff;
+    handoff = _performAquaHandoff(pageKey).whenComplete(() {
+      if (identical(_aquaHandoffFuture, handoff)) {
+        _aquaHandoffFuture = null;
+      }
+    });
+    _aquaHandoffFuture = handoff;
+    return handoff;
+  }
+
+  Future<void> _performAquaHandoff(
+    GlobalKey<_CfChallengePageState> pageKey,
+  ) async {
+    _setAquaPhase(
+      CfAquaHandoffPhase.handoffDraining,
+      event: 'handoff_requested',
+    );
+    final page = pageKey.currentState;
+    if (page == null || !page.mounted) return;
+
+    await CrashMitigationService.runCfWebViewCriticalSection(
+      reason: 'background_to_foreground',
+      action: () async {
+        await page._drainBackgroundWebView();
+        await Future<void>.delayed(_aquaWebViewHandoffCooldown);
+        if (!page.mounted ||
+            _aquaStateMachine.phase != CfAquaHandoffPhase.handoffDraining) {
+          return;
+        }
+        _setAquaPhase(CfAquaHandoffPhase.foregroundCreating);
+        await page._createForegroundWebView();
+      },
+    );
+    if (_aquaStateMachine.phase == CfAquaHandoffPhase.foregroundCreating) {
+      _setAquaPhase(CfAquaHandoffPhase.foregroundVerifying);
+    }
+  }
+
   /// 验证 WebView 关闭后，原生 WebView2 控制器的销毁是异步的（发生在插件
   /// 的后台线程），比 Flutter 侧 OverlayEntry.remove() 慢一截。如果上一个
   /// 还没销毁干净就立刻起下一个 InAppWebView，在 Windows 上会撞上
@@ -103,6 +246,7 @@ class CfChallengeService {
   /// 排队机制把这段时间内的新验证请求全部合流，不需要额外状态。
   static const _postCleanupCooldown = Duration(milliseconds: 1200);
   static const _refreshRestartCooldown = Duration(milliseconds: 300);
+  static const _aquaWebViewHandoffCooldown = Duration(milliseconds: 120);
 
   /// 是否在拦截到 CF 盾时自动弹出验证 UI（默认 true）
   /// 关闭后 [CfChallengeInterceptor] 命中 CF 盾时会静默 reject，
@@ -346,6 +490,7 @@ class CfChallengeService {
 
     final verifyUrl = '${AppConstants.baseUrl}/challenge';
     CfChallengeLogger.logVerifyStart(verifyUrl);
+    var aquaRefreshLeaseHeld = false;
 
     // 尝试获取 context：传入的 > 已设置的 > 全局 navigatorKey
     BuildContext? ctx = context ?? _context;
@@ -393,6 +538,14 @@ class CfChallengeService {
     }
 
     _setVerifying(true);
+    if (_aquaMode) {
+      _setAquaPhase(
+        forceForeground
+            ? CfAquaHandoffPhase.foregroundCreating
+            : CfAquaHandoffPhase.backgroundVerifying,
+        event: forceForeground ? 'foreground_created' : 'background_started',
+      );
+    }
 
     // ignore: use_build_context_synchronously
     final overlayState =
@@ -402,6 +555,7 @@ class CfChallengeService {
       debugPrint('[CfChallenge] No overlay available for manual verify');
       CfChallengeLogger.log('[VERIFY] No overlay available');
       _setVerifying(false);
+      _resetAquaPhase(event: 'handoff_cancelled');
       _pendingPromoteToForeground = false;
       return null;
     }
@@ -414,7 +568,14 @@ class CfChallengeService {
     // WebView 真正销毁完毕再继续——之前这里不等待，紧接着往下建自己的验证
     // WebView，两个 WebView 短暂共存，实测会撞上 flutter_inappwebview_windows
     // 的一处原生崩溃（0xc0000005）。
-    await CfClearanceRefreshService().stop();
+    final refreshService = CfClearanceRefreshService();
+    if (_aquaMode) {
+      await refreshService.acquireAquaChallengeLease();
+      aquaRefreshLeaseHeld = true;
+      _aquaLeaseHeldForSession = true;
+    } else {
+      await refreshService.stop();
+    }
 
     // 备份旧 cf_clearance，验证失败时恢复（避免误删仍有效的值）
     final cookieJarService = CookieJarService();
@@ -428,6 +589,10 @@ class CfChallengeService {
       debugPrint('[CfChallenge] Overlay no longer mounted');
       CfChallengeLogger.log('[VERIFY] Overlay not mounted');
       _setVerifying(false);
+      if (aquaRefreshLeaseHeld || _aquaLeaseHeldForSession) {
+        refreshService.releaseAquaChallengeLease();
+        _aquaLeaseHeldForSession = false;
+      }
       _pendingPromoteToForeground = false;
       return null;
     }
@@ -477,6 +642,15 @@ class CfChallengeService {
     }
 
     void finish(bool success) {
+      if (success &&
+          _aquaMode &&
+          (_aquaStateMachine.phase == CfAquaHandoffPhase.backgroundVerifying ||
+              _aquaStateMachine.phase == CfAquaHandoffPhase.handoffDraining)) {
+        _setAquaPhase(
+          CfAquaHandoffPhase.settling,
+          event: 'handoff_cancelled_by_success',
+        );
+      }
       if (!resultCompleter.isCompleted) {
         _completedVerificationResult = success;
         resultCompleter.complete(success);
@@ -523,12 +697,16 @@ class CfChallengeService {
         startInBackground: !forceForeground,
         onResult: finish,
         onPromoteRequest: () => onPromoteToForeground(context),
+        onAquaHandoffRequest: () => _requestAquaHandoff(pageKey),
         oldCfClearanceValue: backupCfClearance != null
             ? CookieValueCodec.decode(backupCfClearance.value)
             : null,
       ),
     );
     overlayState.insert(entry);
+    if (_aquaMode && forceForeground) {
+      _setAquaPhase(CfAquaHandoffPhase.foregroundVerifying);
+    }
 
     // 如果初始就是前台，立即执行 promote
     if (forceForeground) {
@@ -552,6 +730,9 @@ class CfChallengeService {
 
     // 验证成功后重置冷却期
     if (result == true) {
+      if (_aquaMode && _aquaStateMachine.phase != CfAquaHandoffPhase.settling) {
+        _setAquaPhase(CfAquaHandoffPhase.settling, event: 'handoff_settling');
+      }
       resetCooldown();
       // 广播:一次 CF 挑战被成功解决,新 cf_clearance 已落 jar。
       clearanceResolvedAt.value = DateTime.now();
@@ -563,16 +744,24 @@ class CfChallengeService {
       // 等验证冷却完成、帖子 WebView 池恢复后再错峰启动续期 WebView。
       Future.delayed(_postCleanupCooldown + _refreshRestartCooldown, () {
         if (!_isVerifying) {
-          CfClearanceRefreshService().start();
+          if (aquaRefreshLeaseHeld || _aquaLeaseHeldForSession) {
+            refreshService.releaseAquaChallengeLease(restart: true);
+            aquaRefreshLeaseHeld = false;
+            _aquaLeaseHeldForSession = false;
+            _resetAquaPhase(event: 'settled');
+          } else {
+            refreshService.start();
+          }
         }
       });
     } else {
+      if (_aquaMode && _aquaStateMachine.phase != CfAquaHandoffPhase.settling) {
+        _setAquaPhase(CfAquaHandoffPhase.settling, event: 'handoff_settling');
+      }
       // 验证失败，恢复备份的 cf_clearance（避免丢失可能仍有效的值）
       if (backupCfClearance != null) {
         await cookieJarService.restoreCfClearance(backupCfClearance);
-        debugPrint(
-          '[CfChallenge] 验证失败，已恢复备份 cf_clearance',
-        );
+        debugPrint('[CfChallenge] 验证失败，已恢复备份 cf_clearance');
       }
       // 验证失败，启动冷却期
       startCooldown();
@@ -583,6 +772,14 @@ class CfChallengeService {
         success: false,
         reason: 'user cancelled or timeout',
       );
+      if (aquaRefreshLeaseHeld || _aquaLeaseHeldForSession) {
+        refreshService.releaseAquaChallengeLease();
+        aquaRefreshLeaseHeld = false;
+        _aquaLeaseHeldForSession = false;
+        Future<void>.delayed(_postCleanupCooldown, () {
+          _resetAquaPhase(event: 'settled');
+        });
+      }
     }
 
     return result;
@@ -606,6 +803,7 @@ class CfChallengePage extends StatefulWidget {
     this.startInBackground = false,
     this.onResult,
     this.onPromoteRequest,
+    this.onAquaHandoffRequest,
     this.oldCfClearanceValue,
   });
 
@@ -615,6 +813,7 @@ class CfChallengePage extends StatefulWidget {
   final bool startInBackground;
   final ValueChanged<bool>? onResult;
   final VoidCallback? onPromoteRequest;
+  final Future<void> Function()? onAquaHandoffRequest;
 
   /// showManualVerify 在删除前备份的旧 cf_clearance 值（已解码）
   /// 用于可靠过滤 Windows 上 WebView 中未完全删除的残留旧值
@@ -626,7 +825,6 @@ class CfChallengePage extends StatefulWidget {
 
 class _CfChallengePageState extends State<CfChallengePage> {
   InAppWebViewController? _controller;
-  final _webViewKey = GlobalKey();
   bool _isLoading = true;
   double _progress = 0;
   bool _hasMarkedPageReady = false;
@@ -639,6 +837,10 @@ class _CfChallengePageState extends State<CfChallengePage> {
   bool _checkingOriginFallback = false;
   bool _originFallbackNeedsAction = false;
   bool _finishingFromVerifyResponse = false;
+  bool _challengeWebViewMounted = true;
+  bool _aquaHandoffDraining = false;
+  bool _aquaHandoffRequested = false;
+  int _webViewGeneration = 0;
   int _loadGeneration = 0;
   int _challengeRevealProbeGeneration = 0;
   bool _hasTimedOut = false;
@@ -662,6 +864,78 @@ class _CfChallengePageState extends State<CfChallengePage> {
 
   int get _activeMaxCheckCount =>
       _isBackground ? _backgroundMaxCheckCount : _foregroundMaxCheckCount;
+
+  bool _isCurrentWebViewGeneration(int generation) =>
+      generation == _webViewGeneration && !_aquaHandoffDraining;
+
+  /// Removes the background PlatformView from the tree before the Aqua
+  /// foreground instance is created. The old controller is never reparented.
+  Future<void> _drainBackgroundWebView() async {
+    if (!mounted || !_isBackground || _aquaHandoffDraining) return;
+    _aquaHandoffDraining = true;
+    _cancelVerificationTimers();
+    final oldController = _controller;
+    _webViewGeneration++;
+    _loadGeneration++;
+    _challengeRevealProbeGeneration++;
+    try {
+      await oldController?.evaluateJavascript(
+        source: "window.__fluxdoCfHandoffDraining=true; window.stop();",
+      );
+      await oldController?.stopLoading();
+    } catch (e) {
+      CfChallengeLogger.log('[AQUA] background stop failed: $e');
+    }
+    if (!mounted) return;
+    setState(() {
+      _controller = null;
+      _challengeWebViewMounted = false;
+      _challengeWebViewVisible = false;
+    });
+    await WidgetsBinding.instance.endOfFrame;
+    CfChallengeLogger.logAquaPhase(
+      event: 'background_disposed',
+      phase: CfAquaHandoffPhase.handoffDraining.label,
+      generation: _webViewGeneration,
+      elapsed: Duration.zero,
+    );
+  }
+
+  Future<void> _createForegroundWebView() async {
+    if (!mounted || !_aquaHandoffDraining) return;
+    setState(() {
+      _isBackground = false;
+      _challengeWebViewMounted = true;
+      _aquaHandoffDraining = false;
+      _aquaHandoffRequested = true;
+      _needsManualAttention = true;
+      _hasTimedOut = false;
+      _checkCount = 0;
+      _isLoading = true;
+      _progress = 0;
+    });
+    _webViewGeneration++;
+    await WidgetsBinding.instance.endOfFrame;
+    if (mounted) {
+      CfChallengeLogger.logAquaPhase(
+        event: 'foreground_created',
+        phase: CfAquaHandoffPhase.foregroundCreating.label,
+        generation: _webViewGeneration,
+        elapsed: Duration.zero,
+      );
+    }
+  }
+
+  void _cancelVerificationTimers() {
+    _timeoutTimer?.cancel();
+    _timeoutTimer = null;
+    _noChallengeCheckTimer?.cancel();
+    _noChallengeCheckTimer = null;
+    _loadStopFallbackTimer?.cancel();
+    _loadStopFallbackTimer = null;
+    _pageReadyFallbackTimer?.cancel();
+    _pageReadyFallbackTimer = null;
+  }
 
   @override
   void initState() {
@@ -999,8 +1273,14 @@ class _CfChallengePageState extends State<CfChallengePage> {
   /// 不再主动 reveal WebView：reveal 完全交给 _startChallengeRevealProbe，
   /// 避免「完成响应到达 → reveal → 紧接着 CF 跳转回 /challenge 加载源站 404」
   /// 期间 404 闪现。此处只负责 cf_clearance 探测与 finish(true)。
-  Future<void> _onChallengeComplete(List<dynamic> args) async {
-    if (_hasPopped) return;
+  Future<void> _onChallengeComplete(
+    List<dynamic> args, {
+    int? generation,
+  }) async {
+    if (_hasPopped ||
+        (generation != null && !_isCurrentWebViewGeneration(generation))) {
+      return;
+    }
     final url = args.isNotEmpty ? args[0] : '';
     final status = args.length > 1 ? args[1] : 0;
     debugPrint(
@@ -1012,6 +1292,10 @@ class _CfChallengePageState extends State<CfChallengePage> {
 
     try {
       final cookieValue = await _readCookieValue('cf_clearance');
+
+      if (generation != null && !_isCurrentWebViewGeneration(generation)) {
+        return;
+      }
 
       if (cookieValue == null || cookieValue.isEmpty) {
         debugPrint(
@@ -1049,6 +1333,9 @@ class _CfChallengePageState extends State<CfChallengePage> {
         reason: 'new cf_clearance detected and page passed challenge',
       );
       await _syncLiveCookiesToCookieJar(freshClearance: cookieValue);
+      if (generation != null && !_isCurrentWebViewGeneration(generation)) {
+        return;
+      }
       // 验证 cf_clearance 是否真正写入了 CookieJar
       final synced = await CookieJarService().getCfClearance();
       if (synced != null && synced.isNotEmpty) {
@@ -1072,17 +1359,25 @@ class _CfChallengePageState extends State<CfChallengePage> {
   /// CF 验证完成后会跳到源 URL（/challenge → 404）。在 Android 上 `onLoadStart`
   /// 对部分 location.replace 跳转触发时机晚于 PlatformView 渲染，导致 404 闪现。
   /// 借助 JS 在跳走的最早时刻通知 Flutter，立即重置 reveal 状态、覆盖 WebView。
-  Future<void> _onChallengeNavigation(List<dynamic> args) async {
-    if (_hasPopped || !mounted || _finishingFromVerifyResponse) return;
+  Future<void> _onChallengeNavigation(
+    List<dynamic> args, {
+    int? generation,
+  }) async {
+    if (_hasPopped ||
+        !mounted ||
+        _finishingFromVerifyResponse ||
+        (generation != null && !_isCurrentWebViewGeneration(generation))) {
+      return;
+    }
+    final callbackGeneration = generation ?? _webViewGeneration;
     final reason = args.isNotEmpty ? args.first.toString() : 'unknown';
     if (!_challengeWebViewVisible && _hideOriginFallbackPage) {
       // 已经覆盖中，不必重复触发 fallback 流程
       return;
     }
-    debugPrint(
-      '[CfChallenge] JS 导航事件 ($reason)，立刻覆盖 WebView',
-    );
+    debugPrint('[CfChallenge] JS 导航事件 ($reason)，立刻覆盖 WebView');
     CfChallengeLogger.log('[VERIFY] JS navigation: $reason');
+    if (!_isCurrentWebViewGeneration(callbackGeneration)) return;
     await _handleVerifyOriginFallback(
       _loadGeneration,
       reason: 'js navigation: $reason',
@@ -1229,9 +1524,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
         );
       }
 
-      debugPrint(
-        '[CfChallenge] fallback/completion 期间检测到新 cf_clearance，自动完成',
-      );
+      debugPrint('[CfChallenge] fallback/completion 期间检测到新 cf_clearance，自动完成');
       CfChallengeLogger.logVerifyResult(
         success: false,
         reason: reason ?? 'no fresh cf_clearance after completion probe',
@@ -1353,8 +1646,26 @@ class _CfChallengePageState extends State<CfChallengePage> {
     _controller?.reload();
   }
 
-  void _promoteToForeground({bool dueToTimeout = false}) {
+  Future<void> _promoteToForeground({bool dueToTimeout = false}) async {
     if (!_isBackground) return;
+    if (io.Platform.isAndroid && CrashMitigationService.enabled) {
+      if (_aquaHandoffRequested) return;
+      _aquaHandoffRequested = true;
+      widget.onPromoteRequest?.call();
+      await widget.onAquaHandoffRequest?.call();
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _showInfo(
+              dueToTimeout
+                  ? S.current.cf_autoVerifyTimeout
+                  : S.current.cf_manualVerifyBannerMessage,
+            );
+          }
+        });
+      }
+      return;
+    }
     setState(() {
       _isBackground = false;
       _needsManualAttention = true;
@@ -1548,9 +1859,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
     _challengeRevealProbeGeneration++;
     _revealStateWatchGeneration++;
 
-    debugPrint(
-      '[CfChallenge] $reason，按网络状态判定验证完成',
-    );
+    debugPrint('[CfChallenge] $reason，按网络状态判定验证完成');
     CfChallengeLogger.logVerifyResult(success: true, reason: reason);
     if (headers != null) {
       CfChallengeLogger.log('[VERIFY] Passed response headers: $headers');
@@ -1569,9 +1878,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
             : null,
       );
     } catch (e) {
-      debugPrint(
-        '[CfChallenge] 按网络状态完成时后台同步 cookie 失败: $e',
-      );
+      debugPrint('[CfChallenge] 按网络状态完成时后台同步 cookie 失败: $e');
     }
   }
 
@@ -1645,9 +1952,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
 
           // 页面无挑战。要么是 CF 已完成跳走，要么是源站 404 渲染出来。
           // 统一交给 fallback 流程：先轮询 cf_clearance，没拿到再给用户重试入口。
-          debugPrint(
-            '[CfChallenge] reveal 后检测到页面无挑战，主动覆盖并探测 cf_clearance',
-          );
+          debugPrint('[CfChallenge] reveal 后检测到页面无挑战，主动覆盖并探测 cf_clearance');
           unawaited(
             _handleVerifyOriginFallback(
               loadGeneration,
@@ -1684,9 +1989,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
             return;
           }
         } catch (e) {
-          debugPrint(
-            '[CfChallenge] 检测验证页可见状态异常: $e',
-          );
+          debugPrint('[CfChallenge] 检测验证页可见状态异常: $e');
         }
 
         await Future.delayed(const Duration(milliseconds: 250));
@@ -1911,11 +2214,12 @@ class _CfChallengePageState extends State<CfChallengePage> {
   }
 
   Widget _buildChallengeWebView({required bool showUi}) {
+    final webViewGeneration = _webViewGeneration;
     return IgnorePointer(
       ignoring: _isBackground,
       child: WebViewSettings.wrapWithScrollFix(
         InAppWebView(
-          key: _webViewKey,
+          key: ValueKey('cf-webview-$webViewGeneration'),
           webViewEnvironment:
               WindowsWebViewEnvironmentService.instance.environment,
           initialUrlRequest: URLRequest(url: WebUri(widget.verifyUrl)),
@@ -1927,26 +2231,46 @@ class _CfChallengePageState extends State<CfChallengePage> {
             useOnNavigationResponse: true,
           ),
           initialUserScripts: _initialChallengeScripts(),
-          shouldOverrideUrlLoading: _shouldOverrideVerifyNavigation,
-          onNavigationResponse: _handleVerifyNavigationResponse,
+          shouldOverrideUrlLoading: (controller, navigationAction) {
+            if (!_isCurrentWebViewGeneration(webViewGeneration)) {
+              return NavigationActionPolicy.CANCEL;
+            }
+            return _shouldOverrideVerifyNavigation(
+              controller,
+              navigationAction,
+            );
+          },
+          onNavigationResponse: (controller, response) {
+            if (!_isCurrentWebViewGeneration(webViewGeneration)) {
+              return NavigationResponseAction.CANCEL;
+            }
+            return _handleVerifyNavigationResponse(controller, response);
+          },
           onReceivedServerTrustAuthRequest: (_, challenge) =>
               WebViewSettings.handleServerTrustAuthRequest(challenge),
           onWebViewCreated: (controller) {
+            if (!_isCurrentWebViewGeneration(webViewGeneration)) return;
             _controller = controller;
             WebViewSettings.registerJsErrorReporter(controller);
             // 注册 JS Handler，challenge-platform 响应到达时触发
             controller.addJavaScriptHandler(
               handlerName: 'onChallengeComplete',
-              callback: _onChallengeComplete,
+              callback: (args) =>
+                  _onChallengeComplete(args, generation: webViewGeneration),
             );
             // 注册 JS Handler，CF 验证完成后即将跳走时触发，立刻覆盖避免 404 露出
             controller.addJavaScriptHandler(
               handlerName: 'onChallengeNavigation',
-              callback: _onChallengeNavigation,
+              callback: (args) =>
+                  _onChallengeNavigation(args, generation: webViewGeneration),
             );
           },
           onLoadStart: (controller, url) {
-            if (_hasPopped || _finishingFromVerifyResponse) return;
+            if (!_isCurrentWebViewGeneration(webViewGeneration) ||
+                _hasPopped ||
+                _finishingFromVerifyResponse) {
+              return;
+            }
             final isCompletionNavigation = _hasSeenChallenge;
             _loadGeneration++;
             _challengeRevealProbeGeneration++;
@@ -1977,11 +2301,17 @@ class _CfChallengePageState extends State<CfChallengePage> {
             }
           },
           onPageCommitVisible: (controller, url) {
-            if (_finishingFromVerifyResponse) return;
+            if (!_isCurrentWebViewGeneration(webViewGeneration) ||
+                _finishingFromVerifyResponse) {
+              return;
+            }
             _handlePageReady(controller, reason: 'onPageCommitVisible');
           },
           onProgressChanged: (controller, progress) {
-            if (_finishingFromVerifyResponse) return;
+            if (!_isCurrentWebViewGeneration(webViewGeneration) ||
+                _finishingFromVerifyResponse) {
+              return;
+            }
             _progress = progress / 100;
             _scheduleLoadStopFallback(controller, progress);
             if (showUi) {
@@ -1989,7 +2319,10 @@ class _CfChallengePageState extends State<CfChallengePage> {
             }
           },
           onLoadStop: (controller, url) {
-            if (_finishingFromVerifyResponse) return;
+            if (!_isCurrentWebViewGeneration(webViewGeneration) ||
+                _finishingFromVerifyResponse) {
+              return;
+            }
             WebViewSettings.injectScrollFix(controller);
             _handlePageReady(controller, reason: 'onLoadStop');
           },
@@ -1998,7 +2331,11 @@ class _CfChallengePageState extends State<CfChallengePage> {
             // 才销毁(见 _postCleanupCooldown)。这段窗口里 WebView2 掐掉
             // 在途主文档导航会上报 CONNECTION_ABORTED,不能再弹「加载失败」
             // ——用户看到的将是验证成功后凭空冒出的错误 toast。
-            if (_hasPopped || _finishingFromVerifyResponse) return;
+            if (!_isCurrentWebViewGeneration(webViewGeneration) ||
+                _hasPopped ||
+                _finishingFromVerifyResponse) {
+              return;
+            }
 
             final uri = Uri.tryParse(request.url.toString());
             final isMainFrame = request.isForMainFrame == true;
@@ -2042,7 +2379,11 @@ class _CfChallengePageState extends State<CfChallengePage> {
             }
           },
           onReceivedHttpError: (controller, request, errorResponse) {
-            if (_hasPopped || _finishingFromVerifyResponse) return;
+            if (!_isCurrentWebViewGeneration(webViewGeneration) ||
+                _hasPopped ||
+                _finishingFromVerifyResponse) {
+              return;
+            }
             if (request.isForMainFrame == true && _isVerifyUrl(request.url)) {
               CfChallengeLogger.log(
                 '[VERIFY] Main frame /challenge HTTP response: '
@@ -2188,16 +2529,17 @@ class _CfChallengePageState extends State<CfChallengePage> {
                     // promote 到前台是重建整棵前台子树(showUi 切换),
                     // 不是对同一个 platform view 做同帧「大位移 + 覆盖层
                     // 翻转」,与此处崩溃的触发组合不同,暂不改动。
-                    Positioned(
-                      left: 0,
-                      top: 0,
-                      width: webViewWidth,
-                      height: webViewHeight,
-                      child: IgnorePointer(
-                        ignoring: coverWebView,
-                        child: _buildChallengeWebView(showUi: true),
+                    if (_challengeWebViewMounted)
+                      Positioned(
+                        left: 0,
+                        top: 0,
+                        width: webViewWidth,
+                        height: webViewHeight,
+                        child: IgnorePointer(
+                          ignoring: coverWebView,
+                          child: _buildChallengeWebView(showUi: true),
+                        ),
                       ),
-                    ),
                     Positioned.fill(
                       child: IgnorePointer(
                         ignoring: !coverWebView,
@@ -2372,7 +2714,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
       children: [
         if (showUi)
           Positioned.fill(child: _buildContextualVerifyLayer(theme))
-        else
+        else if (_challengeWebViewMounted)
           Positioned(
             left: -backgroundWebViewSize.width - 64,
             top: -backgroundWebViewSize.height - 64,
@@ -2445,7 +2787,9 @@ class _CfChallengePageState extends State<CfChallengePage> {
         if (_isBackground)
           DraggableFloatingPill(
             initialTop: 100,
-            onTap: _promoteToForeground,
+            onTap: () {
+              unawaited(_promoteToForeground());
+            },
             child: Text(S.current.cf_backgroundVerifying),
           ),
       ],

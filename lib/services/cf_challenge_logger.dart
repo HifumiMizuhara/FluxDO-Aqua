@@ -34,6 +34,36 @@ class CfChallengeLogger {
 
   static bool get isEnabled => _enabled;
 
+  /// Records Aqua CF handoff phases without writing any cookie values.
+  static void logAquaPhase({
+    required String event,
+    required String phase,
+    required int generation,
+    required Duration elapsed,
+  }) {
+    log(
+      '[AQUA] $event phase=$phase generation=$generation '
+      'elapsedMs=${elapsed.inMilliseconds}',
+      fields: {
+        'event': event,
+        'phase': phase,
+        'generation': generation,
+        'elapsedMs': elapsed.inMilliseconds,
+      },
+    );
+  }
+
+  /// Records lifecycle boundaries for the resident clearance WebView.
+  static void logRefreshLifecycle({
+    required String event,
+    required DateTime at,
+  }) {
+    log(
+      '[AQUA] refresh_$event at=${at.toIso8601String()}',
+      fields: {'event': 'refresh_$event', 'at': at.toIso8601String()},
+    );
+  }
+
   /// 写入一条 CF 验证日志
   static void log(
     String message, {

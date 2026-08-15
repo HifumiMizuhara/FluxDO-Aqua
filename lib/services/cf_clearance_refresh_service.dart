@@ -9,6 +9,7 @@ import '../constants.dart';
 import '../utils/frame_jank_monitor.dart';
 import '../utils/scroll_busy_signal.dart';
 import 'cf_challenge_logger.dart';
+import 'crash_mitigation_service.dart';
 import 'network/cookie/boundary_sync_service.dart';
 import 'network/cookie/cookie_jar_service.dart';
 import 'network/cookie/webview_cookie_priming.dart';
@@ -82,9 +83,41 @@ class CfClearanceRefreshService {
   /// 见 [_updateScrollPause]
   Timer? _scrollPauseTicker;
   bool _webViewPausedForScroll = false;
+  int _aquaChallengeLeaseCount = 0;
 
   /// 获取当前缓存的 sitekey。
   String? get sitekey => _sitekey;
+
+  bool get _aquaMode => CrashMitigationService.enabled && io.Platform.isAndroid;
+
+  bool get aquaChallengeActive => _aquaChallengeLeaseCount > 0;
+
+  /// Prevents the resident Headless WebView from starting while an Aqua CF
+  /// authentication WebView owns the platform cookie store.
+  Future<void> acquireAquaChallengeLease() async {
+    if (!_aquaMode) return;
+    _aquaChallengeLeaseCount++;
+    await stop();
+  }
+
+  /// Releases the Aqua exclusion after the authentication WebView has been
+  /// disposed. Restart is deliberately opt-in so cancelled verification does
+  /// not immediately recreate a resident WebView.
+  void releaseAquaChallengeLease({bool restart = false}) {
+    if (_aquaChallengeLeaseCount == 0) return;
+    _aquaChallengeLeaseCount--;
+    CfChallengeLogger.logRefreshLifecycle(
+      event: 'released',
+      at: DateTime.now(),
+    );
+    if (_aquaChallengeLeaseCount == 0 && restart) {
+      CfChallengeLogger.logRefreshLifecycle(
+        event: 'restart_requested',
+        at: DateTime.now(),
+      );
+      start();
+    }
+  }
 
   void setForeground(bool foreground) {
     _isForeground = foreground;
@@ -135,6 +168,13 @@ class CfClearanceRefreshService {
     // 复用 WebView 并没有根治，只是换了个故障形态。重新禁用。)
     if (io.Platform.isWindows) return;
 
+    if (_aquaMode && aquaChallengeActive) {
+      CfChallengeLogger.log(
+        '[CfRefresh] Aqua challenge active; suppressing resident WebView start',
+      );
+      return;
+    }
+
     _shouldBeRunning = true;
     _pausedByLifecycle = false;
     if (_isRunning && !_isDisposing) return;
@@ -174,6 +214,15 @@ class CfClearanceRefreshService {
   /// 恢复：应用回前台后复用现有 WebView，只恢复计时器与 cookie 同步。
   void resume() {
     _isForeground = true;
+    if (_aquaMode && aquaChallengeActive) {
+      _pausedByLifecycle = false;
+      _cancelDelayedTimers();
+      _cancelRuntimeTimers();
+      CfChallengeLogger.log(
+        '[CfRefresh] Aqua challenge active; suppressing lifecycle resume',
+      );
+      return;
+    }
     if (!_pausedByLifecycle && !_shouldBeRunning) return;
     _pausedByLifecycle = false;
     _shouldBeRunning = true;
@@ -235,7 +284,11 @@ class CfClearanceRefreshService {
   // ---------------------------------------------------------------------------
 
   void _startWebView() {
-    if (_isRunning || _isDisposing || !_shouldBeRunning || !_isForeground) {
+    if (_isRunning ||
+        _isDisposing ||
+        !_shouldBeRunning ||
+        !_isForeground ||
+        (_aquaMode && aquaChallengeActive)) {
       return;
     }
 
@@ -324,6 +377,7 @@ class CfClearanceRefreshService {
 
     _headlessWebView = webView;
     _isRunning = true;
+    CfChallengeLogger.logRefreshLifecycle(event: 'started', at: DateTime.now());
 
     try {
       CfChallengeLogger.log('[CfRefresh] Starting Turnstile WebView');
@@ -545,6 +599,7 @@ document.close();
     CfChallengeLogger.log(
       '[CfRefresh] disposing begin: reason=$reason, gen=$_generation',
     );
+    CfChallengeLogger.logRefreshLifecycle(event: 'stopped', at: DateTime.now());
 
     try {
       if (controller != null) {
@@ -574,7 +629,10 @@ document.close();
       '[CfRefresh] disposing end: reason=$reason, shouldRun=$_shouldBeRunning',
     );
 
-    if (_shouldBeRunning && !_isRunning && _isForeground) {
+    if (_shouldBeRunning &&
+        !_isRunning &&
+        _isForeground &&
+        !(_aquaMode && aquaChallengeActive)) {
       CfChallengeLogger.log(
         '[CfRefresh] Restarting WebView after disposal to restore expected state',
       );
@@ -650,7 +708,7 @@ document.close();
     // 线程。滚动繁忙即挂起、静默 ~1s 后恢复,JS 信号与刷新逻辑 resume
     // 后自然补上。初始 Turnstile 运行期(_initialTimer 未清)只恢复不
     // 挂起,避免把首次验证拖到超时误判重建。
-    if (io.Platform.isAndroid) {
+    if (io.Platform.isAndroid && !(_aquaMode && aquaChallengeActive)) {
       _scrollPauseTicker = Timer.periodic(const Duration(milliseconds: 500), (
         _,
       ) {
@@ -816,11 +874,16 @@ document.close();
         !_isRunning &&
         !_isDisposing &&
         _shouldBeRunning &&
-        _isForeground;
+        _isForeground &&
+        !(_aquaMode && aquaChallengeActive);
   }
 
   bool _canHandleGeneration(int gen) {
-    return gen == _generation && _isRunning && !_isDisposing && _isForeground;
+    return gen == _generation &&
+        _isRunning &&
+        !_isDisposing &&
+        _isForeground &&
+        !(_aquaMode && aquaChallengeActive);
   }
 
   void _scheduleRestart(String reason, {required int gen}) {
