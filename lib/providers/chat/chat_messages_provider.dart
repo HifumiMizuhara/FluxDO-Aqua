@@ -76,6 +76,9 @@ class ChatMessagesNotifier extends AsyncNotifier<ChatMessagesState> {
   MessageBusCallback? _onChannelMessage;
   String? _channelBusName;
 
+  /// staged 兜底计时器，provider 销毁时必须统一取消。
+  final Map<String, Timer> _stagedFallbackTimers = {};
+
   /// 频道详情快照(删除事件按 can_moderate 判占位/移除)
   ChatChannel? _channel;
 
@@ -161,9 +164,7 @@ class ChatMessagesNotifier extends AsyncNotifier<ChatMessagesState> {
         case 'update_thread_original_message':
           _handleThreadUpdate(data);
         default:
-          debugPrint(
-            '[ChatMessages#$channelId] 未处理类型: $type',
-          );
+          debugPrint('[ChatMessages#$channelId] 未处理类型: $type');
       }
     }
 
@@ -186,6 +187,10 @@ class ChatMessagesNotifier extends AsyncNotifier<ChatMessagesState> {
   }
 
   void _teardown() {
+    for (final timer in _stagedFallbackTimers.values) {
+      timer.cancel();
+    }
+    _stagedFallbackTimers.clear();
     if (_bus != null && _onChannelMessage != null && _channelBusName != null) {
       _bus!.unsubscribe(_channelBusName!, _onChannelMessage);
     }
@@ -208,14 +213,18 @@ class ChatMessagesNotifier extends AsyncNotifier<ChatMessagesState> {
   void _handleSent(Map<String, dynamic> data) {
     final message = _parseMessage(data);
     if (message == null) return;
-    // 主流上收到 thread 回复(threading 关闭时官方也发主通道):丢弃,
-    // 回复只在 thread 面板里显示;thread_created 会另行刷新串首
-    if (!isThread && message.threadId != null && data['type'] == 'sent') {
-      // 例外:串首消息自身带 thread_id,但它已在主流(id 已存在),去重兜住
-    }
-    final stagedId = data['staged_id']?.toString();
     final current = state.value;
     if (current == null) return;
+    // 主流上收到 thread 回复(threading 关闭时官方也发主通道):丢弃,
+    // 回复只在 thread 面板里显示;thread_created 会另行刷新串首
+    if (!isThread &&
+        message.threadId != null &&
+        message.inReplyTo != null &&
+        !current.messages.any((item) => item.id == message.id)) {
+      // 例外:串首消息自身带 thread_id,但它已在主流(id 已存在),去重兜住
+      return;
+    }
+    final stagedId = data['staged_id']?.toString();
 
     final list = [...current.messages];
     // 乐观对账:自己发的消息广播回来带 staged_id,原地替换临时消息
@@ -514,6 +523,8 @@ class ChatMessagesNotifier extends AsyncNotifier<ChatMessagesState> {
       cooked = '<p>${const HtmlEscape().convert(text)}</p>';
     }
 
+    if (!ref.mounted) return;
+
     final staged = ChatMessage(
       // 本地占位 id 用负 hash,不与服务端正 id 冲突,替换靠 stagedId
       id: -stagedId.hashCode.abs(),
@@ -549,12 +560,14 @@ class ChatMessagesNotifier extends AsyncNotifier<ChatMessagesState> {
         threadId: threadId,
         uploadIds: uploadIds.isEmpty ? null : uploadIds,
       );
+      if (!ref.mounted) return;
       // 正常靠 MessageBus sent 广播带 staged_id 回来替换;但回复被服务端
       // 归入 thread 时广播只发子通道,主流对账不到——10s 兜底:直接用
       // REST 返回的 message_id 就地转正,避免永久转圈
       _scheduleStagedFallback(stagedId, messageId);
     } catch (e) {
       debugPrint('[ChatMessages#$channelId] sendfailed: $e');
+      if (!ref.mounted) return;
       final fresh = state.value;
       if (fresh == null) return;
       final list = [...fresh.messages];
@@ -572,7 +585,10 @@ class ChatMessagesNotifier extends AsyncNotifier<ChatMessagesState> {
   /// 广播只发子通道),用 REST 返回的 message_id 就地把临时消息转正
   void _scheduleStagedFallback(String stagedId, int? messageId) {
     if (messageId == null) return;
-    Timer(const Duration(seconds: 10), () {
+    _stagedFallbackTimers[stagedId]?.cancel();
+    _stagedFallbackTimers[stagedId] = Timer(const Duration(seconds: 10), () {
+      _stagedFallbackTimers.remove(stagedId);
+      if (!ref.mounted) return;
       final current = state.value;
       if (current == null) return;
       final index = current.messages.indexWhere(
@@ -603,13 +619,16 @@ class ChatMessagesNotifier extends AsyncNotifier<ChatMessagesState> {
 
     try {
       final service = ref.read(discourseServiceProvider);
-      await service.sendChatMessage(
+      final messageId = await service.sendChatMessage(
         channelId,
         message: message.message,
         stagedId: stagedId,
         threadId: threadId,
       );
+      if (!ref.mounted) return;
+      _scheduleStagedFallback(stagedId, messageId);
     } catch (e) {
+      if (!ref.mounted) return;
       final fresh = state.value;
       if (fresh == null) return;
       final freshList = [...fresh.messages];
