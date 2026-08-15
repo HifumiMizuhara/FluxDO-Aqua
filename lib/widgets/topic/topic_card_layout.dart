@@ -9,7 +9,6 @@ import '../../models/topic.dart';
 import '../../models/topic_card_style.dart';
 import '../../utils/color_utils.dart';
 import '../../utils/number_utils.dart';
-import '../../utils/relative_time_clock.dart';
 import '../../utils/time_utils.dart';
 
 /// 话题自绘卡的排版产物:一张卡全部文本的 [ui.Paragraph] 成品 + 几何。
@@ -138,15 +137,9 @@ class TopicCardLayout {
   /// 排版跨分钟自动失效,下次 build 惰性重排(消灭"自绘卡时间是
   /// 排版快照不自刷"与 widget 路径的行为差异)。渲染对象侧由
   /// PaintedTopicCard 订阅心跳触发 rebuild,失效与重建同源同帧。
-  static int _minuteEpoch = 0;
-  static bool _clockHooked = false;
-
   static int _currentMinuteEpoch() {
-    if (!_clockHooked) {
-      _clockHooked = true;
-      RelativeTimeClock.instance.addListener(() => _minuteEpoch++);
-    }
-    return _minuteEpoch;
+    return DateTime.now().millisecondsSinceEpoch ~/
+        Duration.millisecondsPerMinute;
   }
 
   /// 存入缓存(替换旧实例)并按需 LRU。**内容变化必产出新实例**:
