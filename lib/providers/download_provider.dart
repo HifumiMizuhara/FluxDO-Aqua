@@ -5,8 +5,10 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 // ignore: depend_on_referenced_packages
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
 import '../models/download_item.dart';
 import '../pages/download_list_page.dart';
@@ -18,6 +20,7 @@ import 'theme_provider.dart'; // sharedPreferencesProvider
 /// 下载记录状态管理
 class DownloadNotifier extends StateNotifier<List<DownloadItem>> {
   static const String _storageKey = 'download_items';
+  static const _uuid = Uuid();
 
   final SharedPreferences _prefs;
 
@@ -28,6 +31,9 @@ class DownloadNotifier extends StateNotifier<List<DownloadItem>> {
   /// 下载页会反复重建整份列表，进度 Toast 也会在同一帧收到多次通知。
   final Map<String, int> _lastProgressPublishMicros = {};
   static const int _progressPublishIntervalMicros = 100000;
+
+  /// 下载尚未创建文件时也要占用路径，避免并发下载选到同一个文件名。
+  final Set<String> _reservedPaths = {};
 
   DownloadNotifier(this._prefs) : super(_load(_prefs));
 
@@ -60,11 +66,11 @@ class DownloadNotifier extends StateNotifier<List<DownloadItem>> {
 
     // 获取下载目录，处理重名
     final dir = await _getDownloadDir();
-    var savePath = _uniquePath(dir.path, initialFileName);
+    var savePath = _reserveUniquePath(dir.path, initialFileName);
     // 实际文件名可能带编号（如 "file (1).pdf"）
-    var actualFileName = savePath.split('/').last;
+    var actualFileName = p.basename(savePath);
 
-    final id = DateTime.now().millisecondsSinceEpoch.toString();
+    final id = _uuid.v4();
     final item = DownloadItem(
       id: id,
       url: url,
@@ -88,9 +94,13 @@ class DownloadNotifier extends StateNotifier<List<DownloadItem>> {
         url,
       );
       if (headerName != null && headerName.isNotEmpty) {
-        final betterPath = _uniquePath(dir.path, headerName);
-        final betterActualName = betterPath.split('/').last;
+        final safeHeaderName = DownloadService.sanitizeFileName(headerName);
+        final betterPath = safeHeaderName == actualFileName
+            ? savePath
+            : _reserveUniquePath(dir.path, safeHeaderName);
+        final betterActualName = p.basename(betterPath);
         if (betterActualName != actualFileName) {
+          _reservedPaths.remove(savePath);
           savePath = betterPath;
           actualFileName = betterActualName;
           _updateItem(id, fileName: betterActualName, savePath: betterPath);
@@ -153,13 +163,14 @@ class DownloadNotifier extends StateNotifier<List<DownloadItem>> {
     } finally {
       _cancelTokens.remove(id);
       _lastProgressPublishMicros.remove(id);
+      _reservedPaths.remove(savePath);
     }
   }
 
   /// 重试下载
   Future<void> retry(DownloadItem item) async {
     // 删除旧记录
-    removeById(item.id);
+    await removeById(item.id);
     // 重新下载
     await startDownload(
       url: item.url,
@@ -176,34 +187,31 @@ class DownloadNotifier extends StateNotifier<List<DownloadItem>> {
   }
 
   /// 删除记录（同时删除本地文件）
-  void removeById(String id) {
+  Future<void> removeById(String id) async {
     _cancelTokens[id]?.cancel();
     _cancelTokens.remove(id);
-    final item = state.firstWhere((e) => e.id == id, orElse: () => state.first);
-    // 尝试删除本地文件
-    try {
-      final file = File(item.savePath);
-      if (file.existsSync()) file.deleteSync();
-    } catch (_) {}
+    final index = state.indexWhere((e) => e.id == id);
+    if (index < 0) return;
+    final item = state[index];
     state = state.where((e) => e.id != id).toList();
     _save();
+    await _deleteFileIfInsideDownloads(item.savePath);
   }
 
   /// 清除已完成的记录
-  void clearCompleted() {
-    // 删除已完成的本地文件
-    for (final item in state) {
-      if (item.status == DownloadItemStatus.completed) {
-        try {
-          final file = File(item.savePath);
-          if (file.existsSync()) file.deleteSync();
-        } catch (_) {}
-      }
-    }
+  Future<void> clearCompleted() async {
+    final completed = state
+        .where((e) => e.status == DownloadItemStatus.completed)
+        .toList(growable: false);
+    if (completed.isEmpty) return;
+
     state = state
         .where((e) => e.status != DownloadItemStatus.completed)
         .toList();
     _save();
+    for (final item in completed) {
+      await _deleteFileIfInsideDownloads(item.savePath);
+    }
   }
 
   void _updateItem(
@@ -238,19 +246,49 @@ class DownloadNotifier extends StateNotifier<List<DownloadItem>> {
   }
 
   /// 生成不重名的文件路径：file.pdf → file (1).pdf → file (2).pdf ...
-  static String _uniquePath(String dirPath, String fileName) {
-    var path = '$dirPath/$fileName';
-    if (!File(path).existsSync()) return path;
+  String _reserveUniquePath(String dirPath, String fileName) {
+    final path = _uniquePath(dirPath, fileName);
+    _reservedPaths.add(path);
+    return path;
+  }
 
-    final dot = fileName.lastIndexOf('.');
-    final name = dot > 0 ? fileName.substring(0, dot) : fileName;
-    final ext = dot > 0 ? fileName.substring(dot) : '';
+  String _uniquePath(String dirPath, String fileName) {
+    final safeFileName = DownloadService.sanitizeFileName(fileName);
+    var path = p.join(dirPath, safeFileName);
+    if (!_pathIsTaken(path)) return path;
+
+    final dot = safeFileName.lastIndexOf('.');
+    final name = dot > 0 ? safeFileName.substring(0, dot) : safeFileName;
+    final ext = dot > 0 ? safeFileName.substring(dot) : '';
     var i = 1;
     do {
-      path = '$dirPath/$name ($i)$ext';
+      path = p.join(dirPath, '$name ($i)$ext');
       i++;
-    } while (File(path).existsSync());
+    } while (_pathIsTaken(path));
     return path;
+  }
+
+  bool _pathIsTaken(String path) =>
+      _reservedPaths.contains(path) || File(path).existsSync();
+
+  Future<void> _deleteFileIfInsideDownloads(String filePath) async {
+    final downloadDir = await _getDownloadDir();
+    final base = p.normalize(p.absolute(downloadDir.path));
+    final target = p.normalize(p.absolute(filePath));
+    final relative = p.relative(target, from: base);
+    if (relative == '..' ||
+        relative.startsWith('..${p.separator}') ||
+        p.isAbsolute(relative)) {
+      debugPrint(
+        '[DownloadProvider] Skip deleting outside Downloads: $filePath',
+      );
+      return;
+    }
+
+    try {
+      final file = File(target);
+      if (file.existsSync()) await file.delete();
+    } catch (_) {}
   }
 
   /// 获取下载目录

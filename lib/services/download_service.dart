@@ -91,7 +91,7 @@ class DownloadService {
   static String resolveFileName(String url, {String? suggestedFilename}) {
     // 优先使用建议文件名
     if (suggestedFilename != null && suggestedFilename.isNotEmpty) {
-      return suggestedFilename;
+      return sanitizeFileName(suggestedFilename);
     }
     // 从 URL 路径解析
     try {
@@ -100,11 +100,27 @@ class DownloadService {
       if (segments.isNotEmpty) {
         final last = segments.last;
         if (last.isNotEmpty && last.contains('.')) {
-          return Uri.decodeComponent(last);
+          return sanitizeFileName(Uri.decodeComponent(last));
         }
       }
     } catch (_) {}
     // 兜底：用时间戳
     return 'download_${DateTime.now().millisecondsSinceEpoch}';
+  }
+
+  /// 将外部提供的文件名限制为单个安全的文件名组件。
+  ///
+  /// 文件名可能来自 URL、Content-Disposition 或站点用户上传的元数据，
+  /// 不能直接作为下载目录下的相对路径使用。
+  static String sanitizeFileName(String fileName) {
+    var sanitized = fileName
+        .replaceAll(RegExp(r'[\x00-\x1F\x7F]'), '')
+        .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')
+        .trim();
+
+    if (sanitized.isEmpty || sanitized == '.' || sanitized == '..') {
+      sanitized = 'download_${DateTime.now().millisecondsSinceEpoch}';
+    }
+    return sanitized;
   }
 }
