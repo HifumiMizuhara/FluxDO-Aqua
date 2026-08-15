@@ -690,9 +690,7 @@ class _NotificationBodyState extends ConsumerState<_NotificationBody> {
     return Expanded(
       child: notificationsAsync.when(
         data: (notifications) {
-          final blockedUsernames = ref.watch(
-            preferencesProvider.select((p) => p.normalizedBlockedUsernames),
-          );
+          final blockedUsernames = ref.watch(effectiveBlockedUsernamesProvider);
           final visibleNotifications = notifications
               .where(
                 (notification) => !BlockedUserFilter.isBlockedNotification(

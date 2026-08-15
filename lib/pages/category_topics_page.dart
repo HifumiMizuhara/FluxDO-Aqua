@@ -109,7 +109,7 @@ class _CategoryTopicsPageState extends ConsumerState<CategoryTopicsPage> {
     final prefs = ref.read(preferencesProvider);
     final keywords = prefs.normalizedFilterKeywords;
     final wholeWord = prefs.topicFilterWholeWord;
-    final blockedUsernames = prefs.normalizedBlockedUsernames;
+    final blockedUsernames = ref.read(effectiveBlockedUsernamesProvider);
 
     int visibleItemCount() {
       final (visible, _, _) = TopicKeywordFilter.apply(
@@ -594,9 +594,7 @@ class _CategoryTopicsPageState extends ConsumerState<CategoryTopicsPage> {
     final wholeWord = ref.watch(
       preferencesProvider.select((p) => p.topicFilterWholeWord),
     );
-    final blockedUsernames = ref.watch(
-      preferencesProvider.select((p) => p.normalizedBlockedUsernames),
-    );
+    final blockedUsernames = ref.watch(effectiveBlockedUsernamesProvider);
     // 话题卡自定义样式:改设置触发 rebuild(自绘排版直读全局快照)
     ref.watch(preferencesProvider.select((p) => p.topicCardStyle));
     _syncAutoLoadFilter(keywords, wholeWord, blockedUsernames);

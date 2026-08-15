@@ -69,6 +69,9 @@ class User {
   final bool? canMuteUser; // 是否可以静音
   final bool? canIgnoreUser; // 是否可以忽略
 
+  /// 当前用户设置的无视用户列表（仅 current-user serializer 返回）。
+  final List<String> ignoredUsernames;
+
   // 封禁/禁言相关
   final String? suspendReason; // 封禁原因
   final DateTime? suspendedTill; // 封禁截止时间
@@ -137,6 +140,7 @@ class User {
     this.ignored,
     this.canMuteUser,
     this.canIgnoreUser,
+    this.ignoredUsernames = const [],
     this.suspendReason,
     this.suspendedTill,
     this.silenceReason,
@@ -157,6 +161,7 @@ class User {
     bool? muted,
     bool? ignored,
     bool? canAssign,
+    List<String>? ignoredUsernames,
   }) {
     return User(
       id: id,
@@ -206,6 +211,7 @@ class User {
       ignored: ignored ?? this.ignored,
       canMuteUser: canMuteUser,
       canIgnoreUser: canIgnoreUser,
+      ignoredUsernames: ignoredUsernames ?? this.ignoredUsernames,
       suspendReason: suspendReason,
       suspendedTill: suspendedTill,
       silenceReason: silenceReason,
@@ -289,6 +295,10 @@ class User {
       ignored: json['ignored'] as bool?,
       canMuteUser: json['can_mute_user'] as bool?,
       canIgnoreUser: json['can_ignore_user'] as bool?,
+      ignoredUsernames:
+          (json['ignored_usernames'] as List<dynamic>? ?? const [])
+              .whereType<String>()
+              .toList(growable: false),
       suspendReason: json['suspend_reason'] as String?,
       suspendedTill: TimeUtils.parseUtcTime(json['suspended_till'] as String?),
       silenceReason: json['silence_reason'] as String?,
@@ -322,6 +332,7 @@ class User {
     'flair_bg_color': flairBgColor,
     'flair_color': flairColor,
     'gamification_score': gamificationScore,
+    'ignored_usernames': ignoredUsernames,
     'admin': admin,
     'moderator': moderator,
     'can_assign': canAssign,
@@ -347,6 +358,10 @@ class User {
       admin: json['admin'] as bool? ?? false,
       moderator: json['moderator'] as bool? ?? false,
       canAssign: json['can_assign'] as bool? ?? false,
+      ignoredUsernames:
+          (json['ignored_usernames'] as List<dynamic>? ?? const [])
+              .whereType<String>()
+              .toList(growable: false),
     );
   }
 

@@ -89,9 +89,7 @@ class NotificationChannelNotifier extends Notifier<void> {
 
     // 清理之前的订阅
     if (_subscribedChannel != null && _callback != null) {
-      debugPrint(
-        '[NotificationChannel] 清理旧订阅: $_subscribedChannel',
-      );
+      debugPrint('[NotificationChannel] 清理旧订阅: $_subscribedChannel');
       messageBus.unsubscribe(_subscribedChannel!, _callback);
       _subscribedChannel = null;
       _callback = null;
@@ -152,9 +150,9 @@ class NotificationChannelNotifier extends Notifier<void> {
                   final newNotification = DiscourseNotification.fromJson(
                     notification,
                   );
-                  final blockedUsernames = ref
-                      .read(preferencesProvider)
-                      .normalizedBlockedUsernames;
+                  final blockedUsernames = ref.read(
+                    effectiveBlockedUsernamesProvider,
+                  );
                   if (!BlockedUserFilter.isBlockedNotification(
                     newNotification,
                     blockedUsernames,
@@ -200,9 +198,7 @@ class NotificationChannelNotifier extends Notifier<void> {
 
     ref.onDispose(() {
       if (_subscribedChannel != null && _callback != null) {
-        debugPrint(
-          '[NotificationChannel] 取消订阅频道: $_subscribedChannel',
-        );
+        debugPrint('[NotificationChannel] 取消订阅频道: $_subscribedChannel');
         messageBus.unsubscribe(_subscribedChannel!, _callback);
       }
     });
@@ -229,9 +225,7 @@ class NotificationAlertChannelNotifier extends Notifier<void> {
 
     // 清理之前的订阅
     if (_subscribedChannel != null && _callback != null) {
-      debugPrint(
-        '[NotificationAlert] 清理旧订阅: $_subscribedChannel',
-      );
+      debugPrint('[NotificationAlert] 清理旧订阅: $_subscribedChannel');
       messageBus.unsubscribe(_subscribedChannel!, _callback);
       _subscribedChannel = null;
       _callback = null;
@@ -269,9 +263,7 @@ class NotificationAlertChannelNotifier extends Notifier<void> {
         final username = data['username'] as String? ?? '';
         final notificationType = data['notification_type'] as int?;
 
-        final blockedUsernames = ref
-            .read(preferencesProvider)
-            .normalizedBlockedUsernames;
+        final blockedUsernames = ref.read(effectiveBlockedUsernamesProvider);
         if (BlockedUserFilter.isBlockedUsername(username, blockedUsernames)) {
           return;
         }
@@ -315,9 +307,7 @@ class NotificationAlertChannelNotifier extends Notifier<void> {
 
     ref.onDispose(() {
       if (_subscribedChannel != null && _callback != null) {
-        debugPrint(
-          '[NotificationAlert] 取消订阅频道: $_subscribedChannel',
-        );
+        debugPrint('[NotificationAlert] 取消订阅频道: $_subscribedChannel');
         messageBus.unsubscribe(_subscribedChannel!, _callback);
       }
     });

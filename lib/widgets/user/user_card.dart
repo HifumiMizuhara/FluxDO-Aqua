@@ -625,6 +625,9 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
         expiringAt: expiringAt,
       );
       if (!mounted) return;
+      ref
+          .read(currentUserProvider.notifier)
+          .updateIgnoredUsername(widget.username, ignored: level == 'ignore');
       final label = switch (level) {
         'mute' => S.current.userProfile_setToMute,
         'ignore' => S.current.userProfile_setToIgnore,

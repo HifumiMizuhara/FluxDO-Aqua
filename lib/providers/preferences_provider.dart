@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:collection/collection.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 // ignore: depend_on_referenced_packages
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,6 +13,7 @@ import '../services/cf_challenge_service.dart';
 import '../services/crash_mitigation_service.dart';
 import '../utils/blocked_user_filter.dart';
 import '../widgets/topic/topic_card_layout.dart';
+import 'core_providers.dart';
 import 'theme_provider.dart';
 
 /// 嵌套视图连接线样式
@@ -1081,6 +1083,26 @@ final preferencesProvider =
       final prefs = ref.watch(sharedPreferencesProvider);
       return PreferencesNotifier(prefs);
     });
+
+/// Content filter usernames that should be hidden in this client.
+///
+/// The local blocklist is intentionally kept separate from Discourse's
+/// account-level ignore setting, but both affect rendered content. Discourse
+/// exposes the latter as `ignored_usernames` on the current-user serializer.
+final effectiveBlockedUsernamesProvider = Provider<Set<String>>((ref) {
+  final local = ref.watch(
+    preferencesProvider.select(
+      (preferences) => preferences.normalizedBlockedUsernames,
+    ),
+  );
+  final ignored = ref.watch(
+    currentUserProvider.select(
+      (user) => user.value?.ignoredUsernames ?? const <String>[],
+    ),
+  );
+
+  return {...local, ...BlockedUserFilter.normalizedUsernames(ignored)};
+});
 
 ProgressGestureAction _readGestureAction(
   String? raw,

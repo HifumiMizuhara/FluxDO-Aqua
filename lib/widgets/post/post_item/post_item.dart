@@ -213,9 +213,7 @@ class _PostItemState extends ConsumerState<PostItem> {
     final danmakuPref = ref.watch(
       preferencesProvider.select((p) => p.boostDanmaku),
     );
-    final blockedUsernames = ref.watch(
-      preferencesProvider.select((p) => p.normalizedBlockedUsernames),
-    );
+    final blockedUsernames = ref.watch(effectiveBlockedUsernamesProvider);
     final visibleBoosts = BlockedUserFilter.visibleBoosts(
       post.boosts ?? const <Boost>[],
       blockedUsernames,

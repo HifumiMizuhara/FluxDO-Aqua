@@ -298,9 +298,7 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
     if (widget.danmakuActive == true) {
       return const SizedBox.shrink();
     }
-    final blockedUsernames = ref.watch(
-      preferencesProvider.select((p) => p.normalizedBlockedUsernames),
-    );
+    final blockedUsernames = ref.watch(effectiveBlockedUsernamesProvider);
     return BoostList(
       boosts: BlockedUserFilter.visibleBoosts(_boosts, blockedUsernames),
       canBoost: _canBoost,

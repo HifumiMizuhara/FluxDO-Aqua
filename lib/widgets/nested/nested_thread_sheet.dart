@@ -130,9 +130,7 @@ class _NestedThreadSheetContentState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final post = widget.node.post;
-    final blockedUsernames = ref.watch(
-      preferencesProvider.select((p) => p.normalizedBlockedUsernames),
-    );
+    final blockedUsernames = ref.watch(effectiveBlockedUsernamesProvider);
     final children = BlockedUserFilter.visibleNestedNodes(
       _children,
       blockedUsernames,

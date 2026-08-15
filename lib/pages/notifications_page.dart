@@ -89,7 +89,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
         child: notificationsAsync.when(
           data: (notifications) {
             final blockedUsernames = ref.watch(
-              preferencesProvider.select((p) => p.normalizedBlockedUsernames),
+              effectiveBlockedUsernamesProvider,
             );
             final visibleNotifications = notifications
                 .where(

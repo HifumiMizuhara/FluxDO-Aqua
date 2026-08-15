@@ -133,6 +133,23 @@ class CurrentUserNotifier extends AsyncNotifier<User?> {
     }
   }
 
+  /// Reflect a successful ignore/unignore request immediately in the current
+  /// user state so content filters update without waiting for a refetch.
+  void updateIgnoredUsername(String username, {required bool ignored}) {
+    final current = state.value;
+    final normalized = username.trim().toLowerCase();
+    if (current == null || normalized.isEmpty) return;
+
+    final usernames = current.ignoredUsernames
+        .where((value) => value.trim().toLowerCase() != normalized)
+        .toList();
+    if (ignored) usernames.add(username.trim());
+
+    state = AsyncValue.data(
+      current.copyWith(ignoredUsernames: List.unmodifiable(usernames)),
+    );
+  }
+
   void _refreshUser(DiscourseService service, User preloadedUser) {
     Future(() async {
       try {

@@ -216,9 +216,7 @@ class _BrowsingHistoryPageState extends ConsumerState<BrowsingHistoryPage> {
       onRefresh: _onRefresh,
       child: historyAsync.when(
         data: (topics) {
-          final blockedUsernames = ref.watch(
-            preferencesProvider.select((p) => p.normalizedBlockedUsernames),
-          );
+          final blockedUsernames = ref.watch(effectiveBlockedUsernamesProvider);
           // 话题卡自定义样式:改设置触发 rebuild(自绘排版直读全局快照)
           ref.watch(preferencesProvider.select((p) => p.topicCardStyle));
           final visibleTopics = BlockedUserFilter.visibleTopics(

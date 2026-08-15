@@ -355,9 +355,7 @@ class NewEngineChunkSegment extends ConsumerWidget {
       ).select((s) => s.danmakuOffPostIds.contains(post.id)),
     );
     if (danmakuOff) return null;
-    final blockedUsernames = ref.watch(
-      preferencesProvider.select((p) => p.normalizedBlockedUsernames),
-    );
+    final blockedUsernames = ref.watch(effectiveBlockedUsernamesProvider);
     return BlockedUserFilter.visibleBoosts(
       post.boosts ?? const <Boost>[],
       blockedUsernames,
@@ -402,9 +400,7 @@ class LongPostHeaderSegment extends ConsumerWidget {
     bool? danmakuActive;
     VoidCallback? onToggleDanmaku;
     if (danmakuPref) {
-      final blockedUsernames = ref.watch(
-        preferencesProvider.select((p) => p.normalizedBlockedUsernames),
-      );
+      final blockedUsernames = ref.watch(effectiveBlockedUsernamesProvider);
       final hasBoosts = BlockedUserFilter.visibleBoosts(
         post.boosts ?? const <Boost>[],
         blockedUsernames,
@@ -514,9 +510,7 @@ class LongPostFooterSegment extends ConsumerWidget {
     );
     bool? danmakuActive;
     if (danmakuPref) {
-      final blockedUsernames = ref.watch(
-        preferencesProvider.select((p) => p.normalizedBlockedUsernames),
-      );
+      final blockedUsernames = ref.watch(effectiveBlockedUsernamesProvider);
       final hasBoosts = BlockedUserFilter.visibleBoosts(
         post.boosts ?? const <Boost>[],
         blockedUsernames,

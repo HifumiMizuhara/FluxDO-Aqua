@@ -2639,9 +2639,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
   /// postIndex 数学，riverpod 状态实例与名单实例都未变时直接复用上次
   /// 结果，避免每次 read 都重新过滤。
   TopicDetail _filteredDetail(TopicDetail detail) {
-    final blocked = _providerContainer
-        .read(preferencesProvider)
-        .normalizedBlockedUsernames;
+    final blocked = _providerContainer.read(effectiveBlockedUsernamesProvider);
     if (identical(_blockedFilterInput, detail) &&
         identical(_blockedFilterBlocked, blocked)) {
       return _blockedFilterOutput!;
@@ -2662,9 +2660,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
     // 本地屏蔽过滤统一在此出口完成：页面内所有 postIndex（centerPostIndex/
     // dividerPostIndex/滚动映射）都基于同一份过滤后列表，语义天然一致。
     // watch 保证名单变化时整页重建。
-    final blockedUsernames = ref.watch(
-      preferencesProvider.select((p) => p.normalizedBlockedUsernames),
-    );
+    final blockedUsernames = ref.watch(effectiveBlockedUsernamesProvider);
     detail = _filteredDetail(detail);
     final posts = detail.postStream.posts;
     final hasFirstPost = posts.isNotEmpty && posts.first.postNumber == 1;

@@ -144,12 +144,7 @@ class BookmarksListContent extends ConsumerWidget {
       child: bookmarksAsync.when(
         data: (topics) => _buildDataContent(
           context,
-          _memoVisible(
-            topics,
-            ref.watch(
-              preferencesProvider.select((p) => p.normalizedBlockedUsernames),
-            ),
-          ),
+          _memoVisible(topics, ref.watch(effectiveBlockedUsernamesProvider)),
           // 列表层订阅一次分类表传给每张卡,取代每张 TopicCard 各自
           // ref.watch(categoryMapProvider)(快滚双卡同帧就是双份订阅+
           // 依赖注册)。首页早有此优化,书签页此前漏了

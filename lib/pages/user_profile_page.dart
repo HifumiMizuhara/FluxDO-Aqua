@@ -484,6 +484,9 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
           setState(() {
             _user = _user!.copyWith(muted: false, ignored: true);
           });
+          ref
+              .read(currentUserProvider.notifier)
+              .updateIgnoredUsername(_user!.username, ignored: true);
           ToastService.showSuccess(S.current.userProfile_setToIgnore);
         }
       } catch (_) {
@@ -501,6 +504,9 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
         setState(() {
           _user = _user!.copyWith(muted: level == 'mute', ignored: false);
         });
+        ref
+            .read(currentUserProvider.notifier)
+            .updateIgnoredUsername(_user!.username, ignored: false);
         final label = level == 'mute'
             ? S.current.userProfile_setToMute
             : S.current.userProfile_restored;

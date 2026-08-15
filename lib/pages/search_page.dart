@@ -1122,9 +1122,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   }
 
   Widget _buildSearchResults(ThemeData theme) {
-    final blockedUsernames = ref.watch(
-      preferencesProvider.select((p) => p.normalizedBlockedUsernames),
-    );
+    final blockedUsernames = ref.watch(effectiveBlockedUsernamesProvider);
     final posts = _allPosts
         .where(
           (post) => !BlockedUserFilter.isBlockedUsername(

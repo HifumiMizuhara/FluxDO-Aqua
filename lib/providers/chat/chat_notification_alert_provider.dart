@@ -39,9 +39,7 @@ class ChatNotificationAlertNotifier extends Notifier<void> {
       if (data is! Map<String, dynamic>) return;
 
       final username = data['username'] as String? ?? '';
-      final blockedUsernames = ref
-          .read(preferencesProvider)
-          .normalizedBlockedUsernames;
+      final blockedUsernames = ref.read(effectiveBlockedUsernamesProvider);
       if (BlockedUserFilter.isBlockedUsername(username, blockedUsernames)) {
         return;
       }
@@ -50,9 +48,7 @@ class ChatNotificationAlertNotifier extends Notifier<void> {
       final title = data['translated_title'] as String? ?? username;
       final excerpt = data['excerpt'] as String? ?? '';
 
-      debugPrint(
-        '[ChatAlert] 系统通知: channel=$channelId title=$title',
-      );
+      debugPrint('[ChatAlert] 系统通知: channel=$channelId title=$title');
 
       LocalNotificationService().show(
         title: title,

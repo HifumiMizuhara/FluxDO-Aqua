@@ -2736,7 +2736,7 @@ class _TopicListState extends ConsumerState<_TopicList>
     final prefs = ref.read(preferencesProvider);
     final keywords = prefs.normalizedFilterKeywords;
     final wholeWord = prefs.topicFilterWholeWord;
-    final blockedUsernames = prefs.normalizedBlockedUsernames;
+    final blockedUsernames = ref.read(effectiveBlockedUsernamesProvider);
 
     int itemCount() {
       return ref.read(topicListProvider(providerKey)).value?.length ?? 0;
@@ -2874,9 +2874,7 @@ class _TopicListState extends ConsumerState<_TopicList>
     final wholeWord = ref.watch(
       preferencesProvider.select((p) => p.topicFilterWholeWord),
     );
-    final blockedUsernames = ref.watch(
-      preferencesProvider.select((p) => p.normalizedBlockedUsernames),
-    );
+    final blockedUsernames = ref.watch(effectiveBlockedUsernamesProvider);
     _syncAutoLoadFilter(keywords, wholeWord, blockedUsernames);
     var hiddenCount = 0;
     var hiddenByBlocked = 0;
