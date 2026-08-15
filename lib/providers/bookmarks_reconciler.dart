@@ -105,6 +105,17 @@ class BookmarksReconciler {
     );
   }
 
+  bool _isIncompletePage(BookmarkPageParseResult result) {
+    // 测试替身和旧调用方只提供 entries，因此 rawBookmarkCount=0 表示
+    // 没有原始数量可供校验。真实 API 解析结果会始终填充该字段。
+    final hasUncachedEntries =
+        result.rawBookmarkCount > 0 &&
+        result.rawBookmarkCount != result.entries.length;
+    final hasUnexpectedContinuation =
+        result.entries.isEmpty && result.moreUrl != null;
+    return hasUncachedEntries || hasUnexpectedContinuation;
+  }
+
   /// 增量对账：用于进页面静默后台同步。
   ///
   /// 服务端按 `updated_at DESC` 返回；遇到整页"已知且未变"即可停止——后续
@@ -124,6 +135,15 @@ class BookmarksReconciler {
           upserted: upserted,
           deleted: 0,
           pagesFetched: page,
+          stopReason: ReconcileStopReason.errored,
+        );
+      }
+      if (_isIncompletePage(result)) {
+        return ReconcileReport(
+          mode: ReconcileMode.incremental,
+          upserted: upserted,
+          deleted: 0,
+          pagesFetched: page + 1,
           stopReason: ReconcileStopReason.errored,
         );
       }
@@ -186,6 +206,16 @@ class BookmarksReconciler {
           stopReason: ReconcileStopReason.errored,
         );
       }
+      if (_isIncompletePage(result)) {
+        // 不完整页不能证明远端删除，必须保留本地数据且不标记同步完成。
+        return ReconcileReport(
+          mode: ReconcileMode.full,
+          upserted: upserted,
+          deleted: 0,
+          pagesFetched: page + 1,
+          stopReason: ReconcileStopReason.errored,
+        );
+      }
       if (result.entries.isEmpty) {
         break;
       }
@@ -217,6 +247,15 @@ class BookmarksReconciler {
   Future<ReconcileReport> pullToRefresh(String accountId) async {
     try {
       final result = await _fetchPage(0);
+      if (_isIncompletePage(result)) {
+        return ReconcileReport(
+          mode: ReconcileMode.pullToRefresh,
+          upserted: 0,
+          deleted: 0,
+          pagesFetched: 1,
+          stopReason: ReconcileStopReason.errored,
+        );
+      }
       if (result.entries.isNotEmpty) {
         await _repository.upsertEntries(accountId, result.entries);
       }

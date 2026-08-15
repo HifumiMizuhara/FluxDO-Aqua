@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/topic.dart';
 import '../storage/bookmark_cache_dao.dart';
 import '../utils/bookmark_name_utils.dart';
+import '../utils/time_utils.dart';
 
 /// 单条书签的展示态：从 [BookmarkCacheEntry] 反序列化出 [Topic]，并保留
 /// 对账所需的书签自身 `updated_at`。
@@ -34,11 +35,16 @@ class BookmarkPageParseResult {
     required this.topics,
     required this.entries,
     required this.moreUrl,
+    this.rawBookmarkCount = 0,
   });
 
   final List<Topic> topics;
   final List<BookmarkCacheEntry> entries;
   final String? moreUrl;
+
+  /// 原始响应中 bookmarks 的数量。非零但小于 entries 时，说明该页存在
+  /// 无法缓存的条目，不能被全量对账当作正常结束页。
+  final int rawBookmarkCount;
 }
 
 /// 把一页 bookmarks.json 原始响应解析成 (Topic 列表, 缓存 entry 列表)。
@@ -59,6 +65,7 @@ BookmarkPageParseResult parseBookmarkPage(Map<String, dynamic> rawResponse) {
       topics: const [],
       entries: const [],
       moreUrl: null,
+      rawBookmarkCount: 0,
     );
   }
 
@@ -82,7 +89,11 @@ BookmarkPageParseResult parseBookmarkPage(Map<String, dynamic> rawResponse) {
       topics.add(topic);
       continue;
     }
-    final updatedAt = DateTime.parse(updatedAtRaw);
+    final updatedAt = TimeUtils.parseUtcTime(updatedAtRaw);
+    if (updatedAt == null) {
+      topics.add(topic);
+      continue;
+    }
     topics.add(topic);
     entries.add(
       BookmarkCacheEntry(
@@ -102,6 +113,7 @@ BookmarkPageParseResult parseBookmarkPage(Map<String, dynamic> rawResponse) {
     topics: topics,
     entries: entries,
     moreUrl: moreUrl,
+    rawBookmarkCount: rawBookmarks.length,
   );
 }
 

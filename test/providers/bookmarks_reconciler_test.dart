@@ -182,6 +182,27 @@ void main() {
     expect(reconciler.lastFullSyncAt('acct'), isNull); // 未标记完成
   });
 
+  test('fullReconcile 不会把不完整的解析页当作远端空页', () async {
+    await repo.upsertEntries('acct', [
+      _entry(bookmarkId: 1, updatedAt: DateTime.utc(2026, 1, 1)),
+    ]);
+
+    final reconciler = buildReconciler((page) async {
+      return BookmarkPageParseResult(
+        topics: const [],
+        entries: const [],
+        moreUrl: null,
+        rawBookmarkCount: 1,
+      );
+    });
+
+    final report = await reconciler.fullReconcile('acct');
+    expect(report.stopReason, ReconcileStopReason.errored);
+    expect(report.deleted, 0);
+    expect((await repo.allBookmarkIds('acct')), {1});
+    expect(reconciler.lastFullSyncAt('acct'), isNull);
+  });
+
   test('pullToRefresh 只拉第一页 upsert，不删除', () async {
     await repo.upsertEntries('acct', [
       _entry(bookmarkId: 1, updatedAt: DateTime.utc(2026, 1, 1)),

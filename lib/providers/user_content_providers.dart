@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/topic.dart';
@@ -137,6 +138,7 @@ class BookmarksNotifier extends AsyncNotifier<List<Topic>> {
   bool _isLoadingMore = false;
   bool _isLoadMoreFailed = false;
   StreamSubscription<void>? _repoSubscription;
+  int _repositoryRefreshGeneration = 0;
 
   /// 当前账号下所有 bookmark_id 的完整顺序(按 updated_at DESC)。
   List<int> _orderedIds = const <int>[];
@@ -196,23 +198,28 @@ class BookmarksNotifier extends AsyncNotifier<List<Topic>> {
   }
 
   Future<void> _refreshFromRepository() async {
+    final generation = ++_repositoryRefreshGeneration;
     final accountId = _accountId;
     if (accountId == null) return;
-    final newIds = await _repo.idsOrderedByUpdated(accountId);
-    if (!ref.mounted) return;
-    _orderedIds = newIds;
-    // 保持用户已展示的窗口大小(_loadedCount)重新 hydrate;剩余条目走 loadMore。
-    final windowSize = _loadedCount == 0 ? _pageSize : _loadedCount;
-    final take = _orderedIds.length < windowSize
-        ? _orderedIds.length
-        : windowSize;
-    final ids = _orderedIds.sublist(0, take);
-    final records = await _repo.readByIds(accountId, ids);
-    if (!ref.mounted) return;
-    _loadedCount = records.length;
-    state = AsyncValue.data(
-      records.map((r) => r.topic).toList(growable: false),
-    );
+    try {
+      final newIds = await _repo.idsOrderedByUpdated(accountId);
+      if (!ref.mounted || generation != _repositoryRefreshGeneration) return;
+      _orderedIds = newIds;
+      // 保持用户已展示的窗口大小(_loadedCount)重新 hydrate;剩余条目走 loadMore。
+      final windowSize = _loadedCount == 0 ? _pageSize : _loadedCount;
+      final take = _orderedIds.length < windowSize
+          ? _orderedIds.length
+          : windowSize;
+      final ids = _orderedIds.sublist(0, take);
+      final records = await _repo.readByIds(accountId, ids);
+      if (!ref.mounted || generation != _repositoryRefreshGeneration) return;
+      _loadedCount = records.length;
+      state = AsyncValue.data(
+        records.map((r) => r.topic).toList(growable: false),
+      );
+    } catch (e) {
+      debugPrint('[Bookmarks] repository refresh failed: $e');
+    }
   }
 
   /// 下拉刷新:拉第一页 upsert,不翻多页、不删除(spec 中明确不是"对账")。
