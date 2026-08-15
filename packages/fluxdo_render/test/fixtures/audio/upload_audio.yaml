@@ -1,0 +1,12 @@
+source: https://linux.do/t/sample/1/au1
+fetched_at: 2026-06-30
+primary_node: audio
+sha256: 342b59c6019d36cd201295f4b3cd9d2c90e2d9a48b9372f771c341ada1da4647
+also_contains: []
+edge_case: false
+notes: |
+  Discourse 上传音频的终态 cooked(无运行时注入):<audio preload="metadata" controls>
+  + <source src data-orig-src> + 内层 <a> 文本(常是 URL)。
+  legacy 走 fwfh_just_audio 默认音频条。
+  渲染:子包占位卡(音乐图标 + 文件名)。主项目接 audioBuilder 后用 just_audio 播放。
+sanitized: true

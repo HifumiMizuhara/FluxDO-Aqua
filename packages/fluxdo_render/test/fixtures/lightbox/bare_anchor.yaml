@@ -1,0 +1,14 @@
+source: https://example.com/t/sample/1/2
+fetched_at: 2026-07-14
+primary_node: lightbox
+sha256: 6922d7818e6306c15ba94a979c119a8170f6c2d402a8192f3146f019d8f5a2c4
+also_contains: [image, paragraph]
+edge_case: false
+notes: |
+  裸 a.lightbox(无 div.lightbox-wrapper 包裹)包 img:Discourse Web 端
+  gallery(Photoswipe)的数据源口径是 DOM 的 a.lightbox,不依赖 wrapper
+  (见 collectLightboxImageRuns)。Parser 应提缩略图 src + a[href] 填
+  lightboxUrl。与 image/inside_link(普通 <a> 包 img,无 lightbox class,
+  不产 lightboxUrl)区分。手工构造(NodeKind.lightbox 此前无 fixture 目录,
+  空目录不进 git,node_kind_alignment_test 在新 checkout 上必红)。
+sanitized: true

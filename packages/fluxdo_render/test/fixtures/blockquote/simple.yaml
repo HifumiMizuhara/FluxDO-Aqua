@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/bq1
+fetched_at: 2026-06-23
+primary_node: blockquote
+sha256: 9fc151794f7ee7109542ce02c06e64535dc7bac314507fb4a8b309418958f624
+also_contains: []
+edge_case: false
+notes: |
+  最基础形态:单 blockquote 含一段 p。验证 BlockquoteNode 解析 +
+  灰底 + 左竖条 + 右上下圆角。
+sanitized: true

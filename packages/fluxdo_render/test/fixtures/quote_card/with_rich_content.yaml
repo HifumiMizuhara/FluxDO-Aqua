@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/qc3
+fetched_at: 2026-06-23
+primary_node: quote_card
+sha256: 1742058c45cdfeae0484b3acc0141688622de3066e039802e95a017c89d6edeb
+also_contains: [paragraph, list]
+edge_case: false
+notes: |
+  引用正文含 inline 混排(strong/code/link)+ list,验证 _parseBlocks
+  在 blockquote 内递归正常,所有 inline + block 都能在 quote 内显示。
+sanitized: true

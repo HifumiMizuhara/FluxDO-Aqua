@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/link2
+fetched_at: 2026-06-23
+primary_node: paragraph
+sha256: 6cb0bdce79ad291c551af4c4384c5ce47ca68d2d6229d6fa02161e404a47cd55
+also_contains: []
+edge_case: false
+notes: |
+  内部链接(/t/topic/.../post 和 /u/username),主项目侧 LinkHandler
+  应该走 launchContentLink 路由到 TopicDetailPage / UserProfilePage。
+  子包侧只验证 LinkRun 携带的 href 字符串原值。
+sanitized: true

@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/code4
+fetched_at: 2026-06-23
+primary_node: code_block
+sha256: 9a06075dc50027e7fd742169aa8c1823d34ffec21fda950c9d2e88601a341980
+also_contains: []
+edge_case: false
+notes: |
+  JSON 代码块含 HTML 实体 &gt;(>),验证 package:html 自动解码,
+  CodeBlockNode.code 是字面值 ">"。
+sanitized: true

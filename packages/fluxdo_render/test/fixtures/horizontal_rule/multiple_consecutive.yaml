@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/hr3
+fetched_at: 2026-06-23
+primary_node: horizontal_rule
+sha256: 9189c0629293b692ef33bf0c38aa8e117c041260f2e5992dff44dcfe742748cf
+also_contains: []
+edge_case: true
+notes: |
+  连续 3 条 hr(罕见但合法)。每条独立 BlockNode,id 各自递增;
+  视觉上三条等距分隔线。
+sanitized: true

@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/fn-section
+fetched_at: 2026-06-30
+primary_node: footnote
+also_contains: [paragraph]
+sha256: 436c9ad8e8dbb8da34c2d36a9d1668ac6ecffc1cf61dcaa1be23ee72df4d5e5b
+edge_case: false
+notes: |
+  底部脚注区:正文 2 处上标 + section.footnotes 渲染成「分隔线 + 编号列表」。
+  验证 FootnotesSectionNode.entries 解析(id/number/inlines,strip backref),
+  正文条目保留链接/加粗;上标 popover 与底部列表并存。
+sanitized: true

@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/mh2
+fetched_at: 2026-06-24
+primary_node: math
+also_contains: [paragraph]
+sha256: 5471aa1fe327a2ad3563f3f9ae1970162526864ee2ed184e016bf86915b2f070
+edge_case: false
+notes: |
+  行内数学公式:欧拉恒等式嵌在段落中。
+  子包 fallback:WidgetSpan + monospace "$e^{...}$" 原文。
+sanitized: true

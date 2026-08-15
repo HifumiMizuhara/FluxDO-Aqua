@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/hr1
+fetched_at: 2026-06-23
+primary_node: horizontal_rule
+sha256: 0070878e334b94c34f82026549e7737e150963619acce3e96ca7a47606bf49bf
+also_contains: []
+edge_case: false
+notes: |
+  最基础形态:单独一条 hr。验证 HorizontalRuleNode 解析 + 1px 线
+  + 上下 12 padding。
+sanitized: true

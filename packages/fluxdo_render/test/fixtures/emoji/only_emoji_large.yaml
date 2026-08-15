@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/emoji3
+fetched_at: 2026-06-23
+primary_node: emoji
+sha256: 0e23fdd3dcea92223fc261fd747df0212b7317d8a8454236e24f24b0a91eae68
+also_contains: []
+edge_case: false
+notes: |
+  整段仅含 emoji + class="only-emoji",Discourse 渲染为 32dp 大图。
+  验证 EmojiRun.isOnlyEmoji 解析 + 32px 显示。
+sanitized: true

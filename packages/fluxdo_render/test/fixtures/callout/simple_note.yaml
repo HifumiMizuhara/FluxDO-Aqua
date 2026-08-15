@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/callout1
+fetched_at: 2026-06-23
+primary_node: callout
+also_contains: []
+sha256: 97a717046ee7724a48e1d3107a7d79e28a4d093be748fabe68d43ca360b895ed
+edge_case: false
+notes: |
+  最简形态:[!note] 不带折叠标记、不带自定义标题。
+  渲染:蓝色 + edit_note 图标 + 默认标题 "Note",一行正文。
+sanitized: true

@@ -1,0 +1,9 @@
+source: https://example.com/t/sample/1/mention2
+fetched_at: 2026-06-23
+primary_node: mention
+sha256: 8099062e25725c2bcfbb77e309360131d1fe6402d4b7ff9cd9e512cbd400f774
+also_contains: []
+edge_case: false
+notes: |
+  一段里多个 mention 紧邻,验证 chip 之间不互相错位 + 字间距合理。
+sanitized: true

@@ -1,0 +1,96 @@
+# fixture 元数据 schema(YAML)
+#
+# 每个 fixture 由一对 .html + .yaml 文件组成,本文件描述 .yaml 部分的字段。
+# 验证脚本:test/fixtures/scripts/validate.dart
+
+# ───── 必填字段 ─────
+
+source:
+  type: string
+  description: |
+    fixture 来源 post 的永久链接。形如:
+      https://linux.do/t/topic/12345/3
+    或具体 post 的 URL:
+      https://linux.do/t/topic/12345/3?post=789
+  required: true
+
+fetched_at:
+  type: string  # ISO 8601 date,YYYY-MM-DD
+  description: 抓取该 fixture 的日期(便于追溯源帖是否已变更)
+  required: true
+
+primary_node:
+  type: string
+  enum:
+    - paragraph
+    - heading
+    - list
+    - code_block
+    - quote_card
+    - spoiler
+    - details
+    - onebox
+    - table
+    - poll
+    - math
+    - iframe
+    - image_grid
+    - lazy_video
+    - footnote
+    - mention
+    - emoji
+    - lightbox
+    - inline_code
+    - blockquote
+    - callout
+    - chat_transcript
+    - local_date
+    - policy
+    - horizontal_rule
+    - click_count
+    - definition_list
+    - svg
+    - video
+    - audio
+    - edge_case  # 跨类型,不能归入单一节点
+  description: 主节点类型(应与所在目录名一致,_edge_cases/ 下用 edge_case)
+  required: true
+
+sha256:
+  type: string
+  description: |
+    对应 .html 文件内容的 sha256(用脚本生成)。
+    防止 .yaml 与 .html 漂移。validate.dart 会校验。
+  required: true
+
+# ───── 可选字段 ─────
+
+also_contains:
+  type: array
+  items:
+    type: string  # 同 primary_node 的枚举值
+  description: 该 fixture 内还出现了哪些其他节点类型
+  required: false
+
+edge_case:
+  type: boolean
+  default: false
+  description: 是否为边界 case(深嵌套、超长、损坏 HTML 等)
+
+notes:
+  type: string  # multi-line OK
+  description: 描述这个 fixture 在测什么、为什么留这个 case
+  required: false
+
+sanitized:
+  type: boolean
+  default: false
+  description: 是否做过脱敏处理(替换了真实用户名/链接等)
+
+related_issues:
+  type: array
+  items:
+    type: string
+  description: |
+    跟这个 fixture 相关的 issue/PR 链接(用于回归 case 追踪)
+  required: false

@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/list5
+fetched_at: 2026-06-23
+primary_node: list
+sha256: 9ace73d9f510c2a81f3d0b8e0292777920f706f73bdce686ebbaa62609db9f7a
+also_contains: []
+edge_case: true
+notes: |
+  10 项有序列表,验证 "9." 和 "10." 数字 marker 对齐(FontFeature
+  tabularFigures 等宽数字)。如果没启用等宽特性,9 比 10 窄,文本
+  起始位置会左移。
+sanitized: true

@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/details1
+fetched_at: 2026-06-23
+primary_node: details
+sha256: 40f0cdf8de25a170a1a76a0bb4ac79c945ef69d228027b40f670fb41c7baf457
+also_contains: []
+edge_case: false
+notes: |
+  最简形态:<details> 默认折叠,只显示标题栏 + 旋转箭头。
+  点击箭头展开,heightFactor 200ms easeInOut。
+sanitized: true

@@ -1,0 +1,12 @@
+source: https://example.com/t/sample/1/onebox3
+fetched_at: 2026-06-23
+primary_node: onebox
+sha256: 5c516bb758c8757792a1168ea5e6956c7a5c524fd875a263157d1c6b49b37ef7
+also_contains: []
+edge_case: false
+notes: |
+  YouTube 视频 onebox(class="onebox youtube-onebox")。
+  应识别为 OneboxKind.video。子包通用卡片展示标题 + 缩略图;
+  legacy 完整版有播放按钮覆盖 + 时长,主项目可在 oneboxBuilder 内
+  调 video_onebox_builder。
+sanitized: true

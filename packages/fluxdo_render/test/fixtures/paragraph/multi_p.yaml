@@ -1,0 +1,9 @@
+source: https://example.com/t/sample/1/p3
+fetched_at: 2026-06-23
+primary_node: paragraph
+sha256: 0e4145a5dbda2eb47b97b563bd9e9e6d8d460769f2ddc0bdc0dbe7f3505557f9
+also_contains: []
+edge_case: false
+notes: |
+  三个相邻 <p>,验证多段渲染顺序与垂直间距。
+sanitized: true

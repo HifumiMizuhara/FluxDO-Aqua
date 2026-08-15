@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/callout5
+fetched_at: 2026-06-23
+primary_node: callout
+also_contains: []
+sha256: 90b92e911f67833101bc5a50ca7c4bfd02e15abee052c68a6bcc7cef41294368
+edge_case: false
+notes: |
+  未知类型 [!xyz]:CalloutKind.unknown + 灰色 + format_quote 图标 +
+  typeRaw 首字母大写作为默认标题。
+sanitized: true

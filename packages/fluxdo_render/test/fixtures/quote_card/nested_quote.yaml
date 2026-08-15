@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/qc4
+fetched_at: 2026-06-23
+primary_node: quote_card
+sha256: 39bcdb0d7b053ca8b9e170cfc39659e2d0efaa81616ea5ecc1afc0af0c739be3
+also_contains: []
+edge_case: true
+notes: |
+  双层嵌套引用(quote 内含 quote)。验证 parser 递归 + renderer 内递归
+  build,每层都有自己的灰底 + 头像。
+sanitized: true

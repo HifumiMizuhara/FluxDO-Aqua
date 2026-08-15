@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/pl-poll1
+fetched_at: 2026-06-24
+primary_node: poll
+also_contains: []
+sha256: 30b3d323cce0a296ad1e280adaa7c834fdc03d6628f4815b2f67f4a4cf7febbc
+edge_case: false
+notes: |
+  最简 regular poll(data-poll-name=poll)。poll 数据全在 API,
+  子包只提 pollName + rawHtml,fallback 占位卡显示。
+  主项目接 pollBuilder 后 legacy buildPoll 从 post.polls 渲染真实选项/票数。
+sanitized: true

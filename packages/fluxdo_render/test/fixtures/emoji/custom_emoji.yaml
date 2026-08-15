@@ -1,0 +1,12 @@
+source: https://example.com/t/sample/1/emoji4
+fetched_at: 2026-06-23
+primary_node: emoji
+sha256: 292dbb7973c5ffa8a50b7db78875bb42263abce2ad1437be77ab357e7df99a18
+also_contains: []
+edge_case: false
+notes: |
+  自定义 emoji(Discourse extendedEmojiMap,服务端 customEmoji),URL 来自
+  CDN 而非确定性路径。验证 parser 不做 CDN 重写,把原 src 原样存入
+  EmojiRun.url —— 主项目的 EmojiImageBuilder 自行做 CDN 路由。
+  附加 `emoji-custom` class 不影响 parser(只检查 `emoji`)。
+sanitized: true

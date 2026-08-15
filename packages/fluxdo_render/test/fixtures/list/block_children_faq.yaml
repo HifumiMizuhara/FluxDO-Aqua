@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/faqlist
+fetched_at: 2026-06-29
+primary_node: list
+sha256: f78904b0390f9060372502fe996e95e1877e9595360e28d5563dec14a3ea2b5c
+also_contains: [heading, paragraph]
+edge_case: false
+notes: |
+  列表项含块级子节点(FAQ 式):<li> 内 <h4> 问题 + <p> 回答 + 嵌套 ul。
+  ListItem.blocks → marker + Column(块级),Q/A 分行;末项纯文本走 inline 快路径。
+sanitized: true

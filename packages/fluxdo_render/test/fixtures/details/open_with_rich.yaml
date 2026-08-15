@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/details2
+fetched_at: 2026-06-23
+primary_node: details
+also_contains: [paragraph]
+sha256: 0c35102fe05e62838bed7f059d84aea7a3a62ad837d1ce7e04cc3de08a7149be
+edge_case: false
+notes: |
+  <details open> 默认展开 + 内含富文本(多段 + 样式 + 链接)。
+  验证 initiallyOpen=true 时 buildBody 立即构造 + 子节点递归走 compact factory
+  (消除嵌套 paragraph 多余 margin)。
+sanitized: true

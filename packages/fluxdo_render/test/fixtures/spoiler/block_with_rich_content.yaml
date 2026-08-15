@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/sp4
+fetched_at: 2026-06-23
+primary_node: spoiler
+sha256: 4ec593255f2450a232a393c2c9a21511146d31c50ac453ba1d17fde777eb5123
+also_contains: [paragraph, list]
+edge_case: true
+notes: |
+  块级 spoiler 含 p + ul + code 等混合内容,验证 SpoilerBlockNode.children
+  是 BlockNode 序列(走 _parseBlocks 递归);揭示后内嵌内容完整展示。
+sanitized: true

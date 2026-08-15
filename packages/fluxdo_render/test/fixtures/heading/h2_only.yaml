@@ -1,0 +1,9 @@
+source: https://example.com/t/sample/1/h2
+fetched_at: 2026-06-23
+primary_node: heading
+sha256: da5b8b2ac231edf2f9b8d937fec875d9eae24b72cfee9b32f6e109263078e1a9
+also_contains: []
+edge_case: false
+notes: |
+  单个 <h2>,Discourse 最常用的标题级别。
+sanitized: true

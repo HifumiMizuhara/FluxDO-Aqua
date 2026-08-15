@@ -1,0 +1,12 @@
+source: https://example.com/t/sample/1/img7
+fetched_at: 2026-06-23
+primary_node: image
+sha256: c0da62acacc59ef533ef1e92b2988ea49da03fc562d49be6943d6987a3fb8709
+also_contains: [paragraph]
+edge_case: true
+notes: |
+  两张连续 lightbox-wrapper(中间 <br> 分隔)。重要回归 case:
+  不能让两张图各产 ParagraphNode,否则 1em+1em margin 堆出大空隙。
+  parser 改:lightbox 走 pendingInlines 流,两张图 + LineBreakRun 合并
+  到同一 ParagraphNode,自然垂直排列且段间距正常。
+sanitized: true

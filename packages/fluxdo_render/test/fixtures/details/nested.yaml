@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/details3
+fetched_at: 2026-06-23
+primary_node: details
+sha256: b5d53bdcfca5ea0d456a6915971bfafdb96fec7555fd63a2a67c70fd63645f3a
+also_contains: []
+edge_case: true
+notes: |
+  两层嵌套 <details>。验证 _parseDetails 递归 + buildDetails 递归 build,
+  内层独立展开/折叠不互相影响。
+sanitized: true

@@ -1,0 +1,9 @@
+source: https://example.com/t/sample/1/h1
+fetched_at: 2026-06-23
+primary_node: heading
+sha256: 72b4952d1521e33b19ab1a06ccd1ab429f6b19ef958c6ca98afc15c8c324f5c1
+also_contains: []
+edge_case: false
+notes: |
+  最简形态:单个 <h1>,验证最大字号 + 加粗 + 上下间距。
+sanitized: true

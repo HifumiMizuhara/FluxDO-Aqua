@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/pl2
+fetched_at: 2026-06-24
+primary_node: policy
+also_contains: [paragraph, blockquote]
+sha256: 64f7c08d5f1c14b564671de33dd08499c401a527890d7a47dc1e0a4743bb2295
+edge_case: false
+notes: |
+  自定义按钮文案 + .policy-body 内层包裹 + 多种属性
+  (renewal-days, reminder, 多 groups)。
+  验证 parser 剥 .policy-body + 全 data-* 字段。
+sanitized: true

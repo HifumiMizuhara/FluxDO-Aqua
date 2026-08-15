@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/if1
+fetched_at: 2026-06-24
+primary_node: iframe
+also_contains: []
+sha256: 49ab63fe91125dd90d34948da366d0c3c2b85b6ff0748541ed5833148ae53822
+edge_case: false
+notes: |
+  YouTube 嵌入 iframe(典型 16:9 + allowfullscreen + allow Permissions Policy)。
+  渲染:子包占位卡(图标 + youtube.com 域名 + 完整 src + 箭头)。
+  主项目接 iframeBuilder 后会替换为真实 webview。
+sanitized: true

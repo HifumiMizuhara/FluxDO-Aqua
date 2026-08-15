@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/svg2
+fetched_at: 2026-06-30
+primary_node: svg
+sha256: 72f5fb3e1f55515739ad54a40094c77c80a7c032ca98be4a3721abbe8e8c6073
+also_contains: []
+edge_case: true
+notes: |
+  有显式 width/height 但无 viewBox 的内容 svg:仍应产 SvgNode(对齐 legacy
+  _buildInlineSvg:viewBox/width/height 任一存在即视为内容 svg)。
+sanitized: true

@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/inline_code5
+fetched_at: 2026-06-23
+primary_node: inline_code
+sha256: 61db129384c256dc14c8111e1149f34816bd9502fe4ee32f31e4dc97f20b93bb
+also_contains: []
+edge_case: true
+notes: |
+  Inline code 嵌套在 link 内 — 验证 LinkRun.children 含 InlineCodeRun 时
+  正常渲染:tap 区域含 code 文本,code 仍是 monospace + 灰底,link 下划线
+  覆盖 code 文本。
+sanitized: true

@@ -1,0 +1,9 @@
+source: https://example.com/t/sample/1/h456
+fetched_at: 2026-06-23
+primary_node: heading
+sha256: 4066b3447e298475f9de0a2805b20673f5cee51f34526b38d78de1642511dd71
+also_contains: []
+edge_case: false
+notes: |
+  h4 / h5 / h6 三个低级别标题相邻,验证字号梯度 + 间距。
+sanitized: true

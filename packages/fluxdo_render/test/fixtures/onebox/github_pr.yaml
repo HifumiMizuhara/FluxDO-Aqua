@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/onebox2
+fetched_at: 2026-06-23
+primary_node: onebox
+sha256: 150efdde9f1b83a5bacee31e3a624b999b16298dac7c4b948d3532c12dc21cdb
+also_contains: []
+edge_case: false
+notes: |
+  GitHub Pull Request onebox(class="onebox githubpullrequest")。
+  应识别为 OneboxKind.github。子包通用卡片只显示标题 + 描述 + favicon;
+  legacy 完整版含作者头像 / 文件统计等,主项目 oneboxBuilder 可接管。
+sanitized: true

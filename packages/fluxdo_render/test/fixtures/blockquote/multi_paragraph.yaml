@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/bq2
+fetched_at: 2026-06-23
+primary_node: blockquote
+sha256: dd7b7e5a37bb041a71d4b6d3571e23debd96dc6e595b4587aada0d17c7138a15
+also_contains: []
+edge_case: false
+notes: |
+  多段引用,验证 blockquote 内多个 ParagraphNode 之间 1em 段间距
+  仍生效(段落自己有 vertical em padding,blockquote 容器只加外 8px)。
+sanitized: true

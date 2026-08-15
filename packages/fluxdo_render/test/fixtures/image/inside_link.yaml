@@ -1,0 +1,12 @@
+source: https://example.com/t/sample/1/img4
+fetched_at: 2026-06-23
+primary_node: image
+sha256: f308c4d5c409b9490e73fae258a033f1ec961b491ac9a2f956912fbc9190b1d8
+also_contains: [paragraph]
+edge_case: true
+notes: |
+  img 嵌套在 link 内 — 验证 LinkRun.children 含 ImageRun 正常解析。
+  注意:WidgetSpan 不带 recognizer,所以图片本身**不可点**(已知限制,
+  跟 emoji-in-link 同源,留到阶段 5 自研选区时统一解决)。主项目接入
+  通常会在 imageContentBuilder 内自己包 GestureDetector 处理 lightbox。
+sanitized: true

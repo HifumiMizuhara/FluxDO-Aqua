@@ -1,0 +1,9 @@
+source: https://example.com/t/sample/1/2
+fetched_at: 2026-06-22
+primary_node: heading
+sha256: 953be13e68c0504361c23b9130d6b0acf10553cdbcbaefe2c580b00291f7132c
+also_contains: []
+edge_case: false
+notes: |
+  h1/h2/h3 三级标题相邻,用于验证标题样式 + margin 折叠。
+sanitized: true

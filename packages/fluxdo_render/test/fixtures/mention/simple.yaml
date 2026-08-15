@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/mention1
+fetched_at: 2026-06-23
+primary_node: mention
+sha256: 3c9ff97353b24b301f06307d433f4f49cf52e1be30fd44869df0527e4ff661eb
+also_contains: []
+edge_case: false
+notes: |
+  最基础形态:段落内一个 @alice mention。验证 MentionRun 解析 +
+  chip 样式渲染(灰底圆角 + primary 字 + 0.82em)。
+sanitized: true

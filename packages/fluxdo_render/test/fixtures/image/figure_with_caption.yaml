@@ -1,0 +1,15 @@
+source: https://example.com/t/sample/1/figure1
+fetched_at: 2026-06-30
+primary_node: image
+sha256: 7421ac70d28e5e4f54bf702fe5e8d6eaf8a9367e774c350a53824f4f5f95f232
+also_contains: [paragraph]
+edge_case: true
+notes: |
+  <figure> 图片容器 + <figcaption> 说明(通用 HTML / Discourse 偶发形态)。
+  legacy 走 fwfh:figure=block(margin 1em 40px)+ 内部 img + figcaption(block,
+  浏览器默认左对齐正常字号)。新引擎块级 switch 此前无 figure case → default
+  文本兜底:丢掉 <img>,只把 figcaption 文字当纯文本渲染(丢图 bug)。
+  期望:拆壳 → image-only ParagraphNode(ImageRun src=diagram.png 600x360)
+  + 居中小字 caption 段(StyledRun.small + textAlign.center,文本「图 1:系统整体架构」)。
+  sha256 占位:本 fixture 为新引擎构造样例非线上抓取,提交前可用真实 cooked 替换并重算。
+sanitized: true

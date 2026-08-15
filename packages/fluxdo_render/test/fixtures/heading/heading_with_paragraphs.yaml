@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/h2-p
+fetched_at: 2026-06-23
+primary_node: heading
+sha256: cf1e6cad4ca02ebcf51d1af5bbe0dc37f17d05a96149b4d8ca1462c74bb6dc28
+also_contains: [paragraph]
+edge_case: false
+notes: |
+  heading 跟 paragraph 交替,验证两类节点间距过渡是否符合视觉直觉
+  (heading 上下 margin 大于 paragraph)。
+sanitized: true

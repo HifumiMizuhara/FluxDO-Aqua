@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/cc1
+fetched_at: 2026-06-24
+primary_node: click_count
+also_contains: [paragraph, link]
+sha256: 1ef3de077c5ddb582bfbf2640e419e46894a25ebd2d612a70c44b82611138fae
+edge_case: false
+notes: |
+  典型形态:Discourse _injectClickCounts 在 <a> 后追加
+  <span class="click-count"> 42 </span> 显示帖内链接点击次数。
+  渲染:链接后跟小灰底圆角 chip(10 字号)。
+sanitized: true

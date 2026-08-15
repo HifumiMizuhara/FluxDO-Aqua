@@ -1,0 +1,9 @@
+source: https://example.com/t/sample/1/fn2
+fetched_at: 2026-06-23
+primary_node: footnote
+also_contains: [paragraph]
+sha256: 7bbab33051c38702618050909ec375b6fa69102be97fb6476c9c21fe68d98317
+edge_case: false
+notes: |
+  3 个脚注引用,内容含 inline 样式;验证多 ref 各自取对应 content。
+sanitized: true

@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/tb1
+fetched_at: 2026-06-24
+primary_node: table
+also_contains: []
+sha256: d1e91eaccd77861c1e50c96e45b7713d683f27bd5a11061070191dbe3c99f837
+edge_case: false
+notes: |
+  最简 2 列 2 行表格,thead + tbody。
+  渲染:灰底表头加粗 + 边框 + 圆角。
+sanitized: true

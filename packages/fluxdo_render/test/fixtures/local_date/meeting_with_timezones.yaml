@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/ld1
+fetched_at: 2026-06-24
+primary_node: local_date
+also_contains: [paragraph]
+sha256: a731b040e21131b8b8b8ec5274044ce80ba00f331de2577953aad48489048d35
+edge_case: false
+notes: |
+  会议时间 chip(带时区 + 多时区预览 + LLL 格式)。
+  子包 fallback:服务端预渲染文本 + 时钟图标。
+  主项目接入 localDateBuilder 后会换成虚线下划线 + popover 多时区。
+sanitized: true

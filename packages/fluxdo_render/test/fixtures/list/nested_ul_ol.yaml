@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/list4
+fetched_at: 2026-06-23
+primary_node: list
+sha256: cf45790086721a267c1e6ef80803d30ea56fdc0a39a475e525eddee919ba4611
+also_contains: []
+edge_case: true
+notes: |
+  嵌套混合(外层 ul 含 li 内 ul 和 li 内 ol)。验证 parser 递归 +
+  ListItem.children + depth 递增 + renderer 递归 buildList。
+sanitized: true

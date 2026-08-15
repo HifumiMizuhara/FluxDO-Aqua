@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/callout2
+fetched_at: 2026-06-23
+primary_node: callout
+also_contains: [paragraph]
+sha256: 80e036419391d235b1be4b3abbe995a944e6940d9865b85806ad14abb84af129
+edge_case: false
+notes: |
+  [!warning] + 自定义标题(覆盖默认 "Warning")+ 多段正文。
+  渲染:橙色 + warning_amber 图标 + 标题 "操作不可逆" + 两段内容。
+sanitized: true

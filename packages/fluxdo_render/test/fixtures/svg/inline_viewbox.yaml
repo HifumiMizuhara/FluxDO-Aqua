@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/svg1
+fetched_at: 2026-06-30
+primary_node: svg
+sha256: c5d3dbe4338c90f591f0810eb21707345f0aa2cf3a42418be6a268548c813116
+also_contains: []
+edge_case: false
+notes: |
+  内容型内联 svg(有 viewBox 的矢量图):应产 SvgNode,携带 outerHtml 源串。
+  子包 fallback 画占位框;主项目接 svgBuilder 后用 jovial_svg 等比铺满列宽渲染。
+sanitized: true

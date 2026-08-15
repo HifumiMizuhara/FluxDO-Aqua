@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/lv2
+fetched_at: 2026-06-24
+primary_node: lazy_video
+also_contains: []
+sha256: 6a4debd651805c425606677531b47f56515aa7d1c90f1c86edb7c77bf6e1fa6f
+edge_case: false
+notes: |
+  Vimeo 视频 + start-time "1m30s" 偏移。
+  品牌色蓝青(#1AB7EA)。
+sanitized: true

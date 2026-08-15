@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/svg_skip
+fetched_at: 2026-06-23
+primary_node: paragraph
+sha256: 37cf745570d6f3baae5f574d22233d3a385d54dcd5508217b597ed8dd7b1895c
+also_contains: []
+edge_case: true
+notes: |
+  inline `<svg>` (Discourse d-icon)应该被 parser 整体跳过。
+  不跳过会出现 `<use href="#far-image">` 字面值进 textContent
+  形成噪音。
+sanitized: true

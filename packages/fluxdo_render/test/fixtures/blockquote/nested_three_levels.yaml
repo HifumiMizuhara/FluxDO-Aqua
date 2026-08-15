@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/bq4
+fetched_at: 2026-06-23
+primary_node: blockquote
+sha256: 18936b1860c7cea480347e0687c1f17a2279892fd965051579fa7b886f8900cc
+also_contains: []
+edge_case: true
+notes: |
+  三层嵌套 blockquote。验证 parser 递归 + renderer 递归 build。
+  每层都有自己的灰底 + 左竖条,深嵌套时视觉层次清晰。
+sanitized: true

@@ -1,0 +1,214 @@
+import 'dart:ui' show TextRange;
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:fluxdo_render/src/editor/model/editor_state.dart';
+
+void main() {
+  EditorState makeState() =>
+      EditorState.fromTexts(const ['第一段', 'second', '三']);
+
+  void placeCaret(EditorState s, int blockIndex, int offset) {
+    s.updateSelection(
+      EditorSelection.collapsed(
+        EditorPosition(blockId: s.blocks[blockIndex].id, offset: offset),
+      ),
+    );
+  }
+
+  group('基本事务', () {
+    test('insertText 折叠光标处插入', () {
+      final s = makeState();
+      placeCaret(s, 0, 3);
+      s.insertText('!');
+      expect((s.blocks[0] as TextBlock).content.text, '第一段!');
+      expect(s.selection!.extent.offset, 4);
+    });
+
+    test('splitParagraph 段中分段', () {
+      final s = makeState();
+      placeCaret(s, 1, 3);
+      s.splitBlock();
+      expect(s.blocks.length, 4);
+      expect((s.blocks[1] as TextBlock).content.text, 'sec');
+      expect((s.blocks[2] as TextBlock).content.text, 'ond');
+      expect(s.selection!.extent.blockId, s.blocks[2].id);
+      expect(s.selection!.extent.offset, 0);
+    });
+
+    test('mergeWithPrevious 段首合并,光标停 join 点', () {
+      final s = makeState();
+      s.mergeWithPrevious(s.blocks[1].id);
+      expect(s.blocks.length, 2);
+      expect((s.blocks[0] as TextBlock).content.text, '第一段second');
+      expect(s.selection!.extent.offset, 3);
+    });
+
+    test('backspace 段首触发合并;段中删 grapheme', () {
+      final s = makeState();
+      placeCaret(s, 1, 0);
+      s.backspace();
+      expect(s.blocks.length, 2);
+      expect((s.blocks[0] as TextBlock).content.text, '第一段second');
+
+      // emoji(代理对)按 grapheme 整删
+      final s2 = EditorState.fromTexts(const ['a👨‍👩‍👧‍👦b']);
+      placeCaret(s2, 0, 'a👨‍👩‍👧‍👦'.length);
+      s2.backspace();
+      expect((s2.blocks[0] as TextBlock).content.text, 'ab');
+    });
+
+    test('deleteForward 段尾并下一段', () {
+      final s = makeState();
+      placeCaret(s, 0, 3);
+      s.deleteForward();
+      expect(s.blocks.length, 2);
+      expect((s.blocks[0] as TextBlock).content.text, '第一段second');
+      expect(s.selection!.extent.offset, 3);
+    });
+
+    test('deleteSelection 跨段:首尾残余合并、中段整删', () {
+      final s = makeState();
+      s.updateSelection(
+        EditorSelection(
+          base: EditorPosition(blockId: s.blocks[0].id, offset: 1),
+          extent: EditorPosition(blockId: s.blocks[2].id, offset: 1),
+        ),
+      );
+      s.deleteSelection();
+      expect(s.blocks.length, 1);
+      expect((s.blocks[0] as TextBlock).content.text, '第');
+      expect(s.selection!.isCollapsed, true);
+      expect(s.selection!.extent.offset, 1);
+    });
+
+    test('deleteSelection 反向选区(extent 在前)同样生效', () {
+      final s = makeState();
+      s.updateSelection(
+        EditorSelection(
+          base: EditorPosition(blockId: s.blocks[2].id, offset: 1),
+          extent: EditorPosition(blockId: s.blocks[0].id, offset: 1),
+        ),
+      );
+      s.deleteSelection();
+      expect(s.blocks.length, 1);
+      expect((s.blocks[0] as TextBlock).content.text, '第');
+    });
+  });
+
+  group('光标移动', () {
+    test('跨段衔接:段尾右移到下段首', () {
+      final s = makeState();
+      placeCaret(s, 0, 3);
+      s.moveCaretHorizontal(1);
+      expect(s.selection!.extent.blockId, s.blocks[1].id);
+      expect(s.selection!.extent.offset, 0);
+      s.moveCaretHorizontal(-1);
+      expect(s.selection!.extent.blockId, s.blocks[0].id);
+      expect(s.selection!.extent.offset, 3);
+    });
+
+    test('非扩选时选区折叠到方向端点', () {
+      final s = makeState();
+      s.updateSelection(
+        EditorSelection(
+          base: EditorPosition(blockId: s.blocks[0].id, offset: 0),
+          extent: EditorPosition(blockId: s.blocks[0].id, offset: 2),
+        ),
+      );
+      s.moveCaretHorizontal(-1);
+      expect(s.selection!.isCollapsed, true);
+      expect(s.selection!.extent.offset, 0);
+    });
+
+    test('shift 扩选', () {
+      final s = makeState();
+      placeCaret(s, 0, 0);
+      s.moveCaretHorizontal(1, extend: true);
+      expect(s.selection!.isCollapsed, false);
+      expect(s.selection!.extent.offset, 1);
+    });
+  });
+
+  group('undo/redo 与 seal', () {
+    test('连续 insertText 合并为一个 undo 步', () {
+      final s = makeState();
+      placeCaret(s, 0, 3);
+      s.insertText('a');
+      s.insertText('b');
+      s.insertText('c');
+      expect((s.blocks[0] as TextBlock).content.text, '第一段abc');
+      s.undo();
+      expect((s.blocks[0] as TextBlock).content.text, '第一段');
+      expect(s.canUndo, false);
+    });
+
+    test('seal 后的输入是新 undo 步', () {
+      final s = makeState();
+      placeCaret(s, 0, 3);
+      s.insertText('a');
+      s.sealHistory();
+      s.insertText('b');
+      s.undo();
+      expect((s.blocks[0] as TextBlock).content.text, '第一段a');
+      s.undo();
+      expect((s.blocks[0] as TextBlock).content.text, '第一段');
+    });
+
+    test('结构操作(split)独立成步且可 redo', () {
+      final s = makeState();
+      placeCaret(s, 0, 1);
+      s.insertText('x');
+      s.splitBlock();
+      expect(s.blocks.length, 4);
+      s.undo(); // 撤 split
+      expect(s.blocks.length, 3);
+      expect((s.blocks[0] as TextBlock).content.text, '第x一段');
+      s.undo(); // 撤 insert
+      expect((s.blocks[0] as TextBlock).content.text, '第一段');
+      s.redo();
+      expect((s.blocks[0] as TextBlock).content.text, '第x一段');
+      s.redo();
+      expect(s.blocks.length, 4);
+    });
+
+    test('undo 后新编辑清空 redo 栈', () {
+      final s = makeState();
+      placeCaret(s, 0, 0);
+      s.insertText('a');
+      s.undo();
+      expect(s.canRedo, true);
+      s.insertText('b');
+      expect(s.canRedo, false);
+    });
+  });
+
+  group('imeReplace', () {
+    test('文本变更 + composing 透传', () {
+      final s = makeState();
+      final id = s.blocks[0].id;
+      placeCaret(s, 0, 3);
+      s.imeReplace(
+        id,
+        3,
+        3,
+        'ni',
+        caretOffset: 5,
+        composing: const TextRange(start: 3, end: 5),
+      );
+      expect((s.blocks[0] as TextBlock).content.text, '第一段ni');
+      expect(s.composing, const TextRange(start: 3, end: 5));
+      expect(s.selection!.extent.offset, 5);
+    });
+
+    test('纯光标更新(无文本变化)不记历史', () {
+      final s = makeState();
+      final id = s.blocks[0].id;
+      placeCaret(s, 0, 3);
+      s.sealHistory();
+      final undoBefore = s.canUndo;
+      s.imeReplace(id, 0, 0, '', caretOffset: 1);
+      expect(s.canUndo, undoBefore);
+      expect(s.selection!.extent.offset, 1);
+    });
+  });
+}

@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/p4
+fetched_at: 2026-06-23
+primary_node: paragraph
+sha256: d560521d3f8bdc2c06878b3ecef14e9d7724d017f3b7ad50c76880728d548c0e
+also_contains: []
+edge_case: false
+notes: |
+  em / strong 三层嵌套,验证 InlineFlattener 嵌套样式合并。
+  历史上 fwfh 在深嵌套场景下偶尔丢中间层样式。
+sanitized: true

@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/inlinecolor
+fetched_at: 2026-06-30
+primary_node: paragraph
+sha256: b6d2f7b040c1c360ac697210582ddac8dd42701ba1fe31bbfe7e7404ba232ffd
+also_contains: []
+edge_case: false
+notes: |
+  行内 CSS 着色(对齐 fwfh 默认读取 style 里的 color / background-color;
+  Discourse 由 [color=…] / [bgcolor=…] BBCode 产出)。覆盖 hex 字色、命名色、
+  background-color 底色、字色+底色组合 → ColoredRun。守护"红字不显示"那类缺口。
+sanitized: true

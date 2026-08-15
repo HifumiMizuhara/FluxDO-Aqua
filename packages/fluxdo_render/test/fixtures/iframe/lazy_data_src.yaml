@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/if3
+fetched_at: 2026-06-24
+primary_node: iframe
+also_contains: []
+sha256: 63933c04de0eec93d79f41586231dd1d0fa0eec43934e4b90e60c36c59a9da00
+edge_case: false
+notes: |
+  lazy 形态:`src` 缺失,`data-src` 提供真实 URL(Discourse 懒加载常见)。
+  parser 应该 fallback 到 data-src。
+sanitized: true

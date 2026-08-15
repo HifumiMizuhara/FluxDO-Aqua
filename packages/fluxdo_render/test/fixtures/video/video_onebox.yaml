@@ -1,0 +1,11 @@
+source: https://linux.do/t/sample/1/vd2
+fetched_at: 2026-06-30
+primary_node: video
+sha256: fb2a13e488d838e2277b3c7968672fdbee9e0e42c157b84bb7a364a5bbddf3df
+also_contains: []
+edge_case: false
+notes: |
+  旧式/直链视频形态:div.onebox.video-onebox 内含真 <video controls> + <source>。
+  legacy 这种走 fwfh_chewie(DiscourseVideoPlayer)。width/height=100% 非数字 → 16:9。
+  渲染:子包占位卡(无封面 → 横条卡)。主项目接 videoBuilder 后用 chewie 播放。
+sanitized: true

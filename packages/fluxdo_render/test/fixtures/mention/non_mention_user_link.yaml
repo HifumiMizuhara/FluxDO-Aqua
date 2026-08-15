@@ -1,0 +1,12 @@
+source: https://example.com/t/sample/1/mention5
+fetched_at: 2026-06-23
+primary_node: mention
+sha256: 0d76ac683982bc1d32b11eff578ee3cbbd230a0f86a1f07da8d203fbcb6fea60
+also_contains: [paragraph]
+edge_case: true
+notes: |
+  反例:`<a href="/u/bob">@bob</a>` 没有 class="mention",应该解析为
+  普通 LinkRun(不带 chip 样式)。验证 parser 只在 class=mention 时
+  走 MentionRun 分支,主项目若想识别为 mention,应在 cooked HTML
+  预处理阶段加 class(legacy 是这么做的)。
+sanitized: true

@@ -1,0 +1,14 @@
+source: https://example.com/t/sample/1/blankline
+fetched_at: 2026-06-29
+primary_node: paragraph
+sha256: 24c08e124a998ea784b73c13fed5c9b331beec8a2f304ad878ca00f973d852c5
+also_contains: [blockquote]
+edge_case: true
+notes: |
+  作者留白空 <p> → BlankLineNode(≈1em SizedBox,不参与选区)。
+  对齐浏览器/Discourse 的 CSS margin 折叠:blockquote 有 padding(0.75em),
+  首尾子 <p><em></em></p> / <p></p> 的 margin 不折叠出去 → 框内各显示一行
+  留白,诗句因此上下居中。顶层/段落间的空 <p> 会被相邻 margin 折叠掉(不
+  产空行),故本例诗句的两行留白只出现在 blockquote 内首尾。
+  居中诗句走 <div align="center"> → 段落 textAlign。
+sanitized: true

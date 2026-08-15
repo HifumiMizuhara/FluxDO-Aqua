@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/img5
+fetched_at: 2026-06-23
+primary_node: image
+sha256: 7336b5c9d02bea3f329e66b23819b8efc6342a5ec2898b866f29c6599487d498
+also_contains: [paragraph]
+edge_case: true
+notes: |
+  Discourse 通常把图片 cooked 成独立 `<p><img></p>` 块,验证两张图
+  各自独立段落。这是图片帖正文最常见的形态。
+sanitized: true

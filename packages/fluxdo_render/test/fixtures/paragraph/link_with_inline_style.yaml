@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/link4
+fetched_at: 2026-06-23
+primary_node: paragraph
+sha256: 8a71d0393a9854faafe49717a1932a474da0774108b17b6a677e46deae7c3891
+also_contains: []
+edge_case: false
+notes: |
+  链接内嵌 <strong> + <em>,验证 link span 内部嵌套样式合并:
+  bold + italic 样式应该被保留,link 的下划线也应该有。
+sanitized: true

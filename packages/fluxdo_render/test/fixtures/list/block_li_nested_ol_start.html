@@ -1,0 +1,45 @@
+<ul>
+<li>
+<h4>Q: 官网 / 中转站 接入区别</h4>
+<p>A:</p>
+<ul>
+<li>
+<ol>
+<li>官网：设定 <code>HTTP_PROXY</code> 环境变量正常登录即可</li>
+</ol>
+<ul>
+<li>有使用Claude code的大佬吗</li>
+<li>使用claude code 提示offline</li>
+</ul>
+</li>
+</ul>
+<hr>
+<ul>
+<li>
+<ol start="2">
+<li>中转站：使用其提供的api端点地址和key设定即可</li>
+</ol>
+<ul>
+<li><code>ANTHROPIC_BASE_URL</code> (需是 Anthropic 形式接口)</li>
+<li><code>ANTHROPIC_AUTH_TOKEN</code> (有极高概率是此项)
+<ul>
+<li><mark>二选一而非可以共存</mark><br>
+<br></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<hr>
+<ul>
+<li>
+<ol start="3">
+<li>自定义 Anthropic 兼容接口接入</li>
+</ol>
+<ul>
+<li>同中转站 但KEY处可置空</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>

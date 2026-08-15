@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/lv3
+fetched_at: 2026-06-24
+primary_node: lazy_video
+also_contains: []
+sha256: b0a2be39c386e22ace49896ed52c0a5cc05405201568f3fb2bec9e6b8049aa72
+edge_case: false
+notes: |
+  TikTok 无标题(标题栏不渲染),验证空 title 边界。
+  品牌色近黑(#010101)。
+sanitized: true

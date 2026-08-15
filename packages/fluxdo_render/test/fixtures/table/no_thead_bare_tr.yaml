@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/tb3
+fetched_at: 2026-06-24
+primary_node: table
+also_contains: []
+sha256: 229fe9bee101a7e2aab7ab91ddbf10a1a28f60ee5f96fae0437623e4c2078762
+edge_case: false
+notes: |
+  无 thead/tbody,裸 tr。验证 parser fallback:全部行当 body。
+  hasHeader=false。
+sanitized: true

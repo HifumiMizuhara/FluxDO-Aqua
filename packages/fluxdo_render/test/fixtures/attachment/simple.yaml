@@ -1,0 +1,12 @@
+source: https://example.com/t/sample/1/attachment1
+fetched_at: 2026-06-30
+primary_node: attachment
+sha256: e4d6c6957d3d1ba7791e7bc746677c6fd0e8841d7f8bf68cdbc094c37565b80f
+also_contains: []
+edge_case: false
+notes: |
+  最基础附件链接 a.attachment(Discourse `[设计规范.pdf|attachment](upload://…)`
+  cook 形态)。验证 parser 产 LinkRun(isAttachment=true, filename="设计规范.pdf"),
+  渲染加下载图标 + 文件名;尾部 " (1.2 MB)" 是锚点外文本,走普通 TextRun。
+  primary_node 标 attachment(与目录同名,附件是 inline run,无独立 block NodeKind)。
+sanitized: true

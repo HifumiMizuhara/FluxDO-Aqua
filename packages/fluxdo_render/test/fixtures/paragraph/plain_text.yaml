@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/p1
+fetched_at: 2026-06-23
+primary_node: paragraph
+sha256: 3939fb5d1cc9423cd9394e03d4291e19d380296277f881e218d8b8964244a061
+also_contains: []
+edge_case: false
+notes: |
+  最简形态:单个 <p> 内只有纯文本,无任何行内样式。
+  阶段 1.1 的"基础渲染"用例。
+sanitized: true

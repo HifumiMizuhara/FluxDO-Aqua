@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/dl1
+fetched_at: 2026-06-30
+primary_node: definition_list
+sha256: 80c108fe99d2416315b1129e05599e7d296877651ea76a9847625f57620f4c58
+also_contains: []
+edge_case: false
+notes: |
+  最基础定义列表(dl + dt/dd,含「一个 dt 多个 dd」)。验证 DefinitionListNode/
+  DefinitionItem 解析 + dt 常规字重 + dd 左缩进 40(对齐 fwfh/浏览器默认 dl)。
+sanitized: true

@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/fn3
+fetched_at: 2026-06-23
+primary_node: footnote
+also_contains: [paragraph, inline_code]
+sha256: 2ed61ea8f643bc228b308fe935a199f417e09828c02ad4c4e68cd93ae5801ddc
+edge_case: false
+notes: |
+  脚注引用与 strong / em / inline_code / a 混排;脚注正文含 a 链接。
+  无 hr.footnotes-sep(部分 cooked 形态省略)。
+sanitized: true

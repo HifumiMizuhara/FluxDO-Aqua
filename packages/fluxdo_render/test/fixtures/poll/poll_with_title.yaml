@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/pl-poll2
+fetched_at: 2026-06-24
+primary_node: poll
+also_contains: []
+sha256: bce534d8e7065b6ab339b0d033d2120c37fe2a20cc20c67a883420e24a81d72a
+edge_case: false
+notes: |
+  带标题 poll(data-poll-question + .poll-title + data-poll-name=favorite)。
+  验证 parser 标题提取优先级 + 自定义 pollName。
+sanitized: true

@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/ct2
+fetched_at: 2026-06-24
+primary_node: chat_transcript
+also_contains: []
+sha256: ad503e2867ce348c63f04d94c0d180f6ba28a33f0fa62ad7e512d970e86ff50f
+edge_case: false
+notes: |
+  链式引用 chat-transcript(chat-transcript-chained,无频道名/无头像)。
+  验证 isChained → 去边框 + margin 0,紧贴上一条。
+sanitized: true

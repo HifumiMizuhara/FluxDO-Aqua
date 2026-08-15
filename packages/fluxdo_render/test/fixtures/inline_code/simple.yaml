@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/inline_code1
+fetched_at: 2026-06-23
+primary_node: inline_code
+sha256: c390864ee9f946e45024dabf63ae4dda67887314ae7f6d92d2f461f2d92cd65b
+also_contains: []
+edge_case: false
+notes: |
+  最简单的行内代码:中文段落里夹一段命令。验证 InlineCodeRun 基础渲染
+  (monospace + 灰底)。
+sanitized: true

@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/list3
+fetched_at: 2026-06-23
+primary_node: list
+sha256: 352313addf5426623968e11e73c7e77b317f97fd06ae1c0f994ba82fe1687536
+also_contains: [paragraph, emoji]
+edge_case: false
+notes: |
+  list 项内含 inline 混排:strong + link + code + em + emoji。
+  验证 InlineSpanText 在 list item 内正常复用,所有 inline 节点
+  都能在 li 内正确渲染(包括 LinkRun recognizer + EmojiRun WidgetSpan)。
+sanitized: true

@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/ct1
+fetched_at: 2026-06-24
+primary_node: chat_transcript
+also_contains: []
+sha256: e2ba5fb4e060898d639f0056eb4a2f0c2941da66e6fc65c2c214cd4708a05997
+edge_case: false
+notes: |
+  最简 chat-transcript(频道 general + 头像 + 用户名 + 时间 + 消息)。
+  纯 DOM,主项目接 legacy buildChatTranscript;子包 fallback 卡。
+sanitized: true

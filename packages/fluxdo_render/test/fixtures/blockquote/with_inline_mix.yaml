@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/bq3
+fetched_at: 2026-06-23
+primary_node: blockquote
+sha256: 05e115d8faa50eef01bc885dfa8d74657a684e27472c59195687310d6205cd01
+also_contains: [paragraph]
+edge_case: false
+notes: |
+  引用内含 strong/em/code/link inline 混排。验证 inline 节点在
+  blockquote 子段落里正常渲染,字色受 DefaultTextStyle.merge 影响
+  (onSurfaceVariant,但 link 仍是 primary 因为 LinkRun 显式设)。
+sanitized: true

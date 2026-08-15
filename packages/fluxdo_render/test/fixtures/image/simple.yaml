@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/img1
+fetched_at: 2026-06-23
+primary_node: image
+sha256: fad91bab176a74ba5f1a954c3cf7f70904bacdf8e1f11fac55b83b7e3a78ba41
+also_contains: [paragraph]
+edge_case: false
+notes: |
+  最基础形态:段落内一张无尺寸 img。验证 ImageRun 解析(width/height
+  = null)+ 子包默认 builder 走 fallback placeholder(假 URL 加载失败)。
+sanitized: true

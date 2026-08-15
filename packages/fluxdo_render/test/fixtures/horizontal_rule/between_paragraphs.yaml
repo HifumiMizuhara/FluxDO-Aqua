@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/hr2
+fetched_at: 2026-06-23
+primary_node: horizontal_rule
+also_contains: [paragraph]
+sha256: b87281184edd2768ea63e7d66c07c258cd4d5ce551af1eef1204c80dd543ce6f
+edge_case: false
+notes: |
+  hr 在两段之间,验证视觉分隔效果:p 段落本身上下有 1em margin,
+  hr 自带 12 上下 padding,叠加不会塌缩(Column 不折叠 margin)。
+sanitized: true

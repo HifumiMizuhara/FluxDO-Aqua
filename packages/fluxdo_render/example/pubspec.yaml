@@ -1,0 +1,27 @@
+name: fluxdo_render_gallery
+description: "fluxdo_render 节点画廊 — 浏览所有 fixture + 调试 parser/render 输出。"
+publish_to: none
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.10.4
+
+# 独立 app,不进主项目 workspace(避免污染主项目依赖图)
+# fluxdo_render 通过 path 引用上级目录
+dependencies:
+  flutter:
+    sdk: flutter
+  fluxdo_render:
+    path: ../
+  yaml: ^3.1.2  # 解析 fixture .yaml 元数据
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    # 把 fixture 直接当 asset 加载(避免运行时读文件,asset 在所有平台都行)
+    - ../test/fixtures/

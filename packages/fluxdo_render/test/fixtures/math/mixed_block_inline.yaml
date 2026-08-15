@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/mh3
+fetched_at: 2026-06-24
+primary_node: math
+also_contains: [paragraph]
+sha256: 95f92d8cae441737dcc5b5649593ade86197d62a6fdecef1b15a39d0810cd020
+edge_case: false
+notes: |
+  混合 inline + block math 在同一帖子。
+  验证两种节点都能正确识别 + 段间隔合理。
+sanitized: true

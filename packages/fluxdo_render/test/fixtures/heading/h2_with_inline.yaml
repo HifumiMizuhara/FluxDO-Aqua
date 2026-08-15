@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/h2-inline
+fetched_at: 2026-06-23
+primary_node: heading
+sha256: 6e7ab67bd409ce18d77101d9bdea1bf6c0f77bf25c5fe9b4081110ae444e42cc
+also_contains: []
+edge_case: false
+notes: |
+  h2 内含 <em> / <strong> / <br>,验证 heading 复用 InlineFlattener
+  的嵌套样式合并 + LineBreak。
+sanitized: true

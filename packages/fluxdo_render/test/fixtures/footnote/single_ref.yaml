@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/fn1
+fetched_at: 2026-06-23
+primary_node: footnote
+also_contains: [paragraph]
+sha256: 74067c06c545de8e02f9ee373d96902ed2d6593aee123a54f3dd7a7cce6cfddd
+edge_case: false
+notes: |
+  单个脚注引用 + section.footnotes 隐藏占位。
+  渲染:正文段 + 蓝色 [1] 上标(点击调 footnoteTapHandler)+ section 隐藏。
+sanitized: true

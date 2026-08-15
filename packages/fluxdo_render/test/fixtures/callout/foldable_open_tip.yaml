@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/callout3
+fetched_at: 2026-06-23
+primary_node: callout
+also_contains: [paragraph, list, inline_code]
+sha256: 2aeb8fb2b7a53bf99c900ef8ae30d8182a8f8ba2aed9d9084346d0f3571601f8
+edge_case: false
+notes: |
+  [!tip]+ 可折叠 + 默认展开。
+  渲染:teal + tips_and_updates 图标 + 标题 "进阶技巧" + 旋转过的展开箭头
+  + 一段含 inline code 的内容 + 无序列表。
+sanitized: true

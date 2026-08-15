@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/img2
+fetched_at: 2026-06-23
+primary_node: image
+sha256: 0e8e7b5a7d1784aa45ed4238b2dc7c55ca41fc374e6f6e8c8fa477de4ebdea8b
+also_contains: [paragraph]
+edge_case: false
+notes: |
+  带 width/height attribute,验证 parser 把数字 attribute 转 double
+  填到 ImageRun.width/height,fallback placeholder 用这个尺寸撑出
+  正确的占位框。
+sanitized: true

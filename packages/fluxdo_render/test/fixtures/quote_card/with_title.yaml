@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/qc2
+fetched_at: 2026-06-23
+primary_node: quote_card
+sha256: 9f66c8efc44acf7877a01e69080376eae92f95c936d924631067b42df88faec0
+also_contains: []
+edge_case: false
+notes: |
+  含标题(.title 内 a 标签)的引用,验证 titleText/titleHref 解析 +
+  标题主色可点 + linkHandler 路由跳原帖。
+sanitized: true

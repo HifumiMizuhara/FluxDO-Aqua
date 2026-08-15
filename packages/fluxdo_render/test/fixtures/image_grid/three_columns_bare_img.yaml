@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/grid2
+fetched_at: 2026-06-23
+primary_node: image_grid
+also_contains: [image]
+sha256: 31501bfb1bac5407eff7cb75c3cfbf57123a24f9a753b3da6c14ec9d009a61d0
+edge_case: false
+notes: |
+  d-image-grid data-columns=3,6 张裸 img 无 lightbox-wrapper。
+  渲染:Wrap 三列,每张无 lightboxUrl(走 imageContentBuilder 默认行为)。
+sanitized: true

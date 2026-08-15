@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/emoji5
+fetched_at: 2026-06-23
+primary_node: emoji
+sha256: 62dd4bdc9df266e79909283b6a61251b1c0f4de1c7181863029dd99179bc6a46
+also_contains: [heading, paragraph]
+edge_case: true
+notes: |
+  H2 里的 emoji 应该跟随父字号(更大),段落里的 emoji 是 1em。
+  验证 emoji 尺寸跟随 baseStyle.fontSize(InlineFlattener 把
+  baseStyle.fontSize 传给 emojiBuilder 作 size)。
+sanitized: true

@@ -1,0 +1,9 @@
+source: https://example.com/t/sample/1/p2
+fetched_at: 2026-06-23
+primary_node: paragraph
+sha256: 39c7ea850e9e1eb2633747c83ff29387a92359d658d24bcf51ceb56ef373083e
+also_contains: []
+edge_case: false
+notes: |
+  单个段落内含多个 <br> 强制换行,用于验证 LineBreakRun 渲染。
+sanitized: true

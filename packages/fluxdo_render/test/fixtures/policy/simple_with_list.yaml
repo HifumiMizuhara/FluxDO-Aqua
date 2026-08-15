@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/pl1
+fetched_at: 2026-06-24
+primary_node: policy
+also_contains: [paragraph, list]
+sha256: 2938684145598ddcf01df651ac2468f693d4876a0a5fe89029a1c78ae3c5e3b8
+edge_case: false
+notes: |
+  最简 policy:含 paragraph + ul 列表正文。
+  渲染:边框卡 + body + 静态 footer(默认 "接受" 按钮)。
+  主项目接 policyBuilder 后会替换为带后端 API 的真实交互。
+sanitized: true

@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/ld3
+fetched_at: 2026-06-24
+primary_node: local_date
+also_contains: [paragraph]
+sha256: e83ee4f9306158a4d2062ed2df07ddc89c9cb820c4b768d2e19724bed7585356
+edge_case: false
+notes: |
+  倒计时 chip(data-countdown 属性存在)。
+  fallback 渲染:时钟图标(schedule_rounded)+ 服务端预渲染 "3 小时"。
+sanitized: true

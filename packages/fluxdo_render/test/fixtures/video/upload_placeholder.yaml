@@ -1,0 +1,13 @@
+source: https://linux.do/t/sample/1/vd1
+fetched_at: 2026-06-30
+primary_node: video
+sha256: 5182ff2ff1a17c0600d60cf92d66b1d4ff22a529cbd44ff9627357f835de5f39
+also_contains: []
+edge_case: false
+notes: |
+  Discourse 上传视频的主形态(linux.do):cooked 里只有空 div.video-placeholder-container
+  + data-video-src(源)+ data-thumbnail-src(封面)+ data-orig-src(upload:// 短链)。
+  真 <video> 是 web 端运行时注入,App 拿原始 cooked,所以这是最常见形态。
+  渲染:子包占位卡(有封面 → 16:9 黑底封面 + 播放钮;无 builder)。
+  主项目接 videoBuilder 后替换为 DiscourseVideoPlayer(chewie)。
+sanitized: true

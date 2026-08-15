@@ -1,0 +1,10 @@
+source: https://linux.do/t/topic/2369360
+fetched_at: 2026-07-01
+primary_node: quote_card
+sha256: 92e08c7c7a75e7718725e84d6dd3fdc420e682206e66b959c8f339cc233d4f5e
+also_contains: [paragraph, emoji]
+edge_case: false
+notes: |
+  引用卡:标题含 emoji + 分类徽章(badge-category 彩色标签)。验证 titleInlines
+  保留标题 emoji/链接、category 结构化提取(名称/底色/文字色/链接),对齐 legacy。
+sanitized: true

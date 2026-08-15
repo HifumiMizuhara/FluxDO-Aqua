@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/inlinestyles
+fetched_at: 2026-06-29
+primary_node: paragraph
+sha256: 8957db10253445bae04a43dcb0dc3cefbccf27a2129a72806a9b9e264333a47b
+also_contains: []
+edge_case: false
+notes: |
+  行内样式标签合集(对齐 fwfh 默认):u/s/del/ins(下划/删除)、small/big
+  (字号 0.833x / 1.2x)、mark(#ff0 高亮)、kbd(等宽)、sup/sub(上下标)。
+  覆盖 StyledRun 各 kind,守护 fwfh 对齐。
+sanitized: true

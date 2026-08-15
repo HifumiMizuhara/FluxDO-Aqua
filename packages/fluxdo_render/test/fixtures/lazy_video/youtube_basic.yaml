@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/lv1
+fetched_at: 2026-06-24
+primary_node: lazy_video
+also_contains: []
+sha256: b59f84bf7b5a726d4f87220bb98cb417331e8199bf6811cd90705a3c09d2ea96
+edge_case: false
+notes: |
+  YouTube 懒加载视频(无 start-time)。
+  渲染:16:9 缩略图 + 红色播放按钮 + 标题栏(可点跳 youtube url)。
+sanitized: true

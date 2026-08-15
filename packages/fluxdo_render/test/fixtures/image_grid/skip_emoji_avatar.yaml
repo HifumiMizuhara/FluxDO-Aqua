@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/grid4
+fetched_at: 2026-06-23
+primary_node: image_grid
+also_contains: [image, emoji]
+sha256: 6321ea7c38c0ebaeb54bfc40e70ca9667f3cd931ed32a050c1b54be65efeff4b
+edge_case: false
+notes: |
+  跳过 emoji/avatar/thumbnail 类 img,只保留 2 张正常图。
+  对齐 legacy extractGridImages skip list。
+sanitized: true

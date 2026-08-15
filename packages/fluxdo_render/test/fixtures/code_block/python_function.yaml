@@ -1,0 +1,9 @@
+source: https://example.com/t/sample/1/code2
+fetched_at: 2026-06-23
+primary_node: code_block
+sha256: 962caf6c70e29bf2c3bd87b2f5295e7997589c99b21012e9d0a43dda9db540f9
+also_contains: []
+edge_case: false
+notes: |
+  python 函数,验证非 dart 语言 lang-xxx 解析。
+sanitized: true

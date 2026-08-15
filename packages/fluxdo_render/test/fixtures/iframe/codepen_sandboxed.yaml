@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/if2
+fetched_at: 2026-06-24
+primary_node: iframe
+also_contains: []
+sha256: 3e230b2a4f7c63aa955634c4ba2e353f03d1a1a24b4974dc1414f74208e1201a
+edge_case: false
+notes: |
+  CodePen 嵌入(带 sandbox + referrerpolicy + loading=lazy)。
+  验证多属性 parse:sandboxFlags={allow-scripts, allow-same-origin}
+  + lazyLoad=true + referrerPolicy="no-referrer"。
+sanitized: true

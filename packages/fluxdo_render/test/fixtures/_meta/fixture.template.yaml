@@ -1,0 +1,13 @@
+# 复制此文件为新 fixture 的 .yaml,然后改字段
+# 字段说明见 fixture.schema.yaml
+
+source: https://example.com/t/topic-slug/12345/1
+fetched_at: 2026-06-22
+primary_node: paragraph
+sha256: 待 validate.dart 自动填充
+also_contains: []
+edge_case: false
+notes: |
+  描述这个 fixture 在测什么,以及为什么需要它。
+sanitized: false
+related_issues: []

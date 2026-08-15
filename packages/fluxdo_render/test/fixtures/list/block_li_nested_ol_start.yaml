@@ -1,0 +1,17 @@
+source: https://linux.do/t/topic/7365217
+fetched_at: 2026-06-30
+primary_node: list
+sha256: 7eea4992d4e1902570bc92d9d2aa5bdb8c16c2f3d6d1359c5112402bd43be1a8
+also_contains:
+  - heading
+  - paragraph
+  - inline_code
+  - horizontal_rule
+edge_case: true
+notes: |
+  真实语料(《Claude Code 终极版 FAQ 指南》官网/中转站 Q&A)。守护两个真机 bug:
+  1. 外层 <li> 仅含嵌套 <ol>+<ul>(无直接文本)→ 不能渲染成空 bullet 独占一行,
+     直接渲染嵌套子列表(marker 与嵌套首行合并)。
+  2. <ol start="2">/<ol start="3"> 续接序号 → marker 必须是 2./3.(不是都 1.)。
+  另含 Q(h4)/A(p)块级 li、嵌套 ul、mark 高亮。
+sanitized: true

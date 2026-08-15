@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/mh1
+fetched_at: 2026-06-24
+primary_node: math
+also_contains: []
+sha256: 2610f923cc4b19d8f2b47a5c5aab239b37a584e3572edfcd0942f17ff16b75d6
+edge_case: false
+notes: |
+  块级数学公式:经典求根公式。
+  子包 fallback:monospace 显示 "$x = \frac{...}$" 原文。
+  主项目接 mathBlockBuilder 后会用 flutter_math_fork 渲染真公式。
+sanitized: true

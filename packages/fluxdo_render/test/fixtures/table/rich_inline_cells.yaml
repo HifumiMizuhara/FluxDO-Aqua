@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/tb2
+fetched_at: 2026-06-24
+primary_node: table
+also_contains: [inline_code, link]
+sha256: 9399ebd1faad8898dba96f9886c65ea06ebdf63148e27d3ebed8cb2ad3092a64
+edge_case: false
+notes: |
+  cell 含 strong/em/code/link 富 inline 内容。
+  验证 cell.children 递归 _parseBlocks 保留全部样式。
+sanitized: true

@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/onebox1
+fetched_at: 2026-06-23
+primary_node: onebox
+sha256: 459e54df295992faf390d4da47a78d0cadbdc0adb5e8ffb677a80e76d9cc659f
+also_contains: []
+edge_case: false
+notes: |
+  Discourse 默认 onebox 形态(allowlistedgeneric):header.source 含
+  favicon + 站点名,article 含 thumbnail + h3 标题 + p 描述。
+  应识别为 OneboxKind.defaultKind。
+sanitized: true

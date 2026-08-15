@@ -1,0 +1,9 @@
+source: https://example.com/t/sample/1/emoji2
+fetched_at: 2026-06-23
+primary_node: emoji
+sha256: c63c6ba96d248a6e3bca61ec4dbc7e35eadbb2922fe8018f989e6e6054a91288
+also_contains: []
+edge_case: false
+notes: |
+  一段里多个 emoji 紧邻,验证 WidgetSpan 之间不互相错位。
+sanitized: true

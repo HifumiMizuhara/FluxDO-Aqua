@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/4
+fetched_at: 2026-06-22
+primary_node: quote_card
+sha256: 3c820666466f942e0814b45f06ca60b762d535ac63e77d2109f14ce1514f270f
+also_contains: [paragraph]
+edge_case: false
+notes: |
+  单层引用卡(aside.quote)含用户头像 + 用户名 + 引用正文,后跟回复段落。
+  这是 Discourse 最常见的"@回复"形态。
+sanitized: true

@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/sp1
+fetched_at: 2026-06-23
+primary_node: spoiler
+sha256: 29e13259a3e1069ce4bb46c455a33a12bbb2f43f031b1dc18c9834e628345dc8
+also_contains: [paragraph]
+edge_case: false
+notes: |
+  最基础形态:span.spoiler 行内剧透。默认遮蔽为黑色块,点击展开
+  显示 "42"。
+sanitized: true

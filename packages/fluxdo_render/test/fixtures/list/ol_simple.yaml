@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/list2
+fetched_at: 2026-06-23
+primary_node: list
+sha256: 48a3a70e5939741b3e06df03213f762ea9a215b7da3c5414bdb2b7bbdad1ee81
+also_contains: []
+edge_case: false
+notes: |
+  最基础有序列表(ol + 3 li)。验证数字 marker (1. 2. 3.) +
+  ordered = true。
+sanitized: true

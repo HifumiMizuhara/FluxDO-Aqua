@@ -1,0 +1,31 @@
+name: fluxdo_render
+description: "fluxdo 自研帖子渲染引擎(Node 模型 + 自研选区 + 虚拟化)。"
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ^3.10.4
+
+resolution: workspace
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # HTML 解析(W3C 标准、Dart 官方维护),与主项目同款
+  html: ^0.15.5
+  # 编辑内核(src/editor)按 grapheme 移动/删除光标
+  characters: ^1.4.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  # fixture 元数据(test/fixtures/*.yaml)校验脚本依赖
+  yaml: ^3.1.2
+  # fixture sha256 校验(validator / fetch 脚本),替代 shasum 命令保 Windows 可用
+  crypto: ^3.0.7
+
+flutter:
+  shaders:
+    # spoiler 遮罩粒子尘埃场(GPU 程序化粒子,见 src/render/spoiler_effect.dart)
+    - shaders/spoiler.frag

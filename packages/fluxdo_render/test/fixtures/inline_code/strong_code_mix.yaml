@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/inline_code_strong_mix
+fetched_at: 2026-07-01
+primary_node: inline_code
+sha256: a7ac09c3964c32216c4bfd24faa17e44f0f4ab3ba7cf2e276e196a9908734234
+also_contains: []
+edge_case: true
+notes: |
+  strong 与 inline code 紧邻混排 + 长 code。复现 #16(spoiler 内)inline code
+  灰底背景错位/溢出到相邻文字的场景,此处去掉 spoiler 容器以隔离变量。
+sanitized: true

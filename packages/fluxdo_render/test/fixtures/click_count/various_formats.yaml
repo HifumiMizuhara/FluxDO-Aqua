@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/cc2
+fetched_at: 2026-06-24
+primary_node: click_count
+also_contains: [paragraph]
+sha256: be86b279ea1aada9c2c389c57157a76b5f8e34e009ab7305f27e468863894c8d
+edge_case: false
+notes: |
+  各种点击数格式:1.2k / 5 / 含 thin space ( ) 的纯数字。
+  验证 parser thin space trim 行为。
+sanitized: true

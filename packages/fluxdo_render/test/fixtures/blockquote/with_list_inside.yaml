@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/bq5
+fetched_at: 2026-06-23
+primary_node: blockquote
+sha256: 2ff74ca2575225336b94e875a9c54910c9237830a955056d9d00b8cc22d29f97
+also_contains: [paragraph, list]
+edge_case: true
+notes: |
+  引用内含 list:p + ul + p 混合。验证 BlockquoteNode.children 是
+  BlockNode 序列,可以包含 ParagraphNode + ListNode 等任意块级类型,
+  renderer 通过 build() dispatch 递归。
+sanitized: true

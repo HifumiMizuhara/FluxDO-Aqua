@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/inline_code4
+fetched_at: 2026-06-23
+primary_node: inline_code
+sha256: d528b739a23d87b2c136c947c59eebb9a95f3d733af5e97914b14e5091bcbbbe
+also_contains: []
+edge_case: true
+notes: |
+  超长 inline code,会强制跨行。当前阶段灰底用 TextStyle.background
+  (矩形),跨行会出现两行各自带矩形(不会合并)。这是已知缺陷,
+  阶段 5 自研 paint 时补齐(对应 InlineCodePainter 跨行 RRect 合并)。
+sanitized: true

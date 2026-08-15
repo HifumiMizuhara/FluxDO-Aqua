@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/grid3
+fetched_at: 2026-06-23
+primary_node: image_grid
+also_contains: [image]
+sha256: 750e3f76fca5a12024c390cc946923abd3a8b3b918bdab83e961f8f006585a9d
+edge_case: false
+notes: |
+  d-image-grid--carousel + data-mode=carousel。
+  子包 fallback 渲染:单列大图垂直叠(主项目可 override 实现真 carousel)。
+sanitized: true

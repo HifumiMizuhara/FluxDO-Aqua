@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/1
+fetched_at: 2026-06-22
+primary_node: paragraph
+sha256: 67be00396ae387f4eac8b5afdfed12d32247bac8bfa051e9ef1669cd9c4b3632
+also_contains: []
+edge_case: false
+notes: |
+  最简形态:一个 <p> 内含 <em> + <strong>。
+  用于验证段落 + 行内基础样式渲染。
+sanitized: true

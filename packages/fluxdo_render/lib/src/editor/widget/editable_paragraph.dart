@@ -1,0 +1,503 @@
+/// 可编辑段落视图。
+///
+/// 渲染链路与阅读端同源:EditableTextContent → toInlines() →
+/// InlineFlattener → Text.rich —— 编辑态与帖子渲染视觉零差异
+/// (行内代码 NBSP 灰底、样式精调全部复用)。
+///
+/// 外层用 [SelectableTextBox] 包装 → 注册进编辑器自己的 SelectionRegistry:
+/// 命中(hit_tester)/选区高亮/逻辑块表(projection 坐标换算)全部走现有
+/// 选区基建。
+///
+/// composing 下划线:foregroundPainter 按 [composing](**编辑文本坐标**)
+/// 经 projection 转渲染坐标后,在 RenderParagraph 的 selection boxes 底边画线。
+library;
+
+import 'package:flutter/foundation.dart' show kDebugMode, listEquals;
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+
+import '../../flatten/inline_flattener.dart';
+import '../../node/inline_node.dart' show ImageRun;
+import '../../render/block_text_styles.dart';
+import '../../render/emoji_handler.dart' show EmojiImageBuilder;
+import '../../render/image_handler.dart' show ImageContentBuilder;
+import '../../render/list_item_layout.dart';
+import '../../render/selectable_text_box.dart';
+import '../../selection/projection.dart';
+import '../model/editable_text_content.dart'
+    show EditableTextContent, MarkKind, MarkSpan;
+import '../model/editor_state.dart';
+import '../model/inline_spin.dart' show scanInlineSyntax;
+
+class EditableParagraph extends StatefulWidget {
+  const EditableParagraph({
+    super.key,
+    required this.block,
+    required this.documentOrder,
+    required this.baseStyle,
+    this.composing = TextRange.empty,
+    this.revealMarkdownAt,
+    this.syntaxHighlight = false,
+    this.listMarkerOrdinal = 1,
+    this.imageContentBuilder,
+    this.emojiImageBuilder,
+  });
+
+  final TextBlock block;
+
+  /// 在编辑器文档中的序号(= blocks index;SelectableBlockId.docOrder)。
+  final int documentOrder;
+
+  final TextStyle baseStyle;
+
+  /// 行内图片原子(裸图)渲染 builder(FluxdoEditor 透传 NodeFactory 的
+  /// imageContentBuilder,与岛内图同一管线);null 用子包默认。
+  final ImageContentBuilder? imageContentBuilder;
+
+  /// emoji 原子渲染 builder(宿主的 CDN 重写 + 缓存池;null 用子包默认
+  /// —— 默认 builder 对相对 URL(`/images/emoji/…`,编辑已有帖的
+  /// 客户端 cook 形态)加载失败,显示 `:name:` 占位胶囊)。
+  final EmojiImageBuilder? emojiImageBuilder;
+
+  /// 本段的 IME composing 区间(编辑文本坐标);非本段/无 composing 传 empty。
+  final TextRange composing;
+
+  /// 定界符显形位置(内容偏移):光标命中的 mark 两端渲染淡色字面
+  /// 定界符(`**`/`[u]` 等,零逻辑宽投影)。null = 只渲染格式不显形。
+  final int? revealMarkdownAt;
+
+  /// ir 字面语法着色:块内完整字面标记对(`*x*` 等物化产物)内容段按
+  /// 语法上样式、定界符段淡色(Vditor「符号可见 + 格式保持」)。
+  /// 纯展示,坐标零改动。wysiwyg 恒 false。
+  final bool syntaxHighlight;
+
+  /// 有序列表项显示序号(派生渲染态,FluxdoEditor 按连续 run 扫描计算)。
+  final int listMarkerOrdinal;
+
+  @override
+  State<EditableParagraph> createState() => _EditableParagraphState();
+}
+
+class _EditableParagraphState extends State<EditableParagraph> {
+  static const _flattener = InlineFlattener();
+
+  final GlobalKey _textKey = GlobalKey();
+  FlattenResult? _result;
+
+  FlattenResult _ensureResult() {
+    // block.content 不可变 → 引用相等即缓存有效(linkColor 变化走
+    // didChangeDependencies 失效)。
+    final cached = _result;
+    if (cached != null) return cached;
+    final sw = kDebugMode ? (Stopwatch()..start()) : null;
+    final r = _result = _flattener.flatten(
+      // forEditing:spoiler=淡底纹(内容可见)、link=主题色下划线纯文本
+      // (真 SpoilerRun 的粒子 WidgetSpan / LinkRun 的 recognizer 都会
+      // 破坏编辑手势与光标)。
+      widget.block.content.toInlines(
+        forEditing: true,
+        editingLinkColor: _linkColor,
+        editingDelimiterColor: _delimiterColor,
+        revealMarkdownAt: widget.revealMarkdownAt,
+        syntaxHighlight: widget.syntaxHighlight,
+      ),
+      _effectiveStyle,
+      // 行内图片原子(裸图):走宿主图片管线(upload 解析/解码上限),
+      // 但包 AbsorbPointer 冻结图自身交互(查看器 tap/Hero/右键菜单都
+      // 会抢编辑手势 —— 岛同原则)。点图 = 编辑器落光标。
+      imageContentBuilder: widget.imageContentBuilder == null
+          ? null
+          : (ctx, img, total) => AbsorbPointer(
+              child: widget.imageContentBuilder!(ctx, img, total),
+            ),
+      // emoji 原子走宿主管线(CDN 重写 + 缓存池):此前编辑段落没接,
+      // 子包默认 builder 对相对 URL(编辑已有帖的 :name: cook 形态)
+      // 加载失败 → 满屏 :face_savoring_food: 占位胶囊。
+      emojiImageBuilder: widget.emojiImageBuilder,
+    );
+    if (sw != null && sw.elapsedMilliseconds > 4) {
+      debugPrint(
+        '[EditorPerf] flatten ${sw.elapsedMilliseconds}ms '
+        '(${widget.block.content.length} chars)',
+      );
+    }
+    return r;
+  }
+
+  Color? _linkColor;
+  Color? _delimiterColor;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final scheme = Theme.of(context).colorScheme;
+    final nextLink = scheme.primary;
+    final nextDelimiter = scheme.outline;
+    if (nextLink != _linkColor || nextDelimiter != _delimiterColor) {
+      _linkColor = nextLink;
+      _delimiterColor = nextDelimiter;
+      _disposeResult();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant EditableParagraph oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 显形集合变了才失效(对比新旧 revealed mark 集合:光标在同一
+    // mark 内部移动时集合不变,不重建 flatten 产物)。
+    final revealChanged = !listEquals(
+      _revealedMarks(oldWidget.block, oldWidget.revealMarkdownAt),
+      _revealedMarks(widget.block, widget.revealMarkdownAt),
+    );
+    // kind/headingLevel 变了 → 有效样式变 → flatten 缓存失效
+    if (oldWidget.block.content != widget.block.content ||
+        oldWidget.block.kind != widget.block.kind ||
+        oldWidget.block.headingLevel != widget.block.headingLevel ||
+        oldWidget.baseStyle != widget.baseStyle ||
+        oldWidget.syntaxHighlight != widget.syntaxHighlight ||
+        revealChanged) {
+      _disposeResult();
+    }
+  }
+
+  static List<MarkSpan> _revealedMarks(TextBlock block, int? offset) =>
+      offset == null ? const [] : block.content.revealableMarksAt(offset);
+
+  void _disposeResult() {
+    final r = _result;
+    if (r != null) {
+      r.mount.detach(context);
+      for (final rec in r.recognizers) {
+        rec.dispose();
+      }
+    }
+    _result = null;
+  }
+
+  @override
+  void dispose() {
+    _disposeResult();
+    super.dispose();
+  }
+
+  RenderParagraph? _findParagraph() {
+    final ro = _textKey.currentContext?.findRenderObject();
+    return ro == null ? null : _firstParagraph(ro);
+  }
+
+  static RenderParagraph? _firstParagraph(RenderObject node) {
+    if (node is RenderParagraph) return node;
+    RenderParagraph? found;
+    node.visitChildren((child) {
+      found ??= _firstParagraph(child);
+    });
+    return found;
+  }
+
+  /// 块有效字体样式(heading 缩放/加粗;FluxdoEditor 的 caret 行高与此
+  /// 同源 —— 见其 _ensureCaretLineHeight 的 per-kind 缓存)。
+  TextStyle get _effectiveStyle => widget.block.isHeading
+      ? headingStyleFor(widget.baseStyle, widget.block.headingLevel)
+      : widget.baseStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    final result = _ensureResult();
+    // 挂载登记:flatten 契约的点击闭包经 mount 现取活 context。
+    // (编辑态 link/mention 不产 recognizer,登记只为契约完整。)
+    result.mount.attach(context);
+    final block = widget.block;
+    final style = _effectiveStyle;
+    final em = widget.baseStyle.fontSize ?? 14;
+
+    // forceStrutHeight 是**双向钳制**(探针实锤:153px WidgetSpan 的行
+    // 被压到 26px,图片溢出绘制盖到邻块)—— 含图片原子的段落必须放开
+    // (行高由图撑,输入文字不改行高,caret 走 editingCaretRectIn 的
+    // 行盒校正);无图段落维持强制(M1 光标稳定性:空段=满段=恒定行高,
+    // emoji/mention/date 原子都不超行高,不受影响)。
+    //
+    // [size] 大字号同理要放开:钳成裸字体高度后,放大字号的实际渲染高度
+    // 超出行盒但没被布局撑开,首行会顶穿到宿主标题栏(真机复现:
+    // [size=300] 起首字压住"回复话题"标题)。只要段内有 size mark(scale
+    // != 1)就放开,不区分放大/缩小 —— 缩小时同理不该被强制拉到裸字体高。
+    final hasImageAtom = block.content.atoms.values.any((a) => a is ImageRun);
+    // 大表情行(只有 ≤3 个 emoji)同理要放开:32dp + 上下 0.5em 外边距
+    // 远超裸行高,钳住就等于"放大效果没了"。
+    final hasOnlyEmojiLine = block.content.hasOnlyEmojiLine;
+    final hasSizedText = block.content.marks.any((m) {
+      if (m.kind != MarkKind.size) return false;
+      final scale = EditableTextContent.parsePct(m.attr);
+      return scale != null && scale != 1.0;
+    });
+
+    Widget text = KeyedSubtree(
+      key: _textKey,
+      // forceStrutHeight 关键(探针实测):默认布局下空段落只有裸字体高度
+      // (20px)、段末 caret 度量下坠(top 3.71 vs 行内 0.4)—— 输入前后
+      // 光标/段高都在跳。强制 strut 后:空段=满段=26px,caret top/height
+      // 处处一致,光标稳定性由布局构造保证(EditableText 同思路)。
+      child: Text.rich(
+        result.span,
+        strutStyle: StrutStyle.fromTextStyle(
+          style,
+          forceStrutHeight: !hasImageAtom && !hasSizedText && !hasOnlyEmojiLine,
+        ),
+      ),
+    );
+
+    if (widget.composing.isValid && !widget.composing.isCollapsed) {
+      text = CustomPaint(
+        foregroundPainter: _ComposingUnderlinePainter(
+          paragraphGetter: _findParagraph,
+          projectionGetter: () => _result?.projection,
+          composing: widget.composing,
+          color: style.color ?? Theme.of(context).colorScheme.onSurface,
+        ),
+        child: text,
+      );
+    }
+
+    // 行内剧透编辑态标识:底纹 + 虚线框(阅读端是粒子遮罩;编辑态要
+    // "看得出是剧透"而非"遮住"——对齐官方 blurred decoration 意图)。
+    // 物化字面态(光标驻留,mark 已摘除)从语法扫描补:`[spoiler]x[/…]`
+    // 字面的**内容段**同样上框 —— 否则光标一进内容样式全消失,出来
+    // 又回来(闪变)。框只罩内容不罩标签字面(样式只属于内容)。
+    final spoilerSpans = [
+      for (final m in block.content.marks)
+        if (m.kind == MarkKind.spoilerInline)
+          TextRange(start: m.start, end: m.end),
+      if (widget.syntaxHighlight)
+        for (final h in scanInlineSyntax(block.content))
+          if (h.kind == MarkKind.spoilerInline)
+            TextRange(
+              start: h.start + h.openLen,
+              end: h.start + h.openLen + h.contentLen,
+            ),
+    ];
+    if (spoilerSpans.isNotEmpty) {
+      final scheme = Theme.of(context).colorScheme;
+      text = CustomPaint(
+        painter: _SpoilerDecorPainter(
+          paragraphGetter: _findParagraph,
+          projectionGetter: () => _result?.projection,
+          ranges: spoilerSpans,
+          fillColor: scheme.onSurface.withValues(alpha: 0.08),
+          borderColor: scheme.onSurfaceVariant.withValues(alpha: 0.55),
+        ),
+        child: text,
+      );
+    }
+
+    // 极小字号([size=0] 等)编辑态标识:实线描边框,提示"这段内容被
+    // 缩到隐藏了"——光标不在区间内时容易忽略过去,补一个视觉标记。
+    // 判定与 _applySizeMark 同口径:严格小于阈值([size=15] 是合法 15%,
+    // 不算隐藏)。
+    final hiddenSizeSpans = [
+      for (final m in block.content.marks)
+        if (m.kind == MarkKind.size &&
+            (EditableTextContent.parsePct(m.attr) ?? 1.0) <
+                EditableTextContent.hiddenSizeThreshold)
+          TextRange(start: m.start, end: m.end),
+    ];
+    if (hiddenSizeSpans.isNotEmpty) {
+      final scheme = Theme.of(context).colorScheme;
+      text = CustomPaint(
+        painter: _SpoilerDecorPainter(
+          paragraphGetter: _findParagraph,
+          projectionGetter: () => _result?.projection,
+          ranges: hiddenSizeSpans,
+          fillColor: scheme.errorContainer.withValues(alpha: 0.18),
+          borderColor: scheme.error.withValues(alpha: 0.6),
+          dashed: false,
+        ),
+        child: text,
+      );
+    }
+
+    Widget boxed = SelectableTextBox(
+      projectionGetter: () => _ensureResult().projection,
+      documentOrder: widget.documentOrder,
+      debugLabel: 'edit:${block.id}',
+      child: text,
+    );
+
+    // 列表项:marker 悬挂布局(阅读端 HtmlListItem 同款;marker 不在
+    // RenderParagraph 内,投影/命中不受扰)。
+    // 缩进必须是 (depth+1) 而非 depth:marker 画在 content **左侧负偏移**
+    // 区,第 0 层不留 padding 的话 marker 悬挂到编辑器 Stack 外被
+    // hardEdge 裁掉(症状:圆点消失)。阅读端 buildList 每层都有
+    // padding-left,同理。
+    if (block.isListItem) {
+      final markerColor =
+          style.color ?? Theme.of(context).colorScheme.onSurface;
+      final markerStyle = style.copyWith(
+        fontFeatures: const [FontFeature.tabularFigures()],
+      );
+      boxed = Padding(
+        padding: EdgeInsets.only(left: em * 1.5 * (block.depth + 1)),
+        child: HtmlListItem(
+          textDirection: Directionality.of(context),
+          marker: block.ordered
+              ? Text(
+                  '${widget.listMarkerOrdinal}.',
+                  style: markerStyle,
+                  maxLines: 1,
+                  softWrap: false,
+                )
+              : ListMarkerDot(
+                  depth: block.depth,
+                  color: markerColor,
+                  textStyle: markerStyle,
+                ),
+          child: boxed,
+        ),
+      );
+    }
+
+    // heading 上下 margin(阅读端 buildHeading 同款)。
+    if (block.isHeading) {
+      final margin = em * kHeadingMargin[block.headingLevel - 1];
+      boxed = Padding(
+        padding: EdgeInsets.symmetric(vertical: margin / 2),
+        child: boxed,
+      );
+    }
+
+    // 容器装饰(quote 竖条/spoiler 底纹/details 框…)不在本 widget:
+    // 由 FluxdoEditor 按相邻块容器栈分组统一画壳(M5-B),块本体只管
+    // 文本渲染。
+
+    return boxed;
+  }
+}
+
+/// IME 预编辑下划线(2px,画在 composing 渲染区间每个 box 的底边)。
+class _ComposingUnderlinePainter extends CustomPainter {
+  _ComposingUnderlinePainter({
+    required this.paragraphGetter,
+    required this.projectionGetter,
+    required this.composing,
+    required this.color,
+  });
+
+  final RenderParagraph? Function() paragraphGetter;
+  final RenderTextProjection? Function() projectionGetter;
+
+  /// 编辑文本坐标(== 逻辑投影坐标)。
+  final TextRange composing;
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (!composing.isValid || composing.isCollapsed) return;
+    final p = paragraphGetter();
+    final proj = projectionGetter();
+    if (p == null || proj == null || !p.attached || !p.hasSize) return;
+
+    final rs = proj.renderOffsetForContent(composing.start);
+    final re = proj.renderOffsetForContent(composing.end);
+    if (rs >= re) return;
+
+    final boxes = p.getBoxesForSelection(
+      TextSelection(baseOffset: rs, extentOffset: re),
+    );
+    final paint = Paint()
+      ..color = color.withValues(alpha: 0.8)
+      ..strokeWidth = 2;
+    for (final box in boxes) {
+      final y = box.bottom - 1;
+      canvas.drawLine(Offset(box.left, y), Offset(box.right, y), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ComposingUnderlinePainter oldDelegate) =>
+      oldDelegate.composing != composing || oldDelegate.color != color;
+}
+
+/// 行内剧透编辑态装饰:每个 spoiler mark 区间画圆角底纹 + 虚线边框
+/// (背景层 painter —— 画在文字下面)。
+class _SpoilerDecorPainter extends CustomPainter {
+  _SpoilerDecorPainter({
+    required this.paragraphGetter,
+    required this.projectionGetter,
+    required this.ranges,
+    required this.fillColor,
+    required this.borderColor,
+    this.dashed = true,
+  });
+
+  final RenderParagraph? Function() paragraphGetter;
+  final RenderTextProjection? Function() projectionGetter;
+
+  /// 编辑文本坐标区间集。
+  final List<TextRange> ranges;
+
+  final Color fillColor;
+  final Color borderColor;
+
+  /// false = 实线框(用于极小字号标记,与剧透虚线框区分语义)。
+  final bool dashed;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = paragraphGetter();
+    final proj = projectionGetter();
+    if (p == null || proj == null || !p.attached || !p.hasSize) return;
+
+    final fill = Paint()..color = fillColor;
+    final border = Paint()
+      ..color = borderColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+
+    for (final r in ranges) {
+      final rs = proj.renderOffsetForContent(r.start);
+      // 右界用末端语义:光标口径的延迟归属会跳过 mark.end 处的零内容
+      // entry(显形虚拟定界符/codePad),把紧随其后的 `[/spoiler]` 字面
+      // 一并框进装饰 —— 开定界符在框外、闭定界符在框内,不对称。
+      final re = proj.renderEndForContent(r.end);
+      if (rs >= re) continue;
+      final boxes = p.getBoxesForSelection(
+        TextSelection(baseOffset: rs, extentOffset: re),
+      );
+      for (final box in boxes) {
+        final rect = RRect.fromLTRBR(
+          box.left - 1,
+          box.top,
+          box.right + 1,
+          box.bottom,
+          const Radius.circular(3),
+        );
+        canvas.drawRRect(rect, fill);
+        if (dashed) {
+          _drawDashedRRect(canvas, rect, border);
+        } else {
+          canvas.drawRRect(rect, border);
+        }
+      }
+    }
+  }
+
+  /// 简易虚线圆角框:上下边画 dash(左右短边省略 —— 视觉足够)。
+  void _drawDashedRRect(Canvas canvas, RRect rect, Paint paint) {
+    const dash = 4.0;
+    const gap = 3.0;
+    for (final y in [rect.top + 0.5, rect.bottom - 0.5]) {
+      var x = rect.left + 2;
+      while (x < rect.right - 2) {
+        final end = (x + dash).clamp(0, rect.right - 2).toDouble();
+        canvas.drawLine(Offset(x, y), Offset(end, y), paint);
+        x += dash + gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SpoilerDecorPainter oldDelegate) =>
+      !listEquals(oldDelegate.ranges, ranges) ||
+      oldDelegate.fillColor != fillColor ||
+      oldDelegate.borderColor != borderColor ||
+      oldDelegate.dashed != dashed;
+}

@@ -1,0 +1,9 @@
+source: https://example.com/t/sample/1/code3
+fetched_at: 2026-06-23
+primary_node: code_block
+sha256: 526a90c8d836cda7a15fe7f4cec2c6c0d76050dbf93ed1591eae5ab75f6c3c7c
+also_contains: []
+edge_case: false
+notes: |
+  无 lang-xxx class 的 pre/code,验证 language = null + 顶栏显示 "TEXT"。
+sanitized: true

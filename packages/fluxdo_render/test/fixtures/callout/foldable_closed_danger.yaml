@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/callout4
+fetched_at: 2026-06-23
+primary_node: callout
+also_contains: [paragraph]
+sha256: 1c1092dfcf54e94623c142518fcc822cccdb85d682dcf2dbf8b8d54de35b337b
+edge_case: false
+notes: |
+  [!danger]- 可折叠 + 默认折叠。
+  渲染:红色 + dangerous 图标 + 标题 "不要点击" + 未旋转的箭头 + 内容隐藏。
+sanitized: true

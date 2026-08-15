@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/tb5
+fetched_at: 2026-06-24
+primary_node: table
+also_contains: []
+sha256: a1e94b556dffb909d6b5ff39e886a9bf32e73c21538133f0cbfc34a5a269985c
+edge_case: false
+notes: |
+  Discourse markdown 真实 cooked 形态:<div class="md-table"><table>。
+  parser 必须透明拆壳 md-table 包裹层,否则整表被展平成纯文本。
+  (这是实机 dogfood 发现的 bug:EDU 邮箱长帖表格被展平。)
+sanitized: true

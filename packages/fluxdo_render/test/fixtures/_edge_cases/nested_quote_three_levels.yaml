@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/5
+fetched_at: 2026-06-22
+primary_node: edge_case
+sha256: 3bbf3d5b3e5f3d2abb0fdd8b6413dd392e99cd2604d91ed606c85d38f2306a9c
+also_contains: [quote_card, paragraph]
+edge_case: true
+notes: |
+  深三层嵌套 quote(aside > blockquote > aside > blockquote > aside > blockquote)。
+  用于验证递归渲染 + 嵌套层级缩进 + 跨层级 margin 折叠。
+  历史上 fwfh 在这种 case 上偶有"丢失中间层"的问题。
+sanitized: true

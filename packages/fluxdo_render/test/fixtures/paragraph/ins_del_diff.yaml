@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/insdel
+fetched_at: 2026-06-23
+primary_node: paragraph
+sha256: 9d7196598c6c3fa853a2e940e16eaf2c8b6d2634dac49146092742ce63ce41e6
+also_contains: []
+edge_case: true
+notes: |
+  编辑历史 diff 形态:`<ins>` 新增 / `<del>` 删除。
+  对齐 fwfh:ins → StyledRun.underline(下划线);del/s → StyledRun.lineThrough
+  (删除线)。Discourse 的 .diff-ins/.diff-del 绿红底是特化,暂简化为下划/删除线。
+sanitized: true

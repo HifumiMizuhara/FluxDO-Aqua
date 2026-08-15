@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/code5
+fetched_at: 2026-06-23
+primary_node: code_block
+sha256: 410894aff2f04c9405c877d64fc91cd269dcdd925290771aae55d7bf5fa153f6
+also_contains: []
+edge_case: true
+notes: |
+  超长单行 bash 命令,验证横向滚动(SingleChildScrollView Axis.horizontal)。
+  不会换行,可左右滑动查看完整命令。
+sanitized: true

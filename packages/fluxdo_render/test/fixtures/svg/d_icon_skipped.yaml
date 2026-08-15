@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/svg3
+fetched_at: 2026-06-30
+primary_node: svg
+sha256: a5b96254b0360980c5379f5a40a8517246e69f5140720ad8aaca7d35f63cdbba
+also_contains: [paragraph]
+edge_case: true
+notes: |
+  Discourse d-icon UI 图标(inline,在 <p> 内):应被 _isSkipElement 跳过,
+  不产 SvgNode、不留文字噪音。验证『内容 svg vs 图标 svg』判定边界。
+sanitized: true

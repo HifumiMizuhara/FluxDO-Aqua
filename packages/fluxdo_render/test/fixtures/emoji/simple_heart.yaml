@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/emoji1
+fetched_at: 2026-06-23
+primary_node: emoji
+sha256: 731845e88696d55e5f6631763312c5fd2d8e252237d21e3afd144cfa68577bbd
+also_contains: []
+edge_case: false
+notes: |
+  最基础形态:段落内嵌 :heart: 标准 emoji。验证 EmojiRun 解析 +
+  WidgetSpan 渲染 + 1em 字号(跟 baseStyle 一致)。
+sanitized: true

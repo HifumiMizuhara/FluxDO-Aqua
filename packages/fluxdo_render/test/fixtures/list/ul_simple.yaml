@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/list1
+fetched_at: 2026-06-23
+primary_node: list
+sha256: 4bde028f2bf75ee5bfc111ba6488d0be10ae7faea9c8ea56563e6f63c93d154b
+also_contains: []
+edge_case: false
+notes: |
+  最基础无序列表(ul + 3 li 纯文本)。验证 ListNode/ListItem 解析 +
+  bullet marker (•) + padding-left 20。
+sanitized: true

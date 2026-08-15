@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/grid1
+fetched_at: 2026-06-23
+primary_node: image_grid
+also_contains: [image]
+sha256: 7896a193fc1d30b041da106088f0ce127b0dc31499236b37dcb53e51ed029df3
+edge_case: false
+notes: |
+  d-image-grid data-columns=2,4 张图,每张被 lightbox-wrapper 包裹。
+  渲染:Wrap 两列,每瓦片有 lightboxUrl(可点查看大图)。
+sanitized: true

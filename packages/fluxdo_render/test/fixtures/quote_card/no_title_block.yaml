@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/qc5
+fetched_at: 2026-06-23
+primary_node: quote_card
+sha256: 1964250dc860ddcd854cf3ee521271532e9c330afa8f1fe6daeb870bff4f391f
+also_contains: []
+edge_case: true
+notes: |
+  反例:无 .title 块的 quote(罕见,但 Discourse 某些 plugin 输出会缺)。
+  验证 parser 容错:avatarUrl/titleText/titleHref 均为 null,头像走
+  首字母 chip fallback。
+sanitized: true

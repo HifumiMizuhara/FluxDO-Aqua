@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/link1
+fetched_at: 2026-06-23
+primary_node: paragraph
+sha256: 7cb8aaaddbfc075697c57d24540d1308b1ed33f404b8a07880a34896e4a63dd3
+also_contains: []
+edge_case: false
+notes: |
+  段落内含一个外部 https 链接。验证 LinkRun(InlineNode)基础渲染
+  (下划线 + 可点击)。link 不是 NodeKind,fixture 归属 paragraph。
+sanitized: true

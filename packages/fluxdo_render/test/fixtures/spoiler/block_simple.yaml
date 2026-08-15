@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/sp2
+fetched_at: 2026-06-23
+primary_node: spoiler
+sha256: 164ad85b509b423bf42c8f435f4b9cfe76169ff9b67e9b116044aa9d5bc24569
+also_contains: []
+edge_case: false
+notes: |
+  块级 div.spoiler,默认显示 "剧透内容,点击显示" 占位,点击后
+  展开为两段段落。再点收回。
+sanitized: true

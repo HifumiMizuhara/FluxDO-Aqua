@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/inline_code2
+fetched_at: 2026-06-23
+primary_node: inline_code
+sha256: c6cd031b1560a7102205a1838c91c35f9d06ff255f4a9251a26624a54c89445a
+also_contains: []
+edge_case: false
+notes: |
+  一段里多个 InlineCodeRun 紧邻,验证灰底不要错位、相邻代码段之间正常
+  断字。
+sanitized: true

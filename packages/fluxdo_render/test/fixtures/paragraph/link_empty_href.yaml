@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/link5
+fetched_at: 2026-06-23
+primary_node: paragraph
+sha256: 0324f900057a78baf1006f8436cad5f4eefed6753a2e3115109602534888f184
+also_contains: []
+edge_case: true
+notes: |
+  边界 case:空 href / 无 href 属性的 a 标签。parser 应该退化为
+  普通文本(展平子节点),不该产生 LinkRun。视觉上跟纯文本一致,
+  无下划线、不可点。
+sanitized: true

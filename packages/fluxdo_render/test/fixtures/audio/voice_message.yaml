@@ -1,0 +1,13 @@
+source: cook 探针实测(tools/discourse-cook-bundle,[wrap=voice] BBCode 产物)
+fetched_at: 2026-07-13
+primary_node: audio
+sha256: e2c2e2303914e316596442798a9560abb0404c0bd35f277880d03d5b03d38d9f
+also_contains: []
+edge_case: false
+notes: |
+  本 app 语音消息约定形态:raw = [wrap=voice] + 裸 <audio> 标签(媒体改名
+  .xz 上传),cook 产 <div class="d-wrap" data-wrap="voice"> 包住原生 audio。
+  网页端:无样式 div + 原生 controls,零影响。
+  本 app:parser 识别 data-wrap=voice → AudioNode(voice:true) → 语音条 UI
+  (主项目 audioBuilder 分流);子包 fallback 仍是占位卡。
+sanitized: true

@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/textalign
+fetched_at: 2026-06-29
+primary_node: paragraph
+sha256: 136a6aa662d3995f3533089df24f7e197fef676ebc8f7e53f6938ce89bf37002
+also_contains: []
+edge_case: false
+notes: |
+  块级对齐:<div align="center"> / <p style="text-align:right"> / <center>。
+  → ParagraphNode.textAlign,渲染走 InlineSpanText.textAlign。
+sanitized: true

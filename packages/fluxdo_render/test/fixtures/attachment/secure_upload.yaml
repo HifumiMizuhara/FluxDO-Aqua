@@ -1,0 +1,11 @@
+source: https://example.com/t/sample/1/attachment2
+fetched_at: 2026-06-30
+primary_node: attachment
+sha256: 85c62ce93a5f96d44fcdb67474ba914f4c0ae93f2a94476a35d6cbd012797ac7
+also_contains: []
+edge_case: true
+notes: |
+  secure-uploads 路径附件(鉴权下载)。验证 isAttachment 仍命中、filename=archive.zip。
+  launchContentLink._isUploadLink 对 /secure-uploads/ 同样识别为附件。
+  primary_node 标 attachment(与目录同名)。
+sanitized: true

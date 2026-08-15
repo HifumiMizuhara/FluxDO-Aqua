@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/sp3
+fetched_at: 2026-06-23
+primary_node: spoiler
+sha256: 680fdc3b94bfce85e1ab87aad452cca893d0249d0e928e1134c12e2bff04e648
+also_contains: [paragraph]
+edge_case: true
+notes: |
+  行内 spoiler 含嵌套样式(strong)和 link。验证 SpoilerRun.children
+  可以承载任意 inline 节点;揭示后嵌套样式 + 链接全部生效(link 可点)。
+sanitized: true

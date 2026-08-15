@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/tb4
+fetched_at: 2026-06-24
+primary_node: table
+also_contains: []
+sha256: 461ae2110eee10091d0813524c688c4f74152d72465ea191451ef00b11dbf817
+edge_case: false
+notes: |
+  行列数不齐:header 2 列,row1 2 列,row2 1 列(缺),row3 3 列(多)。
+  columnCount = max = 3;缺列补空,多列正常显示。
+sanitized: true

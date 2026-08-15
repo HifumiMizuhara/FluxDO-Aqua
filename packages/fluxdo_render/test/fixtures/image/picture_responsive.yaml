@@ -1,0 +1,15 @@
+source: https://example.com/t/sample/1/picture1
+fetched_at: 2026-06-30
+primary_node: image
+sha256: d4d9665ba00542f7283df69976b7d1719c01900aa0204d0917a1440de143e35e
+also_contains: [paragraph]
+edge_case: true
+notes: |
+  块级 <picture>(响应式图片:多个 <source srcset> + <img> fallback)。
+  fwfh 不认 picture/source,只渲染内部 <img> fallback、忽略 srcset;新引擎块级
+  switch 此前无 case → default 文本兜底,而 <img> 在 picture 内不被块级 default
+  收集 → 整张图丢失(probe 实测 nodes=[])。
+  期望:拆壳 → 单图 ParagraphNode,ImageRun src=hero.png(取 <img> fallback,
+  480x270)。无 <img> 时才回退取首个 source srcset 首个 URL。
+  sha256 占位:同 figure_with_caption,提交前可替换为真实 cooked 并重算。
+sanitized: true

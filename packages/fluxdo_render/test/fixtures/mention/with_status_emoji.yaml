@@ -1,0 +1,12 @@
+source: https://example.com/t/sample/1/mention3
+fetched_at: 2026-06-23
+primary_node: mention
+sha256: 50f9c4b4fdfac6230bf0caeb88141907241f2881ea2e574a66883af7d79475de
+also_contains: [emoji]
+edge_case: true
+notes: |
+  含状态 emoji 的 mention(Discourse 主项目通过 _preprocessHtml 注入
+  `<img class="emoji mention-status">`,parser 把它从 a 子树挑出来
+  填到 MentionRun.statusEmoji)。验证 chip 内 emoji 在用户名右侧 +
+  size 跟父 chip 字号 * 1.2。
+sanitized: true

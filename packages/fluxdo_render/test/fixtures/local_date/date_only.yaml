@@ -1,0 +1,10 @@
+source: https://example.com/t/sample/1/ld2
+fetched_at: 2026-06-24
+primary_node: local_date
+also_contains: [paragraph]
+sha256: a93e4745ae7e8153286e4fab033812d9f8c01b47a08092533496fad4b8b6599d
+edge_case: false
+notes: |
+  仅日期 chip(无 data-time,format=LL)。
+  fallback 渲染:服务端文本 "2026年12月25日"。
+sanitized: true
