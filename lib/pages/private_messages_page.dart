@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import '../models/topic.dart';
 import '../navigation/nav_action_bus.dart';
+import '../providers/message_bus/pm_tracking_providers.dart';
 import '../providers/selected_topic_provider.dart';
 import '../providers/user_content_providers.dart';
 import '../providers/preferences_provider.dart';
@@ -142,6 +143,9 @@ class _PrivateMessagesPageState extends ConsumerState<PrivateMessagesPage>
 
   @override
   Widget build(BuildContext context) {
+    // 激活私信追踪频道:收到新私信/已读消息即增量更新列表;autoDispose,离页退订
+    ref.watch(pmTrackingChannelProvider);
+
     // 底栏派发的快捷动作：查询当前激活 tab 的 filter，转发到对应子 widget。
     ref.listen(navActionBusProvider, (_, event) {
       if (event == null) return;

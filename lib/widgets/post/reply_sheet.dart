@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'dart:async' show unawaited;
 import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,6 +10,7 @@ import '../markdown_editor/composer_switch_fade.dart';
 import '../markdown_editor/markdown_editor.dart';
 import '../markdown_editor/rich_composer/rich_composer_editor.dart';
 import '../../providers/preferences_provider.dart';
+import '../../providers/user_content_providers.dart';
 import '../../models/topic.dart';
 import '../../models/draft.dart';
 import '../../models/pending_post.dart';
@@ -484,6 +486,20 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
     );
   }
 
+  /// 发送成功后刷新私信列表(发件人侧)。
+  ///
+  /// tracking 频道只对**收件人**推送,自己发出的私信/回复不会推给自己,
+  /// 所以左侧列表的「最后活动时间/排序」得由发送动作自己去更新。
+  void _refreshPmListsAfterSend() {
+    if (!_isInPrivateMessageContext) return;
+    if (ref.exists(pmInboxProvider)) {
+      unawaited(ref.read(pmInboxProvider.notifier).refresh());
+    }
+    if (ref.exists(pmSentProvider)) {
+      unawaited(ref.read(pmSentProvider.notifier).refresh());
+    }
+  }
+
   Future<void> _submit() async {
     // 富文本模式:镜像 debounce 窗口内提交也不丢内容,先强制序列化
     _richKey.currentState?.flushToController();
@@ -542,6 +558,7 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
         await _draftController?.deleteDraft();
         _submitted = true;
         if (!mounted) return;
+        _refreshPmListsAfterSend();
         Navigator.of(context).pop(null); // 私信模式不返回 Post
       } else {
         // 回复模式：返回创建的 Post 对象
@@ -556,6 +573,7 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
         await _draftController?.deleteDraft();
         _submitted = true;
         if (!mounted) return;
+        _refreshPmListsAfterSend();
         Navigator.of(context).pop(newPost);
       }
     } on PostEnqueuedException catch (e) {
