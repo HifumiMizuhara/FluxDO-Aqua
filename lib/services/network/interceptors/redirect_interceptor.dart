@@ -56,19 +56,36 @@ class RedirectInterceptor extends Interceptor {
               // 和速率窗口会被重定向链自己耗尽，外层响应也无法完成释放。
               ..['skipScheduler'] = true
               ..[_redirectCountKey] = redirectCount + 1;
+        final requestOptions = response.requestOptions;
         final newOptions = Options(
-          method: response.requestOptions.method,
-          headers: Map<String, dynamic>.from(response.requestOptions.headers)
+          method: requestOptions.method,
+          headers: Map<String, dynamic>.from(requestOptions.headers)
             ..remove('cookie')
             ..remove('Cookie'),
           extra: redirectExtra,
-          responseType: response.requestOptions.responseType,
-          validateStatus: response.requestOptions.validateStatus,
+          responseType: requestOptions.responseType,
+          contentType: requestOptions.contentType,
+          validateStatus: requestOptions.validateStatus,
+          receiveDataWhenStatusError: requestOptions.receiveDataWhenStatusError,
+          followRedirects: requestOptions.followRedirects,
+          maxRedirects: requestOptions.maxRedirects,
+          persistentConnection: requestOptions.persistentConnection,
+          requestEncoder: requestOptions.requestEncoder,
+          responseDecoder: requestOptions.responseDecoder,
+          listFormat: requestOptions.listFormat,
+          connectTimeout: requestOptions.connectTimeout,
+          sendTimeout: requestOptions.sendTimeout,
+          receiveTimeout: requestOptions.receiveTimeout,
+          transformTimeout: requestOptions.transformTimeout,
         );
 
         try {
           final redirectResponse = await _dio.request(
             absoluteUrl,
+            data: requestOptions.data,
+            cancelToken: requestOptions.cancelToken,
+            onSendProgress: requestOptions.onSendProgress,
+            onReceiveProgress: requestOptions.onReceiveProgress,
             options: newOptions,
           );
           return handler.resolve(redirectResponse);

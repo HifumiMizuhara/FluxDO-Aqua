@@ -36,10 +36,33 @@ void main() {
     expect(requestExtras.last['_redirectCount'], 1);
     expect(requestExtras.last['_schedulerCounted'], isTrue);
   });
+
+  test('リダイレクト時に POST ボディを引き継ぐ', () async {
+    final adapter = _RedirectOnceAdapter();
+    final dio = Dio(
+      BaseOptions(
+        baseUrl: 'https://linux.do',
+        validateStatus: (status) => status != null && status < 400,
+      ),
+    )..httpClientAdapter = adapter;
+    dio.interceptors.add(RedirectInterceptor(dio));
+
+    final response = await dio.post(
+      '/',
+      data: 'payload',
+      options: Options(contentType: Headers.textPlainContentType),
+    );
+
+    expect(response.statusCode, 200);
+    expect(adapter.requestBodies, hasLength(2));
+    expect(adapter.requestBodies[0], 'payload');
+    expect(adapter.requestBodies[1], 'payload');
+  });
 }
 
 class _RedirectOnceAdapter implements HttpClientAdapter {
   int fetchCount = 0;
+  final requestBodies = <String>[];
 
   @override
   Future<ResponseBody> fetch(
@@ -48,6 +71,13 @@ class _RedirectOnceAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     fetchCount++;
+    if (requestStream != null) {
+      final bytes = BytesBuilder(copy: false);
+      await for (final chunk in requestStream) {
+        bytes.add(chunk);
+      }
+      requestBodies.add(String.fromCharCodes(bytes.takeBytes()));
+    }
     if (fetchCount == 1) {
       return ResponseBody.fromString(
         '',
