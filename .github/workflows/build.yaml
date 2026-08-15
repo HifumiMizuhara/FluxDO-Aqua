@@ -462,7 +462,8 @@ jobs:
       - build
       - flatpak_package
     runs-on: ubuntu-latest
-    if: env.IS_STABLE == 'true'
+    # Aqua releases are always pre-releases; stable changelog commits are disabled.
+    if: ${{ false }}
     permissions:
       contents: write
     steps:
