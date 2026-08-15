@@ -12,8 +12,14 @@ import '../providers/app_icon_provider.dart';
 class PreheatLogo extends StatefulWidget {
   final AppIconStyle style;
   final double size;
+  final VoidCallback? onAnimationComplete;
 
-  const PreheatLogo({super.key, required this.style, this.size = 108});
+  const PreheatLogo({
+    super.key,
+    required this.style,
+    this.size = 108,
+    this.onAnimationComplete,
+  });
 
   @override
   State<PreheatLogo> createState() => _PreheatLogoState();
@@ -41,6 +47,7 @@ class _PreheatLogoState extends State<PreheatLogo>
         // 绘制完成后才开始光晕呼吸
         if (status == AnimationStatus.completed) {
           _glow.repeat(reverse: true);
+          widget.onAnimationComplete?.call();
         }
       })
       ..forward();

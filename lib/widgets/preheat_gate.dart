@@ -33,6 +33,7 @@ class _PreheatGateState extends State<PreheatGate> {
   late Future<bool> _loadFuture;
   Object? _error;
   AppIconStyle _iconStyle = AppIconStyle.classic;
+  bool _brandingAnimationComplete = false;
 
   @override
   void initState() {
@@ -99,15 +100,23 @@ class _PreheatGateState extends State<PreheatGate> {
 
   void _retry() {
     setState(() {
+      _brandingAnimationComplete = false;
       _loadFuture = _preload();
     });
   }
 
   void _skip() {
     setState(() {
+      _brandingAnimationComplete = true;
       _error ??= TimeoutException(S.current.preheat_userSkipped);
       _loadFuture = Future.value(false);
     });
+  }
+
+  void _onBrandingAnimationComplete() {
+    if (mounted && !_brandingAnimationComplete) {
+      setState(() => _brandingAnimationComplete = true);
+    }
   }
 
   @override
@@ -120,10 +129,12 @@ class _PreheatGateState extends State<PreheatGate> {
         BrowserTrustCoordinator.instance.setNavigatorContext(context);
 
         Widget currentWidget;
-        if (snapshot.connectionState != ConnectionState.done) {
+        if (snapshot.connectionState != ConnectionState.done ||
+            !_brandingAnimationComplete) {
           currentWidget = _PreheatLoading(
             key: const ValueKey('loading'),
             onSkip: _skip,
+            onAnimationComplete: _onBrandingAnimationComplete,
             iconStyle: _iconStyle,
           );
         } else if (snapshot.data == true) {
@@ -161,9 +172,15 @@ class _PreheatGateState extends State<PreheatGate> {
 
 class _PreheatLoading extends StatefulWidget {
   final VoidCallback? onSkip;
+  final VoidCallback? onAnimationComplete;
   final AppIconStyle iconStyle;
 
-  const _PreheatLoading({super.key, this.onSkip, required this.iconStyle});
+  const _PreheatLoading({
+    super.key,
+    this.onSkip,
+    this.onAnimationComplete,
+    required this.iconStyle,
+  });
 
   @override
   State<_PreheatLoading> createState() => _PreheatLoadingState();
@@ -171,7 +188,9 @@ class _PreheatLoading extends StatefulWidget {
 
 class _PreheatLoadingState extends State<_PreheatLoading> {
   bool _showSkip = false;
+  bool _showAqua = false;
   Timer? _skipTimer;
+  Timer? _aquaTimer;
   String? _version;
 
   @override
@@ -190,7 +209,17 @@ class _PreheatLoadingState extends State<_PreheatLoading> {
   @override
   void dispose() {
     _skipTimer?.cancel();
+    _aquaTimer?.cancel();
     super.dispose();
+  }
+
+  void _showAquaWordmark() {
+    if (mounted && !_showAqua) {
+      setState(() => _showAqua = true);
+      _aquaTimer = Timer(const Duration(milliseconds: 700), () {
+        if (mounted) widget.onAnimationComplete?.call();
+      });
+    }
   }
 
   @override
@@ -208,14 +237,90 @@ class _PreheatLoadingState extends State<_PreheatLoading> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                PreheatLogo(style: widget.iconStyle, size: 108),
+                PreheatLogo(
+                  style: widget.iconStyle,
+                  size: 108,
+                  onAnimationComplete: _showAquaWordmark,
+                ),
                 const SizedBox(height: 24),
-                Text(
-                  'FluxDO',
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.5,
+                SizedBox(
+                  height: 64,
+                  child: Center(
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Text(
+                          'FluxDO',
+                          style: theme.textTheme.headlineMedium?.copyWith(
+                            color: colorScheme.onSurface,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                        Positioned(
+                          left: 88,
+                          top: -2,
+                          child: Transform.translate(
+                            offset: const Offset(-8, -6),
+                            child: SizedBox(
+                              width: 92,
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 700),
+                                switchInCurve: Curves.easeOutCubic,
+                                transitionBuilder: (child, animation) {
+                                  final slide = Tween<Offset>(
+                                    begin: const Offset(0.18, 0),
+                                    end: Offset.zero,
+                                  ).animate(animation);
+                                  return FadeTransition(
+                                    opacity: animation,
+                                    child: SlideTransition(
+                                      position: slide,
+                                      child: child,
+                                    ),
+                                  );
+                                },
+                                child: _showAqua
+                                    ? DecoratedBox(
+                                        key: const ValueKey('aqua-badge'),
+                                        decoration: BoxDecoration(
+                                          border: Border.all(
+                                            color: colorScheme.onSurface
+                                                .withValues(alpha: 0.65),
+                                            width: 1.5,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            2,
+                                          ),
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 5,
+                                            vertical: 3,
+                                          ),
+                                          child: Text(
+                                            'AQUA',
+                                            textAlign: TextAlign.center,
+                                            style: theme.textTheme.titleMedium
+                                                ?.copyWith(
+                                                  color: colorScheme.onSurface,
+                                                  fontWeight: FontWeight.w500,
+                                                  letterSpacing: 1.2,
+                                                ),
+                                          ),
+                                        ),
+                                      )
+                                    : const SizedBox(
+                                        key: ValueKey('aqua-placeholder'),
+                                        height: 48,
+                                        width: 1,
+                                      ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 56),
