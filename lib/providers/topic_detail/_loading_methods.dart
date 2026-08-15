@@ -323,6 +323,7 @@ extension LoadingMethods on TopicDetailNotifier {
 
   /// 使用新的起始帖子号重新加载数据
   Future<void> reloadWithPostNumber(int postNumber) async {
+    final generation = ++_reloadGeneration;
     state = const AsyncValue.loading();
     _hasMoreAfter = true;
     _hasMoreBefore = true;
@@ -345,13 +346,14 @@ extension LoadingMethods on TopicDetailNotifier {
 
       return _withSuggestedCache(detail);
     });
-    if (!ref.mounted) return;
+    if (!ref.mounted || generation != _reloadGeneration) return;
     state = result;
   }
 
   /// 刷新当前话题详情（保持列表可见）
   Future<void> refreshWithPostNumber(int postNumber) async {
     if (state.isLoading) return;
+    final generation = ++_reloadGeneration;
     _isLoadMoreFailed = false;
     _isLoadPreviousFailed = false;
 
@@ -371,7 +373,7 @@ extension LoadingMethods on TopicDetailNotifier {
 
       return _withSuggestedCache(detail);
     });
-    if (!ref.mounted) return;
+    if (!ref.mounted || generation != _reloadGeneration) return;
     state = result;
   }
 

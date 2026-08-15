@@ -76,6 +76,7 @@ class UserContentSearchState {
 class UserContentSearchNotifier extends StateNotifier<UserContentSearchState> {
   final Ref _ref;
   final SearchInType _inType;
+  int _searchGeneration = 0;
 
   UserContentSearchNotifier(this._ref, this._inType)
     : super(UserContentSearchState(filter: SearchFilter(inType: _inType)));
@@ -87,6 +88,7 @@ class UserContentSearchNotifier extends StateNotifier<UserContentSearchState> {
 
   /// 退出搜索模式，清除搜索状态
   void exitSearchMode() {
+    _searchGeneration++;
     state = UserContentSearchState(filter: SearchFilter(inType: _inType));
   }
 
@@ -164,6 +166,7 @@ class UserContentSearchNotifier extends StateNotifier<UserContentSearchState> {
   /// 执行搜索
   Future<void> search(String query) async {
     final trimmedQuery = query.trim();
+    final generation = ++_searchGeneration;
 
     state = state.copyWith(
       query: trimmedQuery,
@@ -176,9 +179,12 @@ class UserContentSearchNotifier extends StateNotifier<UserContentSearchState> {
     );
 
     if (trimmedQuery.isEmpty) {
+      if (generation != _searchGeneration) return;
       state = state.copyWith(isLoading: false);
       return;
     }
+
+    final filterAtRequest = state.filter.toQueryString();
 
     try {
       final service = _ref.read(discourseServiceProvider);
@@ -200,12 +206,23 @@ class UserContentSearchNotifier extends StateNotifier<UserContentSearchState> {
         typeFilter: 'topic',
       );
 
+      if (generation != _searchGeneration ||
+          state.query != trimmedQuery ||
+          state.filter.toQueryString() != filterAtRequest) {
+        return;
+      }
+
       state = state.copyWith(
         results: result.posts,
         hasMore: result.hasMorePosts && result.posts.isNotEmpty,
         isLoading: false,
       );
     } catch (e) {
+      if (generation != _searchGeneration ||
+          state.query != trimmedQuery ||
+          state.filter.toQueryString() != filterAtRequest) {
+        return;
+      }
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
@@ -220,6 +237,9 @@ class UserContentSearchNotifier extends StateNotifier<UserContentSearchState> {
     }
 
     final nextPage = state.page + 1;
+    final generation = _searchGeneration;
+    final queryAtRequest = state.query;
+    final filterAtRequest = state.filter.toQueryString();
     state = state.copyWith(
       isLoading: true,
       isLoadMoreFailed: false,
@@ -247,12 +267,23 @@ class UserContentSearchNotifier extends StateNotifier<UserContentSearchState> {
         typeFilter: 'topic',
       );
 
+      if (generation != _searchGeneration ||
+          state.query != queryAtRequest ||
+          state.filter.toQueryString() != filterAtRequest) {
+        return;
+      }
+
       state = state.copyWith(
         results: [...state.results, ...result.posts],
         hasMore: result.hasMorePosts && result.posts.isNotEmpty,
         isLoading: false,
       );
     } catch (e) {
+      if (generation != _searchGeneration ||
+          state.query != queryAtRequest ||
+          state.filter.toQueryString() != filterAtRequest) {
+        return;
+      }
       state = state.copyWith(
         isLoading: false,
         page: state.page - 1, // 恢复页码

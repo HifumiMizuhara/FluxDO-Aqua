@@ -65,6 +65,7 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
 
   bool _hasMoreAfter = true;
   bool _hasMoreBefore = true;
+  int _reloadGeneration = 0;
 
   /// 分页状态改由 ValueNotifier 驱动:加载指示器/重试按钮由列表内
   /// ValueListenableBuilder 就地切换,分页起止不再发射

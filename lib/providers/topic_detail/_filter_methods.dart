@@ -10,7 +10,8 @@ extension FilterMethods on TopicDetailNotifier {
     _filter = 'summary';
     _usernameFilter = null;
     _filterTopLevelReplies = false;
-    await _reloadWithFilter();
+    final applied = await _reloadWithFilter();
+    if (!applied || !ref.mounted) return;
   }
 
   /// 切换到按活动排序(post-voting 问答话题:默认视图是按票排序,
@@ -47,7 +48,8 @@ extension FilterMethods on TopicDetailNotifier {
     _filterTopLevelReplies = true;
     _filter = null;
     _usernameFilter = null;
-    await _reloadWithFilter();
+    final applied = await _reloadWithFilter();
+    if (!applied || !ref.mounted) return;
 
     // 主贴不在当前数据中，单独请求
     if (savedFirstPost == null && ref.mounted) {
@@ -100,6 +102,7 @@ extension FilterMethods on TopicDetailNotifier {
 
   /// 取消过滤并跳转到指定帖子
   Future<void> cancelFilterAndReloadWithPostNumber(int postNumber) async {
+    final generation = ++_reloadGeneration;
     _filter = null;
     _usernameFilter = null;
     _filterTopLevelReplies = false;
@@ -124,12 +127,13 @@ extension FilterMethods on TopicDetailNotifier {
 
       return _withSuggestedCache(detail);
     });
-    if (!ref.mounted) return;
+    if (!ref.mounted || generation != _reloadGeneration) return;
     state = result;
   }
 
   /// 使用当前 filter 重新加载数据
-  Future<void> _reloadWithFilter() async {
+  Future<bool> _reloadWithFilter() async {
+    final generation = ++_reloadGeneration;
     state = const AsyncValue.loading();
     _hasMoreAfter = true;
     _hasMoreBefore = true;
@@ -149,8 +153,9 @@ extension FilterMethods on TopicDetailNotifier {
 
       return _withSuggestedCache(detail);
     });
-    if (!ref.mounted) return;
+    if (!ref.mounted || generation != _reloadGeneration) return false;
     state = result;
+    return true;
   }
 
   /// 过滤模式下根据 stream ID 加载更多帖子

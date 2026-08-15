@@ -370,9 +370,11 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>>
         categoryId: detail.categoryId.toString(),
         postsCount: detail.postsCount,
         replyCount: detail.postsCount > 0 ? detail.postsCount - 1 : 0,
-        views: existingTopic.views,
-        likeCount: existingTopic.likeCount,
-        lastPostedAt: existingTopic.lastPostedAt,
+        views: detail.views,
+        likeCount: detail.likeCount,
+        lastPostedAt: detail.postStream.posts.isNotEmpty
+            ? detail.postStream.posts.last.createdAt
+            : existingTopic.lastPostedAt,
         pinned: existingTopic.pinned,
         tags: detail.tags ?? existingTopic.tags,
         posters: existingTopic.posters,

@@ -73,6 +73,7 @@ class TopicSearchState {
 /// 话题内搜索 Notifier
 class TopicSearchNotifier extends StateNotifier<TopicSearchState> {
   final Ref _ref;
+  int _searchGeneration = 0;
 
   TopicSearchNotifier(this._ref, int topicId)
     : super(TopicSearchState(topicId: topicId));
@@ -84,12 +85,14 @@ class TopicSearchNotifier extends StateNotifier<TopicSearchState> {
 
   /// 退出搜索模式，清除搜索状态
   void exitSearchMode() {
+    _searchGeneration++;
     state = TopicSearchState(topicId: state.topicId);
   }
 
   /// 执行搜索
   Future<void> search(String query) async {
     final trimmedQuery = query.trim();
+    final generation = ++_searchGeneration;
 
     state = state.copyWith(
       query: trimmedQuery,
@@ -102,6 +105,7 @@ class TopicSearchNotifier extends StateNotifier<TopicSearchState> {
     );
 
     if (trimmedQuery.isEmpty) {
+      if (generation != _searchGeneration) return;
       state = state.copyWith(isLoading: false);
       return;
     }
@@ -122,12 +126,15 @@ class TopicSearchNotifier extends StateNotifier<TopicSearchState> {
         typeFilter: 'topic',
       );
 
+      if (generation != _searchGeneration) return;
+
       state = state.copyWith(
         results: result.posts,
         hasMore: result.hasMorePosts && result.posts.isNotEmpty,
         isLoading: false,
       );
     } catch (e) {
+      if (generation != _searchGeneration) return;
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
@@ -142,6 +149,8 @@ class TopicSearchNotifier extends StateNotifier<TopicSearchState> {
     }
 
     final nextPage = state.page + 1;
+    final generation = _searchGeneration;
+    final queryAtRequest = state.query;
     state = state.copyWith(
       isLoading: true,
       isLoadMoreFailed: false,
@@ -165,12 +174,19 @@ class TopicSearchNotifier extends StateNotifier<TopicSearchState> {
         typeFilter: 'topic',
       );
 
+      if (generation != _searchGeneration || state.query != queryAtRequest) {
+        return;
+      }
+
       state = state.copyWith(
         results: [...state.results, ...result.posts],
         hasMore: result.hasMorePosts && result.posts.isNotEmpty,
         isLoading: false,
       );
     } catch (e) {
+      if (generation != _searchGeneration || state.query != queryAtRequest) {
+        return;
+      }
       state = state.copyWith(
         isLoading: false,
         page: state.page - 1,
