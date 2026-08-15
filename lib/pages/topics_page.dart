@@ -54,6 +54,7 @@ import '../models/shortcut_binding.dart';
 import '../providers/shortcut_provider.dart';
 import '../widgets/desktop_refresh_indicator.dart';
 import '../services/toast_service.dart';
+import '../services/crash_mitigation_service.dart';
 import '../utils/dialog_utils.dart';
 import '../utils/platform_utils.dart';
 
@@ -2669,8 +2670,9 @@ class _TopicListState extends ConsumerState<_TopicList>
 
     final topic = topics[focusIndex];
     // 强制用 Navigator push 打开（而非 Master-Detail 内选中）
-    Navigator.of(context).push(
-      MaterialPageRoute(
+    unawaited(
+      CrashMitigationService.pushRoute(
+        navigator: Navigator.of(context),
         builder: (_) => TopicDetailPage(
           topicId: topic.id,
           initialTitle: topic.title,
@@ -2794,8 +2796,9 @@ class _TopicListState extends ConsumerState<_TopicList>
       return;
     }
 
-    Navigator.of(context).push(
-      MaterialPageRoute(
+    unawaited(
+      CrashMitigationService.pushRoute(
+        navigator: Navigator.of(context),
         builder: (_) => TopicDetailPage(
           topicId: topic.id,
           initialTitle: topic.title,

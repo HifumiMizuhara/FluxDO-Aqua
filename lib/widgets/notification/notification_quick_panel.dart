@@ -561,8 +561,11 @@ class _MobileNotificationPanelState extends State<_MobileNotificationPanel> {
   void _openAllNotifications() {
     final navigator = Navigator.of(context, rootNavigator: true);
     navigator.pop();
-    navigator.push(
-      MaterialPageRoute(builder: (_) => const NotificationsPage()),
+    unawaited(
+      CrashMitigationService.pushRoute(
+        navigator: navigator,
+        builder: (_) => const NotificationsPage(),
+      ),
     );
   }
 
@@ -632,8 +635,9 @@ class _NotificationHeader extends ConsumerWidget {
                 onViewAll ??
                 () {
                   onClose();
-                  Navigator.of(context, rootNavigator: true).push(
-                    MaterialPageRoute(
+                  unawaited(
+                    CrashMitigationService.pushRoute(
+                      navigator: Navigator.of(context, rootNavigator: true),
                       builder: (_) => const NotificationsPage(),
                     ),
                   );

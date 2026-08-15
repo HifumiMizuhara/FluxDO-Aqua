@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:app_icons/app_icons.dart';
 
 import '../../l10n/s.dart';
 import '../../utils/dialog_utils.dart';
+import '../../services/crash_mitigation_service.dart';
 
 /// 大屏「页面弹窗」:把整页内容装进居中弹窗。通知等外部入口在大屏的
 /// 统一落点 —— 不进工作区栈、不切 tab,看完即走,不打断底下工作区
@@ -21,9 +23,11 @@ import '../../utils/dialog_utils.dart';
 Future<T?> showPageDialog<T>({
   required BuildContext context,
   required WidgetBuilder builder,
+  bool blur = true,
 }) {
   return showAppGeneralDialog<T>(
     context: context,
+    blur: blur,
     barrierDismissible: true,
     barrierLabel: S.current.common_close,
     pageBuilder: (dialogContext, animation, secondaryAnimation) {
@@ -80,7 +84,9 @@ class _PageDialogScaffoldState extends State<PageDialogScaffold> {
     final builder = widget.fullscreenBuilder!;
     final navigator = Navigator.of(context, rootNavigator: true);
     navigator.pop();
-    navigator.push(MaterialPageRoute(builder: builder));
+    unawaited(
+      CrashMitigationService.pushRoute(navigator: navigator, builder: builder),
+    );
   }
 
   @override

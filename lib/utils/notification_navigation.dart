@@ -33,9 +33,21 @@ NavigatorState? _rootNavigator(BuildContext context) {
 /// 通知/徽章等)行为完全一致。
 void openNotificationPage(BuildContext context, Widget page) {
   if (MasterDetailLayout.canShowBothPanesFor(context)) {
-    showPageDialog(context: context, builder: (_) => page);
+    showPageDialog(
+      context: context,
+      builder: (_) => page,
+      blur: !CrashMitigationService.enabled,
+    );
   } else {
-    _rootNavigator(context)?.push(MaterialPageRoute(builder: (_) => page));
+    final navigator = _rootNavigator(context);
+    if (navigator != null) {
+      unawaited(
+        CrashMitigationService.pushRoute(
+          navigator: navigator,
+          builder: (_) => page,
+        ),
+      );
+    }
   }
 }
 
@@ -154,10 +166,13 @@ void handleNotificationTap(
   if (!MasterDetailLayout.canShowBothPanesFor(context)) {
     final navigator = _rootNavigator(context);
     void pushPage() {
-      if (CrashMitigationService.enabled) {
-        CrashMitigationService.trimImageMemory();
-      }
-      navigator?.push(MaterialPageRoute(builder: (_) => page));
+      if (navigator == null) return;
+      unawaited(
+        CrashMitigationService.pushRoute(
+          navigator: navigator,
+          builder: (_) => page,
+        ),
+      );
     }
 
     final prepare = beforeNavigate;
@@ -189,6 +204,7 @@ void handleNotificationTap(
 
   showAppGeneralDialog<void>(
     context: context,
+    blur: !CrashMitigationService.enabled,
     barrierDismissible: true,
     barrierLabel: S.current.common_close,
     pageBuilder: (dialogContext, animation, secondaryAnimation) {

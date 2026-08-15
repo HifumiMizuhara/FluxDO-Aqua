@@ -184,6 +184,10 @@ class GatedImageCodec implements ui.Codec {
   }
 
   Future<ui.FrameInfo> _gatedFirstFrame() async {
+    // During a protected Android route transition, keep new large textures
+    // out of the GPU upload path. The widget remains on its placeholder and
+    // resumes naturally once the route animation and old-route cleanup settle.
+    await CrashMitigationService.waitForRouteTransition();
     final waiter = _gated ? ImageDecodeGate._acquireOrEnqueue() : null;
     if (waiter != null) {
       _queuedWaiter = waiter;

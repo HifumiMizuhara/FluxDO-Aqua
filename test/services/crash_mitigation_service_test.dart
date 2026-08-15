@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fluxdo/services/crash_mitigation_service.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('画像デコード上限は長辺と総ピクセル数を同時に守る', () {
     final clamped = CrashMitigationService.clampTargetSize(
       8000,
@@ -34,5 +36,22 @@ void main() {
       CrashMitigationService.clampTargetSize(1200, 800, requested),
       same(requested),
     );
+  });
+
+  test('Aqua無効時のCF臨界区間は既存経路をそのまま実行する', () async {
+    CrashMitigationService.configure(false);
+    var runs = 0;
+
+    final result = await CrashMitigationService.runCfWebViewCriticalSection(
+      reason: 'test',
+      action: () async {
+        runs++;
+        return 'done';
+      },
+    );
+
+    expect(result, 'done');
+    expect(runs, 1);
+    expect(CrashMitigationService.cfWebViewCriticalSectionActive, isFalse);
   });
 }

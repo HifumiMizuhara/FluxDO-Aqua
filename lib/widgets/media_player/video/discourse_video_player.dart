@@ -169,6 +169,16 @@ class _DiscourseVideoPlayerState extends State<DiscourseVideoPlayer>
     session.controller.addListener(_onSessionTick);
     session.fullscreenNotifier.addListener(_onFullscreenChanged);
 
+    if (!session.isInitialized &&
+        DynamicContentSuspensionService.instance.suspended) {
+      await DynamicContentSuspensionService.instance.waitUntilResumed();
+      if (!mounted) {
+        session.release();
+        _session = null;
+        return;
+      }
+    }
+
     if (session.isInitialized) {
       // 命中现存 session(滚出滚回/全屏期间重建):直接可用
       if (mounted) setState(() {});

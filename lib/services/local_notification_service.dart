@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../l10n/s.dart';
 import '../pages/chat/channel/chat_channel_page.dart';
 import '../pages/topic_detail_page/topic_detail_page.dart';
 import '../utils/notification_navigation.dart';
+import 'crash_mitigation_service.dart';
 
 /// 全局 NavigatorKey，用于通知点击时导航
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -82,9 +85,15 @@ class LocalNotificationService {
         openNotificationPage(chatContext, chatPage);
         return;
       }
-      navigatorKey.currentState?.push(
-        MaterialPageRoute(builder: (_) => chatPage),
-      );
+      final navigator = navigatorKey.currentState;
+      if (navigator != null) {
+        unawaited(
+          CrashMitigationService.pushRoute(
+            navigator: navigator,
+            builder: (_) => chatPage,
+          ),
+        );
+      }
       return;
     }
     final isMessage = payload.startsWith('message:');
@@ -110,7 +119,15 @@ class LocalNotificationService {
       openNotificationPage(context, page);
       return;
     }
-    navigatorKey.currentState?.push(MaterialPageRoute(builder: (_) => page));
+    final navigator = navigatorKey.currentState;
+    if (navigator != null) {
+      unawaited(
+        CrashMitigationService.pushRoute(
+          navigator: navigator,
+          builder: (_) => page,
+        ),
+      );
+    }
   }
 
   /// 请求通知权限
@@ -145,9 +162,7 @@ class LocalNotificationService {
     }
 
     if (!_permissionGranted) {
-      debugPrint(
-        '[LocalNotification] 权限未授予，跳过通知',
-      );
+      debugPrint('[LocalNotification] 权限未授予，跳过通知');
       return;
     }
 
