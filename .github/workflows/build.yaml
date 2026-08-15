@@ -6,7 +6,8 @@ on:
       - 'v*'
 
 env:
-  IS_STABLE: ${{ !contains(github.ref, '-') }}
+  # Aqua is a secondary-development distribution; every tag is a pre-release.
+  IS_STABLE: 'false'
   FLUTTER_LINUX_VERSION: '3.44.8'
   ANDROID_NDK_VERSION: '27.3.13750724'
 
@@ -15,7 +16,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     permissions:
       contents: read
-      id-token: write
     strategy:
       fail-fast: false
       matrix:
@@ -128,10 +128,16 @@ jobs:
 
       - name: Setup Android Signing
         if: startsWith(matrix.platform, 'android')
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.AQUA_ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_PROPERTIES: ${{ secrets.AQUA_ANDROID_KEY_PROPERTIES }}
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks
-          echo "${{ secrets.ANDROID_KEY_PROPERTIES }}" > android/key.properties
-          echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 -d > android/app/google-services.json
+          test -n "$ANDROID_KEYSTORE_BASE64"
+          test -n "$ANDROID_KEY_PROPERTIES"
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
+          printf '%s\n' "$ANDROID_KEY_PROPERTIES" > android/key.properties
+          test -s android/app/upload-keystore.jks
+          test -s android/key.properties
 
       - name: Configure Git for CocoaPods
         if: matrix.platform == 'ios' || matrix.platform == 'macos'
@@ -140,35 +146,12 @@ jobs:
       - name: Build Android
         if: startsWith(matrix.platform, 'android')
         run: |
-          dart tool/flutterw.dart build apk --release --target-platform ${{ matrix.flutter-target }} --dart-define=cronetHttpNoPlay=true --split-debug-info=build/symbols
+          dart tool/flutterw.dart build apk --release --target-platform ${{ matrix.flutter-target }} --dart-define=cronetHttpNoPlay=true
           unzip -l build/app/outputs/flutter-apk/app-release.apk | grep "lib/${{ matrix.arch }}/libdoh_proxy.so"
           cmp -s core/doh_proxy/certs/ca.der android/app/src/main/res/raw/proxy_ca.der
           cmp -s core/doh_proxy/certs/ca.crt assets/certs/proxy_ca.pem
           mkdir -p dist
           mv build/app/outputs/flutter-apk/app-release.apk dist/fluxdo-${{ matrix.arch }}.apk
-
-      - name: Authenticate to Google Cloud
-        if: startsWith(matrix.platform, 'android')
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
-          service_account: ${{ secrets.GCP_SA_EMAIL }}
-
-      - name: Upload Dart symbols to Crashlytics
-        if: startsWith(matrix.platform, 'android')
-        run: |
-          npx -y firebase-tools@latest crashlytics:symbols:upload \
-            --app=1:98542877021:android:e555169791c86bb9c950b4 \
-            build/symbols
-
-      - name: Archive Dart symbols
-        if: startsWith(matrix.platform, 'android')
-        uses: actions/upload-artifact@v4
-        with:
-          name: dart-symbols-${{ matrix.arch }}
-          path: build/symbols
-          retention-days: 90
-          if-no-files-found: error
 
       - name: Build iOS
         if: matrix.platform == 'ios'
@@ -479,7 +462,7 @@ jobs:
       - build
       - flatpak_package
     runs-on: ubuntu-latest
-    if: ${{ !contains(github.ref, '-') }}
+    if: env.IS_STABLE == 'true'
     permissions:
       contents: write
     steps:
@@ -659,13 +642,13 @@ jobs:
           done
 
       - name: Create Release
-        if: env.IS_STABLE == 'true'
+        if: success()
         uses: softprops/action-gh-release@v2
         with:
           files: ./dist/*
           body_path: release_notes.md
           draft: false
-          prerelease: false
+          prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

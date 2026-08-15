@@ -59,7 +59,6 @@ class MainActivity : FlutterActivity() {
     }
 
     private val CHANNEL = "com.github.lingyan000.fluxdo/browser"
-    private val CRASHLYTICS_CHANNEL = "com.github.lingyan000.fluxdo/crashlytics"
     private val ICON_CHANNEL = "com.github.lingyan000.fluxdo/app_icon"
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -145,17 +144,6 @@ class MainActivity : FlutterActivity() {
                         }
                     }
                     result.success(true)
-                }
-                else -> result.notImplemented()
-            }
-        }
-
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CRASHLYTICS_CHANNEL).setMethodCallHandler { call, result ->
-            when (call.method) {
-                "setCrashlyticsEnabled" -> {
-                    val enable = call.argument<Boolean>("enabled") ?: false
-                    FluxdoApplication.setCrashlytics(enable)
-                    result.success(null)
                 }
                 else -> result.notImplemented()
             }

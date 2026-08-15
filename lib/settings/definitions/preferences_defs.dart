@@ -265,24 +265,6 @@ List<SettingsGroup> buildPreferencesGroups(BuildContext context) {
         ),
       ],
     ),
-    SettingsGroup(
-      title: l10n.preferences_advanced,
-      icon: Symbols.bug_report_rounded,
-      items: [
-        PlatformConditionalModel(
-          inner: SwitchModel(
-            id: 'crashlytics',
-            title: l10n.preferences_crashlytics,
-            subtitle: l10n.preferences_crashlyticsDesc,
-            icon: Symbols.bug_report_rounded,
-            getValue: (ref) => ref.watch(preferencesProvider).crashlytics,
-            onChanged: (ref, v) =>
-                ref.read(preferencesProvider.notifier).setCrashlytics(v),
-          ),
-          condition: () => Platform.isAndroid,
-        ),
-      ],
-    ),
   ];
 }
 

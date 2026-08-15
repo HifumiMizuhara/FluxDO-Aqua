@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:collection/collection.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -128,9 +126,6 @@ class AppPreferences {
   /// 本地内容屏蔽用户名的归一化集合，匹配时使用。
   late final Set<String> normalizedBlockedUsernames =
       BlockedUserFilter.normalizedUsernames(blockedUsernames);
-
-  /// 崩溃日志上报（仅 Android）
-  final bool crashlytics;
 
   /// Android 上收紧媒体内存预算和资源释放时序的实验性保护措施。
   final bool crashMitigation;
@@ -286,8 +281,7 @@ class AppPreferences {
     required this.topicFilterKeywords,
     this.topicFilterWholeWord = false,
     this.blockedUsernames = const [],
-    required this.crashlytics,
-    this.crashMitigation = false,
+    this.crashMitigation = true,
     required this.portraitLock,
     required this.fullscreenSwipeBack,
     required this.exitOnSingleBack,
@@ -346,7 +340,6 @@ class AppPreferences {
     List<String>? topicFilterKeywords,
     bool? topicFilterWholeWord,
     List<String>? blockedUsernames,
-    bool? crashlytics,
     bool? crashMitigation,
     bool? portraitLock,
     bool? fullscreenSwipeBack,
@@ -407,7 +400,6 @@ class AppPreferences {
       topicFilterKeywords: topicFilterKeywords ?? this.topicFilterKeywords,
       topicFilterWholeWord: topicFilterWholeWord ?? this.topicFilterWholeWord,
       blockedUsernames: blockedUsernames ?? this.blockedUsernames,
-      crashlytics: crashlytics ?? this.crashlytics,
       crashMitigation: crashMitigation ?? this.crashMitigation,
       portraitLock: portraitLock ?? this.portraitLock,
       fullscreenSwipeBack: fullscreenSwipeBack ?? this.fullscreenSwipeBack,
@@ -495,7 +487,6 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
   static const String _topicFilterKeywordsKey = 'pref_topic_filter_keywords';
   static const String _topicFilterWholeWordKey = 'pref_topic_filter_whole_word';
   static const String _blockedUsernamesKey = 'pref_blocked_usernames';
-  static const String _crashlyticsKey = 'pref_crashlytics';
   static const String _crashMitigationKey = 'pref_crash_mitigation';
   static const String _portraitLockKey = 'pref_portrait_lock';
   static const String _fullscreenSwipeBackKey = 'pref_fullscreen_swipe_back';
@@ -556,10 +547,6 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
   static const String _editorToolbarToolsKey = 'pref_editor_toolbar_tools';
   static const String _topicCardStyleKey = 'pref_topic_card_style';
 
-  static const _crashlyticsChannel = MethodChannel(
-    'com.github.lingyan000.fluxdo/crashlytics',
-  );
-
   PreferencesNotifier(this._prefs)
     : super(
         AppPreferences(
@@ -580,8 +567,7 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
               _prefs.getBool(_topicFilterWholeWordKey) ?? false,
           blockedUsernames:
               _prefs.getStringList(_blockedUsernamesKey) ?? const [],
-          crashlytics: _prefs.getBool(_crashlyticsKey) ?? true,
-          crashMitigation: _prefs.getBool(_crashMitigationKey) ?? false,
+          crashMitigation: _prefs.getBool(_crashMitigationKey) ?? true,
           portraitLock: _prefs.getBool(_portraitLockKey) ?? false,
           fullscreenSwipeBack: _prefs.getBool(_fullscreenSwipeBackKey) ?? false,
           exitOnSingleBack: _prefs.getBool(_exitOnSingleBackKey) ?? false,
@@ -749,16 +735,6 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
     }
     state = state.copyWith(blockedUsernames: sanitized);
     await _prefs.setStringList(_blockedUsernamesKey, sanitized);
-  }
-
-  Future<void> setCrashlytics(bool enabled) async {
-    state = state.copyWith(crashlytics: enabled);
-    await _prefs.setBool(_crashlyticsKey, enabled);
-    if (Platform.isAndroid) {
-      await _crashlyticsChannel.invokeMethod('setCrashlyticsEnabled', {
-        'enabled': enabled,
-      });
-    }
   }
 
   Future<void> setCrashMitigation(bool enabled) async {

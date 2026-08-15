@@ -7,8 +7,6 @@ plugins {
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
-    id("com.google.gms.google-services")
-    id("com.google.firebase.crashlytics")
 }
 
 fun Properties.readNonBlank(name: String): String? =
@@ -144,9 +142,6 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
-    implementation(platform("com.google.firebase:firebase-bom:33.14.0"))
-    implementation("com.google.firebase:firebase-crashlytics-ndk")
-    implementation("com.google.firebase:firebase-analytics")
     implementation("org.json:json:20240303")
     implementation("androidx.webkit:webkit:1.15.0")
     // 媒体转码(压缩到 4MB):Transformer 走系统 MediaCodec 硬编

@@ -350,7 +350,6 @@ Future<void> main() async {
   await MigrationService.runAll(prefs);
 
   // 阶段 2：依赖 prefs 的步骤并行
-  final crashlyticsEnabled = prefs.getBool('pref_crashlytics') ?? true;
   final developerMode = prefs.getBool('developer_mode') ?? false;
   CfChallengeLogger.setEnabled(developerMode);
   // 开发者模式下 debug 级日志落盘（高频追踪信息）
@@ -358,10 +357,6 @@ Future<void> main() async {
   await Future.wait([
     CronetFallbackService.instance.initialize(prefs),
     ProxySettingsService.instance.initialize(prefs),
-    if (Platform.isAndroid)
-      MethodChannel(
-        'com.github.lingyan000.fluxdo/crashlytics',
-      ).invokeMethod('setCrashlyticsEnabled', {'enabled': crashlyticsEnabled}),
   ]);
   // rhttp (Rust reqwest) 初始化：在 ProxySettingsService 之后、NetworkSettingsService 之前
   await RhttpSettingsService.instance.initialize(prefs);
@@ -1140,34 +1135,7 @@ class _MainPageState extends ConsumerState<MainPage>
     await _autoCheckUpdate();
     if (!mounted) return;
 
-    // 一次性数据收集告知（仅 Android）
-    if (Platform.isAndroid) {
-      await _showCrashlyticsNotice();
-      if (!mounted) return;
-    }
-
     await _checkClipboardTopicLink();
-  }
-
-  Future<void> _showCrashlyticsNotice() async {
-    final prefs = ref.read(sharedPreferencesProvider);
-    if (prefs.getBool('crashlytics_notice_shown') ?? false) return;
-    await prefs.setBool('crashlytics_notice_shown', true);
-    if (!mounted) return;
-    await showAppDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: Text(S.current.preferences_enableCrashlyticsTitle),
-        content: Text(S.current.preferences_enableCrashlyticsContent),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(S.current.common_confirm),
-          ),
-        ],
-      ),
-    );
   }
 
   void _onDestinationSelected(int index) {

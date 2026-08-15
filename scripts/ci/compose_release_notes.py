@@ -4,7 +4,7 @@
 输入(cwd,均由 build.yaml 的前序步骤生成):
 - release_notes.md   cliff 全量明细(markdown,含 Full Changelog 行)
 - release_notes.txt  cliff 全量明细(plain,AltStore 用)
-- highlights/<tag>.md  人工撰写的用户视角亮点(可选,仅 stable 消费)
+- highlights/<tag>.md  人工撰写的用户视角亮点(可选)
 
 输出(cwd):
 - release_notes.md        GH Release 正文源:亮点 + <details> 折叠明细 + compare 行
@@ -12,7 +12,7 @@
 - release_notes.txt       AltStore 文本源:亮点纯文本化
 - release_notes_detail.md 原始 cliff 明细快照(TG 脚本从中收集贡献者)
 
-亮点文件缺失或非 stable 时,三个渠道均保持现状(全量明细)。
+亮点文件缺失时,三个渠道均保持现状(全量明细)。
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ def plainify(md: str) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tag", required=True, help="本次发布 tag,如 v0.2.23")
-    parser.add_argument("--stable", required=True, help="true / false")
+    parser.add_argument("--stable", required=True, help="true / false (保留兼容参数)")
     args = parser.parse_args()
 
     notes_path = Path("release_notes.md")
@@ -59,11 +59,8 @@ def main() -> int:
     detail_path.write_text(detail_md, encoding="utf-8")
 
     highlights_path = Path("highlights") / f"{args.tag}.md"
-    is_stable = args.stable.strip().lower() == "true"
-
-    if not is_stable or not highlights_path.exists():
-        reason = "非 stable 版本" if not is_stable else f"未找到 {highlights_path}"
-        print(f"{reason},保持全量明细,不做亮点组装")
+    if not highlights_path.exists():
+        print(f"未找到 {highlights_path},保持全量明细,不做亮点组装")
         tg_path.write_text(detail_md, encoding="utf-8")
         return 0
 
