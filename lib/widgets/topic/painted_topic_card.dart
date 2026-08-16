@@ -243,7 +243,8 @@ class _RenderTopicCard extends RenderBox
     for (final (rect, icon) in l.titleIcons) {
       canvas.drawParagraph(icon, rect.topLeft + offset + l.titleOffset);
     }
-    for (final (rect, url) in l.titleEmojis) {
+    for (var i = 0; i < l.titleEmojis.length; i++) {
+      final (rect, url) = l.titleEmojis[i];
       final img = TopicCardImages.lookup(
         url,
         this,
@@ -255,6 +256,11 @@ class _RenderTopicCard extends RenderBox
           Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
           rect.shift(offset + l.titleOffset),
           Paint()..filterQuality = FilterQuality.low,
+        );
+      } else if (i < l.titleEmojiFallbacks.length) {
+        canvas.drawParagraph(
+          l.titleEmojiFallbacks[i].$2,
+          l.titleEmojiFallbacks[i].$1.topLeft + offset + l.titleOffset,
         );
       }
     }

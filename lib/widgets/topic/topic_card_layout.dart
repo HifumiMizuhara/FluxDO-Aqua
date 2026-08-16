@@ -8,6 +8,7 @@ import '../../models/search_result.dart';
 import '../../models/topic.dart';
 import '../../models/topic_card_style.dart';
 import '../../utils/color_utils.dart';
+import '../../utils/emoji_shortcodes.dart';
 import '../../utils/number_utils.dart';
 import '../../utils/time_utils.dart';
 
@@ -54,6 +55,10 @@ class TopicCardLayout {
 
   /// 标题内嵌 emoji:占位矩形(相对标题段落原点)+ 图片 URL
   final List<(Rect, String)> titleEmojis = [];
+
+  /// 标题 emoji 图片加载失败时的可见 fallback(与图片占位一一对应)。
+  /// 自绘段落中的 placeholder 本身不会显示任何内容,必须单独绘制。
+  final List<(Rect, ui.Paragraph)> titleEmojiFallbacks = [];
 
   /// 段落内嵌图标(placeholder 行中线对齐,与 WidgetSpan(Icon) 同构;
   /// 直排字形会坐在基线上偏高):占位矩形 + 单字形小段落
@@ -420,8 +425,9 @@ class TopicCardLayout {
     final out = <(String, bool)>[];
     var last = 0;
     for (final m in matches) {
-      if (m.start > last)
+      if (m.start > last) {
         out.add((clean(html.substring(last, m.start)), false));
+      }
       out.add((m.group(1) ?? '', true));
       last = m.end;
     }
@@ -485,6 +491,7 @@ class TopicCardLayout {
     extraTexts.clear();
     titleIcons.clear();
     titleEmojis.clear();
+    titleEmojiFallbacks.clear();
     bandIcons.clear();
     statsIcons.clear();
 
@@ -673,7 +680,16 @@ class TopicCardLayout {
       } else {
         final emojiIdx = i - pendingTitleIcons.length;
         if (emojiIdx < emojiNames.length) {
-          titleEmojis.add((rect, emojiUrlOf(emojiNames[emojiIdx])));
+          final emojiName = emojiNames[emojiIdx];
+          titleEmojis.add((rect, emojiUrlOf(emojiName)));
+          titleEmojiFallbacks.add((
+            rect,
+            _iconParagraph(
+              Symbols.broken_image_rounded,
+              titleFontSize,
+              effTitleColor,
+            ),
+          ));
         }
       }
     }
@@ -1070,11 +1086,11 @@ class TopicCardLayout {
     double fontSize,
   ) {
     final names = <String>[];
-    final re = RegExp(r':([a-z0-9_+\-]+):');
+    final re = emojiShortcodeRegex;
     var last = 0;
     for (final m in re.allMatches(text)) {
       if (m.start > last) b.addText(text.substring(last, m.start));
-      names.add(m.group(1)!);
+      names.add(normalizeEmojiShortcodeName(m.group(1)!));
       b.addPlaceholder(
         fontSize + 4,
         fontSize + 4,

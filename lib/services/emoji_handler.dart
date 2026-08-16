@@ -24,17 +24,17 @@ class EmojiHandler {
   void init() {
     if (_customEmojiMap != null) return;
 
-    _customEmojiMap = {};
-
     try {
       final customEmojis = PreloadedDataService().customEmoji;
-      if (customEmojis != null) {
-        for (final emoji in customEmojis) {
-          final name = emoji['name'] as String?;
-          final url = emoji['url'] as String?;
-          if (name != null && url != null) {
-            _customEmojiMap![name] = url;
-          }
+      // 预加载尚未完成时不要把 null 固化成空 map,否则后续即使站点
+      // 数据到达也永远不会注册 custom emoji。
+      if (customEmojis == null) return;
+      _customEmojiMap = {};
+      for (final emoji in customEmojis) {
+        final name = emoji['name'] as String?;
+        final url = emoji['url'] as String?;
+        if (name != null && url != null) {
+          _customEmojiMap![name] = url;
         }
       }
     } catch (e) {
@@ -56,6 +56,8 @@ class EmojiHandler {
   /// 优先查找自定义 emoji（有服务端提供的真实 URL），
   /// 未找到则使用标准 emoji 的确定性路径。
   String getEmojiUrl(String name) {
+    // 允许列表卡片等非编辑器路径在 PreheatGate 前被构建时也触发注册。
+    init();
     final normalized = normalizeEmojiShortcodeName(name);
 
     // 优先查自定义 emoji（如 bili_114、tsai 等）
