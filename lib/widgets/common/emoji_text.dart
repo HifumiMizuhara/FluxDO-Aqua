@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/preferences_provider.dart';
 import '../../services/emoji_handler.dart';
+import '../../services/emoji_display_policy.dart';
 import '../../services/discourse_cache_manager.dart';
 import '../../utils/emoji_shortcodes.dart';
 
@@ -7,7 +10,7 @@ import '../../utils/emoji_shortcodes.dart';
 ///
 /// 将文本中的 :emoji_name: 替换为图片显示，
 /// 使用 Text.rich + WidgetSpan 实现，无需完整 HTML 渲染库。
-class EmojiText extends StatelessWidget {
+class EmojiText extends ConsumerWidget {
   final String text;
   final TextStyle? style;
   final int? maxLines;
@@ -29,13 +32,17 @@ class EmojiText extends StatelessWidget {
   static final RegExp emojiRegex = emojiShortcodeRegex;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final enabled = ref.watch(
+      preferencesProvider.select((p) => p.unifyEmojiWithDiscourse),
+    );
+    EmojiDisplayPolicy.configure(enabled);
     final spans = _buildSpans(context);
 
     // 如果没有 emoji，直接返回普通 Text
     if (spans.length == 1 && spans.first is TextSpan) {
       return Text(
-        text,
+        EmojiDisplayPolicy.normalizeUnicodeEmoji(text),
         style: style,
         maxLines: maxLines,
         overflow: overflow,
@@ -66,13 +73,14 @@ class EmojiText extends StatelessWidget {
     TextStyle? style, {
     bool preserveSourceLength = false,
   }) {
-    if (!text.contains(':')) {
-      return [TextSpan(text: text)];
+    final displayText = EmojiDisplayPolicy.normalizeUnicodeEmoji(text);
+    if (!displayText.contains(':')) {
+      return [TextSpan(text: displayText)];
     }
-    final matches = emojiRegex.allMatches(text);
+    final matches = emojiRegex.allMatches(displayText);
 
     if (matches.isEmpty) {
-      return [TextSpan(text: text)];
+      return [TextSpan(text: displayText)];
     }
 
     final spans = <InlineSpan>[];
@@ -81,7 +89,7 @@ class EmojiText extends StatelessWidget {
     for (final match in matches) {
       // 添加 emoji 前的文本
       if (match.start > lastEnd) {
-        spans.add(TextSpan(text: text.substring(lastEnd, match.start)));
+        spans.add(TextSpan(text: displayText.substring(lastEnd, match.start)));
       }
 
       final emojiName = match.group(1)!;
@@ -100,8 +108,8 @@ class EmojiText extends StatelessWidget {
     }
 
     // 添加剩余文本
-    if (lastEnd < text.length) {
-      spans.add(TextSpan(text: text.substring(lastEnd)));
+    if (lastEnd < displayText.length) {
+      spans.add(TextSpan(text: displayText.substring(lastEnd)));
     }
 
     return spans;
@@ -147,7 +155,7 @@ class EmojiText extends StatelessWidget {
 /// 可选择的 Emoji 文本组件
 ///
 /// 用于需要支持文本选择的场景（如话题详情页标题）
-class SelectableEmojiText extends StatelessWidget {
+class SelectableEmojiText extends ConsumerWidget {
   final String text;
   final TextStyle? style;
   final GlobalKey? textKey;
@@ -155,12 +163,20 @@ class SelectableEmojiText extends StatelessWidget {
   const SelectableEmojiText(this.text, {super.key, this.style, this.textKey});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final enabled = ref.watch(
+      preferencesProvider.select((p) => p.unifyEmojiWithDiscourse),
+    );
+    EmojiDisplayPolicy.configure(enabled);
     final spans = EmojiText.buildEmojiSpans(context, text, style);
 
     // 如果没有 emoji，直接返回普通 SelectableText
     if (spans.length == 1 && spans.first is TextSpan) {
-      return SelectableText(text, key: textKey, style: style);
+      return SelectableText(
+        EmojiDisplayPolicy.normalizeUnicodeEmoji(text),
+        key: textKey,
+        style: style,
+      );
     }
 
     return SelectableText.rich(

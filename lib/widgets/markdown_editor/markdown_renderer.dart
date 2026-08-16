@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:fluxdo_render/fluxdo_render.dart' show ImageRun;
 import 'package:markdown/markdown.dart' as md;
 import '../../services/discourse_cook_service.dart';
+import '../../services/emoji_display_policy.dart';
 import '../../services/emoji_handler.dart';
 import '../../constants.dart';
 import '../../utils/fluxdo_render_callbacks.dart';
@@ -119,7 +120,7 @@ class _MarkdownBodyState extends State<MarkdownBody> {
   }
 
   Future<void> _startCook() async {
-    final text = widget.data;
+    final text = EmojiDisplayPolicy.normalizeMarkdown(widget.data);
     if (_cookedFor == text) return;
     _lastCookStart = DateTime.now();
     final seq = ++_cookSeq;
@@ -143,9 +144,13 @@ class _MarkdownBodyState extends State<MarkdownBody> {
     final seeded = await service.resolveOneboxes(cooked);
     if (!seeded || !mounted) return;
     // 期间文本已变则放弃：新文本的 cook 会自己再走一轮解析
-    if (widget.data != text) return;
+    if (EmojiDisplayPolicy.normalizeMarkdown(widget.data) != text) return;
     final recooked = await service.cook(text);
-    if (!mounted || recooked == null || widget.data != text) return;
+    if (!mounted ||
+        recooked == null ||
+        EmojiDisplayPolicy.normalizeMarkdown(widget.data) != text) {
+      return;
+    }
     setState(() {
       _cooked = recooked;
       _cookedFor = text;
@@ -176,12 +181,13 @@ class _MarkdownBodyState extends State<MarkdownBody> {
   // ---------------------------------------------------------------------
 
   String _buildFallbackHtml(String data) {
-    if (_fallbackFor == data && _fallbackHtml != null) {
+    final normalizedData = EmojiDisplayPolicy.normalizeMarkdown(data);
+    if (_fallbackFor == normalizedData && _fallbackHtml != null) {
       return _fallbackHtml!;
     }
 
     // 1. 处理 Emoji 替换 (将 :smile: 转为 <img>)
-    var processedData = EmojiHandler().replaceEmojis(data);
+    var processedData = EmojiHandler().replaceEmojis(normalizedData);
 
     // 2. 预处理 @用户名 提及（转换为 HTML 链接）
     processedData = _processMentions(processedData);
@@ -231,7 +237,7 @@ class _MarkdownBodyState extends State<MarkdownBody> {
     // 10. 后处理：将 quote 占位符替换回 aside.quote
     html = _restoreQuoteBlocks(html, quoteBlocks);
 
-    _fallbackFor = data;
+    _fallbackFor = normalizedData;
     _fallbackHtml = html;
     return html;
   }

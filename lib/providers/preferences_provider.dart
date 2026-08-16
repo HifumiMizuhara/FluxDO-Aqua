@@ -9,6 +9,7 @@ import '../navigation/nav_action_bus.dart';
 import '../services/network/request_scheduler_config.dart';
 import '../services/cf_challenge_service.dart';
 import '../services/crash_mitigation_service.dart';
+import '../services/emoji_display_policy.dart';
 import '../utils/blocked_user_filter.dart';
 import '../widgets/topic/topic_card_layout.dart';
 import 'core_providers.dart';
@@ -208,6 +209,9 @@ class AppPreferences {
   /// Experimental grouping of private-message topics by recipient.
   final bool experimentalPrivateMessageCategories;
 
+  /// Unicode emojiをDiscourse風の画像emojiへ統一する実験機能。
+  final bool unifyEmojiWithDiscourse;
+
   /// Boost 弹幕化（默认关闭）
   final bool boostDanmaku;
 
@@ -305,6 +309,7 @@ class AppPreferences {
     this.signatureSvgWebView = false,
     this.experimentalNativeSvgFix = false,
     this.experimentalPrivateMessageCategories = false,
+    this.unifyEmojiWithDiscourse = false,
     this.boostDanmaku = false,
     this.showSuggestedTopics = true,
     this.defaultNestedView = false,
@@ -364,6 +369,7 @@ class AppPreferences {
     bool? signatureSvgWebView,
     bool? experimentalNativeSvgFix,
     bool? experimentalPrivateMessageCategories,
+    bool? unifyEmojiWithDiscourse,
     bool? boostDanmaku,
     bool? showSuggestedTopics,
     bool? defaultNestedView,
@@ -438,6 +444,8 @@ class AppPreferences {
       experimentalPrivateMessageCategories:
           experimentalPrivateMessageCategories ??
           this.experimentalPrivateMessageCategories,
+      unifyEmojiWithDiscourse:
+          unifyEmojiWithDiscourse ?? this.unifyEmojiWithDiscourse,
       boostDanmaku: boostDanmaku ?? this.boostDanmaku,
       showSuggestedTopics: showSuggestedTopics ?? this.showSuggestedTopics,
       defaultNestedView: defaultNestedView ?? this.defaultNestedView,
@@ -517,6 +525,8 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
       'pref_experimental_native_svg_fix';
   static const String _experimentalPrivateMessageCategoriesKey =
       'pref_experimental_private_message_categories';
+  static const String _unifyEmojiWithDiscourseKey =
+      'pref_unify_emoji_with_discourse';
   static const String _boostDanmakuKey = 'pref_boost_danmaku';
   static const String _showSuggestedTopicsKey = 'pref_show_suggested_topics';
   static const String _defaultNestedViewKey = 'pref_default_nested_view';
@@ -598,6 +608,8 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
               _prefs.getBool(_experimentalNativeSvgFixKey) ?? false,
           experimentalPrivateMessageCategories:
               _prefs.getBool(_experimentalPrivateMessageCategoriesKey) ?? false,
+          unifyEmojiWithDiscourse:
+              _prefs.getBool(_unifyEmojiWithDiscourseKey) ?? false,
           boostDanmaku: _prefs.getBool(_boostDanmakuKey) ?? false,
           showSuggestedTopics: _prefs.getBool(_showSuggestedTopicsKey) ?? true,
           defaultNestedView: _prefs.getBool(_defaultNestedViewKey) ?? false,
@@ -651,6 +663,7 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
       ) {
     isPortraitLocked = state.portraitLock;
     TopicCardStyleScope.current = state.topicCardStyle;
+    EmojiDisplayPolicy.configure(state.unifyEmojiWithDiscourse);
     CfChallengeService().autoVerifyEnabled = state.autoCfChallenge;
     CrashMitigationService.configure(state.crashMitigation);
     _syncSchedulerConfig();
@@ -889,6 +902,14 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
     if (state.experimentalPrivateMessageCategories == enabled) return;
     state = state.copyWith(experimentalPrivateMessageCategories: enabled);
     await _prefs.setBool(_experimentalPrivateMessageCategoriesKey, enabled);
+  }
+
+  Future<void> setUnifyEmojiWithDiscourse(bool enabled) async {
+    if (state.unifyEmojiWithDiscourse == enabled) return;
+    state = state.copyWith(unifyEmojiWithDiscourse: enabled);
+    EmojiDisplayPolicy.configure(enabled);
+    TopicCardLayout.evictAll();
+    await _prefs.setBool(_unifyEmojiWithDiscourseKey, enabled);
   }
 
   Future<void> setBoostDanmaku(bool enabled) async {

@@ -6,6 +6,7 @@ import '../../models/category.dart';
 import '../../models/topic.dart';
 import '../../models/topic_card_style.dart';
 import '../../services/discourse_cache_manager.dart';
+import '../../services/emoji_display_policy.dart';
 import '../../utils/idle_task.dart';
 import 'painted_topic_card.dart';
 import 'topic_card_layout.dart';
@@ -220,6 +221,7 @@ class TopicCardPrewarmScope extends StatelessWidget {
         messageStyle,
         identityHashCode(categoryMap),
         TopicCardStyleScope.current,
+        EmojiDisplayPolicy.enabled,
       ),
       warmItem: (context, topic) {
         // 置顶走 CompactTopicCard(widget 版),无排版缓存可热

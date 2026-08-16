@@ -76,5 +76,22 @@ List<SettingsGroup> buildAquaLabGroups(BuildContext context) {
         ),
       ],
     ),
+    SettingsGroup(
+      title: l10n.aquaLab_emoji,
+      icon: Symbols.emoji_emotions_rounded,
+      items: [
+        SwitchModel(
+          id: 'unifyEmojiWithDiscourse',
+          title: l10n.preferences_unifyEmojiWithDiscourse,
+          subtitle: l10n.preferences_unifyEmojiWithDiscourseDesc,
+          icon: Symbols.emoji_emotions_rounded,
+          getValue: (ref) =>
+              ref.watch(preferencesProvider).unifyEmojiWithDiscourse,
+          onChanged: (ref, value) => ref
+              .read(preferencesProvider.notifier)
+              .setUnifyEmojiWithDiscourse(value),
+        ),
+      ],
+    ),
   ];
 }

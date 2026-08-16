@@ -50,6 +50,7 @@ import '../../../models/mention_user.dart';
 import '../../../services/app_error_handler.dart';
 import '../../../services/discourse/discourse_service.dart';
 import '../../../services/discourse_cook_service.dart';
+import '../../../services/emoji_display_policy.dart';
 import '../../../services/emoji_alias_service.dart';
 import '../../../services/emoji_handler.dart';
 import '../../../utils/clipboard_image_native.dart';
@@ -252,7 +253,8 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     // (不可序列化岛/语法缺口)→ 回调降级纯文本,防止编辑-提交毁帖。
     // 空文档/富 composer 自己存的草稿天然过门禁;唯一代价是打开时多一次
     // cook(warmUp 后毫秒级)。
-    final doc = await markdownToDocGuarded(widget.controller.text);
+    final raw = EmojiDisplayPolicy.normalizeMarkdown(widget.controller.text);
+    final doc = await markdownToDocGuarded(raw);
     if (!mounted) return;
     if (doc == null) {
       widget.onFallbackToPlain?.call();
@@ -339,7 +341,7 @@ class RichComposerEditorState extends State<RichComposerEditor> {
       final editor = _editor;
       if (editor == null || !mounted) return;
       final sw = Stopwatch()..start();
-      final raw = docToRaw(editor.blocks);
+      final raw = EmojiDisplayPolicy.normalizeMarkdown(docToRaw(editor.blocks));
       if (raw == widget.controller.text) return;
       widget.controller.text = raw;
       if (kDebugMode && sw.elapsedMilliseconds > 8) {
@@ -371,7 +373,7 @@ class RichComposerEditorState extends State<RichComposerEditor> {
     _serializeDebounce?.cancel();
     final editor = _editor;
     if (editor == null) return;
-    final raw = docToRaw(editor.blocks);
+    final raw = EmojiDisplayPolicy.normalizeMarkdown(docToRaw(editor.blocks));
     if (raw != widget.controller.text) {
       // 原子赋值 + 合法末尾选区。text setter 会把 selection 置
       // collapsed(-1);切到源码模式时 TextField attach 的**首帧**

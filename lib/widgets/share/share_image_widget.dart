@@ -7,8 +7,10 @@ import 'package:jovial_svg/jovial_svg.dart';
 import '../../constants.dart';
 import '../../l10n/s.dart';
 import '../../models/topic.dart';
+import '../../providers/preferences_provider.dart';
 import '../../utils/fluxdo_render_callbacks.dart';
 import '../../utils/time_utils.dart';
+import '../../services/emoji_display_policy.dart';
 import '../common/smart_avatar.dart';
 import '../common/flair_badge.dart';
 import '../common/emoji_text.dart';
@@ -40,6 +42,10 @@ class ShareImageWidget extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final unifyEmoji = ref.watch(
+      preferencesProvider.select((p) => p.unifyEmojiWithDiscourse),
+    );
+    EmojiDisplayPolicy.configure(unifyEmoji);
     final isDark = shareTheme.isDark;
     final bgColor = shareTheme.bgColor;
     final cardColor = shareTheme.cardColor;
@@ -111,7 +117,7 @@ class ShareImageWidget extends ConsumerWidget {
                 const SizedBox(height: 12),
 
                 // 内容
-                _buildContent(targetPost, cardColor),
+                _buildContent(targetPost, cardColor, unifyEmoji: unifyEmoji),
 
                 const SizedBox(height: 16),
 
@@ -225,7 +231,7 @@ class ShareImageWidget extends ConsumerWidget {
     );
   }
 
-  Widget _buildContent(Post post, Color cardColor) {
+  Widget _buildContent(Post post, Color cardColor, {required bool unifyEmoji}) {
     // 预处理 cooked(注入 mention 状态 emoji + 链接点击数),与详情页一致,
     // 保证截图里 mention/click-count 等动态内容也能渲染。
     final preprocessed = FluxdoRenderCallbacks.preprocessCookedForRender(post);
@@ -253,8 +259,8 @@ class ShareImageWidget extends ConsumerWidget {
       // 文字颜色走 Theme —— ShareImagePreview 已用对应 brightness 的 Theme
       // 包裹本 widget,故新引擎从 textTheme 取色能匹配卡片亮/暗背景。
       child: FluxdoRender(
-        cookedHtml: preprocessed,
-        parsedNodes: parsedNodes,
+        cookedHtml: EmojiDisplayPolicy.normalizeCookedHtml(preprocessed),
+        parsedNodes: unifyEmoji ? null : parsedNodes,
         selectionEnabled: false,
         screenshotMode: true,
         linkHandler: callbacks.linkHandler,

@@ -11,6 +11,7 @@ import '../../../utils/blocked_user_filter.dart';
 import '../../../utils/frame_jank_monitor.dart';
 import '../../common/perf_span_box.dart';
 import '../../../services/toast_service.dart';
+import '../../../services/emoji_display_policy.dart';
 import '../../../utils/fluxdo_render_callbacks.dart';
 import '../post_boost/boost_actions.dart';
 import '../post_boost/boost_danmaku.dart';
@@ -235,15 +236,22 @@ class NewEngineChunkSegment extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final unifyEmoji = ref.watch(
+      preferencesProvider.select((p) => p.unifyEmojiWithDiscourse),
+    );
+    EmojiDisplayPolicy.configure(unifyEmoji);
+    final normalizedFootnotesHtml = footnotesHtml == null
+        ? null
+        : EmojiDisplayPolicy.normalizeCookedHtml(footnotesHtml!);
     FrameJankMonitor.noteBuild(
       'chk#${post.postNumber}:$chunkIndex/'
       '${(chunk.html.length / 1000).toStringAsFixed(1)}k',
     );
     Widget content = FluxdoRender(
-      cookedHtml: chunk.html,
-      parsedNodes: parsedNodes,
+      cookedHtml: EmojiDisplayPolicy.normalizeCookedHtml(chunk.html),
+      parsedNodes: unifyEmoji ? null : parsedNodes,
       imageIndexOffset: imageIndexOffset,
-      footnotesHtml: footnotesHtml,
+      footnotesHtml: normalizedFootnotesHtml,
       // 同 post 各 chunk 共享一个选区作用域 → 选区可跨 chunk。
       selectionScopeId: post.id,
       // chunk 文档序号 → 跨 chunk 选区按 (chunkIndex, docOrder) 逻辑序排序。

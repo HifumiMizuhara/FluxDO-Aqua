@@ -7,6 +7,8 @@ import '../../models/category.dart';
 import '../../models/search_result.dart';
 import '../../models/topic.dart';
 import '../../models/topic_card_style.dart';
+import '../../services/emoji_display_policy.dart';
+import '../../services/emoji_handler.dart';
 import '../../utils/color_utils.dart';
 import '../../utils/emoji_shortcodes.dart';
 import '../../utils/number_utils.dart';
@@ -197,6 +199,7 @@ class TopicCardLayout {
       identityHashCode(category),
       _currentMinuteEpoch(),
       effStyle, // 值语义 ==:改样式设置即重排
+      EmojiDisplayPolicy.enabled,
     );
     final cached = _cache[identity];
     if (cached != null && cached._stamp == stamp) return cached;
@@ -288,6 +291,7 @@ class TopicCardLayout {
       statsAvailableWidth,
       identityHashCode(category),
       _currentMinuteEpoch(),
+      EmojiDisplayPolicy.enabled,
     );
     final cached = _cache[identity];
     if (cached != null && cached._stamp == stamp) return cached;
@@ -316,8 +320,8 @@ class TopicCardLayout {
         if (topic?.archived == true)
           (Symbols.archive_rounded, scheme.onSurfaceVariant),
       ],
-      parseTitleEmoji: false, // widget 版搜索卡不解析标题 emoji,对齐
-      emojiUrlOf: (_) => '',
+      parseTitleEmoji: EmojiDisplayPolicy.enabled,
+      emojiUrlOf: EmojiHandler().getEmojiUrl,
       isUnread: false,
       isFullyRead: false,
       unreadCount: 0,
@@ -646,6 +650,7 @@ class TopicCardLayout {
     }
     final emojiNames = <String>[];
     for (final (text, highlighted) in titleSegments) {
+      final displayText = EmojiDisplayPolicy.normalizeUnicodeEmoji(text);
       if (highlighted) {
         tb.pushStyle(
           _tStyle(
@@ -657,12 +662,12 @@ class TopicCardLayout {
             background: scheme.primaryContainer,
           ),
         );
-        tb.addText(text);
+        tb.addText(displayText);
         tb.pop();
-      } else if (parseTitleEmoji && text.contains(':')) {
-        emojiNames.addAll(_addTextWithEmoji(tb, text, titleFontSize));
+      } else if (parseTitleEmoji && displayText.contains(':')) {
+        emojiNames.addAll(_addTextWithEmoji(tb, displayText, titleFontSize));
       } else {
-        tb.addText(text);
+        tb.addText(displayText);
       }
     }
     // 普通卡标题右侧要让出未读槽位宽;私信卡主题行满宽

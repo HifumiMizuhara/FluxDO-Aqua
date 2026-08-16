@@ -12,6 +12,7 @@ import 'package:super_clipboard/super_clipboard.dart';
 
 import '../../providers/preferences_provider.dart';
 import '../../services/discourse_cook_service.dart';
+import '../../services/emoji_display_policy.dart';
 import '../../services/emoji_handler.dart';
 import '../../utils/emoji_shortcodes.dart';
 import '../../utils/platform_utils.dart';
@@ -117,6 +118,7 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
   final _bodyFieldKey = GlobalKey();
   final _pangu = Pangu();
   bool _isApplyingPangu = false;
+  bool _isApplyingEmojiNormalization = false;
   Timer? _panguTimer;
 
   bool _showPreview = false;
@@ -185,8 +187,38 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
 
   /// 处理文本变化，实现智能列表续行
   void _handleTextChange() {
+    if (_isApplyingEmojiNormalization) return;
+
     final currentText = widget.controller.text;
     final selection = widget.controller.selection;
+
+    if (ref.read(preferencesProvider).unifyEmojiWithDiscourse &&
+        (!widget.controller.value.composing.isValid ||
+            widget.controller.value.composing.isCollapsed)) {
+      final normalized = EmojiDisplayPolicy.normalizeMarkdown(currentText);
+      if (normalized != currentText) {
+        _isApplyingEmojiNormalization = true;
+        final mappedSelection = selection.isValid
+            ? TextSelection(
+                baseOffset: _mapEmojiOffset(currentText, selection.baseOffset),
+                extentOffset: _mapEmojiOffset(
+                  currentText,
+                  selection.extentOffset,
+                ),
+                affinity: selection.affinity,
+                isDirectional: selection.isDirectional,
+              )
+            : TextSelection.collapsed(offset: normalized.length);
+        widget.controller.value = widget.controller.value.copyWith(
+          text: normalized,
+          selection: mappedSelection,
+          composing: TextRange.empty,
+        );
+        _previousText = normalized;
+        _isApplyingEmojiNormalization = false;
+        return;
+      }
+    }
 
     // 外滚结构下 TextField 不自滚,EditableText 的 showCaretOnScreen
     // 管不到外层 CustomScrollView —— 打字/换行/删除后手动跟随光标
@@ -320,6 +352,13 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
     }
 
     _previousText = currentText;
+  }
+
+  int _mapEmojiOffset(String text, int offset) {
+    final safeOffset = offset.clamp(0, text.length);
+    return EmojiDisplayPolicy.normalizeMarkdown(
+      text.substring(0, safeOffset),
+    ).length;
   }
 
   /// 当前是否处于预览模式（优先使用外部状态）

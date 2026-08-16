@@ -15,6 +15,7 @@ import '../common/smart_avatar.dart';
 import '../common/animated_avatar_overlay.dart';
 import '../common/perf_span_box.dart';
 import '../../services/discourse_cache_manager.dart';
+import '../../services/emoji_display_policy.dart';
 import '../common/category_tags_line.dart';
 import '../common/icon_glyph_span.dart';
 import '../common/relative_time_text.dart';
@@ -243,6 +244,10 @@ class TopicCard extends ConsumerWidget {
     final style = messageStyle
         ? TopicCardStyle.defaults
         : ref.watch(preferencesProvider.select((p) => p.topicCardStyle));
+    final unifyEmoji = ref.watch(
+      preferencesProvider.select((p) => p.unifyEmojiWithDiscourse),
+    );
+    EmojiDisplayPolicy.configure(unifyEmoji);
 
     // 标题字号可自定义(默认 15:Gmail 主题行 14 与原版 16 的折中);
     // 私信卡主题行字号在 _buildMessageBody 内部另定,不走这里

@@ -27,6 +27,7 @@ import '../providers/preferences_provider.dart';
 import '../providers/selected_topic_provider.dart';
 import '../services/discourse/discourse_service.dart';
 import '../services/discourse_cache_manager.dart';
+import '../services/emoji_display_policy.dart';
 import '../services/emoji_handler.dart';
 import '../services/highlighter_service.dart';
 import '../services/media_compat_service.dart';
@@ -143,7 +144,7 @@ class FluxdoRenderCallbacks {
   /// 主项目所有渲染场景的统一出口:正文 / 用户卡 bio / 回复预览 / 分享卡 等
   /// 只需 `callbacks.render(cookedHtml: html, baseTextStyle: style)`,不用再
   /// 逐字段展开 21 个 builder。[selectionEnabled] 默认 true;只读预览传 false。
-  FluxdoRender render({
+  Widget render({
     required String cookedHtml,
     Key? key,
     TextStyle? baseTextStyle,
@@ -162,46 +163,57 @@ class FluxdoRenderCallbacks {
     QuoteRequestCallback? onCopyQuoteRequest,
     CopyToastCallback? onCopyToast,
   }) {
-    return FluxdoRender(
-      key: key,
-      cookedHtml: cookedHtml,
-      parsedNodes: parsedNodes,
-      baseTextStyle: baseTextStyle,
-      selectionEnabled: selectionEnabled,
-      compact: compact,
-      screenshotMode: screenshotMode,
-      footnotesHtml: footnotesHtml,
-      imageIndexOffset: imageIndexOffset,
-      selectionScopeId: selectionScopeId,
-      chunkIndex: chunkIndex,
-      trimTopMargin: trimTopMargin,
-      trimBottomMargin: trimBottomMargin,
-      shrinkWrapWidth: shrinkWrapWidth,
-      onQuoteRequest: onQuoteRequest,
-      onCopyQuoteRequest: onCopyQuoteRequest,
-      onCopyToast: onCopyToast,
-      linkHandler: linkHandler,
-      emojiImageBuilder: emojiImageBuilder,
-      mentionTapHandler: mentionTapHandler,
-      imageContentBuilder: imageContentBuilder,
-      codeBlockHighlighter: codeBlockHighlighter,
-      codeBlockBuilder: codeBlockBuilder,
-      quoteAvatarBuilder: quoteAvatarBuilder,
-      oneboxBuilder: oneboxBuilder,
-      imageGridBuilder: imageGridBuilder,
-      footnoteTapHandler: footnoteTapHandler,
-      lazyVideoBuilder: lazyVideoBuilder,
-      iframeBuilder: iframeBuilder,
-      videoBuilder: videoBuilder,
-      audioBuilder: audioBuilder,
-      localDateBuilder: localDateBuilder,
-      policyBuilder: policyBuilder,
-      pollBuilder: pollBuilder,
-      chatTranscriptBuilder: chatTranscriptBuilder,
-      mathBlockBuilder: mathBlockBuilder,
-      mathInlineBuilder: mathInlineBuilder,
-      svgBuilder: svgBuilder,
-      onDownloadAttachment: onDownloadAttachment,
+    return Consumer(
+      builder: (context, ref, child) {
+        final enabled = ref.watch(
+          preferencesProvider.select((p) => p.unifyEmojiWithDiscourse),
+        );
+        EmojiDisplayPolicy.configure(enabled);
+        final displayHtml = EmojiDisplayPolicy.normalizeCookedHtml(cookedHtml);
+        return FluxdoRender(
+          key: key,
+          cookedHtml: displayHtml,
+          parsedNodes: enabled ? null : parsedNodes,
+          baseTextStyle: baseTextStyle,
+          selectionEnabled: selectionEnabled,
+          compact: compact,
+          screenshotMode: screenshotMode,
+          footnotesHtml: footnotesHtml == null
+              ? null
+              : EmojiDisplayPolicy.normalizeCookedHtml(footnotesHtml),
+          imageIndexOffset: imageIndexOffset,
+          selectionScopeId: selectionScopeId,
+          chunkIndex: chunkIndex,
+          trimTopMargin: trimTopMargin,
+          trimBottomMargin: trimBottomMargin,
+          shrinkWrapWidth: shrinkWrapWidth,
+          onQuoteRequest: onQuoteRequest,
+          onCopyQuoteRequest: onCopyQuoteRequest,
+          onCopyToast: onCopyToast,
+          linkHandler: linkHandler,
+          emojiImageBuilder: emojiImageBuilder,
+          mentionTapHandler: mentionTapHandler,
+          imageContentBuilder: imageContentBuilder,
+          codeBlockHighlighter: codeBlockHighlighter,
+          codeBlockBuilder: codeBlockBuilder,
+          quoteAvatarBuilder: quoteAvatarBuilder,
+          oneboxBuilder: oneboxBuilder,
+          imageGridBuilder: imageGridBuilder,
+          footnoteTapHandler: footnoteTapHandler,
+          lazyVideoBuilder: lazyVideoBuilder,
+          iframeBuilder: iframeBuilder,
+          videoBuilder: videoBuilder,
+          audioBuilder: audioBuilder,
+          localDateBuilder: localDateBuilder,
+          policyBuilder: policyBuilder,
+          pollBuilder: pollBuilder,
+          chatTranscriptBuilder: chatTranscriptBuilder,
+          mathBlockBuilder: mathBlockBuilder,
+          mathInlineBuilder: mathInlineBuilder,
+          svgBuilder: svgBuilder,
+          onDownloadAttachment: onDownloadAttachment,
+        );
+      },
     );
   }
 
