@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:emoji_extension/emoji_extension.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html_parser;
@@ -20,6 +22,13 @@ class EmojiDisplayPolicy {
 
   static void configure(bool enabled) {
     _enabled = enabled;
+    // emojiGroupsProviderはemoji面板を開いた時しかwatchされないため、
+    // 面板を一度も開かずに入力するユーザーだとmapperが永久にデータを
+    // 得られない。ここで独立に一度だけ非同期フェッチしておく
+    // (fire-and-forget、既にロード済み/進行中なら即returnで冪等)。
+    if (enabled) {
+      unawaited(EmojiShortcodeMapper.instance.ensureLoaded());
+    }
   }
 
   /// Unicode emojiをDiscourse互換shortcodeへ変換する。

@@ -41,7 +41,7 @@ final emojiGroupsProvider = StreamProvider<Map<String, List<Emoji>>>((
       );
     }
     if (snapshotGroups != null && snapshotGroups.isNotEmpty) {
-      _feedShortcodeMapper(snapshotGroups);
+      EmojiShortcodeMapper.instance.updateKnownNamesFromGroups(snapshotGroups);
       yield snapshotGroups;
       // 后台刷新:失败静默(快照已在展示,不打扰)。
       try {
@@ -50,7 +50,7 @@ final emojiGroupsProvider = StreamProvider<Map<String, List<Emoji>>>((
         if (freshJson != snapshotJson) {
           await _EmojiSnapshotStore.save(freshJson);
           final freshGroups = parseEmojiGroups(fresh);
-          _feedShortcodeMapper(freshGroups);
+          EmojiShortcodeMapper.instance.updateKnownNamesFromGroups(freshGroups);
           yield freshGroups;
         }
       } catch (e) {
@@ -66,25 +66,9 @@ final emojiGroupsProvider = StreamProvider<Map<String, List<Emoji>>>((
   final fresh = await service.getEmojisRaw();
   unawaited(_EmojiSnapshotStore.save(jsonEncode(fresh)));
   final freshGroups = parseEmojiGroups(fresh);
-  _feedShortcodeMapper(freshGroups);
+  EmojiShortcodeMapper.instance.updateKnownNamesFromGroups(freshGroups);
   yield freshGroups;
 });
-
-/// 把解析出的 emoji 名(及别名)喂给 [EmojiShortcodeMapper],供
-/// 「EmojiをDiscourse風に統一」实验功能校验 Unicode→shortcode 转换是否
-/// 命中站点真实存在的名字。
-void _feedShortcodeMapper(Map<String, List<Emoji>> groups) {
-  final names = <String>{};
-  for (final emojis in groups.values) {
-    for (final emoji in emojis) {
-      names.add(emoji.name);
-      names.addAll(emoji.searchAliases);
-    }
-  }
-  if (names.isNotEmpty) {
-    EmojiShortcodeMapper.instance.updateKnownNames(names);
-  }
-}
 
 /// /emojis.json 的磁盘快照(ApplicationSupport 下单文件)。
 class _EmojiSnapshotStore {

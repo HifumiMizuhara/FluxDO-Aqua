@@ -1,4 +1,8 @@
 import 'package:emoji_extension/emoji_extension.dart';
+import 'package:flutter/foundation.dart';
+
+import '../models/emoji.dart' as discourse_emoji;
+import 'discourse/discourse_service.dart';
 
 /// Unicode emoji -> Discourse 官方 shortcode 名解析器。
 ///
@@ -9,15 +13,17 @@ import 'package:emoji_extension/emoji_extension.dart';
 /// - 🖕 Discord 平台甚至没有这条记录
 ///
 /// 因此改为:枚举该 emoji 在各平台下的候选名,逐个与站点真实的 emoji 名
-/// 集合(来自 `/emojis.json`,见 [emojiGroupsProvider] 及其快照)比对,
-/// 命中已知名才转换;集合未就绪或没有命中候选时返回 null——宁可不转,
-/// 也不要把生僻 emoji 转成站点根本没有的图。与 [EmojiAliasService] 对
-/// "转换前提是先确认名字真实存在" 的取舍一致。
+/// 集合(来自 `/emojis.json`,见 [emojiGroupsProvider] 及其快照,或
+/// [ensureLoaded] 的独立兜底请求)比对,命中已知名才转换;集合未就绪或
+/// 没有命中候选时返回 null——宁可不转,也不要把生僻 emoji 转成站点根本
+/// 没有的图。与 [EmojiAliasService] 对 "转换前提是先确认名字真实存在"
+/// 的取舍一致。
 class EmojiShortcodeMapper {
   static final EmojiShortcodeMapper instance = EmojiShortcodeMapper._();
   EmojiShortcodeMapper._();
 
   Set<String>? _knownNames;
+  Future<void>? _inflight;
 
   /// 是否已有可用的 Discourse emoji 名集合。
   bool get hasKnownNames => _knownNames != null;
@@ -27,11 +33,51 @@ class EmojiShortcodeMapper {
     _knownNames = {for (final n in names) n.toLowerCase()};
   }
 
+  /// 从 `/emojis.json` 分组数据(标准 + 自定义)提取名字与别名,刷新
+  /// 已知名集合。[emojiGroupsProvider] 与 [ensureLoaded] 共用这份逻辑,
+  /// 无论数据从哪条路径拿到,mapper 状态都是同一份。
+  void updateKnownNamesFromGroups(
+    Map<String, List<discourse_emoji.Emoji>> groups,
+  ) {
+    final names = <String>{};
+    for (final emojis in groups.values) {
+      for (final emoji in emojis) {
+        names.add(emoji.name);
+        names.addAll(emoji.searchAliases);
+      }
+    }
+    if (names.isNotEmpty) updateKnownNames(names);
+  }
+
+  /// 确保已知名集合可用。
+  ///
+  /// [emojiGroupsProvider] 只在打开 emoji 面板时才会被 watch——用户光是
+  /// 在输入框敲 Unicode emoji、从不打开面板的话,mapper 会一直拿不到
+  /// 数据,导致「Emoji 转 Discourse shortcode」实验功能形同虚设。这里
+  /// 独立兜底发起一次 `/emojis.json` 请求,与面板路径互不阻塞、谁先到
+  /// 谁写入。已有数据或请求已在途时直接复用,不重复发请求。
+  Future<void> ensureLoaded() {
+    if (_knownNames != null) return Future.value();
+    return _inflight ??= _fetch().whenComplete(() => _inflight = null);
+  }
+
+  Future<void> _fetch() async {
+    try {
+      final raw = await DiscourseService().getEmojisRaw();
+      updateKnownNamesFromGroups(parseEmojiGroups(raw));
+    } catch (e) {
+      debugPrint('EmojiShortcodeMapper: emoji 名索引拉取失败 $e');
+    }
+  }
+
   /// 仅供测试:直接注入已知名集合。
   void debugSetKnownNames(Iterable<String> names) => updateKnownNames(names);
 
   /// 仅供测试:清空已知名集合。
-  void debugReset() => _knownNames = null;
+  void debugReset() {
+    _knownNames = null;
+    _inflight = null;
+  }
 
   /// 解析单个 Unicode emoji 字符对应的 Discourse shortcode 名(不含冒号)。
   /// 无法确认时返回 null,调用方应保留原始 Unicode 字符不转换。
