@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../models/emoji.dart';
 import '../services/discourse/discourse_service.dart';
+import '../services/emoji_shortcode_mapper.dart';
 import 'core_providers.dart';
 
 /// 表情列表 Provider —— SWR(stale-while-revalidate)快照。
@@ -40,6 +41,7 @@ final emojiGroupsProvider = StreamProvider<Map<String, List<Emoji>>>((
       );
     }
     if (snapshotGroups != null && snapshotGroups.isNotEmpty) {
+      _feedShortcodeMapper(snapshotGroups);
       yield snapshotGroups;
       // 后台刷新:失败静默(快照已在展示,不打扰)。
       try {
@@ -47,7 +49,9 @@ final emojiGroupsProvider = StreamProvider<Map<String, List<Emoji>>>((
         final freshJson = jsonEncode(fresh);
         if (freshJson != snapshotJson) {
           await _EmojiSnapshotStore.save(freshJson);
-          yield parseEmojiGroups(fresh);
+          final freshGroups = parseEmojiGroups(fresh);
+          _feedShortcodeMapper(freshGroups);
+          yield freshGroups;
         }
       } catch (e) {
         debugPrint(
@@ -61,8 +65,26 @@ final emojiGroupsProvider = StreamProvider<Map<String, List<Emoji>>>((
   // 无快照:等网络(首装唯一一次),成功即落盘。
   final fresh = await service.getEmojisRaw();
   unawaited(_EmojiSnapshotStore.save(jsonEncode(fresh)));
-  yield parseEmojiGroups(fresh);
+  final freshGroups = parseEmojiGroups(fresh);
+  _feedShortcodeMapper(freshGroups);
+  yield freshGroups;
 });
+
+/// 把解析出的 emoji 名(及别名)喂给 [EmojiShortcodeMapper],供
+/// 「EmojiをDiscourse風に統一」实验功能校验 Unicode→shortcode 转换是否
+/// 命中站点真实存在的名字。
+void _feedShortcodeMapper(Map<String, List<Emoji>> groups) {
+  final names = <String>{};
+  for (final emojis in groups.values) {
+    for (final emoji in emojis) {
+      names.add(emoji.name);
+      names.addAll(emoji.searchAliases);
+    }
+  }
+  if (names.isNotEmpty) {
+    EmojiShortcodeMapper.instance.updateKnownNames(names);
+  }
+}
 
 /// /emojis.json 的磁盘快照(ApplicationSupport 下单文件)。
 class _EmojiSnapshotStore {

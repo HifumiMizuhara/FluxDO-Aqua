@@ -4,6 +4,7 @@ import 'package:html/parser.dart' as html_parser;
 
 import '../utils/emoji_shortcodes.dart';
 import 'emoji_handler.dart';
+import 'emoji_shortcode_mapper.dart';
 
 /// 「EmojiをDiscourse風に統一」実験機能の共有ポリシー。
 ///
@@ -22,9 +23,16 @@ class EmojiDisplayPolicy {
   }
 
   /// Unicode emojiをDiscourse互換shortcodeへ変換する。
+  ///
+  /// 変換テーブルはサードパーティ(emoji_extension)のDiscord命名では
+  /// なく、実際のDiscourseサイトが持つemoji名([EmojiShortcodeMapper])
+  /// と照合する。一致する名前が確認できないemojiはUnicodeのまま残す。
   static String normalizeUnicodeEmoji(String text) {
     if (!_enabled || text.isEmpty) return text;
-    return text.emojis.toDiscordShortcodes();
+    return text.emojis.replaceWhere((emoji) {
+      final name = EmojiShortcodeMapper.instance.resolve(emoji.value);
+      return name == null ? null : ':$name:';
+    });
   }
 
   /// Markdownのコードブロック/インラインコードを保護しつつ変換する。
