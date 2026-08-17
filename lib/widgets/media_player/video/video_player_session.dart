@@ -5,10 +5,9 @@ import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../../services/media/playback_position_store.dart';
-import '../../../services/crash_mitigation_service.dart';
 
 /// 视频控制器的唯一 owner。inline 播放器与全屏页都只是「租户」:
-/// retain()/release() 引用计数,归零才 dispose。
+/// [VideoSessionLease] 负责幂等地持有/释放引用,归零才 dispose。
 ///
 /// 这是旧 chewie 方案 `_fullscreenCache` + GlobalKey 收养机制的替代:
 /// 旧方案的复杂度根因是 chewie 全屏路由跨路由引用 embedded ChewieState,
@@ -28,6 +27,7 @@ class VideoPlayerSession {
 
   int _refCount = 0;
   bool _disposed = false;
+  Future<void>? _cleanup;
 
   /// 全屏路由在场标志。用 ValueNotifier 而非裸 bool:inline 靠它在全屏
   /// 进/出时各重建一次(Texture ↔ 占位切换)—— 不能指望 controller tick
@@ -93,13 +93,14 @@ class VideoPlayerSession {
     );
   }
 
-  void retain() {
-    assert(!_disposed, 'VideoPlayerSession($url) used after dispose');
+  VideoSessionLease acquireLease() {
+    if (_disposed) throw StateError('VideoPlayerSession($url) used after dispose');
     _refCount++;
+    return VideoSessionLease._(this);
   }
 
-  void release() {
-    assert(_refCount > 0);
+  void _releaseLease() {
+    if (_refCount == 0) return;
     if (--_refCount > 0) return;
     _disposed = true;
     // Do not let a newly mounted list item retain this session while its
@@ -113,13 +114,15 @@ class VideoPlayerSession {
     if (_wakelockOn) {
       unawaited(WakelockPlus.disable());
     }
-    void disposeNativeResources() {
+    Future<void> disposeNativeResources() {
+      final cleanup = _cleanup;
+      if (cleanup != null) return cleanup;
       controller.removeListener(_onControllerTick);
       fullscreenNotifier.dispose();
-      unawaited(controller.dispose());
+      return _cleanup = controller.dispose();
     }
 
-    if (CrashMitigationService.enabled && _initialization != null) {
+    if (_initialization != null) {
       // ExoPlayer may still be allocating a Surface while a list item leaves
       // the tree. Dispose after that operation settles to avoid a native race.
       unawaited(
@@ -128,8 +131,27 @@ class VideoPlayerSession {
             .whenComplete(disposeNativeResources),
       );
     } else {
-      disposeNativeResources();
+      unawaited(disposeNativeResources());
     }
+  }
+
+  bool get isDisposed => _disposed;
+}
+
+/// Idempotent owner token. Every async video operation can check [isActive]
+/// after an await before touching the controller.
+class VideoSessionLease {
+  VideoSessionLease._(this.session);
+
+  final VideoPlayerSession session;
+  bool _disposed = false;
+
+  bool get isActive => !_disposed && !session.isDisposed;
+
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    session._releaseLease();
   }
 }
 
@@ -147,10 +169,10 @@ class VideoSessionRegistry {
   /// 以真实比例占位,初始化完成零布局变化。
   static final Map<String, double> knownAspectRatios = {};
 
-  /// 取得(或创建)[url] 的 session。调用方必须配对 retain()/release()。
-  static VideoPlayerSession obtain(String url, {String? mimeType}) {
+  /// 取得(或创建)[url] 的 session lease。释放只需调用 lease.dispose().
+  static VideoSessionLease obtain(String url, {String? mimeType}) {
     final existing = _sessions[url];
-    if (existing != null) return existing;
+    if (existing != null && !existing.isDisposed) return existing.acquireLease();
     final controller = VideoPlayerController.networkUrl(
       Uri.parse(url),
       formatHint: videoFormatHintFromMime(mimeType),
@@ -158,7 +180,7 @@ class VideoSessionRegistry {
     final session = VideoPlayerSession._(url: url, controller: controller);
     session._start();
     _sessions[url] = session;
-    return session;
+    return session.acquireLease();
   }
 
   static void _removeIfCurrent(String url, VideoPlayerSession session) {

@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
@@ -30,30 +31,25 @@ class FullscreenVideoPage extends StatefulWidget {
     if (_opening || session.isFullscreen) return;
     _opening = true;
     final navigator = Navigator.of(context, rootNavigator: true);
-    session.retain();
+    final lease = session.acquireLease();
     session.isFullscreen = true;
     final aspectRatio = session.controller.value.aspectRatio;
     try {
       await FullscreenMediaCoordinator.instance.enter(
         landscape: aspectRatio > 1,
       );
+      if (!lease.isActive) return;
       _opening = false; // 路由已在推,后续重入被 isFullscreen 挡
       await navigator.push(
-        PageRouteBuilder(
-          opaque: true,
-          barrierColor: Colors.black,
-          transitionDuration: const Duration(milliseconds: 200),
-          reverseTransitionDuration: const Duration(milliseconds: 180),
-          pageBuilder: (_, _, _) => FullscreenVideoPage(session: session),
-          transitionsBuilder: (_, animation, _, child) =>
-              FadeTransition(opacity: animation, child: child),
+        CupertinoPageRoute<void>(
+          builder: (_) => FullscreenVideoPage(session: session),
         ),
       );
     } finally {
       _opening = false;
       session.isFullscreen = false;
       await FullscreenMediaCoordinator.instance.exit();
-      session.release();
+      lease.dispose();
     }
   }
 

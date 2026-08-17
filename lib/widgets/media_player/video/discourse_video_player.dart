@@ -68,6 +68,7 @@ class DiscourseVideoPlayer extends StatefulWidget {
 class _DiscourseVideoPlayerState extends State<DiscourseVideoPlayer>
     with RouteAware {
   VideoPlayerSession? _session;
+  VideoSessionLease? _lease;
   Object? _error;
 
   /// 展示用宽高比:构建期 = 记忆值 ?? widget.aspectRatio;autoResize
@@ -154,17 +155,19 @@ class _DiscourseVideoPlayerState extends State<DiscourseVideoPlayer>
     }
     _session?.controller.removeListener(_onSessionTick);
     _session?.fullscreenNotifier.removeListener(_onFullscreenChanged);
-    _session?.release();
+    _lease?.dispose();
+    _lease = null;
     _session = null;
     super.dispose();
   }
 
   Future<void> _initSession() async {
-    final session = VideoSessionRegistry.obtain(
+    final lease = VideoSessionRegistry.obtain(
       widget.url,
       mimeType: widget.mimeType,
     );
-    session.retain();
+    final session = lease.session;
+    _lease = lease;
     _session = session;
     session.controller.addListener(_onSessionTick);
     session.fullscreenNotifier.addListener(_onFullscreenChanged);
@@ -172,8 +175,8 @@ class _DiscourseVideoPlayerState extends State<DiscourseVideoPlayer>
     if (!session.isInitialized &&
         DynamicContentSuspensionService.instance.suspended) {
       await DynamicContentSuspensionService.instance.waitUntilResumed();
-      if (!mounted) {
-        session.release();
+      if (!mounted || !lease.isActive) {
+        lease.dispose();
         _session = null;
         return;
       }
@@ -188,15 +191,19 @@ class _DiscourseVideoPlayerState extends State<DiscourseVideoPlayer>
 
     try {
       await session.initialize().timeout(const Duration(seconds: 15));
+      if (!lease.isActive || !mounted) return;
       await session.controller.setLooping(widget.loop);
+      if (!lease.isActive || !mounted) return;
       // 位置记忆:初始化完成即静默 seek,封面帧直接停在续播点;
       // 「已从 xx:xx 继续播放」提示留给用户首次点播放时(控制层)
       final resumed = await PlaybackPositionStore.instance.restore(widget.url);
-      if (resumed != null) {
+      if (!lease.isActive || !mounted) return;
+      if (resumed != null && lease.isActive) {
         session.resumedPosition = resumed;
         await session.controller.seekTo(resumed);
       }
-      if (widget.autoplay) {
+      if (!lease.isActive || !mounted) return;
+      if (widget.autoplay && lease.isActive) {
         unawaited(session.controller.play());
       }
     } catch (error) {
@@ -206,11 +213,11 @@ class _DiscourseVideoPlayerState extends State<DiscourseVideoPlayer>
         '[Video] 初始化失败 url=${widget.url} '
         'mime=${widget.mimeType} error=$error',
       );
-      if (mounted) setState(() => _error = error);
+      if (mounted && lease.isActive) setState(() => _error = error);
       return;
     }
 
-    if (!mounted) return;
+    if (!mounted || !lease.isActive) return;
     setState(() {});
     _maybeApplyRealAspectRatio();
   }
