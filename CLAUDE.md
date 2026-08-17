@@ -31,3 +31,8 @@ createdAt: TimeUtils.parseUtcTime(json['created_at'] as String?),
 createdAt: DateTime.parse(json['created_at'] as String),
 createdAt: DateTime.tryParse(json['created_at'] as String? ?? ''),
 ```
+
+## Comment Language
+
+- **MUST** write comments in Japanese for any code you (Claude) author or edit in this repo.
+- **NEVER** rewrite comment language in unrelated upstream/vendored code just to comply with this rule — only new/edited code is in scope.
