@@ -4,7 +4,6 @@ import 'package:flutter/widgets.dart';
 import 'package:native_animated_image/native_animated_image.dart'
     show NativeAnimatedImageProvider;
 
-import '../../services/blob_image_cache.dart';
 import '../../services/discourse_cache_manager.dart';
 import '../../services/sticker_thumbnail_provider.dart';
 
@@ -147,6 +146,8 @@ class CachedImage extends StatelessWidget {
       return NativeAnimatedImageProvider.fromBytesProvider(
         loader: () => BlobImageCache.fetch(bucket, url),
         tag: url,
+        cacheWidth: memCacheWidth,
+        cacheHeight: memCacheHeight,
       );
     }
 

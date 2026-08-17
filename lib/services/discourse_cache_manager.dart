@@ -67,6 +67,8 @@ ImageProvider discourseImageProvider(
   double scale = 1.0,
   String bucket = BlobImageCache.contentBucket,
   DownloadPriority priority = DownloadPriority.normal,
+  int? cacheWidth,
+  int? cacheHeight,
 }) {
   if (_isAvifUrl(url)) {
     return AvifImageProvider(url, scale: scale, bucket: bucket);
@@ -76,6 +78,8 @@ ImageProvider discourseImageProvider(
       loader: () => BlobImageCache.fetch(bucket, url, priority: priority),
       tag: url,
       scale: scale,
+      cacheWidth: cacheWidth,
+      cacheHeight: cacheHeight,
     );
   }
   return BlobImageProvider(

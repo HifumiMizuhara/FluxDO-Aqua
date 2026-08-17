@@ -158,8 +158,18 @@ class _DiscourseImageState extends State<DiscourseImage> {
   /// 动图渲染 — 走 native_animated_image (Rust pipeline),不踩 Flutter Skia
   /// multi_frame_codec 的 #85831 / #94205 bug。
   Widget _buildNativeAnimatedImage(ThemeData theme) {
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final logicalWidth = widget.width ?? MediaQuery.sizeOf(context).width;
+    final cacheWidth = (logicalWidth * dpr).round().clamp(1, 4096);
+    final cacheHeight = widget.height == null
+        ? null
+        : (widget.height! * dpr).round().clamp(1, 4096);
     return Image(
-      image: discourseImageProvider(_resolvedUrl!),
+      image: discourseImageProvider(
+        _resolvedUrl!,
+        cacheWidth: cacheWidth,
+        cacheHeight: cacheHeight,
+      ),
       width: widget.width,
       height: widget.height,
       fit: widget.fit,

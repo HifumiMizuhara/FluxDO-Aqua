@@ -209,7 +209,11 @@ class _SmartAvatarState extends State<SmartAvatar> {
       // 避免列表中多个动图头像同时连累整个 list item 重绘。
       child = RepaintBoundary(
         child: Image(
-          image: discourseImageProvider(widget.imageUrl!),
+          image: discourseImageProvider(
+            widget.imageUrl!,
+            cacheWidth: (innerSize * MediaQuery.devicePixelRatioOf(context)).round().clamp(1, 512),
+            cacheHeight: (innerSize * MediaQuery.devicePixelRatioOf(context)).round().clamp(1, 512),
+          ),
           width: innerSize,
           height: innerSize,
           fit: BoxFit.cover,
