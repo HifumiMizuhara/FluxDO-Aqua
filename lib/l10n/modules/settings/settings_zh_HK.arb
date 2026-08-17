@@ -32,8 +32,6 @@
   "preferences_experimentalNativeSvgFixDesc": "使用 Painter 快取、靜態圖層和 vsync 調度的實驗性 SVG 渲染路徑。如有顯示問題請關閉。",
   "preferences_experimentalPrivateMessageCategories": "按收件人分類私訊（實驗性）",
   "preferences_experimentalPrivateMessageCategoriesDesc": "按收件人歸併私訊，多收件人私訊歸入群組聊天。關閉後使用原有列表。",
-  "preferences_crashMitigation": "崩潰緩解（實驗性）",
-  "preferences_crashMitigationDesc": "收緊 Android 圖片記憶體和影片釋放時序，減少記憶體不足導致的退出。超大圖片可能無法載入。",
   "preferences_anonymousShare": "匿名分享",
   "preferences_anonymousShareDesc": "分享鏈接時不附帶個人用户標識",
   "preferences_autoFillLogin": "自動填充登錄",

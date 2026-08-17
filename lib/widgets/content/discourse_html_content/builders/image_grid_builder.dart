@@ -308,11 +308,10 @@ class _GridImageTileState extends State<_GridImageTile> {
             // 不连带整个帖子 segment 每帧重绘
             child: RepaintBoundary(
               child: Image(
-                image: ResizeImage(
+                image: resizeDiscourseImage(
                   discourseImageProvider(displayUrl),
                   width: cachePx,
                   height: cachePx,
-                  policy: ResizeImagePolicy.fit,
                 ),
                 fit: BoxFit.cover,
                 width: widget.columnWidth,

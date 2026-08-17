@@ -8,7 +8,6 @@ import '../models/topic_card_style.dart';
 import '../navigation/nav_action_bus.dart';
 import '../services/network/request_scheduler_config.dart';
 import '../services/cf_challenge_service.dart';
-import '../services/crash_mitigation_service.dart';
 import '../services/emoji_display_policy.dart';
 import '../utils/blocked_user_filter.dart';
 import '../widgets/topic/topic_card_layout.dart';
@@ -127,9 +126,6 @@ class AppPreferences {
   /// 本地内容屏蔽用户名的归一化集合，匹配时使用。
   late final Set<String> normalizedBlockedUsernames =
       BlockedUserFilter.normalizedUsernames(blockedUsernames);
-
-  /// Android 上收紧媒体内存预算和资源释放时序的实验性保护措施。
-  final bool crashMitigation;
 
   /// 竖屏锁定
   final bool portraitLock;
@@ -285,7 +281,6 @@ class AppPreferences {
     required this.topicFilterKeywords,
     this.topicFilterWholeWord = false,
     this.blockedUsernames = const [],
-    this.crashMitigation = true,
     required this.portraitLock,
     required this.fullscreenSwipeBack,
     required this.exitOnSingleBack,
@@ -345,7 +340,6 @@ class AppPreferences {
     List<String>? topicFilterKeywords,
     bool? topicFilterWholeWord,
     List<String>? blockedUsernames,
-    bool? crashMitigation,
     bool? portraitLock,
     bool? fullscreenSwipeBack,
     bool? exitOnSingleBack,
@@ -406,7 +400,6 @@ class AppPreferences {
       topicFilterKeywords: topicFilterKeywords ?? this.topicFilterKeywords,
       topicFilterWholeWord: topicFilterWholeWord ?? this.topicFilterWholeWord,
       blockedUsernames: blockedUsernames ?? this.blockedUsernames,
-      crashMitigation: crashMitigation ?? this.crashMitigation,
       portraitLock: portraitLock ?? this.portraitLock,
       fullscreenSwipeBack: fullscreenSwipeBack ?? this.fullscreenSwipeBack,
       exitOnSingleBack: exitOnSingleBack ?? this.exitOnSingleBack,
@@ -495,7 +488,6 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
   static const String _topicFilterKeywordsKey = 'pref_topic_filter_keywords';
   static const String _topicFilterWholeWordKey = 'pref_topic_filter_whole_word';
   static const String _blockedUsernamesKey = 'pref_blocked_usernames';
-  static const String _crashMitigationKey = 'pref_crash_mitigation';
   static const String _portraitLockKey = 'pref_portrait_lock';
   static const String _fullscreenSwipeBackKey = 'pref_fullscreen_swipe_back';
   static const String _exitOnSingleBackKey = 'pref_exit_on_single_back';
@@ -577,7 +569,6 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
               _prefs.getBool(_topicFilterWholeWordKey) ?? false,
           blockedUsernames:
               _prefs.getStringList(_blockedUsernamesKey) ?? const [],
-          crashMitigation: _prefs.getBool(_crashMitigationKey) ?? true,
           portraitLock: _prefs.getBool(_portraitLockKey) ?? false,
           fullscreenSwipeBack: _prefs.getBool(_fullscreenSwipeBackKey) ?? false,
           exitOnSingleBack: _prefs.getBool(_exitOnSingleBackKey) ?? false,
@@ -665,7 +656,6 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
     TopicCardStyleScope.current = state.topicCardStyle;
     EmojiDisplayPolicy.configure(state.unifyEmojiWithDiscourse);
     CfChallengeService().autoVerifyEnabled = state.autoCfChallenge;
-    CrashMitigationService.configure(state.crashMitigation);
     _syncSchedulerConfig();
   }
 
@@ -748,13 +738,6 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
     }
     state = state.copyWith(blockedUsernames: sanitized);
     await _prefs.setStringList(_blockedUsernamesKey, sanitized);
-  }
-
-  Future<void> setCrashMitigation(bool enabled) async {
-    if (state.crashMitigation == enabled) return;
-    state = state.copyWith(crashMitigation: enabled);
-    CrashMitigationService.configure(enabled);
-    await _prefs.setBool(_crashMitigationKey, enabled);
   }
 
   Future<void> setPortraitLock(bool enabled) async {

@@ -37,6 +37,7 @@ import 'services/network/cookie/cookie_jar_service.dart';
 import 'services/network/cookie/cookie_store_observer.dart';
 import 'services/network/adapters/cronet_fallback_service.dart';
 import 'services/local_notification_service.dart';
+import 'services/crash_mitigation_service.dart';
 import 'services/data_management/cache_size_service.dart';
 import 'services/discourse_cache_manager.dart';
 import 'services/toast_service.dart';
@@ -160,6 +161,10 @@ Future<void> main() async {
   // Impeller 纹理上传并发,图密话题快滚 raster 尖峰的对症闸门,
   // 见 image_decode_gate.dart)。
   FluxdoWidgetsBinding.ensureInitialized();
+
+  // Android のクラッシュ緩和策(画像キャッシュ上限・メモリ圧監視)は
+  // トグルなしで常時有効化する。
+  CrashMitigationService.init();
 
   // just_audio 不自带 Windows/Linux 实现,必须在创建 AudioPlayer 前注册
   // 后端,否则会落回不存在的 MethodChannel 实现。两平台后端不同:
@@ -1406,7 +1411,7 @@ class _MainPageState extends ConsumerState<MainPage>
     //   = 通知轮询没了);LMKD 不总先发 memory pressure,框架自清
     //   兜不住这个场景。
     if (!PlatformUtils.isDesktop) {
-      PaintingBinding.instance.imageCache.clear();
+      CrashMitigationService.trimImageMemory(includeLiveImages: true);
     }
 
     // 诊断快照落盘:进程随后被杀时环形缓冲现场不再全丢(监控未启用

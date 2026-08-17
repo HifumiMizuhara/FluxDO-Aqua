@@ -173,7 +173,7 @@ class _IframeWidgetState extends State<IframeWidget> with RouteAware {
   void _handleDynamicContentSuspension() {
     if (!DynamicContentSuspensionService.instance.suspended) return;
     _removeOverlay();
-    if (_webViewActivated) _deactivateWindowsWebView();
+    if (_webViewActivated) _deactivateEmbeddedWebView();
   }
 
   @override
@@ -207,14 +207,14 @@ class _IframeWidgetState extends State<IframeWidget> with RouteAware {
     super.dispose();
   }
 
-  void _activateWindowsWebView() {
+  void _activateEmbeddedWebView() {
     if (_webViewActivated ||
         DynamicContentSuspensionService.instance.suspended) {
       return;
     }
     final lease = EmbeddedBrowserControllerPool.instance.tryAcquire(
       priority: EmbeddedBrowserPriority.iframe,
-      onRevoked: _deactivateWindowsWebView,
+      onRevoked: _deactivateEmbeddedWebView,
     );
     if (lease == null) {
       ScaffoldMessenger.maybeOf(
@@ -226,7 +226,7 @@ class _IframeWidgetState extends State<IframeWidget> with RouteAware {
     setState(() => _webViewActivated = true);
   }
 
-  void _deactivateWindowsWebView() {
+  void _deactivateEmbeddedWebView() {
     if (!mounted || !_webViewActivated) return;
     // release() 幂等:onRevoked 路径 pool 已释放,重复调用无害;
     // 挂起路径(_handleDynamicContentSuspension)必须在此归还,否则槽位泄漏。
@@ -301,9 +301,14 @@ class _IframeWidgetState extends State<IframeWidget> with RouteAware {
   Widget build(BuildContext context) {
     final attrs = widget.attributes;
     final theme = Theme.of(context);
-    final deferWindowsWebView =
-        !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
-    final showWebView = !deferWindowsWebView || _webViewActivated;
+    // Windows・Android どちらもネイティブ WebView を無制限に生成すると
+    // クラッシュにつながるため、両プラットフォームで
+    // EmbeddedBrowserControllerPool のリース経由でのみ実体化する。
+    final deferEmbeddedWebView =
+        !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.android);
+    final showWebView = !deferEmbeddedWebView || _webViewActivated;
 
     // 构建内容 Widget
     Widget content = ClipRRect(
@@ -316,7 +321,8 @@ class _IframeWidgetState extends State<IframeWidget> with RouteAware {
             Offstage(
               offstage: _routeOverlayed,
               child: InAppWebView(
-                webViewEnvironment: deferWindowsWebView
+                webViewEnvironment:
+                    !kIsWeb && defaultTargetPlatform == TargetPlatform.windows
                     ? WindowsWebViewEnvironmentService.instance.environment
                     : null,
                 initialUrlRequest: URLRequest(
@@ -402,7 +408,7 @@ class _IframeWidgetState extends State<IframeWidget> with RouteAware {
               child: Material(
                 color: theme.colorScheme.surfaceContainerHighest,
                 child: InkWell(
-                  onTap: _activateWindowsWebView,
+                  onTap: _activateEmbeddedWebView,
                   child: Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,

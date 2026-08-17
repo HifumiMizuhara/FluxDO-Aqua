@@ -170,6 +170,23 @@ class NativeAnimatedImageProvider extends ImageProvider<NativeAnimatedImageProvi
   final int? cacheWidth;
   final int? cacheHeight;
 
+  /// 同一数据源、替换目标解码尺寸的新 provider。
+  ///
+  /// `loadImage` 忽略框架传入的 `decode` 回调(见上方注释),因此
+  /// `ResizeImage` 包裹本 provider 对解码分辨率无效——调用方必须改用
+  /// 本方法在构造阶段就把目标尺寸编码进 provider(进而编码进
+  /// ImageCache key),才能让 [_loadAndroidStreaming] /
+  /// [_decodeViaFlutterCodec] 拿到非零 targetWidth/targetHeight。
+  NativeAnimatedImageProvider withTargetSize({
+    int? cacheWidth,
+    int? cacheHeight,
+  }) => NativeAnimatedImageProvider._(
+    _source,
+    scale: scale,
+    cacheWidth: cacheWidth,
+    cacheHeight: cacheHeight,
+  );
+
   /// 首帧产出的全局闸门 hook(宿主 app 可注入,默认 null = 行为不变)。
   ///
   /// Impeller 把"解码完成"与"纹理上传"绑在同一个任务里,提交进与
@@ -324,8 +341,13 @@ class NativeAnimatedImageProvider extends ImageProvider<NativeAnimatedImageProvi
     );
   }
 
-  static int _clampDimension(int? width, int? height) =>
-      math.max(width ?? 0, height ?? 0).clamp(1, _kClampDimension);
+  static int _clampDimension(int? width, int? height) {
+    final requested = math.max(width ?? 0, height ?? 0);
+    // 两者都未指定(正文图片走 native streaming 的常见情况)代表调用方
+    // 没有解码尺寸偏好,应退回默认上限,而不是被 clamp(1, ...) 误伤成 1px。
+    if (requested <= 0) return _kClampDimension;
+    return requested.clamp(1, _kClampDimension);
+  }
 
   /// 按总体量选择解码尺寸上限:体量未知或常规超标用 [_kClampDimension],
   /// 病态体量(几百 MB+)收紧到 [_kTightClampDimension]。

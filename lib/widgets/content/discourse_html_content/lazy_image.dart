@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
 import 'package:m3e_ui/m3e_ui.dart';
 import '../../../services/blob_image_cache.dart';
+import '../../../services/discourse_cache_manager.dart' show resizeDiscourseImage;
 import '../../../services/image_decode_spec_memo.dart';
 import '../../../services/media_geometry_memo.dart';
 import '../../../utils/frame_jank_monitor.dart';
@@ -263,11 +264,10 @@ class _LazyImageState extends State<LazyImage> {
         LazyImage._kMaxDecodeHeight,
       );
     }
-    return ResizeImage(
+    return resizeDiscourseImage(
       widget.imageProvider,
       width: cacheWidth,
       height: LazyImage._kMaxDecodeHeight,
-      policy: ResizeImagePolicy.fit,
     );
   }
 

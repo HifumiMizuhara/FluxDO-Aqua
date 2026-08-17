@@ -90,6 +90,29 @@ ImageProvider discourseImageProvider(
   );
 }
 
+/// 按目标解码尺寸包装 Discourse 图片 provider。
+///
+/// [ResizeImage] 只对标准 Flutter provider 有效;[NativeAnimatedImageProvider]
+/// 的 `loadImage()` 不使用框架传入的 decode 回调，必须改用
+/// [NativeAnimatedImageProvider.withTargetSize] 在构造阶段把目标尺寸编码
+/// 进 provider（进而编码进 ImageCache key），否则本文 GIF/APNG/动画 WebP
+/// 会按原始分辨率解码且不计入 imageCache 的内存上限。
+ImageProvider resizeDiscourseImage(
+  ImageProvider provider, {
+  int? width,
+  int? height,
+}) {
+  if (provider is NativeAnimatedImageProvider) {
+    return provider.withTargetSize(cacheWidth: width, cacheHeight: height);
+  }
+  return ResizeImage(
+    provider,
+    width: width,
+    height: height,
+    policy: ResizeImagePolicy.fit,
+  );
+}
+
 /// 创建 Emoji 图片 Provider
 ///
 /// 走 [BlobImageCache](Telegram 式 MD5 确定性寻址,零 sqlite 索引)。

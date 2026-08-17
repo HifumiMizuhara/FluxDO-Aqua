@@ -32,8 +32,6 @@
   "preferences_experimentalNativeSvgFixDesc": "Painter 캐시, 정적 레이어 및 vsync 스케줄링을 사용하는 실험적 SVG 렌더링 경로입니다. 표시 문제가 있으면 끄세요.",
   "preferences_experimentalPrivateMessageCategories": "수신자별 비공개 메시지 분류 (실험적)",
   "preferences_experimentalPrivateMessageCategoriesDesc": "비공개 메시지를 수신자별로 묶고 여러 수신자에게 보낸 메시지는 그룹 채팅으로 분류합니다. 끄면 기존 목록을 사용합니다.",
-  "preferences_crashMitigation": "충돌 완화 (실험적)",
-  "preferences_crashMitigationDesc": "Android 이미지 메모리와 동영상 해제 시점을 제한하여 메모리 부족 종료를 줄입니다. 매우 큰 이미지는 로드되지 않을 수 있습니다.",
   "preferences_anonymousShare": "익명 공유",
   "preferences_anonymousShareDesc": "링크를 공유할 때 개인 사용자 식별자를 포함하지 않음",
   "preferences_autoFillLogin": "로그인 자동 입력",

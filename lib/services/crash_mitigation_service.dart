@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -7,17 +6,21 @@ import 'package:flutter/material.dart';
 
 import 'dynamic_content_suspension_service.dart';
 
-/// Runtime policy for the opt-in Android crash mitigation experiment.
+/// Runtime policy for the crash/jank mitigation safeguards (image cache
+/// limits, decode-size clamping, memory-pressure trimming, CF WebView
+/// critical section). Always active on every platform; there is no opt-out
+/// toggle. Originally Android-only (LMKD OOM kills), but Windows reports the
+/// same raster-contention jank from unbounded decode sizes and concurrent
+/// WebView churn, so the policy now applies everywhere.
 class CrashMitigationService {
   CrashMitigationService._();
 
-  static bool _enabled = false;
   static bool _observerAttached = false;
   static bool _cfWebViewCriticalSectionActive = false;
   static Completer<void>? _cfWebViewCriticalSectionCompleter;
   static final _memoryPressureObserver = _MemoryPressureObserver();
 
-  static bool get enabled => _enabled && Platform.isAndroid;
+  static bool get enabled => true;
 
   /// Runs a Cloudflare WebView insertion/disposal window under the Aqua
   /// memory policy. This is intentionally separate from route transitions:
@@ -81,8 +84,8 @@ class CrashMitigationService {
   static const int maxDecodedDimension = 4096;
   static const int maxDecodedPixels = 8 * 1000 * 1000;
 
-  static void configure(bool value) {
-    _enabled = value;
+  /// Applies the crash mitigation cache policy. Call once at startup.
+  static void init() {
     final cache = PaintingBinding.instance.imageCache;
     if (enabled) {
       if (!_observerAttached) {
@@ -91,28 +94,22 @@ class CrashMitigationService {
       }
       cache.maximumSizeBytes = 80 * 1024 * 1024;
       cache.maximumSize = 4000;
-      // Enabling the experiment at runtime must also trim entries that were
-      // created before the tighter limits took effect.
-      trimImageMemory(includeLiveImages: true);
       return;
     }
-    if (_observerAttached) {
-      WidgetsBinding.instance.removeObserver(_memoryPressureObserver);
-      _observerAttached = false;
-    }
-    cache.maximumSizeBytes = Platform.isAndroid
-        ? 80 * 1024 * 1024
-        : 256 * 1024 * 1024;
-    cache.maximumSize = Platform.isAndroid ? 4000 : 30000;
+    cache.maximumSizeBytes = 256 * 1024 * 1024;
+    cache.maximumSize = 30000;
   }
 
   /// Releases image cache entries after a route with many images is closed or
-  /// when Android reports memory pressure. Live images still referenced by a
-  /// mounted widget cannot be reclaimed here, but their cache bookkeeping is
-  /// released and all disposable entries are removed.
+  /// when the platform reports memory pressure. When [includeLiveImages] is true,
+  /// entries still referenced by a mounted widget are also dropped from the
+  /// live-image bookkeeping so they stop being held for potential reuse.
   static void trimImageMemory({bool includeLiveImages = false}) {
     final cache = PaintingBinding.instance.imageCache;
     cache.clear();
+    if (includeLiveImages) {
+      cache.clearLiveImages();
+    }
   }
 
   /// Applies a conservative decode-time cap while preserving the source

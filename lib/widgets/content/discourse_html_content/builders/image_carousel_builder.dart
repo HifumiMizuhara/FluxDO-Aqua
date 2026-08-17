@@ -364,11 +364,10 @@ class _CarouselSlideState extends State<_CarouselSlide>
         // Android 预测返回是 user gesture 转场,须显式开启才有飞行
         transitionOnUserGestures: true,
         child: Image(
-          image: ResizeImage(
+          image: resizeDiscourseImage(
             discourseImageProvider(url),
             width: cacheWidth,
             height: cacheHeight,
-            policy: ResizeImagePolicy.fit,
           ),
           fit: BoxFit.contain,
           width: double.infinity,

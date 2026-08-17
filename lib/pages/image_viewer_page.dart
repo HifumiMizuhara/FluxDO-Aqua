@@ -1,4 +1,5 @@
 import 'dart:async' show unawaited;
+import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
@@ -309,10 +310,15 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   /// 的放大浏览下该上限内清晰度无感知差异。
   ImageProvider _clampedViewerProvider(String url) {
     final view = View.of(context);
-    final longestPx = (view.physicalSize.longestSide * 3)
-        .clamp(2048.0, 8192.0)
+    // Android は ExtendedImageGesturePageView が前後ページを同時プリロード
+    // するため、1 枚あたりの上限を抑えて同時生存する合計デコード量を
+    // 落とす(倍率を落としても maxScale 4.0 の拡大鑑賞で体感差はない)。
+    final multiplier = Platform.isAndroid ? 1.5 : 3.0;
+    final maxEdge = Platform.isAndroid ? 4096.0 : 8192.0;
+    final longestPx = (view.physicalSize.longestSide * multiplier)
+        .clamp(2048.0, maxEdge)
         .round();
-    return ResizeImage(
+    return resizeDiscourseImage(
       discourseImageProvider(
         url,
         bucket: BlobImageCache.originalBucket,
@@ -321,7 +327,6 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
       ),
       width: longestPx,
       height: longestPx,
-      policy: ResizeImagePolicy.fit,
     );
   }
 
@@ -339,11 +344,10 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
     }
     final spec = ImageDecodeSpecMemo.peek(url);
     if (spec == null) return discourseImageProvider(url);
-    return ResizeImage(
+    return resizeDiscourseImage(
       discourseImageProvider(url),
       width: spec.$1,
       height: spec.$2,
-      policy: ResizeImagePolicy.fit,
     );
   }
 
