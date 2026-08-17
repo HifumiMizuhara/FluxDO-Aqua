@@ -1,0 +1,26 @@
+name: native_animated_image_android
+description: Android implementation of native_animated_image (Rust binary + ImageDecoder AVIF bridge).
+version: 0.3.2
+repository: https://github.com/Lingyan000/native_animated_image
+
+resolution: workspace
+
+environment:
+  sdk: ^3.6.0
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        # ffiPlugin lets us ship `jniLibs/{abi}/libnative_animated_image_codec.so`
+        # for GIF/APNG/WebP decoding via dart:ffi.
+        ffiPlugin: true
+        # pluginClass+package register the Kotlin handler that bridges to
+        # Android's system AVIF decoder (ImageDecoder, API 31+).
+        package: com.lingyan000.native_animated_image_android
+        pluginClass: NativeAnimatedImageAndroidPlugin

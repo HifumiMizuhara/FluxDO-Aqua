@@ -1,0 +1,51 @@
+[package]
+name = "native_animated_image_codec"
+version = "0.3.2"
+edition = "2021"
+description = "Native animated image (GIF/APNG/animated WebP) codec for Flutter via FFI"
+license = "MIT"
+repository = "https://github.com/Lingyan000/native_animated_image"
+
+[lib]
+# cdylib for runtime FFI (macOS .dylib / Linux .so / Windows .dll / Android .so)
+# staticlib for iOS .a linkage
+crate-type = ["cdylib", "staticlib"]
+name = "native_animated_image_codec"
+
+[dependencies]
+# GIF decoder (frame-by-frame, indexed-to-RGBA via ColorOutput::RGBA)
+gif = "0.13"
+
+# PNG / APNG decoder (acTL / fcTL / fdAT chunks for animation)
+png = "0.18"
+
+# Animated WebP decoder (lossy + lossless animation support)
+image-webp = "0.2"
+
+# AVIF 在 v0.3.0 移除。v0.2.x 用 zenavif (rav1d-safe) 做 AVIF 解码,
+# 但 rav1d 在 ARM SIMD path 有 panic crash bug (mc_arm.rs:5905 越界),
+# Cargo profile panic=abort 直接 crash 整个 app。armv7 还要 nightly Rust。
+# 综合判断不适合作为生产依赖。
+# AVIF 解码请使用 `flutter_avif` 包 (libavif + dav1d C 库,工业标准稳定)。
+
+# JSON for FFI metadata transfer
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Handle registry locking
+parking_lot = "0.12"
+
+# Error types
+thiserror = "2"
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = "z"
+strip = true
+# 必须是 unwind(不可改回 abort):FFI 入口 native_animated_image_decode 用
+# catch_unwind 把解码器(image-webp 等 forbid(unsafe) 的 crate,越界即 panic)在
+# 畸形/非标准动画图片上的 panic 收敛成错误码。abort 模式下 catch_unwind 是 no-op,
+# panic 会直接 SIGABRT 把整个 app 进程带走(后台解码线程崩 = 全局崩)。
+# 代价:二进制略增 landing pad,但解码任意网络图片的健壮性远比这点体积重要。
+panic = "unwind"

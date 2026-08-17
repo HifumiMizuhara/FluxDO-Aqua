@@ -1,0 +1,28 @@
+name: native_animated_image
+description: Native (Rust + system ImageIO/ImageDecoder) decoder for animated GIF / APNG / WebP / AVIF. Bypasses Flutter Skia multi-frame codec.
+version: 0.3.4
+repository: https://github.com/Lingyan000/native_animated_image
+issue_tracker: https://github.com/Lingyan000/native_animated_image/issues
+
+resolution: workspace
+
+environment:
+  sdk: ^3.6.0
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  ffi: ^2.1.0
+  # Federated platform implementations (auto-selected by flutter pub for target platform)
+  native_animated_image_macos:
+    path: ../native_animated_image_macos
+  native_animated_image_ios:
+    path: ../native_animated_image_ios
+  native_animated_image_android:
+    path: ../native_animated_image_android
+  native_animated_image_windows:
+    path: ../native_animated_image_windows
+  native_animated_image_linux:
+    path: ../native_animated_image_linux
+

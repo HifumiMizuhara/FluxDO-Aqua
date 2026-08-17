@@ -1,0 +1,20 @@
+name: native_animated_image_linux
+description: Linux implementation of native_animated_image (ships the Rust native binary).
+version: 0.3.2
+repository: https://github.com/Lingyan000/native_animated_image
+
+resolution: workspace
+
+environment:
+  sdk: ^3.6.0
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      linux:
+        ffiPlugin: true

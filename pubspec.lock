@@ -1443,54 +1443,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.5"
-  native_animated_image:
-    dependency: "direct main"
-    description:
-      name: native_animated_image
-      sha256: d9c806cee4c157bb000fdad7d46a9929cdec1949532f084fa8d2da92670b3923
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.3.4"
-  native_animated_image_android:
-    dependency: transitive
-    description:
-      name: native_animated_image_android
-      sha256: "87ce00ebfb00ba5bcc432a9742ba7a1afbac70fe68f134265f403a9b1f0b9291"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.3.2"
-  native_animated_image_ios:
-    dependency: transitive
-    description:
-      name: native_animated_image_ios
-      sha256: "1de92197fe36c5d9ae03707bfd68429a4df35825561d10653c10dd0e494c19ae"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.3.2"
-  native_animated_image_linux:
-    dependency: transitive
-    description:
-      name: native_animated_image_linux
-      sha256: "40a9836999edcdca549e42dc6f45f0579573b5ce5b389da7f3b1d35066cd2f89"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.3.2"
-  native_animated_image_macos:
-    dependency: transitive
-    description:
-      name: native_animated_image_macos
-      sha256: "2ad24c11bb14bea322173fec27d37fb3cf6b9487f63d481075db8120573ae31a"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.3.2"
-  native_animated_image_windows:
-    dependency: transitive
-    description:
-      name: native_animated_image_windows
-      sha256: "9fe16b7a8f88d09e45f006b1215ef79b46042ace5d4274c1a2fa81e6c8eaa910"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.3.2"
   native_dio_adapter:
     dependency: "direct main"
     description:

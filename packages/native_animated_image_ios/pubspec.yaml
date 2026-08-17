@@ -1,0 +1,24 @@
+name: native_animated_image_ios
+description: iOS implementation of native_animated_image (Rust binary + system ImageIO AVIF bridge).
+version: 0.3.2
+repository: https://github.com/Lingyan000/native_animated_image
+
+resolution: workspace
+
+environment:
+  sdk: ^3.6.0
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      ios:
+        # ffiPlugin: Rust dylib (in xcframework) for GIF/APNG/WebP via dart:ffi
+        ffiPlugin: true
+        # Swift plugin class bridges Dart method channel to system ImageIO AVIF
+        # decoder (CGImageSourceCreateWithData, iOS 16.4+ supports animated AVIF)
+        pluginClass: NativeAnimatedImageIosPlugin
