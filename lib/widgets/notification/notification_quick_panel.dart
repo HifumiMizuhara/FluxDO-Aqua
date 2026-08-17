@@ -119,9 +119,6 @@ class NotificationQuickPanel {
       // The route is still safe to discard when its transition reports an
       // error; navigation should not be blocked by the cleanup path.
     }
-    if (CrashMitigationService.enabled) {
-      CrashMitigationService.trimImageMemory(includeLiveImages: true);
-    }
   }
 }
 

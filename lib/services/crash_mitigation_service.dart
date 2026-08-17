@@ -13,22 +13,11 @@ class CrashMitigationService {
 
   static bool _enabled = false;
   static bool _observerAttached = false;
-  static bool _routeTransitionActive = false;
-  static Completer<void>? _routeTransitionCompleter;
   static bool _cfWebViewCriticalSectionActive = false;
   static Completer<void>? _cfWebViewCriticalSectionCompleter;
   static final _memoryPressureObserver = _MemoryPressureObserver();
 
   static bool get enabled => _enabled && Platform.isAndroid;
-
-  /// True while an Aqua-lab protected route is being prepared or animated in.
-  /// Large image uploads wait for this window to close.
-  static bool get routeTransitionActive => _routeTransitionActive;
-
-  /// Completes when the current protected route transition has settled.
-  static Future<void> waitForRouteTransition() {
-    return _routeTransitionCompleter?.future ?? Future<void>.value();
-  }
 
   /// Runs a Cloudflare WebView insertion/disposal window under the Aqua
   /// memory policy. This is intentionally separate from route transitions:
@@ -70,73 +59,21 @@ class CrashMitigationService {
   static bool get cfWebViewCriticalSectionActive =>
       _cfWebViewCriticalSectionActive;
 
-  /// Pushes a route with the memory-safe transition policy when the Android
-  /// mitigation experiment is enabled. Other platforms retain the standard
-  /// Material route and incur no extra scheduling delay.
+  /// Kept as a no-op compatibility barrier for decode scheduling callers.
+  /// Route transitions no longer add a global protected window.
+  static Future<void> waitForRouteTransition() => Future<void>.value();
+
+  /// Pushes a route using the app's normal page transition theme. Resource
+  /// owners stop their own animation/video sessions when their route leaves;
+  /// no global image-cache flush is needed before navigation.
   static Future<T?> pushRoute<T>({
     required NavigatorState navigator,
     required WidgetBuilder builder,
     RouteSettings? settings,
   }) async {
-    if (!enabled) {
-      return navigator.push(
-        MaterialPageRoute<T>(builder: builder, settings: settings),
-      );
-    }
-
-    // Do not let two taps overlap their outgoing and incoming resource
-    // windows. The second request waits for the first route's animation to
-    // settle, then gets its own protected transition.
-    while (_routeTransitionActive) {
-      await waitForRouteTransition();
-    }
-
-    final lease = DynamicContentSuspensionService.instance.acquire(
-      reason: 'protected_route_transition',
+    return navigator.push(
+      MaterialPageRoute<T>(builder: builder, settings: settings),
     );
-    _beginRouteTransition();
-    trimImageMemory(includeLiveImages: true);
-    try {
-      // Give the outgoing route two frame boundaries to detach overlays,
-      // rebuild the layer tree, and submit pending native disposals.
-      await WidgetsBinding.instance.endOfFrame;
-      await WidgetsBinding.instance.endOfFrame;
-
-      final route = _AquaProtectedPageRoute<T>(
-        builder: builder,
-        settings: settings,
-        onTransitionComplete: () {
-          lease.release();
-          _endRouteTransition();
-        },
-      );
-      final result = navigator.push<T>(route);
-      // Covers routes that are popped or removed before their forward
-      // animation reports completed.
-      result.whenComplete(() {
-        lease.release();
-        _endRouteTransition();
-      });
-      return result;
-    } catch (_) {
-      lease.release();
-      _endRouteTransition();
-      rethrow;
-    }
-  }
-
-  static void _beginRouteTransition() {
-    if (_routeTransitionActive) return;
-    _routeTransitionActive = true;
-    _routeTransitionCompleter = Completer<void>();
-  }
-
-  static void _endRouteTransition() {
-    if (!_routeTransitionActive) return;
-    _routeTransitionActive = false;
-    final completer = _routeTransitionCompleter;
-    _routeTransitionCompleter = null;
-    if (completer != null && !completer.isCompleted) completer.complete();
   }
 
   /// Hard ceiling for standard Flutter image decodes while the experiment is
@@ -163,8 +100,10 @@ class CrashMitigationService {
       WidgetsBinding.instance.removeObserver(_memoryPressureObserver);
       _observerAttached = false;
     }
-    cache.maximumSizeBytes = 256 * 1024 * 1024;
-    cache.maximumSize = 30000;
+    cache.maximumSizeBytes = Platform.isAndroid
+        ? 80 * 1024 * 1024
+        : 256 * 1024 * 1024;
+    cache.maximumSize = Platform.isAndroid ? 4000 : 30000;
   }
 
   /// Releases image cache entries after a route with many images is closed or
@@ -174,7 +113,6 @@ class CrashMitigationService {
   static void trimImageMemory({bool includeLiveImages = false}) {
     final cache = PaintingBinding.instance.imageCache;
     cache.clear();
-    if (includeLiveImages) cache.clearLiveImages();
   }
 
   /// Applies a conservative decode-time cap while preserving the source
@@ -245,61 +183,6 @@ class CrashMitigationService {
   }
 
   static const int maxTouchedImagePaths = 4096;
-}
-
-/// Memory-safe route used only by the opt-in Android mitigation experiment.
-/// A short fade avoids the default route transform while the outgoing page is
-/// still holding its images and native textures.
-class _AquaProtectedPageRoute<T> extends MaterialPageRoute<T> {
-  _AquaProtectedPageRoute({
-    required super.builder,
-    super.settings,
-    required this.onTransitionComplete,
-  });
-
-  final VoidCallback onTransitionComplete;
-  bool _transitionCompleted = false;
-
-  @override
-  Duration get transitionDuration => const Duration(milliseconds: 120);
-
-  void _handleAnimationStatus(AnimationStatus status) {
-    if (status != AnimationStatus.completed || _transitionCompleted) return;
-    _transitionCompleted = true;
-    animation?.removeStatusListener(_handleAnimationStatus);
-    onTransitionComplete();
-  }
-
-  @override
-  TickerFuture didPush() {
-    final routeAnimation = animation;
-    routeAnimation?.addStatusListener(_handleAnimationStatus);
-    final result = super.didPush();
-    if (routeAnimation == null ||
-        routeAnimation.status == AnimationStatus.completed) {
-      _handleAnimationStatus(AnimationStatus.completed);
-    }
-    return result;
-  }
-
-  @override
-  Widget buildTransitions(
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-    Widget child,
-  ) {
-    return FadeTransition(
-      opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
-      child: child,
-    );
-  }
-
-  @override
-  void dispose() {
-    animation?.removeStatusListener(_handleAnimationStatus);
-    super.dispose();
-  }
 }
 
 class _MemoryPressureObserver extends WidgetsBindingObserver {

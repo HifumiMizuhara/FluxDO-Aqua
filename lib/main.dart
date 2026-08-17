@@ -236,13 +236,13 @@ Future<void> main() async {
   // 100-300 张)+ Discourse 自带几千个 emoji + 头像 + 贴内图,加起来很容易
   // 超过 5000 项,触发 LRU evict 后滚回去就要重新解码,用户感知卡顿。
   //
-  // 256 MB / 30000 项:emoji thumbnail(64px)~16 KB、sticker thumbnail
-  // (160px)~100 KB,256 MB 足够装下"全部 emoji + 几个 sticker group +
-  // 当前贴图"。之前调过 800 MB,但中端 Android 机上内存压力换来系统级
-  // GC / LMK 卡顿,得不偿失 —— 磁盘 PNG 缩略图缓存命中本来就是毫秒级,
-  // evict 的重解成本远比内存压力的代价低。
-  PaintingBinding.instance.imageCache.maximumSizeBytes = 256 * 1024 * 1024;
-  PaintingBinding.instance.imageCache.maximumSize = 30000;
+  // Android 固定 80 MB / 4000 项；动图帧不再以全帧形式常驻 ImageCache。
+  // 其他平台保留较大的静态图片缓存上限。
+  PaintingBinding.instance.imageCache.maximumSizeBytes = Platform.isAndroid
+      ? 80 * 1024 * 1024
+      : 256 * 1024 * 1024;
+  PaintingBinding.instance.imageCache.maximumSize =
+      Platform.isAndroid ? 4000 : 30000;
 
   // 启用 Edge-to-Edge 模式（小白条沉浸式）
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -1295,7 +1295,7 @@ class _MainPageState extends ConsumerState<MainPage>
     super.didHaveMemoryPressure();
     // 系统内存压力统一入口:iOS 内存警告 / Android onTrimMemory /
     // 金标联盟公平运行内存 TRIM 广播(FairMemoryReceiver 翻译成同一
-    // memoryPressure 通道)。imageCache(最大头,256MB 上限)由框架
+    // memoryPressure 通道)。imageCache(最大头,Android 80MB 上限)由框架
     // PaintingBinding.handleMemoryPressure 自清,这里补自建缓存:
     // - RenderParseCache:纯数据,清空安全;
     // - FlattenCache:引用计数设计,在用条目标 dead 延迟释放,安全;
