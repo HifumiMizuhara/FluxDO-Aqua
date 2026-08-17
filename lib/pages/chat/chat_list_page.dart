@@ -399,7 +399,7 @@ class _ChatChannelTile extends StatelessWidget {
     final last = channel.lastMessage;
     final title = channel.title?.isNotEmpty == true
         ? channel.title!
-        : channel.dmUsers.map((u) => u.username).join(', ');
+        : channel.dmUsers.map((u) => u.displayName).join(', ');
 
     // 未读指示对齐官方 chat-channel-unread-indicator 口径:
     // urgent(DM 任何未读 / 频道 @提及)→ 数字胶囊;
@@ -438,7 +438,7 @@ class _ChatChannelTile extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Flexible(
-                                child: Text(
+                                child: EmojiText(
                                   title,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,

@@ -18,6 +18,7 @@ import '../../utils/dialog_utils.dart';
 import '../../utils/number_utils.dart';
 import '../../utils/platform_utils.dart';
 import '../../utils/time_utils.dart';
+import '../common/emoji_text.dart';
 import '../common/flair_badge.dart';
 import 'package:common_ui/common_ui.dart';
 import '../common/skeleton.dart';
@@ -794,7 +795,7 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
         children: [
           GestureDetector(
             onTap: _openProfile,
-            child: Text(
+            child: EmojiText(
               displayName,
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w700,

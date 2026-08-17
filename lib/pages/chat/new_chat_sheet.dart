@@ -12,6 +12,7 @@ import '../../providers/discourse_providers.dart';
 import '../../services/toast_service.dart';
 import '../../utils/url_helper.dart';
 import '../../widgets/common/app_bottom_sheet.dart';
+import '../../widgets/common/emoji_text.dart';
 import '../../widgets/common/smart_avatar.dart';
 
 /// 新建会话:搜人多选;单选=1:1 私聊(自动复用旧会话),多选=群聊
@@ -274,7 +275,7 @@ class _UserResultTile extends StatelessWidget {
                 children: [
                   Text(user.username, style: theme.textTheme.bodyLarge),
                   if (user.name?.isNotEmpty == true)
-                    Text(
+                    EmojiText(
                       user.name!,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,

@@ -7,6 +7,7 @@ import '../../../../services/discourse/discourse_service.dart';
 import '../../../../services/discourse_cache_manager.dart';
 import '../../../../services/emoji_handler.dart';
 import '../../../common/app_bottom_sheet.dart';
+import '../../../common/emoji_text.dart';
 import '../../../common/smart_avatar.dart';
 import '../../../user/user_card.dart';
 
@@ -332,7 +333,7 @@ class _PostReactionUsersSheetState extends State<PostReactionUsersSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    EmojiText(
                       displayName,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w500,

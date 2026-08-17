@@ -688,7 +688,7 @@ class TopicCard extends ConsumerWidget {
               Row(
                 children: [
                   Expanded(
-                    child: Text(
+                    child: EmojiText(
                       name ?? '',
                       style: senderStyle,
                       maxLines: 1,
@@ -739,7 +739,7 @@ class TopicCard extends ConsumerWidget {
     final name = topic.posters.isNotEmpty
         ? topic.posters.first.user?.displayName
         : topic.lastPosterUsername;
-    return Text(
+    return EmojiText(
       name ?? '',
       style: theme.textTheme.labelSmall?.copyWith(
         color: isFullyRead

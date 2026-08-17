@@ -62,6 +62,13 @@ class TopicCardLayout {
   /// 自绘段落中的 placeholder 本身不会显示任何内容,必须单独绘制。
   final List<(Rect, ui.Paragraph)> titleEmojiFallbacks = [];
 
+  /// 署名/发件人内嵌 emoji(昵称含 emoji 时):占位矩形(相对 author
+  /// 段落原点)+ 图片 URL,与 titleEmojis 同构
+  final List<(Rect, String)> authorEmojis = [];
+
+  /// 署名 emoji 图片加载失败时的可见 fallback,与 titleEmojiFallbacks 同构
+  final List<(Rect, ui.Paragraph)> authorEmojiFallbacks = [];
+
   /// 段落内嵌图标(placeholder 行中线对齐,与 WidgetSpan(Icon) 同构;
   /// 直排字形会坐在基线上偏高):占位矩形 + 单字形小段落
   final List<(Rect, ui.Paragraph)> titleIcons = [];
@@ -496,6 +503,8 @@ class TopicCardLayout {
     titleIcons.clear();
     titleEmojis.clear();
     titleEmojiFallbacks.clear();
+    authorEmojis.clear();
+    authorEmojiFallbacks.clear();
     bandIcons.clear();
     statsIcons.clear();
 
@@ -778,8 +787,17 @@ class TopicCardLayout {
               fontSize: authorFontSize,
               weight: authorWeight,
             ),
-          )
-          ..addText(authorName);
+          );
+    final displayAuthorName = EmojiDisplayPolicy.normalizeUnicodeEmoji(
+      authorName,
+    );
+    final List<String> authorEmojiNames;
+    if (displayAuthorName.contains(':')) {
+      authorEmojiNames = _addTextWithEmoji(ab, displayAuthorName, authorFontSize);
+    } else {
+      ab.addText(displayAuthorName);
+      authorEmojiNames = const [];
+    }
 
     // ── 分类 + 标签行(私信卡无此行;字段开关各自过滤)──────────
     catTags = null;
@@ -817,6 +835,26 @@ class TopicCardLayout {
       catTags = b.build();
     }
 
+    // 署名段落排完宽后调用:从 placeholder 盒子还原 emoji 矩形(与标题
+    // emoji 同构),必须在每个 author!.layout() 之后立即调用一次
+    void collectAuthorEmojiBoxes() {
+      if (author == null || authorEmojiNames.isEmpty) return;
+      final boxes = author!.getBoxesForPlaceholders();
+      for (var i = 0; i < boxes.length && i < authorEmojiNames.length; i++) {
+        final rect = boxes[i].toRect();
+        final emojiName = authorEmojiNames[i];
+        authorEmojis.add((rect, emojiUrlOf(emojiName)));
+        authorEmojiFallbacks.add((
+          rect,
+          _iconParagraph(
+            Symbols.broken_image_rounded,
+            authorFontSize,
+            authorColor,
+          ),
+        ));
+      }
+    }
+
     // ── 纵向装配 ─────────────────────────────────────────────
     const vPad = 10.0;
     var y = bandHeight + vPad;
@@ -833,6 +871,7 @@ class TopicCardLayout {
             width: (rightW - time!.longestLine - 8 - unreadW).clamp(20, rightW),
           ),
         );
+      collectAuthorEmojiBoxes();
       final row1H = author!.height;
       authorOffset = Offset(rightX, y);
       var rx = width - hPad;
@@ -936,6 +975,7 @@ class TopicCardLayout {
             width: (metaWidth - timeW).clamp(20, metaWidth),
           ),
         );
+        collectAuthorEmojiBoxes();
         catTags!.layout(
           ui.ParagraphConstraints(
             width: (metaWidth - dotSpace - statsW).clamp(20, metaWidth),
@@ -955,6 +995,7 @@ class TopicCardLayout {
             width: (metaWidth - dotSpace - rightReserve).clamp(20, metaWidth),
           ),
         );
+        if (identical(leftPara, author)) collectAuthorEmojiBoxes();
         firstH = leftPara?.height ?? time?.height ?? stats?.height ?? 0.0;
         secondH = 0.0;
       }

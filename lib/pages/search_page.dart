@@ -6,6 +6,7 @@ import '../providers/discourse_providers.dart';
 import '../models/search_filter.dart';
 import '../models/search_result.dart';
 import '../services/preloaded_data_service.dart';
+import '../widgets/common/emoji_text.dart';
 import '../widgets/common/smart_avatar.dart';
 import '../widgets/common/error_view.dart';
 import 'package:m3e_ui/m3e_ui.dart';
@@ -1419,7 +1420,7 @@ class _SearchUserCard extends StatelessWidget {
                       ),
                     ),
                     if (user.name != null && user.name!.isNotEmpty)
-                      Text(
+                      EmojiText(
                         user.name!,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,

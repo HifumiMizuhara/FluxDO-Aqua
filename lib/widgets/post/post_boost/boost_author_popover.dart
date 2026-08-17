@@ -5,6 +5,7 @@ import 'package:app_icons/app_icons.dart';
 
 import '../../../l10n/s.dart';
 import '../../../models/topic.dart';
+import '../../common/emoji_text.dart';
 import '../../common/smart_avatar.dart';
 
 /// 用户在 Boost 作者 popover 中点选的操作
@@ -263,7 +264,7 @@ class _BoostAuthorPopoverCard extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+                            EmojiText(
                               displayName,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,

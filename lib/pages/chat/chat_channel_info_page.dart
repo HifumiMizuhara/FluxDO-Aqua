@@ -12,6 +12,7 @@ import '../../services/preloaded_data_service.dart';
 import '../../services/toast_service.dart';
 import '../../utils/dialog_utils.dart';
 import '../../widgets/common/app_bottom_sheet.dart';
+import '../../widgets/common/emoji_text.dart';
 import '../../widgets/common/smart_avatar.dart';
 import '../user_profile_page.dart';
 import 'chat_list_page.dart' show ChatChannelAvatar;
@@ -321,7 +322,7 @@ class _ChatChannelInfoPageState extends ConsumerState<ChatChannelInfoPage> {
 
     final title = channel.title?.isNotEmpty == true
         ? channel.title!
-        : channel.dmUsers.map((u) => u.username).join(', ');
+        : channel.dmUsers.map((u) => u.displayName).join(', ');
 
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.chat_channelInfo)),
@@ -339,7 +340,7 @@ class _ChatChannelInfoPageState extends ConsumerState<ChatChannelInfoPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Flexible(
-                      child: Text(
+                      child: EmojiText(
                         title,
                         textAlign: TextAlign.center,
                         style: theme.textTheme.titleLarge?.copyWith(
@@ -496,7 +497,7 @@ class _ChatChannelInfoPageState extends ConsumerState<ChatChannelInfoPage> {
                   ),
                   title: Text(channel.dmUsers.first.username),
                   subtitle: channel.dmUsers.first.name?.isNotEmpty == true
-                      ? Text(channel.dmUsers.first.name!)
+                      ? EmojiText(channel.dmUsers.first.name!)
                       : null,
                   trailing: const Icon(Symbols.chevron_right_rounded),
                   onTap: () => Navigator.push(

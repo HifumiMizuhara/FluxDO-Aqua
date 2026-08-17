@@ -7,6 +7,7 @@ import '../../constants.dart';
 import '../../l10n/s.dart';
 import '../../models/mention_user.dart';
 import '../../services/discourse/discourse_service.dart';
+import '../common/emoji_text.dart';
 import '../common/smart_avatar.dart';
 
 /// 私信收件人选择器：已选项显示为可删除的 chip，下方输入即搜。
@@ -215,7 +216,7 @@ class _PmRecipientFieldState extends State<PmRecipientField> {
                       title: Text(u.username),
                       subtitle: (u.name == null || u.name!.isEmpty)
                           ? null
-                          : Text(u.name!, overflow: TextOverflow.ellipsis),
+                          : EmojiText(u.name!, overflow: TextOverflow.ellipsis),
                       onTap: () => _add(u.username),
                     ),
                   for (final (gi, g) in _groups.indexed)

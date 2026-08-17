@@ -10,6 +10,7 @@ import '../../models/chat/chat_channel.dart';
 import '../../providers/discourse_providers.dart';
 import '../../services/toast_service.dart';
 import '../../utils/dialog_utils.dart';
+import '../../widgets/common/emoji_text.dart';
 import '../../widgets/common/smart_avatar.dart';
 import '../user_profile_page.dart';
 
@@ -268,7 +269,7 @@ class _ChatChannelMembersPageState
       ),
       title: Text(member.user.username),
       subtitle: member.user.name?.isNotEmpty == true
-          ? Text(member.user.name!)
+          ? EmojiText(member.user.name!)
           : null,
       trailing: !isSelf && widget.canRemoveMembers
           ? IconButton(

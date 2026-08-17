@@ -30,6 +30,7 @@ import '../utils/responsive.dart';
 import '../widgets/layout/master_detail_layout.dart';
 import '../widgets/layout/pane_projection_back_scope.dart';
 import 'topics_screen.dart' show PaneContentWidget;
+import '../widgets/common/emoji_text.dart';
 import '../widgets/common/flair_badge.dart';
 import '../widgets/common/grain_gradient_background.dart';
 import '../widgets/common/error_view.dart';
@@ -1480,7 +1481,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                         Row(
                           children: [
                             Flexible(
-                              child: Text(
+                              child: EmojiText(
                                 (_user?.name?.isNotEmpty == true)
                                     ? _user!.name!
                                     : (_user?.username ?? ''),
@@ -2119,7 +2120,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                         ),
                         const SizedBox(width: 12),
                         Flexible(
-                          child: Text(
+                          child: EmojiText(
                             (_user?.name?.isNotEmpty == true)
                                 ? _user!.name!
                                 : (_user?.username ?? ''),
@@ -2237,7 +2238,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                   Row(
                     children: [
                       Flexible(
-                        child: Text(
+                        child: EmojiText(
                           (_user?.name?.isNotEmpty == true)
                               ? _user!.name!
                               : (_user?.username ?? ''),
@@ -3269,7 +3270,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                       fallbackText: user.username,
                     ),
                     const SizedBox(width: 6),
-                    Text(
+                    EmojiText(
                       user.name?.isNotEmpty == true
                           ? user.name!
                           : user.username,

@@ -212,7 +212,7 @@ class ShareImageWidget extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              EmojiText(
                 post.name?.isNotEmpty == true ? post.name! : post.username,
                 style: TextStyle(
                   fontSize: 14,

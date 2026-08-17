@@ -60,6 +60,7 @@ import '../../../utils/link_launcher.dart';
 import '../../../utils/platform_utils.dart';
 import '../../../utils/url_helper.dart';
 import '../../common/fading_edge_scroll_view.dart';
+import '../../common/emoji_text.dart';
 import '../../common/smart_avatar.dart';
 import '../../content/discourse_html_content/image_utils.dart';
 import '../../mention/mention_autocomplete.dart';
@@ -4073,7 +4074,7 @@ class _MentionRow extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       if (showName)
-                        Text(
+                        EmojiText(
                           user.name!,
                           style: TextStyle(
                             fontSize: 11,

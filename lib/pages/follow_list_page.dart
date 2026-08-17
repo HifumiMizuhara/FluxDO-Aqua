@@ -5,6 +5,7 @@ import 'package:m3e_ui/m3e_ui.dart';
 import '../models/user.dart';
 import '../providers/discourse_providers.dart';
 import '../providers/selected_topic_provider.dart';
+import '../widgets/common/emoji_text.dart';
 import '../widgets/common/error_view.dart';
 import '../widgets/common/smart_avatar.dart';
 import '../widgets/layout/master_detail_layout.dart';
@@ -129,7 +130,7 @@ class _FollowListPageState extends ConsumerState<FollowListPage> {
                         radius: 24,
                         fallbackText: user.username,
                       ),
-                      title: Text(
+                      title: EmojiText(
                         user.name?.isNotEmpty == true
                             ? user.name!
                             : user.username,

@@ -465,7 +465,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                 Flexible(
                   child: GestureDetector(
                     onTap: message.user == null ? null : _openUserCard,
-                    child: Text(
+                    child: EmojiText(
                       message.user?.name?.isNotEmpty == true
                           ? message.user!.name!
                           : (message.user?.username ?? ''),

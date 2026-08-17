@@ -314,6 +314,27 @@ class _RenderTopicCard extends RenderBox
     // 署名/时间可被字段开关关闭(layout 中为 null)
     if (l.author != null) {
       canvas.drawParagraph(l.author!, offset + l.authorOffset);
+      for (var i = 0; i < l.authorEmojis.length; i++) {
+        final (rect, url) = l.authorEmojis[i];
+        final img = TopicCardImages.lookup(
+          url,
+          this,
+          bucket: BlobImageCache.emojiBucket,
+        );
+        if (img != null) {
+          canvas.drawImageRect(
+            img,
+            Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
+            rect.shift(offset + l.authorOffset),
+            Paint()..filterQuality = FilterQuality.low,
+          );
+        } else if (i < l.authorEmojiFallbacks.length) {
+          canvas.drawParagraph(
+            l.authorEmojiFallbacks[i].$2,
+            l.authorEmojiFallbacks[i].$1.topLeft + offset + l.authorOffset,
+          );
+        }
+      }
     }
     if (l.time != null) {
       canvas.drawParagraph(l.time!, offset + l.timeOffset);

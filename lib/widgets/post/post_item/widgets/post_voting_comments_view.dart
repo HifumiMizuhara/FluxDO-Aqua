@@ -267,9 +267,10 @@ class _PostVotingCommentsViewState
                     text: '  –  ',
                     style: theme.textTheme.bodySmall?.copyWith(color: muted),
                   ),
-                  TextSpan(
-                    text: displayName,
-                    style: theme.textTheme.bodySmall?.copyWith(
+                  ...EmojiText.buildEmojiSpans(
+                    context,
+                    displayName,
+                    theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.primary,
                       fontWeight: FontWeight.w600,
                     ),

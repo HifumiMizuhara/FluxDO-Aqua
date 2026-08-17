@@ -6,6 +6,7 @@ import '../../../../constants.dart';
 import '../../../../models/topic.dart';
 import '../../../../services/discourse_cache_manager.dart';
 import '../../../../services/emoji_handler.dart';
+import '../../../common/emoji_text.dart';
 import '../../../../utils/url_helper.dart';
 import '../../../common/flair_badge.dart';
 import '../../../common/smart_avatar.dart';
@@ -214,7 +215,7 @@ class PostHeader extends StatelessWidget {
               Row(
                 children: [
                   Flexible(
-                    child: Text(
+                    child: EmojiText(
                       (post.name != null && post.name!.isNotEmpty)
                           ? post.name!
                           : post.username,
@@ -457,7 +458,7 @@ class PostHeader extends StatelessWidget {
             const SizedBox(width: 4),
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 80),
-              child: Text(
+              child: EmojiText(
                 displayName,
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: theme.colorScheme.primary,

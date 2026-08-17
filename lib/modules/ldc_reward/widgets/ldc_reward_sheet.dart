@@ -6,6 +6,7 @@ import '../../../l10n/s.dart';
 import '../../../utils/dialog_utils.dart';
 import '../../../services/toast_service.dart';
 import '../../../widgets/common/app_bottom_sheet.dart';
+import '../../../widgets/common/emoji_text.dart';
 import '../../../widgets/common/smart_avatar.dart';
 import '../providers/ldc_reward_provider.dart';
 
@@ -200,7 +201,7 @@ class _LdcRewardSheetState extends ConsumerState<_LdcRewardSheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (target.name != null && target.name!.isNotEmpty)
-                      Text(
+                      EmojiText(
                         target.name!,
                         style: theme.textTheme.bodyLarge?.copyWith(
                           fontWeight: FontWeight.w600,

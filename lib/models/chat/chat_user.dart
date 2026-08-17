@@ -23,6 +23,8 @@ class ChatUser {
     );
   }
 
+  String get displayName => (name?.isNotEmpty ?? false) ? name! : username;
+
   String getAvatarUrl({int size = 96}) {
     if (avatarTemplate == null) return '';
     final template = avatarTemplate!.replaceAll('{size}', size.toString());

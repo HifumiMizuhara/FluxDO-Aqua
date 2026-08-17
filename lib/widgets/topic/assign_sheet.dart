@@ -10,6 +10,7 @@ import '../../models/topic.dart';
 import '../../providers/core_providers.dart';
 import '../../providers/topic_detail_provider.dart';
 import '../../services/toast_service.dart';
+import '../common/emoji_text.dart';
 import '../common/smart_avatar.dart';
 import '../markdown_editor/markdown_editor.dart';
 import '../../services/preloaded_data_service.dart';
@@ -597,7 +598,7 @@ class _AssignDetailsDialogState extends State<_AssignDetailsDialog> {
                                 radius: 14,
                                 fallbackText: u.name ?? u.username,
                               ),
-                              title: Text(u.name ?? u.username),
+                              title: EmojiText(u.name ?? u.username),
                               subtitle: Text('@${u.username}'),
                               onTap: () => onSelected(u),
                             );

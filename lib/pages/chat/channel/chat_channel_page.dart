@@ -1111,7 +1111,7 @@ class _ChatChannelPageState extends ConsumerState<ChatChannelPage>
     if (widget.threadId != null) {
       final channelTitle = channel?.title?.isNotEmpty == true
           ? channel!.title!
-          : channel?.dmUsers.map((u) => u.username).join(', ') ?? '';
+          : channel?.dmUsers.map((u) => u.displayName).join(', ') ?? '';
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Column(
@@ -1125,7 +1125,7 @@ class _ChatChannelPageState extends ConsumerState<ChatChannelPage>
               ),
             ),
             if (channelTitle.isNotEmpty)
-              Text(
+              EmojiText(
                 channelTitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -1140,7 +1140,7 @@ class _ChatChannelPageState extends ConsumerState<ChatChannelPage>
     if (channel == null) return const SizedBox.shrink();
     final title = channel.title?.isNotEmpty == true
         ? channel.title!
-        : channel.dmUsers.map((u) => u.username).join(', ');
+        : channel.dmUsers.map((u) => u.displayName).join(', ');
     return InkWell(
       // 标题统一进会话详情页(成员管理/退出;1:1 里再跳资料)
       onTap: () => Navigator.push(
@@ -1162,7 +1162,7 @@ class _ChatChannelPageState extends ConsumerState<ChatChannelPage>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  EmojiText(
                     title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

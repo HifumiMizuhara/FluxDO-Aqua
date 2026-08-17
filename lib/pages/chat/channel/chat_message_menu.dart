@@ -16,6 +16,7 @@ import '../../../services/toast_service.dart';
 import '../../../utils/time_utils.dart';
 import '../../../widgets/common/smart_avatar.dart';
 import '../../../widgets/common/app_bottom_sheet.dart';
+import '../../../widgets/common/emoji_text.dart';
 import '../../../widgets/markdown_editor/emoji_picker.dart';
 import 'package:common_ui/common_ui.dart';
 
@@ -409,7 +410,7 @@ class _MessageActionsOverlay extends StatelessWidget {
                                         ),
                                         const SizedBox(width: 8),
                                         Flexible(
-                                          child: Text(
+                                          child: EmojiText(
                                             message.user?.name?.isNotEmpty ==
                                                     true
                                                 ? message.user!.name!
