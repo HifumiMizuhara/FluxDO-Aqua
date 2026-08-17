@@ -190,7 +190,6 @@ class _PreheatLoadingState extends State<_PreheatLoading> {
   bool _showSkip = false;
   bool _showAqua = false;
   Timer? _skipTimer;
-  Timer? _aquaTimer;
   String? _version;
 
   @override
@@ -209,16 +208,13 @@ class _PreheatLoadingState extends State<_PreheatLoading> {
   @override
   void dispose() {
     _skipTimer?.cancel();
-    _aquaTimer?.cancel();
     super.dispose();
   }
 
   void _showAquaWordmark() {
     if (mounted && !_showAqua) {
       setState(() => _showAqua = true);
-      _aquaTimer = Timer(const Duration(milliseconds: 700), () {
-        if (mounted) widget.onAnimationComplete?.call();
-      });
+      // 完成回调改由 _AquaSignature 自身的书写动画结束时触发,见下方 onComplete
     }
   }
 
@@ -261,61 +257,19 @@ class _PreheatLoadingState extends State<_PreheatLoading> {
                           left: 88,
                           top: -2,
                           child: Transform.translate(
-                            offset: const Offset(-8, -6),
+                            offset: const Offset(-8, -10),
                             child: SizedBox(
-                              width: 92,
-                              child: AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 700),
-                                switchInCurve: Curves.easeOutCubic,
-                                transitionBuilder: (child, animation) {
-                                  final slide = Tween<Offset>(
-                                    begin: const Offset(0.18, 0),
-                                    end: Offset.zero,
-                                  ).animate(animation);
-                                  return FadeTransition(
-                                    opacity: animation,
-                                    child: SlideTransition(
-                                      position: slide,
-                                      child: child,
+                              width: 108,
+                              height: 50,
+                              child: _showAqua
+                                  ? _AquaSignature(
+                                      key: const ValueKey('aqua-signature'),
+                                      color: colorScheme.primary,
+                                      onComplete: widget.onAnimationComplete,
+                                    )
+                                  : const SizedBox(
+                                      key: ValueKey('aqua-placeholder'),
                                     ),
-                                  );
-                                },
-                                child: _showAqua
-                                    ? DecoratedBox(
-                                        key: const ValueKey('aqua-badge'),
-                                        decoration: BoxDecoration(
-                                          border: Border.all(
-                                            color: colorScheme.onSurface
-                                                .withValues(alpha: 0.65),
-                                            width: 1.5,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            2,
-                                          ),
-                                        ),
-                                        child: Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 5,
-                                            vertical: 3,
-                                          ),
-                                          child: Text(
-                                            'AQUA',
-                                            textAlign: TextAlign.center,
-                                            style: theme.textTheme.titleMedium
-                                                ?.copyWith(
-                                                  color: colorScheme.onSurface,
-                                                  fontWeight: FontWeight.w500,
-                                                  letterSpacing: 1.2,
-                                                ),
-                                          ),
-                                        ),
-                                      )
-                                    : const SizedBox(
-                                        key: ValueKey('aqua-placeholder'),
-                                        height: 48,
-                                        width: 1,
-                                      ),
-                              ),
                             ),
                           ),
                         ),
@@ -377,6 +331,149 @@ class _PreheatLoadingState extends State<_PreheatLoading> {
       ),
     );
   }
+}
+
+/// AQUA 手写签名效果:模拟落笔书写 + 收尾下划线,呼应主 logo 的描边动画
+class _AquaSignature extends StatefulWidget {
+  final Color color;
+  final VoidCallback? onComplete;
+
+  const _AquaSignature({super.key, required this.color, this.onComplete});
+
+  @override
+  State<_AquaSignature> createState() => _AquaSignatureState();
+}
+
+class _AquaSignatureState extends State<_AquaSignature>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller =
+      AnimationController(duration: const Duration(milliseconds: 950), vsync: this)
+        ..addStatusListener((status) {
+          if (status == AnimationStatus.completed) {
+            widget.onComplete?.call();
+          }
+        })
+        ..forward();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.rotate(
+      // 整体略微上扬倾斜,模拟手写签名收笔上挑的运笔角度
+      angle: -0.09,
+      alignment: Alignment.bottomLeft,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) => CustomPaint(
+          size: const Size(108, 50),
+          painter: _AquaSignaturePainter(
+            t: _controller.value,
+            color: widget.color,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AquaSignaturePainter extends CustomPainter {
+  final double t;
+  final Color color;
+
+  const _AquaSignaturePainter({required this.t, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // 0~0.72 落笔书写,0.62~1.0 收尾画下划线(与文字尾段略有重叠,更连贯)
+    final writeT = _sigSegment(t, 0.0, 0.72, Curves.easeInOut);
+    final underlineT = _sigSegment(t, 0.62, 1.0, Curves.easeOut);
+    if (writeT <= 0) return;
+
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: 'AQUA',
+        style: TextStyle(
+          fontFamily: 'Caveat',
+          fontWeight: FontWeight.w700,
+          fontSize: 34,
+          color: color,
+          height: 1.0,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    final origin = Offset(2, (size.height - textPainter.height) / 2 - 3);
+
+    if (writeT >= 1) {
+      // 书写完成后不再裁剪:手写字体的收笔笔锋常常超出字符的排版宽度,
+      // 裁剪会把最后一笔的笔锋切平,失去手写感
+      textPainter.paint(canvas, origin);
+    } else {
+      canvas.save();
+      canvas.clipRect(
+        Rect.fromLTWH(0, 0, textPainter.width * writeT, size.height),
+      );
+      textPainter.paint(canvas, origin);
+      canvas.restore();
+    }
+
+    // 笔尖高光:跟随书写进度移动的小光点,强化"正在下笔"的错觉
+    if (writeT < 1) {
+      final tipX = origin.dx + textPainter.width * writeT;
+      final tipY = origin.dy + textPainter.height * 0.6;
+      canvas.drawCircle(
+        Offset(tipX, tipY),
+        2.0,
+        Paint()..color = color.withValues(alpha: 0.6),
+      );
+    }
+
+    if (underlineT > 0) {
+      final underline = _underlinePath(
+        origin.dx - 2,
+        origin.dy + textPainter.height - 2,
+        textPainter.width,
+      );
+      final underlinePaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.2
+        ..strokeCap = StrokeCap.round
+        ..color = color.withValues(alpha: 0.7);
+      for (final metric in underline.computeMetrics()) {
+        canvas.drawPath(
+          metric.extractPath(0, metric.length * underlineT),
+          underlinePaint,
+        );
+      }
+    }
+  }
+
+  // 手绘感下划线:带一点弧度和上挑收笔,而非死板的直线
+  Path _underlinePath(double left, double top, double width) {
+    return Path()
+      ..moveTo(left, top)
+      ..quadraticBezierTo(
+        left + width * 0.5,
+        top + 6,
+        left + width + 6,
+        top - 3,
+      );
+  }
+
+  @override
+  bool shouldRepaint(covariant _AquaSignaturePainter oldDelegate) =>
+      oldDelegate.t != t || oldDelegate.color != color;
+}
+
+/// 将整体进度 [t] 映射到 [start, end] 区间内的局部进度并应用曲线
+double _sigSegment(double t, double start, double end, Curve curve) {
+  return curve.transform(((t - start) / (end - start)).clamp(0.0, 1.0));
 }
 
 class _PreheatFailed extends StatelessWidget {

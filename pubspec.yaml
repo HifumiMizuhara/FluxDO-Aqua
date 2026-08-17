@@ -261,6 +261,10 @@ flutter:
         # Flutter 3.41+ FontWeight 会映射到 wght variation axis，因此即使
         # 不显式声明 weight，TextStyle(fontWeight: FontWeight.wXXX) 也能精准命中。
         - asset: assets/fonts/MiSansVF.ttf
+    - family: Caveat
+      fonts:
+        # Caveat Variable Font（OFL 许可），仅用于启动页 AQUA 手写签名效果。
+        - asset: assets/fonts/Caveat-VariableFont_wght.ttf
 
 
 
