@@ -190,7 +190,10 @@ class _DiscourseVideoPlayerState extends State<DiscourseVideoPlayer>
     }
 
     try {
-      await session.initialize().timeout(const Duration(seconds: 15));
+      // タイムアウトは session 側（ネイティブ初期化のみを計測）。
+      // ここで包むとデコーダ枠の順番待ちまで時間に入り、
+      // 「混んでいるだけ」の動画がエラー表示に落ちる。
+      await session.initialize();
       if (!lease.isActive || !mounted) return;
       await session.controller.setLooping(widget.loop);
       if (!lease.isActive || !mounted) return;

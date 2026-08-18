@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import 'dynamic_content_suspension_service.dart';
+import 'memory_pressure_registry.dart';
 
 /// Runtime policy for the crash/jank mitigation safeguards (image cache
 /// limits, decode-size clamping, memory-pressure trimming, CF WebView
@@ -42,7 +43,12 @@ class CrashMitigationService {
     );
     _cfWebViewCriticalSectionActive = true;
     _cfWebViewCriticalSectionCompleter = Completer<void>();
-    trimImageMemory(includeLiveImages: true);
+    // ここは以前 imageCache の全消し（live 画像込み）だった。CF 検証は
+    // 通常のブラウジング中に何度も走るので、そのたびに表示中の画像まで
+    // 捨てると「CF を抜けた直後に全部再デコード」という自作のジャンクを
+    // 生む。ネイティブ WebView 挿入のために空けたいのは *余剰* であって
+    // 表示中の分ではないので soft トリムに落とす。
+    trimMemory(MemoryPressureLevel.soft);
     try {
       await WidgetsBinding.instance.endOfFrame;
       await WidgetsBinding.instance.endOfFrame;
@@ -84,32 +90,79 @@ class CrashMitigationService {
   static const int maxDecodedDimension = 4096;
   static const int maxDecodedPixels = 8 * 1000 * 1000;
 
+  /// 画像キャッシュの通常上限。全プラットフォーム共通 —— Android の
+  /// LMKD kill だけでなく Windows の raster 競合ジャンクも同じ原因
+  /// （デコード量が青天井）なので、プラットフォーム分岐はしない。
+  ///
+  /// この値の設定は [init] が唯一の持ち主。以前は main() 側にも同じ
+  /// フィールドへの代入があり、`init()` の直後に Android 以外を 256MB へ
+  /// 戻していた（= 非 Android では対策が丸ごと無効だった）。
+  static const int imageCacheMaxBytes = 80 * 1024 * 1024;
+  static const int imageCacheMaxEntries = 4000;
+
+  /// soft トリムで一時的に適用する上限（通常の 1/4）。
+  ///
+  /// `maximumSizeBytes` の setter は代入時点で LRU 追い出しを走らせる。
+  /// 下げてから戻すことで「余剰エントリだけ捨てて上限は元のまま」を
+  /// 副作用なしに実現できる。表示中の画像は live 参照が生きているので
+  /// 追い出されず、再デコードも起きない。
+  static const int _softTrimBytes = imageCacheMaxBytes ~/ 4;
+  static const int _softTrimEntries = imageCacheMaxEntries ~/ 4;
+
   /// Applies the crash mitigation cache policy. Call once at startup.
   static void init() {
-    final cache = PaintingBinding.instance.imageCache;
-    if (enabled) {
-      if (!_observerAttached) {
-        WidgetsBinding.instance.addObserver(_memoryPressureObserver);
-        _observerAttached = true;
-      }
-      cache.maximumSizeBytes = 80 * 1024 * 1024;
-      cache.maximumSize = 4000;
-      return;
+    if (!_observerAttached) {
+      WidgetsBinding.instance.addObserver(_memoryPressureObserver);
+      _observerAttached = true;
     }
-    cache.maximumSizeBytes = 256 * 1024 * 1024;
-    cache.maximumSize = 30000;
+    final cache = PaintingBinding.instance.imageCache;
+    cache.maximumSizeBytes = imageCacheMaxBytes;
+    cache.maximumSize = imageCacheMaxEntries;
   }
 
-  /// Releases image cache entries after a route with many images is closed or
-  /// when the platform reports memory pressure. When [includeLiveImages] is true,
-  /// entries still referenced by a mounted widget are also dropped from the
-  /// live-image bookkeeping so they stop being held for potential reuse.
-  static void trimImageMemory({bool includeLiveImages = false}) {
+  /// 段階付きのメモリ解放。画像キャッシュと、[MemoryPressureRegistry] に
+  /// 登録された自作キャッシュ群の両方に効く。
+  ///
+  /// - [MemoryPressureLevel.soft]：余剰エントリだけ落とす。表示中の
+  ///   画像には触らないので体感変化なし。CF WebView 挿入前など、
+  ///   「一時的にヘッドルームが欲しい」場面用。
+  /// - [MemoryPressureLevel.hard]：システムからの圧。キャッシュ済み分は
+  ///   捨てるが、**live 画像は落とさない** —— 圧が来ている最中に表示中の
+  ///   画像を再デコードさせるのは最悪手。
+  ///
+  /// [includeLiveImages] はバックグラウンド遷移専用の例外。描画が止まって
+  /// いるので再デコードの即時コストがなく、常駐量を下げて LMKD の
+  /// 撃ち殺しを避ける方が得になる（[trimForBackground] 参照）。
+  static void trimMemory(
+    MemoryPressureLevel level, {
+    bool includeLiveImages = false,
+  }) {
     final cache = PaintingBinding.instance.imageCache;
-    cache.clear();
-    if (includeLiveImages) {
-      cache.clearLiveImages();
+    switch (level) {
+      case MemoryPressureLevel.soft:
+        cache.maximumSizeBytes = _softTrimBytes;
+        cache.maximumSize = _softTrimEntries;
+        cache.maximumSizeBytes = imageCacheMaxBytes;
+        cache.maximumSize = imageCacheMaxEntries;
+      case MemoryPressureLevel.hard:
+        cache.clear();
+        if (includeLiveImages) {
+          cache.clearLiveImages();
+        }
     }
+    MemoryPressureRegistry.dispatch(level);
+  }
+
+  /// システムのメモリ圧（iOS メモリ警告 / Android onTrimMemory /
+  /// 金標連盟の公平メモリ TRIM 放送）の唯一の入口。
+  static void handleSystemMemoryPressure() {
+    trimMemory(MemoryPressureLevel.hard);
+  }
+
+  /// バックグラウンド遷移時の解放（モバイルのみ呼ばれる想定）。
+  /// 画面が止まっているので live 画像まで手放す。
+  static void trimForBackground() {
+    trimMemory(MemoryPressureLevel.hard, includeLiveImages: true);
   }
 
   /// Applies a conservative decode-time cap while preserving the source
@@ -185,6 +238,6 @@ class CrashMitigationService {
 class _MemoryPressureObserver extends WidgetsBindingObserver {
   @override
   void didHaveMemoryPressure() {
-    CrashMitigationService.trimImageMemory(includeLiveImages: true);
+    CrashMitigationService.handleSystemMemoryPressure();
   }
 }

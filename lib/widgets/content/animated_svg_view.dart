@@ -26,6 +26,7 @@ import 'package:full_svg_flutter/src/animation/svg_theme_apply.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
+import '../../services/memory_pressure_registry.dart';
 import '../../services/signature_frame_scheduler.dart';
 import '../../providers/preferences_provider.dart';
 import '../../utils/svg_utils.dart';
@@ -94,6 +95,16 @@ class AnimatedSvgView extends ConsumerStatefulWidget {
   rootGeometryOf(String svgSource) =>
       _AnimatedSvgViewState._rootGeometryOf(svgSource);
 
+  /// メモリ圧時に初期フレームのスナップショット（`ui.Image`）を手放す。
+  /// [MemoryPressureRegistry] から呼ばれる。
+  ///
+  /// キャッシュが持つのは master のみで、利用側は clone を持つ
+  /// （[_SvgFirstFrameCache.put] の淘汰と同じ契約）ので、
+  /// 表示中のインスタンスは影響を受けない。ディスク層は残るので、
+  /// 再訪時は PNG からの読み直しで復帰する。
+  static void trimSnapshotCache(MemoryPressureLevel level) =>
+      _SvgFirstFrameCache.trim(level);
+
   @override
   ConsumerState<AnimatedSvgView> createState() => _AnimatedSvgViewState();
 }
@@ -151,6 +162,25 @@ class _SvgFirstFrameCache {
 
   static _BumpNotifier notifierFor(int key) =>
       _notifiers[key] ??= _BumpNotifier();
+
+  /// メモリ圧時の解放。フル解像度の `ui.Image` を最大 [_cap] 枚
+  /// 抱える層で、ImageCache の会計には一切乗らない。
+  ///
+  /// - soft：古い方から半分だけ落とす（在屏インスタンスは clone を
+  ///   持つので描画は継続。次回は磁盘 PNG から復帰）。
+  /// - hard：全部落とす。
+  ///
+  /// `_renderer`（選挙トークン）は触らない —— 進行中の截帧を無効化すると
+  /// 再選挙が走るだけで、解放量はゼロ。
+  static void trim(MemoryPressureLevel level) {
+    final dropCount = level == MemoryPressureLevel.soft
+        ? _images.length ~/ 2
+        : _images.length;
+    if (dropCount <= 0) return;
+    for (final key in _images.keys.take(dropCount).toList()) {
+      _images.remove(key)?.dispose();
+    }
+  }
 
   // ---- 磁盘持久化(PNG 解码在引擎 IO 线程,UI isolate 零阻塞) ----
 

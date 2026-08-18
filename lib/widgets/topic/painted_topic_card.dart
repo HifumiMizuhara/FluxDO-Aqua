@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 
 import '../../services/discourse_cache_manager.dart';
 import '../../services/emoji_handler.dart';
+import '../../services/memory_pressure_registry.dart';
 import '../../utils/relative_time_clock.dart';
 import '../common/animated_avatar_overlay.dart';
 import '../common/smart_avatar.dart' show isSquareAvatarUrl;
@@ -479,5 +480,24 @@ class TopicCardImages {
         }
       }
     }
+  }
+
+  /// メモリ圧時の解放（[MemoryPressureRegistry] から呼ばれる）。
+  ///
+  /// ここは ImageCache の外側に `ui.Image` を溜める層なので、
+  /// framework の `handleMemoryPressure` では 1 バイトも減らない。
+  /// 明示的に落とす必要がある。
+  ///
+  /// soft では触らない：1 枚 96px（~36KB）と小さく、表示中の
+  /// アバターを落とすと在屏カードが一瞬空になる割に回収量が少ない。
+  /// hard では在庫を全部捨てる —— 描画側は毎 paint で [lookup] し直す
+  /// 設計なので、捨てた分は次の paint で再取得され、整合性は崩れない
+  /// （既に記録済みの Picture が参照する分は Picture 側が保持する）。
+  static void trim(MemoryPressureLevel level) {
+    if (level == MemoryPressureLevel.soft) return;
+    for (final image in _images.values) {
+      image.dispose();
+    }
+    _images.clear();
   }
 }

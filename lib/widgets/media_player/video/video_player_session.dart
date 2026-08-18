@@ -5,6 +5,7 @@ import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../../services/media/playback_position_store.dart';
+import '../../../services/media/video_native_slot_pool.dart';
 
 /// 视频控制器的唯一 owner。inline 播放器与全屏页都只是「租户」:
 /// [VideoSessionLease] 负责幂等地持有/释放引用,归零才 dispose。
@@ -55,10 +56,56 @@ class VideoPlayerSession {
   bool _wakelockOn = false;
   Future<void>? _initialization;
 
+  /// [VideoNativeSlotPool] の枠を保持しているか。
+  bool _holdsNativeSlot = false;
+
+  /// 順番待ち中の札（枠を得るか取り下げたら null に戻る）。
+  Completer<void>? _slotWaiter;
+
+  /// ネイティブ初期化のタイムアウト。枠の順番待ちは **含めない**
+  /// （待ち時間まで計上すると、混んでいるだけで再生失敗扱いになる）。
+  static const Duration initializeTimeout = Duration(seconds: 15);
+
   /// 初始化完成(拿到 duration/尺寸)后为 true。
   bool get isInitialized => controller.value.isInitialized;
 
-  Future<void> initialize() => _initialization ??= controller.initialize();
+  /// ネイティブデコーダの枠を取ってから初期化する。
+  ///
+  /// 枠が満杯なら空くまで待つ —— ホストはその間ポスター／
+  /// プレースホルダのまま（既存の読み込み中表示と同じ）。
+  Future<void> initialize() => _initialization ??= _initializeWithNativeSlot();
+
+  Future<void> _initializeWithNativeSlot() async {
+    final waiter = VideoNativeSlotPool.acquireOrEnqueue();
+    if (waiter != null) {
+      _slotWaiter = waiter;
+      try {
+        await waiter.future;
+      } finally {
+        _slotWaiter = null;
+      }
+    }
+    // ここに到達した時点で枠は自分のもの。以降どの出口でも必ず返す。
+    _holdsNativeSlot = true;
+    if (_disposed) {
+      _releaseNativeSlot();
+      throw StateError('VideoPlayerSession($url) disposed while queued');
+    }
+    try {
+      await controller.initialize().timeout(initializeTimeout);
+    } catch (_) {
+      // 初期化に失敗＝ネイティブ資源を握れていないので即返却する。
+      // 成功時は controller.dispose() 完了まで握り続ける。
+      _releaseNativeSlot();
+      rethrow;
+    }
+  }
+
+  void _releaseNativeSlot() {
+    if (!_holdsNativeSlot) return;
+    _holdsNativeSlot = false;
+    VideoNativeSlotPool.release();
+  }
 
   void _start() {
     controller.addListener(_onControllerTick);
@@ -114,12 +161,20 @@ class VideoPlayerSession {
     if (_wakelockOn) {
       unawaited(WakelockPlus.disable());
     }
+    // 順番待ち中なら札を取り下げる。放置すると `_initialization` が
+    // 「他人が枠を返すまで」完了せず、その後段に繋いだ破棄処理まで
+    // 道連れで遅れる（枠が詰まっているときほど遅れる悪循環）。
+    final waiter = _slotWaiter;
+    if (waiter != null) VideoNativeSlotPool.cancelWaiter(waiter);
+
     Future<void> disposeNativeResources() {
       final cleanup = _cleanup;
       if (cleanup != null) return cleanup;
       controller.removeListener(_onControllerTick);
       fullscreenNotifier.dispose();
-      return _cleanup = controller.dispose();
+      // 枠はネイティブ側の破棄が終わってから返す。Flutter 側の
+      // dispose() 復帰＝ExoPlayer/MediaCodec の解放完了ではない。
+      return _cleanup = controller.dispose().whenComplete(_releaseNativeSlot);
     }
 
     if (_initialization != null) {

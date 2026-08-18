@@ -38,6 +38,7 @@ import 'services/network/cookie/cookie_store_observer.dart';
 import 'services/network/adapters/cronet_fallback_service.dart';
 import 'services/local_notification_service.dart';
 import 'services/crash_mitigation_service.dart';
+import 'services/memory_pressure_bindings.dart';
 import 'services/data_management/cache_size_service.dart';
 import 'services/discourse_cache_manager.dart';
 import 'services/toast_service.dart';
@@ -85,7 +86,6 @@ import 'utils/dialog_utils.dart';
 import 'utils/frame_jank_monitor.dart';
 import 'utils/hashtag_handlers.dart';
 import 'utils/image_decode_gate.dart';
-import 'widgets/post/post_item/render_parse_cache.dart';
 import 'utils/scroll_busy_signal.dart';
 import 'utils/seed_color_scheme.dart';
 import 'utils/time_utils.dart';
@@ -162,6 +162,10 @@ Future<void> main() async {
   // 见 image_decode_gate.dart)。
   FluxdoWidgetsBinding.ensureInitialized();
 
+  // 自作キャッシュ群の解放口をレジストリへ登録してから緩和策を初期化する
+  // (init() がメモリ圧オブザーバを張るので、登録が先)。
+  installMemoryPressureHandlers();
+
   // Android のクラッシュ緩和策(画像キャッシュ上限・メモリ圧監視)は
   // トグルなしで常時有効化する。
   CrashMitigationService.init();
@@ -235,19 +239,11 @@ Future<void> main() async {
     debugPrint = (String? message, {int? wrapWidth}) {};
   }
 
-  // Flutter ImageCache 默认 100 MB / 1000 项。两个上限任一超过就 LRU evict。
-  //
-  // sticker / emoji 场景非常吃缓存:用户订阅 10+ 个表情包 group(每 group
-  // 100-300 张)+ Discourse 自带几千个 emoji + 头像 + 贴内图,加起来很容易
-  // 超过 5000 项,触发 LRU evict 后滚回去就要重新解码,用户感知卡顿。
-  //
-  // Android 固定 80 MB / 4000 项；动图帧不再以全帧形式常驻 ImageCache。
-  // 其他平台保留较大的静态图片缓存上限。
-  PaintingBinding.instance.imageCache.maximumSizeBytes = Platform.isAndroid
-      ? 80 * 1024 * 1024
-      : 256 * 1024 * 1024;
-  PaintingBinding.instance.imageCache.maximumSize =
-      Platform.isAndroid ? 4000 : 30000;
+  // ImageCache の上限は CrashMitigationService.init() が唯一の持ち主。
+  // ここに同じフィールドへの二重代入があり、init() が全プラットフォームへ
+  // 適用した 80MB/4000 件を Android 以外だけ 256MB/30000 件へ戻していた
+  // （= 非 Android では常時有効のはずの対策が丸ごと無効だった）ため削除。
+  // 値と根拠は crash_mitigation_service.dart 側に集約。
 
   // 启用 Edge-to-Edge 模式（小白条沉浸式）
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -1298,21 +1294,15 @@ class _MainPageState extends ConsumerState<MainPage>
   @override
   void didHaveMemoryPressure() {
     super.didHaveMemoryPressure();
-    // 系统内存压力统一入口:iOS 内存警告 / Android onTrimMemory /
-    // 金标联盟公平运行内存 TRIM 广播(FairMemoryReceiver 翻译成同一
-    // memoryPressure 通道)。imageCache(最大头,Android 80MB 上限)由框架
-    // PaintingBinding.handleMemoryPressure 自清,这里补自建缓存:
-    // - RenderParseCache:纯数据,清空安全;
-    // - FlattenCache:引用计数设计,在用条目标 dead 延迟释放,安全;
-    // - ParagraphLayoutCache 刻意不清:evictAll 会 dispose 在屏
-    //   RenderObject 仍持有的 ui.Paragraph(paint 不重走 layout,
-    //   仅 reassemble 全量重建场景安全),且量级仅数 MB 不值得冒险。
-    RenderParseCache.clear();
-    FlattenCache.evictAll();
+    // 解放そのものは CrashMitigationService のオブザーバが唯一の入口
+    // (iOS メモリ警告 / Android onTrimMemory / 金標連盟の公平メモリ
+    // TRIM 放送はすべて同じ memoryPressure チャネルに合流する)。
+    // ここで二重に解放すると、同じ圧イベントで 2 回捨てることになる。
+    //
     // 公平内存机制下持续增长会触达查杀线,先把监控现场落盘(未启用
     // 或无记录时内部直接返回,静默失败)。
     unawaited(FrameJankMonitor.persistSnapshot());
-    debugPrint('[MainPage] 内存压力:已清理解析/flatten 缓存');
+    debugPrint('[MainPage] 内存压力:诊断快照已落盘');
   }
 
   Future<void> _resumeFromBackground() async {
@@ -1411,7 +1401,7 @@ class _MainPageState extends ConsumerState<MainPage>
     //   = 通知轮询没了);LMKD 不总先发 memory pressure,框架自清
     //   兜不住这个场景。
     if (!PlatformUtils.isDesktop) {
-      CrashMitigationService.trimImageMemory(includeLiveImages: true);
+      CrashMitigationService.trimForBackground();
     }
 
     // 诊断快照落盘:进程随后被杀时环形缓冲现场不再全丢(监控未启用
