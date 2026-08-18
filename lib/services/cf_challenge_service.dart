@@ -1879,8 +1879,8 @@ class _CfChallengePageState extends State<CfChallengePage> {
         '[VERIFY] Post-challenge navigation to ${url?.toString() ?? ''}',
       );
 
-      // 盾を解いた後、CF は源站の /challenge へ戻す。源站にこのページは
-      // 存在しないので中身は 404 —— 既定経路はそれを実際にロードさせ、
+      // 盾を解いた後、CF はオリジンの /challenge へ戻す。オリジンに
+      // このページは存在しないので中身は 404 —— 既定経路はそれをロードさせ、
       // 二重マスク（document-start の JS マスク + Flutter オーバーレイ）と
       // MutationObserver と reveal ウォッチャで「見せない」ようにしている。
       //

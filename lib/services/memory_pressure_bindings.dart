@@ -19,7 +19,7 @@ import 'memory_pressure_registry.dart';
 ///
 /// ## ここに載っていないもの（意図的な除外）
 ///
-/// - `ParagraphLayoutCache`：在屏 RenderObject が `ui.Paragraph` を
+/// - `ParagraphLayoutCache`：画面に出ている RenderObject が `ui.Paragraph` を
 ///   保持したまま paint するため、layout を経ずに dispose すると
 ///   使用済みハンドルを描くことになる。量も数 MB 規模で割に合わない。
 /// - `ImageDecodeSpecMemo` / `MediaGeometryMemo` / `LazyImage` の
@@ -40,9 +40,9 @@ void installMemoryPressureHandlers() {
     FlattenCache.evictAll();
   });
 
-  // 話題カードの排版スナップショット（`ui.Paragraph` 群を含む）。
+  // 話題カードのレイアウトスナップショット（`ui.Paragraph` 群を含む）。
   // 実インスタンスはウィジェット側の参照で生き続けるため、マップを
-  // 空にしても在屏カードは壊れない（設定変更時に既に同じことをしている）。
+  // 空にしても表示中のカードは壊れない（設定変更時に既に同じことをしている）。
   MemoryPressureRegistry.register('TopicCardLayout', (level) {
     if (level == MemoryPressureLevel.soft) return;
     TopicCardLayout.evictAll();

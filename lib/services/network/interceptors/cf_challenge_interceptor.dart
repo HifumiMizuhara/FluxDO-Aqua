@@ -258,8 +258,8 @@ class CfChallengeInterceptor extends Interceptor {
           //
           // 「通行証は取れたのに native 経路が 403」は環境の故障ではなく
           // **身元の不一致**（TLS 指紋 / 出口 IP）。既定経路はここで
-          // 60 秒の熔断に入りアプリ全体の CF 復旧を止めるが、止めるべきは
-          // CF 検証ではなく native 経路の方。特に Windows / Linux では
+          // 60 秒のクールダウンに入りアプリ全体の CF 復旧を止めるが、
+          // 止めるべきは CF 検証ではなく native 経路の方。Windows / Linux では
           // native = Schannel / OpenSSL で Chromium の指紋には原理的に
           // 一致しないので、待っても永遠に直らない。
           final autoSwitch =
@@ -332,11 +332,11 @@ class CfChallengeInterceptor extends Interceptor {
               // 只对 WebView2 生效,Dio 直连,两侧出口 IP 不一致),再验证
               // 多少次都一样,立即熔断进入冷却,阻断验证无限循环。
               if (CfChallengeService.isCfChallengeResponse(e.response)) {
-                // 全体熔断を飛ばしてよいのは「代わりの経路が今まさに
+                // 全体クールダウンを飛ばしてよいのは「代わりの経路が今まさに
                 // 有効になっている」ときだけ。ここに到達するのは切替が
                 // 使えなかった場合 —— message-bus のような WebView 転送
                 // 対象外の要求や、ユーザーが切替を断った場合 —— なので、
-                // 代替経路が無いなら熔断は必要（無いと毎回のポーリングが
+                // 代替経路が無いならクールダウンは必要（無いと毎回のポーリングが
                 // 完全な検証ループを引き起こす）。
                 final hasAlternativeTransport =
                     CfBypassPolicy

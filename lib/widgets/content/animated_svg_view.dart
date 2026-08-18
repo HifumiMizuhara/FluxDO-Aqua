@@ -99,7 +99,7 @@ class AnimatedSvgView extends ConsumerStatefulWidget {
   /// [MemoryPressureRegistry] から呼ばれる。
   ///
   /// キャッシュが持つのは master のみで、利用側は clone を持つ
-  /// （[_SvgFirstFrameCache.put] の淘汰と同じ契約）ので、
+  /// （[_SvgFirstFrameCache.put] の追い出しと同じ契約）ので、
   /// 表示中のインスタンスは影響を受けない。ディスク層は残るので、
   /// 再訪時は PNG からの読み直しで復帰する。
   static void trimSnapshotCache(MemoryPressureLevel level) =>
@@ -166,8 +166,8 @@ class _SvgFirstFrameCache {
   /// メモリ圧時の解放。フル解像度の `ui.Image` を最大 [_cap] 枚
   /// 抱える層で、ImageCache の会計には一切乗らない。
   ///
-  /// - soft：古い方から半分だけ落とす（在屏インスタンスは clone を
-  ///   持つので描画は継続。次回は磁盘 PNG から復帰）。
+  /// - soft：古い方から半分だけ落とす（表示中のインスタンスは clone を
+  ///   持つので描画は継続。次回はディスクの PNG から復帰）。
   /// - hard：全部落とす。
   ///
   /// `_renderer`（選挙トークン）は触らない —— 進行中の截帧を無効化すると

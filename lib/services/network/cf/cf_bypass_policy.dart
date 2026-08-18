@@ -30,16 +30,17 @@ import '../../../constants.dart';
 ///    （通信の成立そのものは指紋より優先する）。
 ///
 /// 2. **通過判定の単純化**（[cancelPostChallengeNavigation]）
-///    `/challenge` は CF を通過すると源站 404 を返す。既定経路はその 404 を
-///    実際にロードさせ、二重マスク（document-start の JS マスク + Flutter
-///    オーバーレイ）+ MutationObserver + reveal ウォッチャで隠している。
+///    `/challenge` は CF を通過するとオリジンの 404 を返す。既定経路はその
+///    404 を実際にロードさせ、二重マスク（document-start の JS マスク +
+///    Flutter オーバーレイ）+ MutationObserver + reveal ウォッチャで隠している。
 ///    有効時は通過後のナビゲーション自体を CANCEL するので、404 は一度も
 ///    ロードされず、マスク機構がまるごと不要になる。
 ///
 /// 3. **経路切替 > 全体停止**（[autoSwitchTransportOnIneffectiveClearance]）
 ///    「通行証は取れたが Dio が通らない」は身元の問題であって CF 検証の
-///    問題ではない。既定経路はここで 60 秒の熔断に入りアプリ全体の CF 復旧を
-///    止めるが、有効時は確認ダイアログなしで WebView 転送へ切り替える。
+///    問題ではない。既定経路はここで 60 秒のクールダウンに入り、アプリ全体の
+///    CF 復旧を止めてしまうが、有効時は確認ダイアログなしで WebView 転送へ
+///    切り替える。
 class CfBypassPolicy {
   CfBypassPolicy._();
 
@@ -77,7 +78,7 @@ class CfBypassPolicy {
     return isProtectedOrigin(uri);
   }
 
-  /// 盾を解いた後の源站へのナビゲーションを CANCEL するか。
+  /// 盾を解いた後のオリジンへのナビゲーションを CANCEL するか。
   static bool get cancelPostChallengeNavigation => enabled;
 
   /// 鋳造した clearance が native 経路で通らなかったとき、確認ダイアログを

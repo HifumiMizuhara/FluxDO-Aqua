@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 ///
 /// アプリ側の自作キャッシュはこの 2 段階で解放量を切り替える。段階を
 /// 分けるのは「圧が来た瞬間に全部捨てる」のが最悪手だから —— 端末が
-/// すでに苦しい時に全キャッシュを捨てると、直後に再デコード・再排版が
+/// すでに苦しい時に全キャッシュを捨てると、直後に再デコード・再レイアウトが
 /// 一斉に走り、GPU キューと UI スレッドを同時に殴る。
 enum MemoryPressureLevel {
   /// 予防的な回収。画面に出ていない派生データだけを落とし、
@@ -24,7 +24,7 @@ typedef MemoryTrimCallback = void Function(MemoryPressureLevel level);
 /// ## なぜ必要か
 ///
 /// このアプリのメモリ常駐は `PaintingBinding.imageCache` だけではない。
-/// 自絵カードの `ui.Image` 群、排版済み `ui.Paragraph`、SVG 初期フレーム
+/// 自絵カードの `ui.Image` 群、レイアウト済み `ui.Paragraph`、SVG 初期フレーム
 /// スナップショット、パース済みノード木 —— どれもネイティブ／GPU メモリを
 /// 持つのに、以前は `didHaveMemoryPressure` が知っている 2 つ
 /// （RenderParseCache / FlattenCache）しか解放されていなかった。
