@@ -39,6 +39,7 @@ import 'services/network/adapters/cronet_fallback_service.dart';
 import 'services/local_notification_service.dart';
 import 'services/crash_mitigation_service.dart';
 import 'services/memory_pressure_bindings.dart';
+import 'services/network/cf/cf_bypass_policy.dart';
 import 'services/data_management/cache_size_service.dart';
 import 'services/discourse_cache_manager.dart';
 import 'services/toast_service.dart';
@@ -284,6 +285,12 @@ Future<void> main() async {
   final results = await Future.wait(futures);
   final prefs = results[0] as SharedPreferences;
   await AuthIssueNoticeService.instance.initialize(prefs);
+
+  // Aqua ラボ「より良い CF 突破」を prefs から直接反映する。
+  // PreferencesNotifier は Riverpod の遅延生成なので、最初のネットワーク
+  // 要求より後に構築されうる —— CF 経路の判定はそれより前に効いている
+  // 必要がある（notifier 側でも同じ値を configure するので二重でよい）。
+  CfBypassPolicy.configure(prefs.getBool(CfBypassPolicy.prefKey) ?? false);
 
   // release 下按设置开关启用性能监控(debug/profile 已在上方无条件启用)
   if (kReleaseMode && (prefs.getBool(FrameJankMonitor.prefKey) ?? false)) {

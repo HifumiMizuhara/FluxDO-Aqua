@@ -53,4 +53,30 @@ void main() {
     );
     expect(_visibleIds(readingGroups), isNot(contains('signatureSvgWebView')));
   });
+
+  testWidgets('Aquaラボに「より良いCF突破」トグルがある', (tester) async {
+    late List<SettingsGroup> aquaGroups;
+
+    await tester.pumpWidget(
+      TranslationProvider(
+        child: MaterialApp(
+          locale: const Locale('ja'),
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocaleUtils.supportedLocales,
+          home: Builder(
+            builder: (context) {
+              aquaGroups = buildAquaLabGroups(context);
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      ),
+    );
+
+    expect(_visibleIds(aquaGroups), contains('betterCfBypass'));
+  });
 }

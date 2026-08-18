@@ -5,6 +5,7 @@ import 'package:dio/io.dart';
 import 'package:flutter/foundation.dart';
 import 'package:native_dio_adapter/native_dio_adapter.dart';
 
+import '../cf/cf_bypass_policy.dart';
 import '../doh/network_settings_service.dart';
 import '../proxy/proxy_settings_service.dart';
 import '../rhttp/rhttp_settings_service.dart';
@@ -212,8 +213,18 @@ EffectiveAdapter _resolveEffective(
   RequestOptions? requestOptions,
 }) {
   // rhttp 优先（满足条件时）
-  if (rhttpSettings.shouldUseRhttp(settings.current, proxySettings.current) &&
-      (requestOptions == null || requestAllowsRhttpAdapter(requestOptions))) {
+  //
+  // ただし Aqua ラボ「より良い CF 突破」有効時は、CF 保護オリジン宛だけ
+  // rhttp を外す。cf_clearance は TLS/HTTP2 指紋を含むクライアントの身元に
+  // 紐づいており、rustls の指紋は Chromium とは似ても似つかない ——
+  // WebView で鋳造した通行証を rhttp で使うと「検証は成功したのに 403」に
+  // なる。native アダプタ(Android=cronet=Chromium 本体, Apple=URLSession)へ
+  // 寄せることで指紋差を詰める。詳細は [CfBypassPolicy]。
+  //
+  // gateway / proxy モードの判定はこの下でそのまま効く: 通信が成立すること
+  // 自体は指紋の一致より優先される。
+  if (rhttpAllowedForRequest(requestOptions) &&
+      rhttpSettings.shouldUseRhttp(settings.current, proxySettings.current)) {
     return const EffectiveAdapter(AdapterType.rhttp, AdapterReason.rhttp);
   }
   // Gateway 模式：NativeAdapter 直连 + 拦截器改写 URL 到 localhost 代理
@@ -234,6 +245,17 @@ EffectiveAdapter _resolveEffective(
 @visibleForTesting
 bool requestAllowsRhttpAdapter(RequestOptions options) {
   return options.extra['skipRhttpAdapter'] != true;
+}
+
+/// この要求で rhttp を選んでよいか（要求非依存の解決では常に true）。
+///
+/// 明示的な `skipRhttpAdapter` に加えて、Aqua ラボ「より良い CF 突破」が
+/// 有効なときは CF 保護オリジン宛を除外する。[CfBypassPolicy] 参照。
+@visibleForTesting
+bool rhttpAllowedForRequest(RequestOptions? options) {
+  if (options == null) return true;
+  if (!requestAllowsRhttpAdapter(options)) return false;
+  return !CfBypassPolicy.shouldAvoidRhttpFor(options.uri);
 }
 
 /// 创建当前平台对应的 NativeAdapter

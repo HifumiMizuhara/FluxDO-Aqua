@@ -10,6 +10,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants.dart';
 import 'network/cookie/boundary_sync_service.dart';
+import 'network/cf/cf_bypass_policy.dart';
 import 'network/cookie/cookie_jar_service.dart';
 import 'local_notification_service.dart'; // 用于获取全局 navigatorKey
 import 'cf_challenge_logger.dart';
@@ -74,6 +75,30 @@ class CfAquaHandoffStateMachine {
     'CfAquaHandoffPhase.foregroundVerifying->CfAquaHandoffPhase.settling',
     'CfAquaHandoffPhase.settling->CfAquaHandoffPhase.idle',
   };
+}
+
+/// 検証ページの進行フェーズ。
+///
+/// 既定経路の `_CfChallengePageState` は 20 個以上の bool と 3 種の世代
+/// カウンタで状態を表していて、「今どこにいるか」がコードから読めない。
+/// Aqua ハンドオフ側には既に [CfAquaHandoffStateMachine] があるのに、
+/// 本体の通過判定だけが生フラグの集合だった。フラグは互換のため残しつつ、
+/// 診断のための単一の軸としてこのフェーズを併走させる。
+enum CfVerifyPhase {
+  /// 検証ページを開いた直後（初回ロード中）。
+  opening,
+
+  /// CF の盾が表示されている（ユーザー操作待ちを含む）。
+  challenging,
+
+  /// 盾を解いた後、通過判定が確定するまでの待ち。
+  settling,
+
+  /// 通過が確定した。
+  passed,
+
+  /// 通過しなかった（タイムアウト / ユーザー中断）。
+  failed,
 }
 
 /// CF 验证服务
@@ -926,6 +951,87 @@ class _CfChallengePageState extends State<CfChallengePage> {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // 通過判定の合流点（Aqua「より良い CF 突破」の中核）
+  // ---------------------------------------------------------------------------
+
+  /// 現在のフェーズ（診断の単一軸。既存フラグとは併走）。
+  CfVerifyPhase _phase = CfVerifyPhase.opening;
+
+  /// 通過が確定したか。二重完了の門番。
+  bool _completed = false;
+
+  /// 通過を最初に観測したシグナル名（ログ・診断用）。
+  String? _completionSignal;
+
+  void _setPhase(CfVerifyPhase next, {String? event}) {
+    if (_phase == next) return;
+    final previous = _phase;
+    _phase = next;
+    CfChallengeLogger.log(
+      '[VERIFY] phase ${previous.name} -> ${next.name}'
+      '${event == null ? '' : ' ($event)'}',
+    );
+  }
+
+  /// 通過判定の唯一の合流点。
+  ///
+  /// 既定経路には `_finish(true)` に至る独立した経路が 6 本ある:
+  /// JS の challenge-platform フック / onNavigationResponse の 404 /
+  /// onReceivedHttpError の 404 / cf_clearance ポーリング /
+  /// origin fallback プローブ / reveal 退化検知。どれも「CF を通過した」
+  /// という**同じ事実の別の観測**でしかないのに、それぞれが独自に
+  /// タイマー停止と cookie 同期と `_finish(true)` を行っていた。
+  ///
+  /// ここに集約して、最初に到達した観測だけが通るようにする。以降の
+  /// 観測は名前だけログに残して捨てる —— どのシグナルが最初に効いたかは
+  /// 経路の良し悪しを測る唯一の材料なので、捨てる側も記録する。
+  ///
+  /// [freshClearance] が渡された経路はその値で確定同期し、
+  /// [syncBestEffort] の経路（ネットワーク状態だけで判定した場合）は
+  /// cookie 読み出しを待たずに完了させ、同期は背後で行う。
+  Future<void> _completeVerified({
+    required String signal,
+    String? freshClearance,
+    bool syncBestEffort = false,
+  }) async {
+    if (_hasPopped) return;
+    if (_completed) {
+      CfChallengeLogger.log(
+        '[VERIFY] Redundant pass signal ignored: $signal '
+        '(already completed by $_completionSignal)',
+      );
+      return;
+    }
+    _completed = true;
+    _completionSignal = signal;
+    // 遅れて届く WebView コールバックを一括で黙らせる（既存フラグの流用）。
+    _finishingFromVerifyResponse = true;
+    _setPhase(CfVerifyPhase.passed, event: signal);
+    _cancelVerificationTimers();
+    _challengeRevealProbeGeneration++;
+    _revealStateWatchGeneration++;
+    _coverWebViewForOriginFallback();
+
+    CfChallengeLogger.logVerifyResult(success: true, reason: signal);
+
+    if (syncBestEffort) {
+      unawaited(_syncVerifiedCookiesBestEffort());
+    } else {
+      await _syncLiveCookiesToCookieJar(freshClearance: freshClearance);
+      final synced = await CookieJarService().getCfClearance();
+      if (synced == null || synced.isEmpty) {
+        CfChallengeLogger.log(
+          '[VERIFY] cf_clearance missing from CookieJar after sync '
+          '(signal=$signal)',
+          level: 'warning',
+        );
+      }
+    }
+
+    if (mounted && !_hasPopped) _finish(true);
+  }
+
   void _cancelVerificationTimers() {
     _timeoutTimer?.cancel();
     _timeoutTimer = null;
@@ -1328,27 +1434,10 @@ class _CfChallengePageState extends State<CfChallengePage> {
       debugPrint(
         '[CfChallenge] ✓ 验证完成：新 cf_clearance (${cookieValue.length} chars) 且页面已通过',
       );
-      CfChallengeLogger.logVerifyResult(
-        success: true,
-        reason: 'new cf_clearance detected and page passed challenge',
+      await _completeVerified(
+        signal: 'js:new cf_clearance detected and page passed challenge',
+        freshClearance: cookieValue,
       );
-      await _syncLiveCookiesToCookieJar(freshClearance: cookieValue);
-      if (generation != null && !_isCurrentWebViewGeneration(generation)) {
-        return;
-      }
-      // 验证 cf_clearance 是否真正写入了 CookieJar
-      final synced = await CookieJarService().getCfClearance();
-      if (synced != null && synced.isNotEmpty) {
-        debugPrint(
-          '[CfChallenge] cf_clearance 已同步到 CookieJar (${synced.length} chars)',
-        );
-      } else {
-        debugPrint(
-          '[CfChallenge] ⚠️ syncFromWebView 后 CookieJar 中未找到 cf_clearance',
-        );
-      }
-      _timeoutTimer?.cancel();
-      if (mounted) _finish(true);
     } catch (e) {
       debugPrint('[CfChallenge] cookie 检查异常: $e');
     }
@@ -1415,6 +1504,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
           return;
         }
         if (!_hasTimedOut) {
+          _setPhase(CfVerifyPhase.failed, event: 'foreground timeout');
           CfChallengeLogger.logVerifyResult(
             success: false,
             reason: 'timeout after $_activeMaxCheckCount seconds',
@@ -1479,8 +1569,9 @@ class _CfChallengePageState extends State<CfChallengePage> {
     int generation, {
     String? reason,
     bool completionLikely = false,
+    bool navigationCancelled = false,
   }) async {
-    if (_hasPopped || _finishingFromVerifyResponse) return;
+    if (_hasPopped || _completed || _finishingFromVerifyResponse) return;
     _coverWebViewForOriginFallback();
     if (_checkingOriginFallback) return;
 
@@ -1507,13 +1598,11 @@ class _CfChallengePageState extends State<CfChallengePage> {
           debugPrint(
             '[CfChallenge] fallback/completion 期间检测到新 cf_clearance，自动完成',
           );
-          CfChallengeLogger.logVerifyResult(
-            success: true,
-            reason: reason ?? 'fresh cf_clearance during completion probe',
+          await _completeVerified(
+            signal:
+                'probe:${reason ?? 'fresh cf_clearance during completion probe'}',
+            freshClearance: cookieValue,
           );
-          await _syncLiveCookiesToCookieJar(freshClearance: cookieValue);
-          _timeoutTimer?.cancel();
-          if (mounted) _finish(true);
           return;
         }
         attempt++;
@@ -1529,6 +1618,31 @@ class _CfChallengePageState extends State<CfChallengePage> {
         success: false,
         reason: reason ?? 'no fresh cf_clearance after completion probe',
       );
+      // CANCEL 経路の脱出口: 遷移を止めたのに新しい cf_clearance が
+      // 現れなかった＝「まだ通過していない」か「cookie の書き込みが
+      // 遅れている」。1 回だけ通常どおり遷移させ、既定経路の判定
+      // (onNavigationResponse / onReceivedHttpError の 404) に委ねる。
+      // ここで諦めると CANCEL が退行になるので、必ず逃げ道を通す。
+      if (navigationCancelled && !_retriedVerifyNavigationAfterCancel) {
+        _retriedVerifyNavigationAfterCancel = true;
+        _allowVerifyNavigationOnce = true;
+        CfChallengeLogger.log(
+          '[VERIFY] Cancelled navigation probe found no fresh clearance; '
+          'retrying navigation once',
+          level: 'warning',
+        );
+        final controller = _controller;
+        if (controller != null && mounted && !_hasPopped) {
+          unawaited(
+            controller.loadUrl(
+              urlRequest: URLRequest(url: WebUri(widget.verifyUrl)),
+            ),
+          );
+          return;
+        }
+        _allowVerifyNavigationOnce = false;
+      }
+
       if (_isBackground) {
         _timeoutTimer?.cancel();
         if (mounted) _finish(false);
@@ -1583,13 +1697,10 @@ class _CfChallengePageState extends State<CfChallengePage> {
       debugPrint(
         '[CfChallenge] ✓ 轮询检测到新 cf_clearance (${cookieValue!.length} chars)',
       );
-      CfChallengeLogger.logVerifyResult(
-        success: true,
-        reason: 'polling detected new cf_clearance',
+      await _completeVerified(
+        signal: 'poll:new cf_clearance',
+        freshClearance: cookieValue,
       );
-      await _syncLiveCookiesToCookieJar(freshClearance: cookieValue);
-      _timeoutTimer?.cancel();
-      if (mounted) _finish(true);
     } catch (e) {
       debugPrint('[CfChallenge] 轮询检查异常: $e');
     } finally {
@@ -1750,6 +1861,12 @@ class _CfChallengePageState extends State<CfChallengePage> {
     return actual.query.isEmpty;
   }
 
+  /// 通過後のナビゲーションを 1 回だけ通す許可（CANCEL 経路の脱出口）。
+  bool _allowVerifyNavigationOnce = false;
+
+  /// CANCEL 経路のプローブが空振りした後、再ナビゲーションを試したか。
+  bool _retriedVerifyNavigationAfterCancel = false;
+
   Future<NavigationActionPolicy> _shouldOverrideVerifyNavigation(
     InAppWebViewController controller,
     NavigationAction navigationAction,
@@ -1761,17 +1878,39 @@ class _CfChallengePageState extends State<CfChallengePage> {
       debugPrint(
         '[VERIFY] Post-challenge navigation to ${url?.toString() ?? ''}',
       );
+
+      // 盾を解いた後、CF は源站の /challenge へ戻す。源站にこのページは
+      // 存在しないので中身は 404 —— 既定経路はそれを実際にロードさせ、
+      // 二重マスク（document-start の JS マスク + Flutter オーバーレイ）と
+      // MutationObserver と reveal ウォッチャで「見せない」ようにしている。
+      //
+      // cf_clearance を発行するのは challenge-platform の verify 応答の
+      // Set-Cookie であって、この最後の遷移ではない。つまり遷移そのものが
+      // 不要なので、有効時は CANCEL して cookie を読むだけにする。
+      // 404 は一度もロードされず、隠す必要がそもそも消える。
+      //
+      // 脱出口: プローブが空振りしたら 1 回だけ通常どおり遷移させて
+      // 既定経路の判定に委ねる（[_handleVerifyOriginFallback] の末尾）。
+      final cancel =
+          CfBypassPolicy.cancelPostChallengeNavigation &&
+          !_allowVerifyNavigationOnce;
+      if (_allowVerifyNavigationOnce) _allowVerifyNavigationOnce = false;
+
       CfChallengeLogger.log(
-        '[VERIFY] Post-challenge navigation to ${url?.toString() ?? ''}',
+        '[VERIFY] Post-challenge navigation to ${url?.toString() ?? ''} '
+        '(${cancel ? 'cancelled' : 'allowed'})',
       );
+      _setPhase(CfVerifyPhase.settling, event: 'post-challenge navigation');
       _coverWebViewForOriginFallback();
       unawaited(
         _handleVerifyOriginFallback(
           _loadGeneration,
           reason: 'post-challenge /challenge navigation pending status',
           completionLikely: true,
+          navigationCancelled: cancel,
         ),
       );
+      if (cancel) return NavigationActionPolicy.CANCEL;
     }
 
     return NavigationActionPolicy.ALLOW;
@@ -1849,24 +1988,16 @@ class _CfChallengePageState extends State<CfChallengePage> {
     required String reason,
     Map<String, String>? headers,
   }) async {
-    if (_hasPopped || _finishingFromVerifyResponse) return;
-    _finishingFromVerifyResponse = true;
-    _coverWebViewForOriginFallback();
-    _timeoutTimer?.cancel();
-    _noChallengeCheckTimer?.cancel();
-    _loadStopFallbackTimer?.cancel();
-    _pageReadyFallbackTimer?.cancel();
-    _challengeRevealProbeGeneration++;
-    _revealStateWatchGeneration++;
+    if (_hasPopped) return;
 
     debugPrint('[CfChallenge] $reason，按网络状态判定验证完成');
-    CfChallengeLogger.logVerifyResult(success: true, reason: reason);
     if (headers != null) {
       CfChallengeLogger.log('[VERIFY] Passed response headers: $headers');
     }
 
-    unawaited(_syncVerifiedCookiesBestEffort());
-    if (mounted && !_hasPopped) _finish(true);
+    // ネットワーク状態だけで通過が確定した経路。cookie の読み出しを
+    // 待たずに完了させ、同期は背後で行う（既定挙動を維持）。
+    await _completeVerified(signal: 'net:$reason', syncBestEffort: true);
   }
 
   Future<void> _syncVerifiedCookiesBestEffort() async {
@@ -1901,6 +2032,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
       return;
     }
     _hasSeenChallenge = true;
+    _setPhase(CfVerifyPhase.challenging, event: 'challenge revealed');
     unawaited(
       _controller
               ?.evaluateJavascript(source: 'window.__fluxdoHideCfMask?.();')

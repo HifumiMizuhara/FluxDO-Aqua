@@ -62,6 +62,21 @@ List<SettingsGroup> buildAquaLabGroups(BuildContext context) {
       ],
     ),
     SettingsGroup(
+      title: l10n.aquaLab_network,
+      icon: Symbols.shield_rounded,
+      items: [
+        SwitchModel(
+          id: 'betterCfBypass',
+          title: l10n.preferences_betterCfBypass,
+          subtitle: l10n.preferences_betterCfBypassDesc,
+          icon: Symbols.shield_rounded,
+          getValue: (ref) => ref.watch(preferencesProvider).betterCfBypass,
+          onChanged: (ref, value) =>
+              ref.read(preferencesProvider.notifier).setBetterCfBypass(value),
+        ),
+      ],
+    ),
+    SettingsGroup(
       title: l10n.aquaLab_emoji,
       icon: Symbols.emoji_emotions_rounded,
       items: [

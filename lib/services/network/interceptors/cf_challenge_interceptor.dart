@@ -7,6 +7,7 @@ import '../../cf_challenge_logger.dart';
 import '../../cf_clearance_refresh_service.dart';
 import '../../app_logger.dart';
 import '../adapters/platform_adapter.dart';
+import '../cf/cf_bypass_policy.dart';
 import '../cookie/boundary_sync_service.dart';
 import '../cookie/cookie_jar_service.dart';
 import '../system_proxy_service.dart';
@@ -253,12 +254,23 @@ class CfChallengeInterceptor extends Interceptor {
           // 验证拿到新 clearance 后，原生链路仍被 CF 拒绝，说明问题不只是
           // Cookie，而是当前原生网络身份未被信任。仅对用户可见请求询问一次，
           // 用户确认后本次会话改用浏览器网络栈，并立即重放原请求。
+          // Aqua「より良い CF 突破」有効時は、静かな要求でも経路を切り替える。
+          //
+          // 「通行証は取れたのに native 経路が 403」は環境の故障ではなく
+          // **身元の不一致**（TLS 指紋 / 出口 IP）。既定経路はここで
+          // 60 秒の熔断に入りアプリ全体の CF 復旧を止めるが、止めるべきは
+          // CF 検証ではなく native 経路の方。特に Windows / Linux では
+          // native = Schannel / OpenSSL で Chromium の指紋には原理的に
+          // 一致しないので、待っても永遠に直らない。
+          final autoSwitch =
+              CfBypassPolicy.autoSwitchTransportOnIneffectiveClearance;
           if (retryStillBlockedByCf &&
-              !isSilent &&
+              (autoSwitch || !isSilent) &&
               requestCanUseWebViewAdapter(retryOptions)) {
             final webViewSettings = WebViewAdapterSettingsService.instance;
             final shouldFallback =
                 webViewSettings.effectiveEnabled ||
+                autoSwitch ||
                 await cfService.confirmSessionCompatibilityMode();
             if (shouldFallback) {
               webViewSettings.enableSessionFallback();
@@ -266,10 +278,14 @@ class CfChallengeInterceptor extends Interceptor {
               retryOptions.extra.remove('skipWebViewAdapter');
               try {
                 final fallbackResponse = await dio.fetch(retryOptions);
-                CfChallengeService.showGlobalMessage(
-                  S.current.cf_sessionCompatEnabled,
-                  isError: false,
-                );
+                // 静かな要求で黙って切り替えた場合はトーストを出さない
+                // （ユーザーは何も操作していないので通知の宛先がない）。
+                if (!isSilent) {
+                  CfChallengeService.showGlobalMessage(
+                    S.current.cf_sessionCompatEnabled,
+                    isError: false,
+                  );
+                }
                 CfChallengeLogger.log(
                   '[INTERCEPTOR] Native retry still blocked; '
                   'session WebView fallback succeeded',
@@ -316,7 +332,19 @@ class CfChallengeInterceptor extends Interceptor {
               // 只对 WebView2 生效,Dio 直连,两侧出口 IP 不一致),再验证
               // 多少次都一样,立即熔断进入冷却,阻断验证无限循环。
               if (CfChallengeService.isCfChallengeResponse(e.response)) {
-                cfService.startIneffectiveClearanceCooldown();
+                // 全体熔断を飛ばしてよいのは「代わりの経路が今まさに
+                // 有効になっている」ときだけ。ここに到達するのは切替が
+                // 使えなかった場合 —— message-bus のような WebView 転送
+                // 対象外の要求や、ユーザーが切替を断った場合 —— なので、
+                // 代替経路が無いなら熔断は必要（無いと毎回のポーリングが
+                // 完全な検証ループを引き起こす）。
+                final hasAlternativeTransport =
+                    CfBypassPolicy
+                        .autoSwitchTransportOnIneffectiveClearance &&
+                    WebViewAdapterSettingsService.instance.effectiveEnabled;
+                if (!hasAlternativeTransport) {
+                  cfService.startIneffectiveClearanceCooldown();
+                }
                 CfChallengeLogger.log(
                   '[INTERCEPTOR] Verified clearance ineffective for Dio '
                   '(retry ${e.response?.statusCode}), entering cooldown: '

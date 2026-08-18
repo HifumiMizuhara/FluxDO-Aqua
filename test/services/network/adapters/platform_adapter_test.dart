@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fluxdo/services/network/adapters/platform_adapter.dart';
+import 'package:fluxdo/services/network/cf/cf_bypass_policy.dart';
 
 void main() {
   group('requestAllowsRhttpAdapter', () {
@@ -45,6 +46,52 @@ void main() {
         ),
         isFalse,
       );
+    });
+  });
+
+  group('rhttpAllowedForRequest', () {
+    tearDown(CfBypassPolicy.resetForTest);
+
+    RequestOptions options(String url) => RequestOptions(
+      path: Uri.parse(url).path,
+      baseUrl: '${Uri.parse(url).scheme}://${Uri.parse(url).host}',
+    );
+
+    test('要求非依存の解決では常に許可（起動時の表示用）', () {
+      CfBypassPolicy.configure(true);
+      expect(rhttpAllowedForRequest(null), isTrue);
+    });
+
+    test('CF 突破オフなら主站でも rhttp を許可（既定挙動）', () {
+      expect(
+        rhttpAllowedForRequest(options('https://linux.do/latest.json')),
+        isTrue,
+      );
+    });
+
+    test('CF 突破オンなら主站宛の rhttp を外す', () {
+      CfBypassPolicy.configure(true);
+      expect(
+        rhttpAllowedForRequest(options('https://linux.do/latest.json')),
+        isFalse,
+      );
+    });
+
+    test('CF 突破オンでも CDN は rhttp のまま', () {
+      CfBypassPolicy.configure(true);
+      expect(
+        rhttpAllowedForRequest(options('https://cdn.linux.do/uploads/a.png')),
+        isTrue,
+      );
+    });
+
+    test('明示的な skipRhttpAdapter は CF 突破と独立に効く', () {
+      final opts = RequestOptions(
+        path: '/latest.json',
+        baseUrl: 'https://cdn.linux.do',
+        extra: {'skipRhttpAdapter': true},
+      );
+      expect(rhttpAllowedForRequest(opts), isFalse);
     });
   });
 

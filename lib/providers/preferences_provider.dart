@@ -9,6 +9,7 @@ import '../navigation/nav_action_bus.dart';
 import '../services/network/request_scheduler_config.dart';
 import '../services/cf_challenge_service.dart';
 import '../services/emoji_display_policy.dart';
+import '../services/network/cf/cf_bypass_policy.dart';
 import '../utils/blocked_user_filter.dart';
 import '../widgets/topic/topic_card_layout.dart';
 import 'core_providers.dart';
@@ -208,6 +209,10 @@ class AppPreferences {
   /// Unicode emojiをDiscourse風の画像emojiへ統一する実験機能。
   final bool unifyEmojiWithDiscourse;
 
+  /// Aqua ラボ「より良い CF 突破」。指紋の一致・通過判定の単純化・
+  /// 経路切替をまとめて有効化する（[CfBypassPolicy] 参照）。
+  final bool betterCfBypass;
+
   /// Boost 弹幕化（默认关闭）
   final bool boostDanmaku;
 
@@ -305,6 +310,7 @@ class AppPreferences {
     this.experimentalNativeSvgFix = false,
     this.experimentalPrivateMessageCategories = false,
     this.unifyEmojiWithDiscourse = false,
+    this.betterCfBypass = false,
     this.boostDanmaku = false,
     this.showSuggestedTopics = true,
     this.defaultNestedView = false,
@@ -364,6 +370,7 @@ class AppPreferences {
     bool? experimentalNativeSvgFix,
     bool? experimentalPrivateMessageCategories,
     bool? unifyEmojiWithDiscourse,
+    bool? betterCfBypass,
     bool? boostDanmaku,
     bool? showSuggestedTopics,
     bool? defaultNestedView,
@@ -439,6 +446,7 @@ class AppPreferences {
           this.experimentalPrivateMessageCategories,
       unifyEmojiWithDiscourse:
           unifyEmojiWithDiscourse ?? this.unifyEmojiWithDiscourse,
+      betterCfBypass: betterCfBypass ?? this.betterCfBypass,
       boostDanmaku: boostDanmaku ?? this.boostDanmaku,
       showSuggestedTopics: showSuggestedTopics ?? this.showSuggestedTopics,
       defaultNestedView: defaultNestedView ?? this.defaultNestedView,
@@ -519,6 +527,7 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
       'pref_experimental_private_message_categories';
   static const String _unifyEmojiWithDiscourseKey =
       'pref_unify_emoji_with_discourse';
+  static const String _betterCfBypassKey = CfBypassPolicy.prefKey;
   static const String _boostDanmakuKey = 'pref_boost_danmaku';
   static const String _showSuggestedTopicsKey = 'pref_show_suggested_topics';
   static const String _defaultNestedViewKey = 'pref_default_nested_view';
@@ -601,6 +610,7 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
               _prefs.getBool(_experimentalPrivateMessageCategoriesKey) ?? false,
           unifyEmojiWithDiscourse:
               _prefs.getBool(_unifyEmojiWithDiscourseKey) ?? false,
+          betterCfBypass: _prefs.getBool(_betterCfBypassKey) ?? false,
           boostDanmaku: _prefs.getBool(_boostDanmakuKey) ?? false,
           showSuggestedTopics: _prefs.getBool(_showSuggestedTopicsKey) ?? true,
           defaultNestedView: _prefs.getBool(_defaultNestedViewKey) ?? false,
@@ -655,6 +665,7 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
     isPortraitLocked = state.portraitLock;
     TopicCardStyleScope.current = state.topicCardStyle;
     EmojiDisplayPolicy.configure(state.unifyEmojiWithDiscourse);
+    CfBypassPolicy.configure(state.betterCfBypass);
     CfChallengeService().autoVerifyEnabled = state.autoCfChallenge;
     _syncSchedulerConfig();
   }
@@ -885,6 +896,13 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
     if (state.experimentalPrivateMessageCategories == enabled) return;
     state = state.copyWith(experimentalPrivateMessageCategories: enabled);
     await _prefs.setBool(_experimentalPrivateMessageCategoriesKey, enabled);
+  }
+
+  Future<void> setBetterCfBypass(bool enabled) async {
+    if (state.betterCfBypass == enabled) return;
+    state = state.copyWith(betterCfBypass: enabled);
+    CfBypassPolicy.configure(enabled);
+    await _prefs.setBool(_betterCfBypassKey, enabled);
   }
 
   Future<void> setUnifyEmojiWithDiscourse(bool enabled) async {
