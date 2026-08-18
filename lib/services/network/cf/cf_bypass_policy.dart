@@ -57,7 +57,10 @@ class CfBypassPolicy {
   }
 
   @visibleForTesting
-  static void resetForTest() => notifier.value = false;
+  static void resetForTest() {
+    notifier.value = false;
+    debugNativeTransportMatchesBrowser = null;
+  }
 
   /// Cloudflare が保護しているオリジンか。
   ///
@@ -73,8 +76,16 @@ class CfBypassPolicy {
   static final String _baseHost = Uri.parse(AppConstants.baseUrl).host;
 
   /// この要求で rhttp を避けるべきか（= 指紋を Chromium 系へ寄せる）。
+  ///
+  /// [nativeTransportMatchesBrowser] が false のプラットフォームでは外さない。
+  /// Windows/Linux の native は Schannel / OpenSSL で、rustls と同じく
+  /// Chromium とは一致しない —— つまり rhttp を外しても指紋の利得はゼロで、
+  /// HTTP/2 と ECH を捨てるだけの純損になる。そこでの救済は 3 番目の機構
+  /// （[autoSwitchTransportOnIneffectiveClearance] による WebView 転送への
+  /// 切り替え）であって、経路の付け替えではない。
   static bool shouldAvoidRhttpFor(Uri uri) {
     if (!enabled) return false;
+    if (!nativeTransportMatchesBrowser) return false;
     return isProtectedOrigin(uri);
   }
 
@@ -89,7 +100,7 @@ class CfBypassPolicy {
   /// 分かっている場合の最短復旧路。
   static bool get autoSwitchTransportOnIneffectiveClearance => enabled;
 
-  /// native 経路の指紋が Chromium と一致しうるプラットフォームか（診断表示用）。
+  /// native 経路の指紋が Chromium と一致しうるプラットフォームか。
   ///
   /// - Android: native = cronet = Chromium 本体。一致する。
   /// - iOS/macOS: native = URLSession。WebKit と同じ Apple の TLS スタックで、
@@ -97,5 +108,12 @@ class CfBypassPolicy {
   /// - Windows/Linux: native = dart:io の HttpClient (Schannel/OpenSSL)。
   ///   一致しない —— この 2 つでは 3 番目の経路切替が主な救済手段になる。
   static bool get nativeTransportMatchesBrowser =>
-      Platform.isAndroid || Platform.isIOS || Platform.isMacOS;
+      debugNativeTransportMatchesBrowser ??
+      (Platform.isAndroid || Platform.isIOS || Platform.isMacOS);
+
+  /// テストからプラットフォーム軸を明示するための差し替え口。
+  /// `flutter test` は常にホスト OS 上で走るので、この軸は上書きしないと
+  /// 片側しか検証できない。
+  @visibleForTesting
+  static bool? debugNativeTransportMatchesBrowser;
 }

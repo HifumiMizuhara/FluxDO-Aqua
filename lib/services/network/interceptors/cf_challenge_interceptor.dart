@@ -333,15 +333,20 @@ class CfChallengeInterceptor extends Interceptor {
               // 多少次都一样,立即熔断进入冷却,阻断验证无限循环。
               if (CfChallengeService.isCfChallengeResponse(e.response)) {
                 // 全体クールダウンを飛ばしてよいのは「代わりの経路が今まさに
-                // 有効になっている」ときだけ。ここに到達するのは切替が
-                // 使えなかった場合 —— message-bus のような WebView 転送
-                // 対象外の要求や、ユーザーが切替を断った場合 —— なので、
-                // 代替経路が無いならクールダウンは必要（無いと毎回のポーリングが
-                // 完全な検証ループを引き起こす）。
+                // 有効で、かつ**この要求が**そこを通れる」ときだけ。ここに
+                // 到達するのは切替が使えなかった場合 —— message-bus のような
+                // WebView 転送対象外の要求や、ユーザーが切替を断った場合。
+                //
+                // `effectiveEnabled` だけを見ると、他の要求が既に切替を
+                // 成功させている状況で message-bus が「逃げ場は無いのに
+                // クールダウンもされない」状態に落ちる。そのポーリングは
+                // 毎回まるごと CF 検証を引き起こすので、この要求自身が
+                // WebView 転送を使えるかまで確認する。
                 final hasAlternativeTransport =
                     CfBypassPolicy
                         .autoSwitchTransportOnIneffectiveClearance &&
-                    WebViewAdapterSettingsService.instance.effectiveEnabled;
+                    WebViewAdapterSettingsService.instance.effectiveEnabled &&
+                    requestCanUseWebViewAdapter(retryOptions);
                 if (!hasAlternativeTransport) {
                   cfService.startIneffectiveClearanceCooldown();
                 }

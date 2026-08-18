@@ -24,8 +24,11 @@ void main() {
     });
   });
 
-  group('有効時', () {
-    setUp(() => CfBypassPolicy.configure(true));
+  group('有効時（native 指紋が Chromium 系に寄るプラットフォーム）', () {
+    setUp(() {
+      CfBypassPolicy.configure(true);
+      CfBypassPolicy.debugNativeTransportMatchesBrowser = true;
+    });
 
     test('主ドメイン宛は rhttp を避ける', () {
       expect(
@@ -70,6 +73,27 @@ void main() {
     });
 
     test('経路を自動で切り替える', () {
+      expect(CfBypassPolicy.autoSwitchTransportOnIneffectiveClearance, isTrue);
+    });
+  });
+
+  group('有効時（Windows/Linux＝native も Chromium 指紋に一致しない）', () {
+    setUp(() {
+      CfBypassPolicy.configure(true);
+      CfBypassPolicy.debugNativeTransportMatchesBrowser = false;
+    });
+
+    test('rhttp は外さない（外しても指紋の利得が無く HTTP/2 と ECH を失うだけ）', () {
+      expect(
+        CfBypassPolicy.shouldAvoidRhttpFor(
+          Uri.parse('https://linux.do/latest.json'),
+        ),
+        isFalse,
+      );
+    });
+
+    test('通過判定の単純化と経路切替はそのまま効く', () {
+      expect(CfBypassPolicy.cancelPostChallengeNavigation, isTrue);
       expect(CfBypassPolicy.autoSwitchTransportOnIneffectiveClearance, isTrue);
     });
   });

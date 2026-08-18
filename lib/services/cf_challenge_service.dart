@@ -1613,7 +1613,9 @@ class _CfChallengePageState extends State<CfChallengePage> {
         );
       }
 
-      debugPrint('[CfChallenge] fallback/completion 期间检测到新 cf_clearance，自动完成');
+      debugPrint(
+        '[CfChallenge] fallback/completion 探测超时，未出现新 cf_clearance',
+      );
       CfChallengeLogger.logVerifyResult(
         success: false,
         reason: reason ?? 'no fresh cf_clearance after completion probe',
@@ -1750,6 +1752,13 @@ class _CfChallengePageState extends State<CfChallengePage> {
     _checkingOriginFallback = false;
     _originFallbackNeedsAction = false;
     _finishingFromVerifyResponse = false;
+    // CANCEL 経路の状態も初期化する。ここを残すと「再試行」以降は脱出口が
+    // 消費済みのままになり、通過後のナビゲーションが CANCEL され続けて
+    // cookie ポーリングが空振りしたときに詰む。
+    _allowVerifyNavigationOnce = false;
+    _retriedVerifyNavigationAfterCancel = false;
+    // フェーズも巻き戻す（診断の単一軸が再試行後もページの実態と一致するように）。
+    _setPhase(CfVerifyPhase.opening, event: 'manual refresh');
     setState(() {
       _isLoading = true;
       _progress = 0;

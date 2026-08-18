@@ -57,8 +57,15 @@ void main() {
       baseUrl: '${Uri.parse(url).scheme}://${Uri.parse(url).host}',
     );
 
-    test('要求非依存の解決では常に許可（起動時の表示用）', () {
+    // 指紋の一致は native 経路が Chromium 系のプラットフォームでのみ意味を
+    // 持つ。テストはホスト OS 上で走るので、その軸は明示的に固定する。
+    void enableOnMatchingPlatform() {
       CfBypassPolicy.configure(true);
+      CfBypassPolicy.debugNativeTransportMatchesBrowser = true;
+    }
+
+    test('要求非依存の解決では常に許可（起動時の表示用）', () {
+      enableOnMatchingPlatform();
       expect(rhttpAllowedForRequest(null), isTrue);
     });
 
@@ -70,7 +77,7 @@ void main() {
     });
 
     test('CF 突破オンなら主站宛の rhttp を外す', () {
-      CfBypassPolicy.configure(true);
+      enableOnMatchingPlatform();
       expect(
         rhttpAllowedForRequest(options('https://linux.do/latest.json')),
         isFalse,
@@ -78,9 +85,18 @@ void main() {
     });
 
     test('CF 突破オンでも CDN は rhttp のまま', () {
-      CfBypassPolicy.configure(true);
+      enableOnMatchingPlatform();
       expect(
         rhttpAllowedForRequest(options('https://cdn.linux.do/uploads/a.png')),
+        isTrue,
+      );
+    });
+
+    test('native も Chromium 指紋に一致しない環境では主站でも rhttp のまま', () {
+      CfBypassPolicy.configure(true);
+      CfBypassPolicy.debugNativeTransportMatchesBrowser = false;
+      expect(
+        rhttpAllowedForRequest(options('https://linux.do/latest.json')),
         isTrue,
       );
     });

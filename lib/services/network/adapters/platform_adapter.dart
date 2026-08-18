@@ -567,7 +567,18 @@ class _DynamicAdapter implements HttpClientAdapter {
     );
     final delegate = _ensureDelegate(desiredType);
     setRequestAdapterLogName(options, desiredType.name);
-    _currentAdapterType = desiredType;
+    // 全体表示用のグローバルには**要求非依存**の解決結果を入れる。
+    // desiredType は要求ごとに変わりうる（skipRhttpAdapter、CF 保護オリジンの
+    // rhttp 回避）ので、そのまま入れると主站要求と CDN 要求で表示エンジンが
+    // 交互に入れ替わり、しかも同じ UI が読む [resolveEffectiveAdapter] は
+    // 要求非依存のまま —— 2 つの答えが食い違う。要求ごとの実際の選択は
+    // setRequestAdapterLogName でログに残るので、粒度は失われない。
+    _currentAdapterType = _resolveAdapterType(
+      _settings,
+      _proxySettings,
+      _fallbackService,
+      _rhttpSettings,
+    );
     return delegate.fetch(options, requestStream, cancelFuture);
   }
 
